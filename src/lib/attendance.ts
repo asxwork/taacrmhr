@@ -192,8 +192,11 @@ export async function importDevicePunches(rows: DevicePunch[], byUserId: string)
   const employees = await db.employee.findMany({ where: { deviceUserId: { in: [...new Set(rows.map((r) => r.deviceUserId))] } }, select: { id: true, deviceUserId: true } });
   const map = new Map(employees.map((e) => [e.deviceUserId!, e.id]));
   const unknown = new Set(rows.filter((r) => !map.has(r.deviceUserId)).map((r) => r.deviceUserId));
-  const known = rows.filter((r) => map.has(r.deviceUserId)).map((r) => ({ employeeId: map.get(r.deviceUserId)!, at: r.at }));
-  if (!known.length) return { added: 0, duplicates: 0, unknown: [...unknown] };
+  // A device clock running fast would create punches in the future — skip those.
+  const latest = Date.now() + 5 * 60_000;
+  const future = rows.filter((r) => map.has(r.deviceUserId) && r.at.getTime() > latest).length;
+  const known = rows.filter((r) => map.has(r.deviceUserId) && r.at.getTime() <= latest).map((r) => ({ employeeId: map.get(r.deviceUserId)!, at: r.at }));
+  if (!known.length) return { added: 0, duplicates: 0, future, unknown: [...unknown] };
 
   const min = new Date(Math.min(...known.map((k) => +k.at)));
   const max = new Date(Math.max(...known.map((k) => +k.at)));
@@ -206,5 +209,25 @@ export async function importDevicePunches(rows: DevicePunch[], byUserId: string)
     return true;
   });
   if (fresh.length) await db.attendancePunch.createMany({ data: fresh.map((f) => ({ ...f, source: "device", createdById: byUserId })) });
-  return { added: fresh.length, duplicates: known.length - fresh.length, unknown: [...unknown] };
+  return { added: fresh.length, duplicates: known.length - fresh.length, future, unknown: [...unknown] };
+}
+
+/** Approved correction: adds the requested in/out times as manual punches and marks the day corrected. */
+export async function applyCorrection(employeeId: string, payload: { date: string; checkIn?: string; checkOut?: string; reason?: string }, actorId: string | null) {
+  const day = startOfDay(new Date(payload.date));
+  if (Number.isNaN(day.getTime())) return;
+  for (const t of [payload.checkIn, payload.checkOut]) {
+    if (!t || !/^\d{2}:\d{2}$/.test(t)) continue;
+    const when = at(day, toMin(t));
+    await db.attendancePunch.upsert({
+      where: { employeeId_at: { employeeId, at: when } },
+      update: {},
+      create: { employeeId, at: when, source: "manual", createdById: actorId },
+    });
+  }
+  await db.attendanceDay.upsert({
+    where: { employeeId_date: { employeeId, date: day } },
+    update: { corrected: true, note: payload.reason ? `Corrected: ${payload.reason}` : "Corrected" },
+    create: { employeeId, date: day, status: "auto", corrected: true, note: payload.reason ? `Corrected: ${payload.reason}` : "Corrected" },
+  });
 }

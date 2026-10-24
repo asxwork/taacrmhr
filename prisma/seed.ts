@@ -1,4 +1,6 @@
-// Seeds branches, default roles, lead sources and demo users. Safe to re-run (upserts).
+// Seeds configuration (branches, roles, lists, pipelines, shifts, holidays, leave types) and, unless
+// SEED_DEMO=false, demo users and sample data. Safe to re-run on every deploy: it only fills blanks.
+// Production: set SEED_DEMO=false plus ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NAME to create the first admin.
 // Demo logins (local/dev only — change or delete before go-live). All use the password below.
 //   admin@advisor.local     Super Admin
 //   hr@advisor.local        HR Manager
@@ -9,9 +11,10 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_ROLES, expandGrants } from "../src/lib/rbac";
-import { seedHr } from "./seed-hr";
+import { seedAttendance, seedHr } from "./seed-hr";
 
 const DEMO_PASSWORD = "Advisor@2026";
+const DEMO = process.env.SEED_DEMO !== "false";
 const db = new PrismaClient();
 
 async function main() {
@@ -43,6 +46,23 @@ async function main() {
   await db.setting.upsert({ where: { key: "company.name" }, update: {}, create: { key: "company.name", value: "The Advisor Associates" } });
   await db.setting.upsert({ where: { key: "company.currency" }, update: {}, create: { key: "company.currency", value: "PKR" } });
 
+  // First real admin from env (created once; later deploys never touch the password).
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  if (adminEmail && process.env.ADMIN_PASSWORD && !(await db.user.findUnique({ where: { email: adminEmail } }))) {
+    if (process.env.ADMIN_PASSWORD.length < 10) throw new Error("ADMIN_PASSWORD must be at least 10 characters");
+    await db.user.create({ data: { email: adminEmail, name: process.env.ADMIN_NAME || "Administrator", passwordHash: await bcrypt.hash(process.env.ADMIN_PASSWORD, 10), isSuperAdmin: true, branchId: dha.id } });
+    console.log(`Created admin ${adminEmail}`);
+  }
+
+  if (!DEMO) {
+    await seedCrm([], false);
+    await seedInventory([], false);
+    await seedHr(db, false);
+    await seedAttendance(db, false);
+    console.log("Seed complete (configuration only).");
+    return;
+  }
+
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   const upsertUser = async (email: string, data: { name: string; title: string; branchId?: string; managerId?: string; isSuperAdmin?: boolean; role?: string }) => {
     const { role, ...rest } = data;
@@ -63,10 +83,11 @@ async function main() {
   await seedCrm([agent1, agent2, manager]);
   await seedInventory([agent1, agent2]);
   await seedHr(db);
+  await seedAttendance(db);
   console.log("Seed complete.");
 }
 
-async function seedCrm(owners: { id: string; branchId: string | null }[]) {
+async function seedCrm(owners: { id: string; branchId: string | null }[], demo = true) {
   const statuses = [
     ["New", "blue", "open"],
     ["Contacted", "violet", "open"],
@@ -96,6 +117,7 @@ async function seedCrm(owners: { id: string; branchId: string | null }[]) {
   }
 
   // Demo records only on an empty CRM.
+  if (!demo) return;
   if ((await db.lead.count()) > 0) return;
   const [statusRows, sources, sales] = await Promise.all([
     db.leadStatus.findMany({ orderBy: { sortOrder: "asc" } }),
@@ -160,7 +182,7 @@ main()
   })
   .finally(() => db.$disconnect());
 
-async function seedInventory(agents: { id: string; branchId: string | null }[]) {
+async function seedInventory(agents: { id: string; branchId: string | null }[], demo = true) {
   // Which unit status each deal stage applies (only fills blanks, so admin edits survive re-seeding).
   const mapping: [string, string, string][] = [
     ["Sales", "Token / Booking", "booked"], ["Sales", "Agreement", "booked"], ["Sales", "Payment Plan", "booked"], ["Sales", "Won", "sold"],
@@ -170,7 +192,7 @@ async function seedInventory(agents: { id: string; branchId: string | null }[]) 
     await db.stage.updateMany({ where: { name: stage, pipeline: { name: pipeline }, unitStatus: null }, data: { unitStatus } });
   }
 
-  if ((await db.project.count()) > 0) return;
+  if (!demo || (await db.project.count()) > 0) return;
   const statuses = ["available", "available", "available", "booked", "available", "sold", "hold", "available"];
 
   const heights = await db.project.create({

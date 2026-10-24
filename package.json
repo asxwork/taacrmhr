@@ -11,7 +11,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
     "db:use-mysql": "node scripts/use-mysql.mjs",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "build:hostinger": "node scripts/use-mysql.mjs && prisma generate && prisma db push --skip-generate && tsx prisma/seed.ts && next build"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

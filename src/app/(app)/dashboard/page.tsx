@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { can, scopeFor } from "@/lib/permissions";
 import { CrmOverview } from "./crm-overview";
+import { TodayAttendance } from "./today-attendance";
 import { NAV } from "@/lib/nav";
 import { MODULE_MAP, SCOPE_LABELS } from "@/lib/rbac";
 import { db } from "@/lib/db";
@@ -27,7 +28,7 @@ export default async function DashboardPage() {
       <PageHeader eyebrow={new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} title={`${greeting}, ${firstName}`} description={`${user.roleNames.join(", ") || "No role assigned"}${user.branchName ? ` · ${user.branchName} branch` : ""}`} />
 
       {stats && (
-        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="stagger mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             ["Active users", stats[0], "/settings/users"],
             ["Roles", stats[1], "/settings/roles"],
@@ -44,6 +45,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      <TodayAttendance userId={user.id} />
       {can(user, "crm.leads") && <CrmOverview user={user} />}
 
       <h2 className="mb-3 text-sm font-medium text-muted">Your workspace</h2>
@@ -52,7 +54,7 @@ export default async function DashboardPage() {
           You have self-service access. Use <Link href="/me" className="font-medium text-navy-900 underline">My Profile</Link> to view your details.
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) => {
             const scope = scopeFor(user, m.module!);
             return (

@@ -88,6 +88,7 @@ export async function saveEmployee(_: FormState, fd: FormData): Promise<FormStat
       ...common, code: await nextEmployeeCode(), userId, joiningDate, status: months ? "probation" : "active",
       probationEnd: months ? addMonths(joiningDate, months) : null, confirmedAt: months ? null : joiningDate,
       departmentId: str(fd, "departmentId") || null, designationId, branchId: str(fd, "branchId") || null, managerId: str(fd, "managerId") || null,
+      shiftId: str(fd, "shiftId") || null, deviceUserId: /^d{1,9}$/.test(str(fd, "deviceUserId")) && !(await db.employee.findUnique({ where: { deviceUserId: str(fd, "deviceUserId") } })) ? str(fd, "deviceUserId") : null,
     },
     include: { designation: true },
   });
@@ -108,9 +109,17 @@ export async function changeAssignment(_: FormState, fd: FormData): Promise<Form
     designationId: str(fd, "designationId") || null, departmentId: str(fd, "departmentId") || null,
     branchId: str(fd, "branchId") || null, managerId: str(fd, "managerId") || null,
   };
+  const shiftId = str(fd, "shiftId") || null;
+  if (shiftId !== emp.shiftId) await db.employee.update({ where: { id: emp.id }, data: { shiftId } });
   if (next.managerId === emp.id) return { error: "Someone can't report to themselves." };
   const changed = (Object.keys(next) as (keyof typeof next)[]).filter((k) => next[k] !== emp[k]);
-  if (!changed.length) return { error: "Nothing changed." };
+  if (!changed.length) {
+    if (shiftId !== emp.shiftId) {
+      revalidatePath(path(emp.id));
+      return { ok: true, message: "Shift updated." };
+    }
+    return { error: "Nothing changed." };
+  }
 
   const [desig, dept, branch, manager] = await Promise.all([
     next.designationId ? db.designation.findUnique({ where: { id: next.designationId } }) : null,

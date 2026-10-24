@@ -7,6 +7,7 @@ import type { Step } from "@/lib/approvals";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field, PageHeader } from "@/components/ui";
 import { saveDepartment, saveDesignation, saveFlow, saveHrGeneral } from "./actions";
+import { AttendanceSettings } from "./attendance-settings";
 
 export const metadata = { title: "HR Settings" };
 
@@ -28,7 +29,7 @@ export default async function HrSettingsPage() {
 
   return (
     <>
-      <PageHeader title="HR Settings" description="Organisation structure, employee defaults, checklists and approval chains." />
+      <PageHeader title="HR Settings" description="Organisation, shifts, holidays, leave types, checklists and approval chains." />
       <div className="space-y-8">
         <Section title="Departments">
           <Card className="divide-y divide-line">
@@ -92,6 +93,8 @@ export default async function HrSettingsPage() {
             </ActionForm>
           </Card>
         </Section>
+
+        <AttendanceSettings />
 
         <Section title="Approval chains" hint="Who approves each kind of request, in order. “Manager” is the employee’s reporting manager (falls back to HR if they have none).">
           <Card className="divide-y divide-line">

@@ -43,7 +43,7 @@ export async function CrmOverview({ user }: { user: SessionUser }) {
   return (
     <div className="mb-8 space-y-4">
       <p className="text-xs text-muted">CRM · {SCOPE_TEXT[scopeFor(user, "crm.leads")]}</p>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tiles.map(([label, value, href, tone]) => (
           <Link key={label} href={href}>
             <Card className="p-4 transition hover:border-navy-900/20">

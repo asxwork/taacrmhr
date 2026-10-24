@@ -78,7 +78,7 @@ export async function decide(user: SessionUser, requestId: string, decision: "ap
 
   if (decision === "rejected") {
     await db.approvalRequest.update({ where: { id: requestId }, data: { status: "rejected", decidedAt: new Date() } });
-    await onRejected(req);
+    await onRejected(req, "rejected");
     await notify(req.requesterId, `Rejected: ${req.title}`, { body: `${user.name}: ${comment}`, link: `/approvals?open=${req.id}`, email: true });
     return { ok: true };
   }
@@ -101,7 +101,7 @@ export async function cancelRequest(user: SessionUser, requestId: string) {
   if (!req || req.status !== "pending" || req.requesterId !== user.id) return { error: "You can't cancel this request." };
   await db.approvalRequest.update({ where: { id: requestId }, data: { status: "cancelled", decidedAt: new Date() } });
   await db.approvalAction.create({ data: { requestId, step: req.step, userId: user.id, decision: "cancelled" } });
-  await onRejected(req);
+  await onRejected(req, "cancelled");
   return { ok: true };
 }
 
@@ -122,6 +122,15 @@ async function onApproved(req: Req, actorId: string) {
       }
       break;
     }
+    case "leave": {
+      const { leaveRequestId } = parse<{ leaveRequestId: string }>(req.payload);
+      if (leaveRequestId) await (await import("./leave")).onLeaveDecision(leaveRequestId, "approved", actorId);
+      break;
+    }
+    case "attendance_correction": {
+      await (await import("./attendance")).applyCorrection(req.employeeId, parse(req.payload), actorId);
+      break;
+    }
     case "document": {
       const { documentId } = parse<{ documentId: string }>(req.payload);
       if (documentId) await db.employeeDocument.updateMany({ where: { id: documentId, employeeId: req.employeeId }, data: { verified: true } });
@@ -130,7 +139,11 @@ async function onApproved(req: Req, actorId: string) {
   }
 }
 
-async function onRejected(req: Req) {
+async function onRejected(req: Req, status: "rejected" | "cancelled") {
+  if (req.type === "leave") {
+    const { leaveRequestId } = parse<{ leaveRequestId: string }>(req.payload);
+    if (leaveRequestId) await (await import("./leave")).onLeaveDecision(leaveRequestId, status);
+  }
   if (req.type === "document") {
     const { documentId } = parse<{ documentId: string }>(req.payload);
     const doc = documentId ? await db.employeeDocument.findFirst({ where: { id: documentId, employeeId: req.employeeId, verified: false } }) : null;

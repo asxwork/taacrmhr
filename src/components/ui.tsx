@@ -97,8 +97,8 @@ export function Avatar({ name, className }: { name: string; className?: string }
 export function Drawer({ title, closeHref, children, width = "max-w-lg" }: { title: string; closeHref: string; children: React.ReactNode; width?: string }) {
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
-      <Link href={closeHref} scroll={false} aria-label="Close" className="absolute inset-0 bg-navy-950/30 backdrop-blur-[1px]" />
-      <aside className={cn("relative flex h-full w-full flex-col bg-surface shadow-2xl", width)}>
+      <Link href={closeHref} scroll={false} aria-label="Close" className="anim-fade absolute inset-0 bg-navy-950/30 backdrop-blur-[1px]" />
+      <aside role="dialog" aria-modal="true" aria-label={title} className={cn("anim-slide-right relative flex h-full w-full flex-col bg-surface shadow-2xl", width)}>
         <header className="flex items-center justify-between border-b border-line px-6 py-4">
           <h2 className="font-semibold">{title}</h2>
           <Link href={closeHref} scroll={false} className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink" aria-label="Close">

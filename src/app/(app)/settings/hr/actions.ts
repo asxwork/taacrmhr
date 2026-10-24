@@ -85,3 +85,84 @@ export async function saveFlow(_: FormState, fd: FormData): Promise<FormState> {
   await audit(user.id, "update", "approvalFlow", flow.id, `Approval flow for ${flow.name}: ${steps.length} step(s)`);
   return done(`${flow.name}: ${steps.length} step(s).`);
 }
+
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export async function saveShift(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireHrAdmin();
+  const id = str(fd, "id");
+  const name = str(fd, "name");
+  const start = str(fd, "start");
+  const end = str(fd, "end");
+  if (!name) return { error: "Shift name is required." };
+  if (!HHMM.test(start) || !HHMM.test(end) || end <= start) return { error: "Use 24-hour times with the end after the start (overnight shifts aren’t supported yet)." };
+  const workDays = fd.getAll("workDays").map(String).filter((d) => /^[1-7]$/.test(d)).join(",");
+  if (!workDays) return { error: "Pick at least one working day." };
+  const graceMin = Math.max(0, Math.min(120, Math.round(Number(str(fd, "graceMin")) || 0)));
+  const halfDayMin = Math.max(30, Math.min(720, Math.round((Number(str(fd, "halfDayHours")) || 4) * 60)));
+  const clash = await db.shift.findUnique({ where: { name } });
+  if (clash && clash.id !== id) return { error: `“${name}” already exists.` };
+  const isDefault = fd.get("isDefault") === "on";
+  if (isDefault) await db.shift.updateMany({ data: { isDefault: false } });
+  const data = { name, start, end, graceMin, halfDayMin, workDays, ...(isDefault && { isDefault }) };
+  if (id) await db.shift.update({ where: { id }, data });
+  else await db.shift.create({ data: { ...data, isDefault: isDefault || !(await db.shift.count()) } });
+  await audit(user.id, id ? "update" : "create", "shift", id || null, `${id ? "Updated" : "Added"} shift ${name}`);
+  return done();
+}
+
+export async function saveHoliday(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireHrAdmin();
+  const date = new Date(`${str(fd, "date")}T00:00:00`);
+  const name = str(fd, "name");
+  if (Number.isNaN(date.getTime()) || !name) return { error: "Date and name are required." };
+  await db.holiday.create({ data: { date, name, branchId: str(fd, "branchId") || null } });
+  await audit(user.id, "create", "holiday", null, `Added holiday ${name} (${str(fd, "date")})`);
+  return done();
+}
+
+export async function deleteHoliday(fd: FormData) {
+  const user = await requireHrAdmin();
+  const h = await db.holiday.findUnique({ where: { id: str(fd, "id") } });
+  if (!h) return;
+  await db.holiday.delete({ where: { id: h.id } });
+  await audit(user.id, "delete", "holiday", h.id, `Removed holiday ${h.name}`);
+  revalidatePath("/settings/hr");
+}
+
+export async function saveGeofence(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireHrAdmin();
+  const mode = ["off", "warn", "enforce"].includes(str(fd, "mode")) ? str(fd, "mode") : "warn";
+  await db.setting.upsert({ where: { key: "attendance.geofence" }, update: { value: mode }, create: { key: "attendance.geofence", value: mode } });
+  const branches = await db.branch.findMany();
+  for (const b of branches) {
+    const lat = parseFloat(str(fd, `lat:${b.id}`));
+    const lng = parseFloat(str(fd, `lng:${b.id}`));
+    const radiusM = Math.round(Number(str(fd, `r:${b.id}`)) || b.radiusM);
+    const valid = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+    await db.branch.update({ where: { id: b.id }, data: valid ? { lat, lng, radiusM: Math.max(30, Math.min(5000, radiusM)) } : { lat: null, lng: null } });
+  }
+  await audit(user.id, "update", "setting", "attendance.geofence", `Geo-fence ${mode}`);
+  return done("Saved.");
+}
+
+export async function saveLeaveType(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireHrAdmin();
+  const id = str(fd, "id");
+  const name = str(fd, "name");
+  const code = str(fd, "code").toUpperCase();
+  if (!name || !code) return { error: "Name and short code are required." };
+  const clash = await db.leaveType.findUnique({ where: { name } });
+  if (clash && clash.id !== id) return { error: `“${name}” already exists.` };
+  const num = (k: string, max: number) => Math.max(0, Math.min(max, Number(str(fd, k)) || 0));
+  const data = {
+    name, code, color: str(fd, "color") || "blue", paid: fd.get("paid") === "on", quota: num("quota", 366),
+    accrual: str(fd, "accrual") === "monthly" ? "monthly" : "annual", carryMax: num("carryMax", 366), halfDay: fd.get("halfDay") === "on",
+    gender: ["male", "female"].includes(str(fd, "gender")) ? str(fd, "gender") : null, minServiceMonths: Math.round(num("minServiceMonths", 60)),
+    active: id ? fd.get("active") === "on" : true,
+  };
+  if (id) await db.leaveType.update({ where: { id }, data });
+  else await db.leaveType.create({ data: { ...data, sortOrder: await db.leaveType.count() } });
+  await audit(user.id, id ? "update" : "create", "leaveType", id || null, `${id ? "Updated" : "Added"} leave type ${name}`);
+  return done();
+}

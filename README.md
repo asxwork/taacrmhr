@@ -33,10 +33,11 @@ Settings → Integrations shows setup status, keys and recent deliveries.
 
 ## Deploy to Hostinger (Node.js Web App)
 
-1. In hPanel, create a MySQL database.
-2. Set env vars: `DATABASE_URL="mysql://USER:PASS@HOST:3306/DB"` and `CRON_SECRET`.
-3. Build command: `npm run db:use-mysql && npm install && npx prisma db push && npm run build`.
-4. Start command: `npm start`.
-5. Seed once with `npm run db:seed`, then change the admin password and remove the demo users.
-
-Proper Prisma migrations will replace `db push` before go-live (Phase 8).
+1. hPanel → **Databases → MySQL**: create a database and user. Note the host, name, user and password.
+2. Node.js app → **Build configuration**: Framework **Next.js**, branch **main**, Node **22.x**, root **./**, package manager **npm**.
+   - Build command: `npm run build:hostinger` (switches to MySQL, creates/updates tables, seeds configuration, builds)
+   - Output directory: `.next`
+3. **Environment variables** (required): `DATABASE_URL=mysql://USER:PASS@HOST:3306/DBNAME`, `SEED_DEMO=false`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` (10+ chars), `ADMIN_NAME`, `APP_URL=https://your-domain`, `CRON_SECRET` (long random string), `APP_TIMEZONE=Asia/Karachi`.
+   Optional: `UPLOAD_DIR` (a folder outside the app so photos and documents survive redeploys), `SMTP_*`, `FB_APP_SECRET`, `FB_PAGE_TOKEN`.
+4. Deploy. Sign in with ADMIN_EMAIL / ADMIN_PASSWORD, then create users and employees.
+5. hPanel → **Advanced → Cron Jobs**: once a day, fetch `https://your-domain/api/cron/daily?key=<CRON_SECRET>`.

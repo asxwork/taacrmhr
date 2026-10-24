@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  BarChart3, Bell, Briefcase, CheckSquare, Building2, CalendarDays, Clock, Contact, Handshake, History, House, Laptop, LogOut, Menu, Plane,
-  Plug, Receipt, Settings, Shield, SlidersHorizontal, Target, TrendingUp, User, Users, Wallet, X,
+  BarChart3, Bell, Briefcase, CheckSquare, Building2, CalendarDays, Clock, Contact, Handshake, History, House, Laptop, LogOut, Menu,
+  PanelLeftClose, PanelLeftOpen, Plane, Plug, Receipt, Settings, Shield, SlidersHorizontal, Target, TrendingUp, User, Users, Wallet, X,
 } from "lucide-react";
 import type { NavGroup } from "@/lib/nav";
-import { cn } from "@/lib/utils";
+import { cn, initials } from "@/lib/utils";
 import { logout } from "@/app/login/actions";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -17,17 +17,39 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   receipt: Receipt, laptop: Laptop, user: User, shield: Shield, settings: Settings, sliders: SlidersHorizontal, plug: Plug, check: CheckSquare, history: History,
 };
 
-export function Sidebar({ groups, user, unread }: { groups: NavGroup[]; user: { name: string; roles: string; branch: string | null }; unread: number }) {
+type Props = { groups: NavGroup[]; user: { name: string; roles: string; branch: string | null }; unread: number; initiallyCollapsed: boolean };
+
+export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // phone drawer
+  const [collapsed, setCollapsed] = useState(initiallyCollapsed); // desktop rail
   const allItems = groups.flatMap((g) => g.items);
   const quick = QUICK_ORDER.map((href) => allItems.find((i) => i.href === href)).filter((i): i is NonNullable<typeof i> => !!i && !i.phase).slice(0, 4);
 
-  const nav = (
-    <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+  // Remember the choice (cookie, so the server renders the right width with no flash) and let the
+  // page shell resize with the same animation.
+  function toggle() {
+    const next = !collapsed;
+    setCollapsed(next);
+    document.cookie = `sidebar=${next ? "collapsed" : "open"}; path=/; max-age=31536000; samesite=lax`;
+    document.querySelector("[data-sidebar]")?.setAttribute("data-sidebar", next ? "collapsed" : "open");
+  }
+
+  // Close the phone drawer with Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  const navList = (rail: boolean) => (
+    <nav aria-label="Main" className="sidebar-scroll flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
       {groups.map((g, i) => (
-        <div key={g.label ?? i}>
-          {g.label && <p className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-white/55">{g.label}</p>}
+        <div key={g.label ?? i} className={cn(i > 0 && "mt-5")}>
+          {g.label && (rail
+            ? <div className="mx-auto mb-2 h-px w-6 bg-white/10" aria-hidden />
+            : <p className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-white/50">{g.label}</p>)}
           <ul className="space-y-0.5">
             {g.items.map((item) => {
               const Icon = ICONS[item.icon] ?? House;
@@ -37,15 +59,19 @@ export function Sidebar({ groups, user, unread }: { groups: NavGroup[]; user: { 
                   <Link
                     href={item.href}
                     onClick={() => setOpen(false)}
+                    title={rail ? item.label : undefined}
+                    aria-label={rail ? item.label : undefined}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
-                      "relative flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] transition",
-                      active ? "bg-white/10 text-white" : "text-white/65 hover:bg-white/5 hover:text-white",
+                      "group relative flex h-9 items-center gap-3 rounded-lg text-[13px] transition-colors duration-150",
+                      rail ? "justify-center px-0" : "px-3",
+                      active ? "bg-white/10 text-white" : "text-white/65 hover:bg-white/[0.06] hover:text-white",
                     )}
                   >
-                    {active && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-gold-400" />}
-                    <Icon className={cn("size-4", active ? "text-gold-400" : "text-white/60")} />
-                    <span className="flex-1">{item.label}</span>
-                    {item.phase && <span className="text-[11px] text-white/50">soon</span>}
+                    {active && <span className="nav-indicator absolute inset-y-2 left-0 w-[3px] rounded-full bg-gold-400" />}
+                    <Icon className={cn("size-[18px] shrink-0 transition-colors", active ? "text-gold-400" : "text-white/55 group-hover:text-white/80")} />
+                    {!rail && <span className="flex-1 truncate">{item.label}</span>}
+                    {!rail && item.phase && <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-white/45">soon</span>}
                   </Link>
                 </li>
               );
@@ -56,67 +82,95 @@ export function Sidebar({ groups, user, unread }: { groups: NavGroup[]; user: { 
     </nav>
   );
 
-  const panel = (
-    <div className="flex h-full w-60 flex-col bg-navy-950">
-      <div className="flex h-16 items-center px-5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-11 w-auto" />
-      </div>
-      {nav}
-      <div className="border-t border-white/10 p-3">
-        <div className="flex items-center gap-2.5 px-2 py-1.5">
+  const footer = (rail: boolean) => (
+    <div className="border-t border-white/10 p-3">
+      <div className={cn("flex items-center gap-2", rail ? "flex-col" : "px-1")}>
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gold-400/15 text-[11px] font-semibold text-gold-300" title={rail ? `${user.name} · ${user.roles}` : undefined} aria-hidden={!rail}>
+          {initials(user.name)}
+        </span>
+        {!rail && (
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium text-white">{user.name}</p>
-            <p className="truncate text-[11px] text-white/60">
-              {user.roles}
-              {user.branch && ` · ${user.branch}`}
-            </p>
+            <p className="truncate text-[11px] text-white/55">{user.roles}{user.branch && ` · ${user.branch}`}</p>
           </div>
-          <Link href="/notifications" onClick={() => setOpen(false)} className="relative rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white" title="Notifications" aria-label="Notifications">
-            <Bell className="size-4" />
-            {unread > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-semibold text-navy-950">{unread > 99 ? "99+" : unread}</span>}
-          </Link>
-          <form action={logout}>
-            <button className="rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white" title="Sign out" aria-label="Sign out">
-              <LogOut className="size-4" />
-            </button>
-          </form>
-        </div>
+        )}
+        <Link href="/notifications" onClick={() => setOpen(false)} className="relative rounded-lg p-2 text-white/55 transition-colors hover:bg-white/10 hover:text-white" title="Notifications" aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}>
+          <Bell className="size-[18px]" />
+          {unread > 0 && <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-semibold text-navy-950">{unread > 99 ? "99+" : unread}</span>}
+        </Link>
+        <form action={logout}>
+          <button className="rounded-lg p-2 text-white/55 transition-colors hover:bg-red-500/15 hover:text-red-300" title="Sign out" aria-label="Sign out">
+            <LogOut className="size-[18px]" />
+          </button>
+        </form>
       </div>
     </div>
   );
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden lg:block">{panel}</aside>
+      {/* Desktop: full sidebar or icon rail */}
+      <aside
+        className={cn("sidebar-shell fixed inset-y-0 left-0 z-30 hidden flex-col bg-navy-950 lg:flex", collapsed ? "w-[4.5rem]" : "w-60")}
+        aria-label="Sidebar"
+      >
+        <div className={cn("flex h-16 shrink-0 items-center", collapsed ? "justify-center" : "justify-between pl-5 pr-2")}>
+          {collapsed ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/brand/icon.png" alt="The Advisor Associates" className="size-9 rounded-md" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-10 w-auto" />
+          )}
+          {!collapsed && (
+            <button onClick={toggle} className="rounded-lg p-2 text-white/45 transition-colors hover:bg-white/10 hover:text-white" title="Collapse sidebar" aria-label="Collapse sidebar">
+              <PanelLeftClose className="size-[18px]" />
+            </button>
+          )}
+        </div>
+        {collapsed && (
+          <button onClick={toggle} className="mx-auto mb-1 rounded-lg p-2 text-white/45 transition-colors hover:bg-white/10 hover:text-white" title="Expand sidebar" aria-label="Expand sidebar">
+            <PanelLeftOpen className="size-[18px]" />
+          </button>
+        )}
+        {navList(collapsed)}
+        {footer(collapsed)}
+      </aside>
 
-      {/* Mobile top bar */}
+      {/* Phone top bar */}
       <div className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-navy-950 px-4 lg:hidden">
-        <button onClick={() => setOpen(true)} className="text-white/80" aria-label="Open menu">
+        <button onClick={() => setOpen(true)} className="rounded-lg p-1.5 text-white/80" aria-label="Open menu" aria-expanded={open}>
           <Menu className="size-5" />
         </button>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-9 w-auto" />
       </div>
+
+      {/* Phone drawer: slides in from the left */}
       {open && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-navy-950/50" onClick={() => setOpen(false)} />
-          <div className="relative h-full w-60">
-            {panel}
-            <button onClick={() => setOpen(false)} className="absolute right-2 top-5 text-white/60" aria-label="Close menu">
-              <X className="size-5" />
-            </button>
+        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+          <div className="anim-fade absolute inset-0 bg-navy-950/60" onClick={() => setOpen(false)} />
+          <div className="anim-slide-left relative flex h-full w-72 max-w-[85vw] flex-col bg-navy-950 shadow-2xl">
+            <div className="flex h-16 shrink-0 items-center justify-between pl-5 pr-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-10 w-auto" />
+              <button onClick={() => setOpen(false)} className="rounded-lg p-2 text-white/60 hover:bg-white/10" aria-label="Close menu">
+                <X className="size-5" />
+              </button>
+            </div>
+            {navList(false)}
+            {footer(false)}
           </div>
         </div>
       )}
 
-      {/* Phone bottom bar: the user's 4 most-used screens + Menu (agents in the field rarely need more). */}
+      {/* Phone bottom bar: the user's 4 most-used screens + Menu */}
       <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {quick.map((item) => {
           const Icon = ICONS[item.icon] ?? House;
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
-            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center gap-0.5 py-2 text-[11px]", active ? "font-medium text-navy-900" : "text-muted")}>
+            <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn("flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] transition-colors", active ? "font-medium text-navy-900" : "text-muted")}>
               <Icon className={cn("size-5", active && "text-gold-600")} />
               <span className="max-w-full truncate px-1">{item.label.split(" & ")[0]!.replace(/^My /, "")}</span>
             </Link>

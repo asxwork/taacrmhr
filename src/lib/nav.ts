@@ -21,8 +21,8 @@ export const NAV: NavGroup[] = [
     label: "HR",
     items: [
       { href: "/hr/employees", label: "Employees", icon: "users", module: "hr.employees" },
-      { href: "/hr/attendance", label: "Attendance", icon: "clock", module: "hr.attendance", phase: 5 },
-      { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave", phase: 5 },
+      { href: "/hr/attendance", label: "Attendance", icon: "clock", module: "hr.attendance" },
+      { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave" },
       { href: "/hr/payroll", label: "Payroll", icon: "wallet", module: "hr.payroll", phase: 6 },
       { href: "/hr/recruitment", label: "Recruitment", icon: "briefcase", module: "hr.recruitment", phase: 7 },
       { href: "/hr/performance", label: "Performance", icon: "trending", module: "hr.performance", phase: 7 },
@@ -36,8 +36,8 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/me", label: "My Profile", icon: "user" },
       { href: "/approvals", label: "Approvals & Requests", icon: "check" },
-      { href: "/me/attendance", label: "My Attendance", icon: "clock", phase: 5 },
-      { href: "/me/leave", label: "My Leave", icon: "plane", phase: 5 },
+      { href: "/me/attendance", label: "My Attendance", icon: "clock" },
+      { href: "/me/leave", label: "My Leave", icon: "plane" },
       { href: "/me/payslips", label: "My Payslips", icon: "wallet", phase: 6 },
     ],
   },

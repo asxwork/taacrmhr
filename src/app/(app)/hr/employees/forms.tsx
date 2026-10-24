@@ -19,7 +19,7 @@ export function EmployeeForm({
   employee, org, freeUsers, canCreateLogin, cancelHref,
 }: {
   employee?: EmployeeValues | null;
-  org?: { departments: Opt[]; designations: Opt[]; branches: Opt[]; managers: Opt[] };
+  org?: { departments: Opt[]; designations: Opt[]; branches: Opt[]; managers: Opt[]; shifts: Opt[] };
   freeUsers?: { id: string; name: string; email: string }[];
   canCreateLogin?: boolean;
   cancelHref: string;
@@ -88,6 +88,10 @@ export function EmployeeForm({
               <OrgSelect name="branchId" label="Branch" options={org.branches} />
               <OrgSelect name="managerId" label="Reports to" options={org.managers} />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <OrgSelect name="shiftId" label="Shift" options={org.shifts} />
+              <Field label="Device ID (ZKTeco)"><input name="deviceUserId" inputMode="numeric" className="input" /></Field>
+            </div>
           </>
         )}
       </Group>
@@ -132,8 +136,8 @@ export function EmployeeForm({
 }
 
 export function AssignmentForm({ employee, org, cancelHref }: {
-  employee: { id: string; designationId: string | null; departmentId: string | null; branchId: string | null; managerId: string | null };
-  org: { departments: Opt[]; designations: Opt[]; branches: Opt[]; managers: Opt[] };
+  employee: { id: string; designationId: string | null; departmentId: string | null; branchId: string | null; managerId: string | null; shiftId: string | null };
+  org: { departments: Opt[]; designations: Opt[]; branches: Opt[]; managers: Opt[]; shifts: Opt[] };
   cancelHref: string;
 }) {
   return (
@@ -148,6 +152,7 @@ export function AssignmentForm({ employee, org, cancelHref }: {
         <OrgSelect name="branchId" label="Branch" options={org.branches} value={employee.branchId} />
         <OrgSelect name="managerId" label="Reports to" options={org.managers.filter((m) => m.id !== employee.id)} value={employee.managerId} />
       </div>
+      <OrgSelect name="shiftId" label="Shift" options={org.shifts} value={employee.shiftId} />
       <Field label="Effective date"><input name="effective" type="date" defaultValue={d(new Date())} className="input" /></Field>
       <Field label="Notes"><textarea name="notes" rows={2} className="input" /></Field>
       <div className="flex gap-2">
