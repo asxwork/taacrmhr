@@ -11,7 +11,8 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_ROLES, expandGrants } from "../src/lib/rbac";
-import { loadDemo } from "../src/lib/demo-data";
+import { randomBytes } from "node:crypto";
+import { demoLoaded, loadDemo } from "../src/lib/demo-data";
 import { seedAttendance, seedHr, seedPayroll } from "./seed-hr";
 
 const DEMO_PASSWORD = "Advisor@2026";
@@ -59,6 +60,13 @@ async function main() {
   await seedAttendance(db);
   await seedPayroll(db);
   if (!DEMO) {
+    // Live: load the sample data once so the app can be tried out. Settings → Company → "Remove sample data"
+    // deletes it, and the flag stops later deploys from adding it back.
+    if (!(await db.setting.findUnique({ where: { key: "demo.autoloaded" } })) && !(await demoLoaded(db))) {
+      const res = await loadDemo(db, { passwordHash: await bcrypt.hash(randomBytes(24).toString("base64url"), 10), domain: "demo.local", withSuperAdmin: false, codePrefix: "DEMO-" });
+      await db.setting.create({ data: { key: "demo.autoloaded", value: new Date().toISOString() } });
+      console.log("error" in res ? `Sample data skipped: ${res.error}` : "Loaded sample data (remove it in Settings → Company & Branches).");
+    }
     console.log("Seed complete (configuration only).");
     return;
   }
