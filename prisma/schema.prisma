@@ -13,55 +13,59 @@ datasource db {
 // ─── Organization ────────────────────────────────────────────
 
 model Branch {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  code      String    @unique
+  id        String     @id @default(cuid())
+  name      String     @unique
+  code      String     @unique
   address   String?
-  active    Boolean   @default(true)
-  createdAt DateTime  @default(now())
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
   users     User[]
   leads     Lead[]
   deals     Deal[]
   contacts  Contact[]
   companies Company[]
   units     Unit[]
+  employees Employee[]
 }
 
 // ─── Users, roles & permissions ──────────────────────────────
 
 model User {
-  id                String         @id @default(cuid())
+  id                String            @id @default(cuid())
   name              String
-  email             String         @unique
+  email             String            @unique
   phone             String?
   title             String?
   passwordHash      String
-  active            Boolean        @default(true)
-  isSuperAdmin      Boolean        @default(false)
+  active            Boolean           @default(true)
+  isSuperAdmin      Boolean           @default(false)
   branchId          String?
-  branch            Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branch            Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
   managerId         String?
-  manager           User?          @relation("Reports", fields: [managerId], references: [id], onDelete: SetNull)
-  reports           User[]         @relation("Reports")
+  manager           User?             @relation("Reports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports           User[]            @relation("Reports")
   roles             UserRole[]
   sessions          Session[]
   auditLogs         AuditLog[]
   notifications     Notification[]
-  ownedLeads        Lead[]         @relation("LeadOwner")
-  createdLeads      Lead[]         @relation("LeadCreator")
-  ownedDeals        Deal[]         @relation("DealOwner")
-  ownedContacts     Contact[]      @relation("ContactOwner")
-  ownedCompanies    Company[]      @relation("CompanyOwner")
-  activities        Activity[]     @relation("ActivityOwner")
-  createdActivities Activity[]     @relation("ActivityCreator")
-  listings          Unit[]         @relation("UnitOwner")
+  ownedLeads        Lead[]            @relation("LeadOwner")
+  createdLeads      Lead[]            @relation("LeadCreator")
+  ownedDeals        Deal[]            @relation("DealOwner")
+  ownedContacts     Contact[]         @relation("ContactOwner")
+  ownedCompanies    Company[]         @relation("CompanyOwner")
+  activities        Activity[]        @relation("ActivityOwner")
+  createdActivities Activity[]        @relation("ActivityCreator")
+  listings          Unit[]            @relation("UnitOwner")
   /// Appearance: null = use company default
   theme             String?
   accent            String?
   wallpaper         String?
   lastLoginAt       DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  employee          Employee?
+  approvalRequests  ApprovalRequest[]
+  approvalActions   ApprovalAction[]
 
   @@index([branchId])
   @@index([managerId])
@@ -511,4 +515,174 @@ model WebhookLog {
   createdAt DateTime @default(now())
 
   @@index([source, createdAt])
+}
+
+// ─── HR: organisation & employees ───────────────────────────
+
+model Department {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  code      String?
+  headId    String?
+  active    Boolean    @default(true)
+  sortOrder Int        @default(0)
+  employees Employee[]
+}
+
+model Designation {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  grade     String?
+  active    Boolean    @default(true)
+  employees Employee[]
+}
+
+/// status: probation | active | notice | left. Scope fields: userId (own/team), branchId (branch).
+model Employee {
+  id                String             @id @default(cuid())
+  code              String             @unique
+  userId            String?            @unique
+  user              User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fullName          String
+  fatherName        String?
+  gender            String?
+  dob               DateTime?
+  cnic              String?
+  cnicExpiry        DateTime?
+  maritalStatus     String?
+  bloodGroup        String?
+  phone             String?
+  personalEmail     String?
+  address           String?
+  city              String?
+  emergencyName     String?
+  emergencyRelation String?
+  emergencyPhone    String?
+  bankName          String?
+  accountTitle      String?
+  accountNumber     String?
+  photo             String?
+  joiningDate       DateTime
+  employmentType    String             @default("permanent") // permanent | contract | intern | consultant
+  status            String             @default("probation")
+  probationEnd      DateTime?
+  confirmedAt       DateTime?
+  noticeDate        DateTime?
+  lastWorkingDay    DateTime?
+  exitType          String? // resigned | terminated | other
+  exitReason        String?
+  leftAt            DateTime?
+  departmentId      String?
+  department        Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  designationId     String?
+  designation       Designation?       @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  branchId          String?
+  branch            Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  managerId         String?
+  manager           Employee?          @relation("EmployeeReports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports           Employee[]         @relation("EmployeeReports")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  events            EmployeeEvent[]
+  documents         EmployeeDocument[]
+  checklist         ChecklistItem[]
+  requests          ApprovalRequest[]
+
+  @@index([branchId])
+  @@index([departmentId])
+  @@index([managerId])
+  @@index([status])
+}
+
+/// type: joined | confirmed | promoted | transferred | resigned | exited | rehired | note
+model EmployeeEvent {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type       String
+  date       DateTime
+  title      String
+  details    String? // @text
+  byId       String?
+  createdAt  DateTime @default(now())
+
+  @@index([employeeId, date])
+}
+
+model EmployeeDocument {
+  id           String    @id @default(cuid())
+  employeeId   String
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type         String
+  title        String
+  path         String    @unique
+  size         Int
+  expiresAt    DateTime?
+  verified     Boolean   @default(true)
+  uploadedById String?
+  createdAt    DateTime  @default(now())
+
+  @@index([employeeId])
+  @@index([expiresAt])
+}
+
+/// kind: onboarding | offboarding
+model ChecklistItem {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind       String
+  title      String
+  sortOrder  Int       @default(0)
+  doneAt     DateTime?
+  doneById   String?
+
+  @@index([employeeId, kind])
+}
+
+// ─── Approval engine (shared by profile updates, leave, loans, expenses) ───
+
+/// steps: JSON array of { kind: "manager" | "hr" | "user", userId?: string }
+model ApprovalFlow {
+  id     String  @id @default(cuid())
+  type   String  @unique
+  name   String
+  steps  String // @text
+  active Boolean @default(true)
+}
+
+/// status: pending | approved | rejected | cancelled. payload: JSON read by the handler for this type.
+model ApprovalRequest {
+  id          String           @id @default(cuid())
+  type        String
+  title       String
+  summary     String? // @text
+  payload     String // @text
+  status      String           @default("pending")
+  step        Int              @default(0)
+  employeeId  String
+  employee    Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  requesterId String?
+  requester   User?            @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  decidedAt   DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  actions     ApprovalAction[]
+
+  @@index([status, type])
+  @@index([employeeId])
+}
+
+model ApprovalAction {
+  id        String          @id @default(cuid())
+  requestId String
+  request   ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  step      Int
+  userId    String?
+  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  decision  String // approved | rejected | cancelled | submitted
+  comment   String?
+  createdAt DateTime        @default(now())
+
+  @@index([requestId])
 }

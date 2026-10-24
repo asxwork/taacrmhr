@@ -83,7 +83,7 @@ function Row({ item, path, editable }: { item: TimelineItem; path: string; edita
                 <form action={toggleActivity}>
                   <input type="hidden" name="id" value={item.id} />
                   <input type="hidden" name="path" value={path} />
-                  <button title={item.doneAt ? "Mark as not done" : "Mark done"} className={cn("rounded p-1 hover:bg-canvas", item.doneAt ? "text-emerald-600" : "text-muted")}>
+                  <button title={item.doneAt ? "Mark as not done" : "Mark done"} aria-label={item.doneAt ? "Mark as not done" : "Mark done"} className={cn("rounded p-1 hover:bg-canvas", item.doneAt ? "text-emerald-600" : "text-muted")}>
                     <Check className="size-3.5" />
                   </button>
                 </form>
@@ -91,7 +91,7 @@ function Row({ item, path, editable }: { item: TimelineItem; path: string; edita
               <form action={deleteActivity}>
                 <input type="hidden" name="id" value={item.id} />
                 <input type="hidden" name="path" value={path} />
-                <button title="Delete" className="rounded p-1 text-muted hover:bg-canvas hover:text-red-600">
+                <button title="Delete" aria-label="Delete" className="rounded p-1 text-muted hover:bg-canvas hover:text-red-600">
                   <Trash2 className="size-3.5" />
                 </button>
               </form>

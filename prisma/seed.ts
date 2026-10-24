@@ -9,6 +9,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_ROLES, expandGrants } from "../src/lib/rbac";
+import { seedHr } from "./seed-hr";
 
 const DEMO_PASSWORD = "Advisor@2026";
 const db = new PrismaClient();
@@ -61,6 +62,7 @@ async function main() {
 
   await seedCrm([agent1, agent2, manager]);
   await seedInventory([agent1, agent2]);
+  await seedHr(db);
   console.log("Seed complete.");
 }
 

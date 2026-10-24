@@ -69,7 +69,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           <>
             <ViewToggle base="/crm/leads" sp={keep} view={view} />
             {can(user, "crm.leads", "export") && (
-              <LinkButton href={hrefWith("/api/export/leads", { ...keep, view: undefined }, {})} variant="secondary" prefetch={false} title="Download CSV">
+              <LinkButton href={hrefWith("/api/export/leads", { ...keep, view: undefined }, {})} variant="secondary" prefetch={false} title="Download CSV" aria-label="Download CSV">
                 <Download className="size-4" />
               </LinkButton>
             )}
@@ -91,7 +91,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         {sp.view && <input type="hidden" name="view" value={sp.view} />}
         <div className="relative min-w-56 flex-1">
           <Search className="absolute left-3 top-2.5 size-4 text-muted" />
-          <input name="q" defaultValue={q} placeholder="Search name, phone, email, location" className="input pl-9" />
+          <input name="q" defaultValue={q} aria-label="Search" placeholder="Search name, phone, email, location" className="input pl-9" />
         </div>
         <select name="status" defaultValue={sp.status ?? ""} className="input w-36">
           <option value="">Open statuses</option>

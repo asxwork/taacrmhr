@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-  BarChart3, Bell, Briefcase, Building2, CalendarDays, Clock, Contact, Handshake, History, House, Laptop, LogOut, Menu, Plane,
+  BarChart3, Bell, Briefcase, CheckSquare, Building2, CalendarDays, Clock, Contact, Handshake, History, House, Laptop, LogOut, Menu, Plane,
   Plug, Receipt, Settings, Shield, SlidersHorizontal, Target, TrendingUp, User, Users, Wallet, X,
 } from "lucide-react";
 import type { NavGroup } from "@/lib/nav";
@@ -14,7 +14,7 @@ import { logout } from "@/app/login/actions";
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   home: House, target: Target, handshake: Handshake, contact: Contact, calendar: CalendarDays, building: Building2,
   chart: BarChart3, users: Users, clock: Clock, plane: Plane, wallet: Wallet, briefcase: Briefcase, trending: TrendingUp,
-  receipt: Receipt, laptop: Laptop, user: User, shield: Shield, settings: Settings, sliders: SlidersHorizontal, plug: Plug, history: History,
+  receipt: Receipt, laptop: Laptop, user: User, shield: Shield, settings: Settings, sliders: SlidersHorizontal, plug: Plug, check: CheckSquare, history: History,
 };
 
 export function Sidebar({ groups, user, unread }: { groups: NavGroup[]; user: { name: string; roles: string; branch: string | null }; unread: number }) {
@@ -25,7 +25,7 @@ export function Sidebar({ groups, user, unread }: { groups: NavGroup[]; user: { 
     <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
       {groups.map((g, i) => (
         <div key={g.label ?? i}>
-          {g.label && <p className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-white/35">{g.label}</p>}
+          {g.label && <p className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-white/55">{g.label}</p>}
           <ul className="space-y-0.5">
             {g.items.map((item) => {
               const Icon = ICONS[item.icon] ?? House;
@@ -41,9 +41,9 @@ export function Sidebar({ groups, user, unread }: { groups: NavGroup[]; user: { 
                     )}
                   >
                     {active && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-gold-400" />}
-                    <Icon className={cn("size-4", active ? "text-gold-400" : "text-white/45")} />
+                    <Icon className={cn("size-4", active ? "text-gold-400" : "text-white/60")} />
                     <span className="flex-1">{item.label}</span>
-                    {item.phase && <span className="text-[10px] text-white/30">soon</span>}
+                    {item.phase && <span className="text-[11px] text-white/50">soon</span>}
                   </Link>
                 </li>
               );
@@ -65,17 +65,17 @@ export function Sidebar({ groups, user, unread }: { groups: NavGroup[]; user: { 
         <div className="flex items-center gap-2.5 px-2 py-1.5">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium text-white">{user.name}</p>
-            <p className="truncate text-[11px] text-white/45">
+            <p className="truncate text-[11px] text-white/60">
               {user.roles}
               {user.branch && ` · ${user.branch}`}
             </p>
           </div>
-          <Link href="/notifications" onClick={() => setOpen(false)} className="relative rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white" title="Notifications">
+          <Link href="/notifications" onClick={() => setOpen(false)} className="relative rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white" title="Notifications" aria-label="Notifications">
             <Bell className="size-4" />
             {unread > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-semibold text-navy-950">{unread > 99 ? "99+" : unread}</span>}
           </Link>
           <form action={logout}>
-            <button className="rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white" title="Sign out">
+            <button className="rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white" title="Sign out" aria-label="Sign out">
               <LogOut className="size-4" />
             </button>
           </form>

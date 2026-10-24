@@ -52,7 +52,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
       <form className="mb-4 flex flex-wrap gap-2">
         <div className="relative min-w-60 flex-1">
           <Search className="absolute left-3 top-2.5 size-4 text-muted" />
-          <input name="q" defaultValue={q} placeholder="Search name, email or phone" className="input pl-9" />
+          <input name="q" defaultValue={q} aria-label="Search" placeholder="Search name, email or phone" className="input pl-9" />
         </div>
         <select name="branch" defaultValue={sp.branch ?? ""} className="input w-44">
           <option value="">All branches</option>

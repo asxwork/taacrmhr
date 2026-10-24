@@ -6,6 +6,7 @@ import { Avatar, Badge, Card, Field, PageHeader } from "@/components/ui";
 import { changePassword, saveMyAppearance } from "./actions";
 import { AppearanceForm } from "@/components/appearance-form";
 import { getCompanyAppearance } from "@/lib/appearance-server";
+import { MyEmployment } from "./my-employment";
 
 export const metadata = { title: "My Profile" };
 
@@ -49,7 +50,7 @@ export default async function MePage() {
               </div>
             ))}
           </dl>
-          <p className="mt-6 text-xs text-muted">Attendance, leave and payslips will appear here as HR modules go live.</p>
+          
         </Card>
 
         <Card className="p-6">
@@ -68,6 +69,8 @@ export default async function MePage() {
           </ActionForm>
         </Card>
       </div>
+
+      <MyEmployment userId={user.id} />
 
       <Card className="mt-6 p-6">
         <h2 className="mb-1 font-medium">Appearance</h2>

@@ -94,3 +94,29 @@ body {
     @apply px-4 py-3 text-sm;
   }
 }
+
+/* ─── Accessibility & touch (ui-ux-pro-max priorities 1, 2, 7) ─── */
+
+/* Visible keyboard focus on every interactive element; mouse clicks don't show it. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-gold-600);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Touch screens: controls grow to ~44px so they're easy to hit. */
+@media (pointer: coarse) {
+  .input { min-height: 2.75rem; }
+  button, [role="button"], a.inline-flex { min-height: 2.75rem; }
+  button:has(> svg:only-child), a:has(> svg:only-child) { min-width: 2.75rem; justify-content: center; }
+}
+
+/* Respect the OS "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

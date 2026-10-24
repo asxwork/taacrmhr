@@ -32,7 +32,7 @@ export function DealProperty({ dealId, canEdit, units, linkable, plan }: Props) 
                 <form action={unlinkUnitFromDeal}>
                   <input type="hidden" name="dealId" value={dealId} />
                   <input type="hidden" name="unitId" value={u.id} />
-                  <button title="Unlink unit" className="rounded p-1 text-muted hover:bg-canvas hover:text-red-600"><X className="size-3.5" /></button>
+                  <button title="Unlink unit" aria-label="Unlink unit" className="rounded p-1 text-muted hover:bg-canvas hover:text-red-600"><X className="size-3.5" /></button>
                 </form>
               )}
             </li>

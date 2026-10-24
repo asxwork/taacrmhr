@@ -9,7 +9,7 @@ export function ColumnChart({ data, unit }: { data: { label: string; short: stri
   const ticks = [max, Math.round(max / 2), 0];
   return (
     <div className="flex gap-2">
-      <div className="flex h-44 flex-col justify-between pb-5 text-right text-[10px] text-muted">
+      <div className="flex h-44 flex-col justify-between pb-5 text-right text-[11px] text-muted">
         {ticks.map((t, i) => <span key={i}>{t}</span>)}
       </div>
       <div className="relative min-w-0 flex-1">
@@ -23,7 +23,7 @@ export function ColumnChart({ data, unit }: { data: { label: string; short: stri
                 className="mx-auto w-full max-w-6 rounded-t-[4px] bg-[var(--chart)] transition group-hover:opacity-80"
                 style={{ height: `${(d.value / max) * 100}%`, minHeight: d.value ? 2 : 0 }}
               />
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] text-muted">{i % every === 0 ? d.short : ""}</span>
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[11px] text-muted">{i % every === 0 ? d.short : ""}</span>
               <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-navy-950 px-2 py-1 text-xs text-white shadow group-hover:block">
                 {d.label}: <b>{d.value}</b> {unit}
               </span>

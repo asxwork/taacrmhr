@@ -103,7 +103,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
                       <input type="hidden" name="id" value={img.id} />
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={fileUrl(img.path)} alt="" className="size-14 rounded-md object-cover" loading="lazy" />
-                      <button title="Remove photo" className="absolute -right-1.5 -top-1.5 rounded-full bg-surface p-0.5 text-muted shadow hover:text-red-600"><X className="size-3" /></button>
+                      <button title="Remove photo" aria-label="Remove photo" className="absolute -right-1.5 -top-1.5 rounded-full bg-surface p-0.5 text-muted shadow hover:text-red-600"><X className="size-3" /></button>
                     </form>
                   ))}
                 </div>

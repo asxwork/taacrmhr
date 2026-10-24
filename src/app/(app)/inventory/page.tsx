@@ -163,7 +163,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         {sp.view && <input type="hidden" name="view" value={sp.view} />}
         <div className="relative min-w-52 flex-1">
           <Search className="absolute left-3 top-2.5 size-4 text-muted" />
-          <input name="q" defaultValue={q} placeholder="Unit no, project, address, owner" className="input pl-9" />
+          <input name="q" defaultValue={q} aria-label="Search" placeholder="Unit no, project, address, owner" className="input pl-9" />
         </div>
         <select name="project" defaultValue={sp.project ?? ""} className="input w-40">
           <option value="">All projects</option>

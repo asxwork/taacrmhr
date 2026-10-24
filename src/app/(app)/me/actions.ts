@@ -7,6 +7,8 @@ import { str, type FormState } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { readAppearanceForm } from "@/lib/appearance-server";
 import { deleteUpload } from "@/lib/files";
+import { submitRequest } from "@/lib/approvals";
+import { SELF_EDITABLE } from "@/lib/hr-shared";
 
 export async function changePassword(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
@@ -36,4 +38,26 @@ export async function saveMyAppearance(_: FormState, fd: FormData): Promise<Form
   });
   revalidatePath("/", "layout");
   return { ok: true, message: "Appearance saved." };
+}
+
+/** Employees can't edit HR data directly — they send the changed fields to HR for approval. */
+export async function requestProfileUpdate(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const emp = await db.employee.findUnique({ where: { userId: user.id } });
+  if (!emp) return { error: "Your login isn't linked to an employee record yet. Ask HR." };
+  if (await db.approvalRequest.findFirst({ where: { employeeId: emp.id, type: "profile_update", status: "pending" } })) {
+    return { error: "You already have a profile change waiting for approval." };
+  }
+  const changes: Record<string, string | null> = {};
+  for (const { key } of SELF_EDITABLE) {
+    const next = str(fd, key) || null;
+    if (next !== (emp[key] ?? null)) changes[key] = next;
+  }
+  if (!Object.keys(changes).length) return { error: "Nothing has changed." };
+  await submitRequest({
+    type: "profile_update", employeeId: emp.id, requesterId: user.id, title: `Profile update — ${emp.fullName}`,
+    summary: `${Object.keys(changes).length} field(s) changed`, payload: { changes },
+  });
+  revalidatePath("/me");
+  return { ok: true, message: "Sent to HR for approval." };
 }

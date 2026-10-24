@@ -59,7 +59,7 @@ export async function CrmOverview({ user }: { user: SessionUser }) {
           <Link href="/crm/tasks" className="text-xs text-muted hover:text-ink">All tasks →</Link>
         </div>
         {agenda.length === 0 ? (
-          <p className="text-sm text-muted">Nothing due today. 🎉</p>
+          <p className="text-sm text-muted">Nothing due today.</p>
         ) : (
           <ul className="divide-y divide-line">
             {agenda.map((a) => {

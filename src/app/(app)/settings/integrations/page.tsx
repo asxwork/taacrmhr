@@ -135,7 +135,7 @@ function Secret({ label, value, regen }: { label: string; value: string; regen?:
       {regen && (
         <form action={regenerateSecret}>
           <input type="hidden" name="which" value={regen} />
-          <button title="Generate a new one (the old one stops working)" className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink"><RefreshCw className="size-4" /></button>
+          <button title="Generate a new one (the old one stops working)" aria-label="Generate a new one (the old one stops working)" className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink"><RefreshCw className="size-4" /></button>
         </form>
       )}
     </div>

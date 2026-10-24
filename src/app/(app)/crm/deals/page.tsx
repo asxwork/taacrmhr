@@ -75,7 +75,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
           <>
             <ViewToggle base="/crm/deals" sp={keep} view={view} />
             {can(user, "crm.deals", "export") && (
-              <LinkButton href={hrefWith("/api/export/deals", { ...keep, pipeline: pipeline.id, view: undefined }, {})} variant="secondary" prefetch={false} title="Download CSV">
+              <LinkButton href={hrefWith("/api/export/deals", { ...keep, pipeline: pipeline.id, view: undefined }, {})} variant="secondary" prefetch={false} title="Download CSV" aria-label="Download CSV">
                 <Download className="size-4" />
               </LinkButton>
             )}
@@ -113,7 +113,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
         {sp.view && <input type="hidden" name="view" value={sp.view} />}
         <div className="relative min-w-56 flex-1">
           <Search className="absolute left-3 top-2.5 size-4 text-muted" />
-          <input name="q" defaultValue={q} placeholder="Search deal or client" className="input pl-9" />
+          <input name="q" defaultValue={q} aria-label="Search" placeholder="Search deal or client" className="input pl-9" />
         </div>
         {view === "list" && (
           <select name="stage" defaultValue={sp.stage ?? ""} className="input w-40">

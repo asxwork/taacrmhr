@@ -20,7 +20,7 @@ export const NAV: NavGroup[] = [
   {
     label: "HR",
     items: [
-      { href: "/hr/employees", label: "Employees", icon: "users", module: "hr.employees", phase: 4 },
+      { href: "/hr/employees", label: "Employees", icon: "users", module: "hr.employees" },
       { href: "/hr/attendance", label: "Attendance", icon: "clock", module: "hr.attendance", phase: 5 },
       { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave", phase: 5 },
       { href: "/hr/payroll", label: "Payroll", icon: "wallet", module: "hr.payroll", phase: 6 },
@@ -35,6 +35,7 @@ export const NAV: NavGroup[] = [
     label: "Me",
     items: [
       { href: "/me", label: "My Profile", icon: "user" },
+      { href: "/approvals", label: "Approvals & Requests", icon: "check" },
       { href: "/me/attendance", label: "My Attendance", icon: "clock", phase: 5 },
       { href: "/me/leave", label: "My Leave", icon: "plane", phase: 5 },
       { href: "/me/payslips", label: "My Payslips", icon: "wallet", phase: 6 },
@@ -47,6 +48,7 @@ export const NAV: NavGroup[] = [
       { href: "/settings/roles", label: "Roles & Permissions", icon: "shield", module: "settings.roles" },
       { href: "/settings/company", label: "Company & Branches", icon: "settings", module: "settings.company" },
       { href: "/settings/crm", label: "CRM Settings", icon: "sliders", module: "settings.company" },
+      { href: "/settings/hr", label: "HR Settings", icon: "briefcase", module: "hr.employees" },
       { href: "/settings/integrations", label: "Integrations", icon: "plug", module: "settings.company" },
       { href: "/settings/audit", label: "Audit Log", icon: "history", module: "settings.audit" },
     ],
