@@ -6,6 +6,10 @@ import { getAppearance } from "@/lib/appearance-server";
 import { appearanceStyle } from "@/lib/appearance";
 import { fileUrl } from "@/lib/files";
 
+// Every page reads branding/settings from the database, so render per request instead of
+// prerendering at build time (which needs a live DB and crashes Prisma on Hostinger's thread limits).
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: { default: "The Advisor Associates", template: "%s · The Advisor Associates" },
   description: "CRM & HR platform",
