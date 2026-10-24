@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ACTIVITY_TYPES } from "@/lib/crm-shared";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { addActivity } from "@/app/(app)/crm/activity-actions";
+import { addActivity, sendEntityEmail } from "@/app/(app)/crm/activity-actions";
 import { cn } from "@/lib/utils";
 
 /** Bitrix-style activity composer: pick a type, write, optionally schedule. */
@@ -13,6 +13,7 @@ export function Composer({
   users,
   currentUserId,
   types,
+  emailTo,
 }: {
   entity: Record<string, string>;
   path: string;
@@ -20,8 +21,11 @@ export function Composer({
   currentUserId: string;
   /** Restrict the tabs, e.g. personal tasks can only be task/meeting/visit. */
   types?: string[];
+  /** When set, adds an Email tab that sends to this address. */
+  emailTo?: string | null;
 }) {
-  const tabs = types ? ACTIVITY_TYPES.filter((t) => types.includes(t.value)) : ACTIVITY_TYPES;
+  const base = types ? ACTIVITY_TYPES.filter((t) => types.includes(t.value)) : ACTIVITY_TYPES;
+  const tabs: { value: string; label: string }[] = emailTo ? [...base, { value: "email", label: "Email" }] : [...base];
   const [type, setType] = useState<string>(tabs[0]!.value);
   const schedulable = type === "task" || type === "meeting" || type === "visit";
 
@@ -39,6 +43,20 @@ export function Composer({
           </button>
         ))}
       </div>
+      {type === "email" && emailTo ? (
+        <ActionForm action={sendEntityEmail} className="space-y-3 p-3">
+          {Object.entries(entity).map(([k, v]) => (
+            <input key={k} type="hidden" name={k} value={v} />
+          ))}
+          <input type="hidden" name="path" value={path} />
+          <p className="text-xs text-muted">To: <span className="text-ink">{emailTo}</span></p>
+          <input name="subject" required placeholder="Subject" className="input" />
+          <textarea name="body" required rows={5} placeholder="Write your email…" className="input resize-y" />
+          <div className="flex justify-end">
+            <SubmitButton pendingText="Sending…">Send email</SubmitButton>
+          </div>
+        </ActionForm>
+      ) : (
       <ActionForm action={addActivity} className="space-y-3 p-3">
         {Object.entries(entity).map(([k, v]) => (
           <input key={k} type="hidden" name={k} value={v} />
@@ -70,6 +88,7 @@ export function Composer({
         </div>
         {schedulable && type !== "task" && <p className="text-xs text-muted">Leave the date empty to log one that already happened.</p>}
       </ActionForm>
+      )}
     </div>
   );
 }

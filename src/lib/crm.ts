@@ -35,7 +35,7 @@ export async function ownerBranch(ownerId: string | null) {
   return (await db.user.findUnique({ where: { id: ownerId }, select: { branchId: true } }))?.branchId ?? null;
 }
 
-export async function logSystem(entity: { leadId?: string; dealId?: string; contactId?: string }, subject: string, userId: string) {
+export async function logSystem(entity: { leadId?: string; dealId?: string; contactId?: string }, subject: string, userId: string | null) {
   await db.activity.create({ data: { type: "system", subject, doneAt: new Date(), ...entity, createdById: userId, ownerId: userId } });
 }
 

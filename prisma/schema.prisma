@@ -481,3 +481,34 @@ model Installment {
   @@index([planId])
   @@index([dueDate])
 }
+
+// ─── Messaging & integrations ────────────────────────────────
+
+/// status: sent | failed | skipped (SMTP not configured)
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  body      String // @text
+  status    String
+  error     String?
+  userId    String?
+  leadId    String?
+  dealId    String?
+  contactId String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// source: webform | facebook. status: created | merged | ignored | error
+model WebhookLog {
+  id        String   @id @default(cuid())
+  source    String
+  status    String
+  summary   String // @text
+  leadId    String?
+  createdAt DateTime @default(now())
+
+  @@index([source, createdAt])
+}

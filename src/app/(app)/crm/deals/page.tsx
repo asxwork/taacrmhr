@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { startOfMonth, subDays } from "date-fns";
-import { Plus, Search } from "lucide-react";
+import { Download, Plus, Search } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
 import { assignableUsers, color, fmtPKR, usersInScope } from "@/lib/crm";
@@ -74,6 +74,11 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
         actions={
           <>
             <ViewToggle base="/crm/deals" sp={keep} view={view} />
+            {can(user, "crm.deals", "export") && (
+              <LinkButton href={hrefWith("/api/export/deals", { ...keep, pipeline: pipeline.id, view: undefined }, {})} variant="secondary" prefetch={false} title="Download CSV">
+                <Download className="size-4" />
+              </LinkButton>
+            )}
             {canCreate && (
               <LinkButton href={hrefWith("/crm/deals", keep, { new: "1" })} scroll={false}>
                 <Plus className="size-4" /> New deal

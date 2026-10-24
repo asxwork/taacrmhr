@@ -8,6 +8,7 @@ import { can, requirePermission, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { assignableUsers, logSystem, ownerBranch, parseAmount, phoneKey, resolveOwner } from "@/lib/crm";
 import { str, type FormState } from "@/lib/utils";
+import { notify } from "@/lib/notify";
 import type { SessionUser } from "@/lib/auth";
 
 async function editableLead(user: SessionUser, id: string) {
@@ -61,6 +62,7 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
     if (existing.ownerId !== ownerId) {
       const owner = await db.user.findUnique({ where: { id: ownerId } });
       await logSystem({ leadId: id }, `Assigned to ${owner?.name}`, user.id);
+      if (ownerId !== user.id) await notify(ownerId, `Lead assigned to you: ${name}`, { body: `By ${user.name}`, link: `/crm/leads/${id}`, email: true });
     }
     await audit(user.id, "update", "lead", id, `Updated lead ${name}`);
   } else {
@@ -68,6 +70,7 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
     const lead = await db.lead.create({ data: { ...data, statusId: status!.id, createdById: user.id } });
     leadId = lead.id;
     await logSystem({ leadId }, "Lead created", user.id);
+    if (ownerId !== user.id) await notify(ownerId, `New lead assigned to you: ${name}`, { body: `By ${user.name}`, link: `/crm/leads/${leadId}`, email: true });
     await audit(user.id, "create", "lead", leadId, `Created lead ${name}`);
   }
 
@@ -128,6 +131,7 @@ export async function bulkLeads(_: FormState, fd: FormData): Promise<FormState> 
       await db.lead.update({ where: { id: l.id }, data: { ownerId: target.id, branchId: target.branchId } });
       await logSystem({ leadId: l.id }, `Assigned to ${target.name}`, user.id);
     }
+    if (target.id !== user.id && leads.length) await notify(target.id, `${leads.length} lead(s) assigned to you`, { body: `By ${user.name}`, link: "/crm/leads", email: true });
     revalidatePath("/crm/leads");
     return { ok: true, message: `Assigned ${leads.length} lead(s) to ${target.name}.` };
   }
@@ -234,6 +238,7 @@ export async function importLeads(_: FormState, fd: FormData): Promise<FormState
   const skipDupes = fd.get("skipDuplicates") === "on";
 
   let created = 0, skipped = 0;
+  const perOwner = new Map<string, number>();
   for (const r of rows) {
     const get = (f: string) => (cols[f] ? (r[cols[f]!] ?? "").trim() : "");
     const name = get("name");
@@ -257,10 +262,12 @@ export async function importLeads(_: FormState, fd: FormData): Promise<FormState
       },
     });
     await logSystem({ leadId: lead.id }, "Imported from CSV", user.id);
+    perOwner.set(ownerId, (perOwner.get(ownerId) ?? 0) + 1);
     created++;
   }
 
   await audit(user.id, "create", "lead", null, `Imported ${created} lead(s) from ${file.name}`);
+  for (const [ownerId, n] of perOwner) if (ownerId !== user.id) await notify(ownerId, `${n} imported lead(s) assigned to you`, { body: `By ${user.name}`, link: "/crm/leads", email: true });
   revalidatePath("/crm/leads");
   return { ok: true, message: `Imported ${created} lead(s)${skipped ? `, skipped ${skipped}` : ""}.` };
 }

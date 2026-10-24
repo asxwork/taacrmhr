@@ -7,6 +7,7 @@ import { requirePermission, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { editableDealFor, logSystem, ownerBranch, parseAmount, phoneKey, resolveOwner } from "@/lib/crm";
 import { str, type FormState } from "@/lib/utils";
+import { notify } from "@/lib/notify";
 import { releaseUnit, syncDealUnits } from "@/lib/inventory";
 import type { SessionUser } from "@/lib/auth";
 
@@ -52,6 +53,7 @@ export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
     if (existing.ownerId !== ownerId) {
       const owner = await db.user.findUnique({ where: { id: ownerId } });
       await logSystem({ dealId: id }, `Assigned to ${owner?.name}`, user.id);
+      if (ownerId !== user.id) await notify(ownerId, `Deal assigned to you: ${title}`, { body: `By ${user.name}`, link: `/crm/deals/${id}`, email: true });
     }
     await audit(user.id, "update", "deal", id, `Updated deal ${title}`);
   } else {
@@ -63,6 +65,7 @@ export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
     const deal = await db.deal.create({ data: { ...data, pipelineId: pipeline.id, stageId: pipeline.stages[0].id } });
     dealId = deal.id;
     await logSystem({ dealId }, "Deal created", user.id);
+    if (ownerId !== user.id) await notify(ownerId, `New deal assigned to you: ${title}`, { body: `By ${user.name}`, link: `/crm/deals/${dealId}`, email: true });
     await audit(user.id, "create", "deal", dealId, `Created deal ${title}`);
   }
 

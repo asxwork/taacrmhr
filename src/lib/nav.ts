@@ -14,7 +14,7 @@ export const NAV: NavGroup[] = [
       { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts" },
       { href: "/crm/tasks", label: "Tasks & Calendar", icon: "calendar", module: "crm.activities" },
       { href: "/inventory", label: "Inventory", icon: "building", module: "inventory.units" },
-      { href: "/reports/crm", label: "CRM Reports", icon: "chart", module: "reports.crm", phase: 3 },
+      { href: "/reports/crm", label: "CRM Reports", icon: "chart", module: "reports.crm" },
     ],
   },
   {
@@ -47,6 +47,7 @@ export const NAV: NavGroup[] = [
       { href: "/settings/roles", label: "Roles & Permissions", icon: "shield", module: "settings.roles" },
       { href: "/settings/company", label: "Company & Branches", icon: "settings", module: "settings.company" },
       { href: "/settings/crm", label: "CRM Settings", icon: "sliders", module: "settings.company" },
+      { href: "/settings/integrations", label: "Integrations", icon: "plug", module: "settings.company" },
       { href: "/settings/audit", label: "Audit Log", icon: "history", module: "settings.audit" },
     ],
   },

@@ -23,6 +23,14 @@ Demo logins are listed at the top of [`prisma/seed.ts`](prisma/seed.ts). They ar
 - **Super Admin** is a per-user flag that bypasses roles.
 - The sidebar ([`src/lib/nav.ts`](src/lib/nav.ts)) shows only modules the user can view.
 
+## Integrations
+
+Settings → Integrations shows setup status, keys and recent deliveries.
+
+- **Email:** set the `SMTP_*` env vars (see `.env.example`). Until then, emails are logged on the timeline but not sent.
+- **Website forms:** `POST /api/webhooks/lead` with the API key. Duplicates by phone or email are merged into the open lead. New leads are assigned round-robin.
+- **Facebook/Instagram Lead Ads:** webhook `/api/webhooks/facebook`, with `FB_APP_SECRET` and `FB_PAGE_TOKEN`. This needs the public HTTPS deployment.
+
 ## Deploy to Hostinger (Node.js Web App)
 
 1. In hPanel, create a MySQL database.

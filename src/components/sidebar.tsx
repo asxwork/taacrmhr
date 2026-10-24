@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-  BarChart3, Briefcase, Building2, CalendarDays, Clock, Contact, Handshake, History, House, Laptop, LogOut, Menu, Plane,
-  Receipt, Settings, Shield, SlidersHorizontal, Target, TrendingUp, User, Users, Wallet, X,
+  BarChart3, Bell, Briefcase, Building2, CalendarDays, Clock, Contact, Handshake, History, House, Laptop, LogOut, Menu, Plane,
+  Plug, Receipt, Settings, Shield, SlidersHorizontal, Target, TrendingUp, User, Users, Wallet, X,
 } from "lucide-react";
 import type { NavGroup } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -14,10 +14,10 @@ import { logout } from "@/app/login/actions";
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   home: House, target: Target, handshake: Handshake, contact: Contact, calendar: CalendarDays, building: Building2,
   chart: BarChart3, users: Users, clock: Clock, plane: Plane, wallet: Wallet, briefcase: Briefcase, trending: TrendingUp,
-  receipt: Receipt, laptop: Laptop, user: User, shield: Shield, settings: Settings, sliders: SlidersHorizontal, history: History,
+  receipt: Receipt, laptop: Laptop, user: User, shield: Shield, settings: Settings, sliders: SlidersHorizontal, plug: Plug, history: History,
 };
 
-export function Sidebar({ groups, user }: { groups: NavGroup[]; user: { name: string; roles: string; branch: string | null } }) {
+export function Sidebar({ groups, user, unread }: { groups: NavGroup[]; user: { name: string; roles: string; branch: string | null }; unread: number }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -70,6 +70,10 @@ export function Sidebar({ groups, user }: { groups: NavGroup[]; user: { name: st
               {user.branch && ` · ${user.branch}`}
             </p>
           </div>
+          <Link href="/notifications" onClick={() => setOpen(false)} className="relative rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white" title="Notifications">
+            <Bell className="size-4" />
+            {unread > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-semibold text-navy-950">{unread > 99 ? "99+" : unread}</span>}
+          </Link>
           <form action={logout}>
             <button className="rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white" title="Sign out">
               <LogOut className="size-4" />

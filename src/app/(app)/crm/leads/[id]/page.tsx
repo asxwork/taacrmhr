@@ -180,7 +180,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
         </div>
 
         <div className="space-y-6">
-          {can(user, "crm.activities", "create") && <Composer entity={{ leadId: id }} path={path} users={actOwners} currentUserId={user.id} />}
+          {can(user, "crm.activities", "create") && <Composer entity={{ leadId: id }} emailTo={lead.email} path={path} users={actOwners} currentUserId={user.id} />}
           <Timeline items={activities} path={path} editableIds={editableIds} />
         </div>
       </div>
