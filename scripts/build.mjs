@@ -36,7 +36,9 @@ function logConnection(raw) {
     console.log(`  user:     ${decodeURIComponent(u.username)}`);
     console.log(`  host:     ${u.hostname}:${u.port || 3306}`);
     console.log(`  database: ${u.pathname.slice(1)}`);
-    console.log(`  password: ${pass.length} characters${/\s/.test(pass) ? " (contains spaces!)" : ""}`);
+    const odd = [...pass].filter((c) => !/[A-Za-z0-9]/.test(c));
+    const hidden = odd.filter((c) => /[\s​-‍⁠﻿]/.test(c)).length;
+    console.log(`  password: ${[...pass].length} characters, ${odd.length} not a letter or number${hidden ? `, ${hidden} space/invisible!` : ""}`);
   } catch {
     console.warn("WARNING: DATABASE_URL is not a valid URL");
   }
