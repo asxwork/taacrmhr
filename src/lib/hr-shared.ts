@@ -54,3 +54,13 @@ export const CANDIDATE_STAGES = [
 ] as const;
 
 export const ASSET_CATEGORIES = ["Laptop", "Desktop", "Mobile phone", "SIM", "Tablet", "Vehicle", "Keys / access card", "Furniture", "Other"];
+
+export const RATINGS = [
+  { value: 1, label: "Needs improvement" },
+  { value: 2, label: "Below expectations" },
+  { value: 3, label: "Meets expectations" },
+  { value: 4, label: "Exceeds expectations" },
+  { value: 5, label: "Outstanding" },
+] as const;
+
+export const APPRAISAL_STATUS = { self: "Self review", manager: "Manager review", done: "Completed" } as const;

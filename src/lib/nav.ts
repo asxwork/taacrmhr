@@ -25,7 +25,7 @@ export const NAV: NavGroup[] = [
       { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave" },
       { href: "/hr/payroll", label: "Payroll", icon: "wallet", module: "hr.payroll" },
       { href: "/hr/recruitment", label: "Recruitment", icon: "briefcase", module: "hr.recruitment" },
-      { href: "/hr/performance", label: "Performance", icon: "trending", module: "hr.performance", phase: 7 },
+      { href: "/hr/performance", label: "Performance", icon: "trending", module: "hr.performance" },
       { href: "/hr/expenses", label: "Expenses & Loans", icon: "receipt", module: "hr.expenses" },
       { href: "/hr/assets", label: "Assets", icon: "laptop", module: "hr.assets", phase: 7 },
       { href: "/reports/hr", label: "HR Reports", icon: "chart", module: "reports.hr", phase: 7 },
@@ -40,6 +40,7 @@ export const NAV: NavGroup[] = [
       { href: "/me/leave", label: "My Leave", icon: "plane" },
       { href: "/me/payslips", label: "My Payslips", icon: "wallet" },
       { href: "/me/expenses", label: "My Expenses & Loans", icon: "receipt" },
+      { href: "/me/performance", label: "My Performance", icon: "trending" },
     ],
   },
   {
