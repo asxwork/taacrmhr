@@ -4,6 +4,7 @@ import { can } from "@/lib/permissions";
 import { NAV } from "@/lib/nav";
 import { Sidebar } from "@/components/sidebar";
 import { PageTransition } from "@/components/page-transition";
+import { CommandPalette } from "@/components/command-palette";
 import { unreadCount } from "@/lib/notify";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -26,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <PageTransition>{children}</PageTransition>
         </div>
       </main>
+      <CommandPalette pages={groups.flatMap((g) => g.items).filter((i) => !i.phase).map((i) => ({ href: i.href, label: i.label }))} />
     </div>
   );
 }

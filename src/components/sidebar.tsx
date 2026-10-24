@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3, Bell, Briefcase, CheckSquare, Building2, CalendarDays, Clock, Contact, Handshake, History, House, Laptop, LogOut, Menu,
-  PanelLeftClose, PanelLeftOpen, Plane, Plug, Receipt, Settings, Shield, SlidersHorizontal, Target, TrendingUp, User, Users, Wallet, X,
+  PanelLeftClose, PanelLeftOpen, Plane, Plug, Receipt, Search, Settings, Shield, SlidersHorizontal, Target, TrendingUp, User, Users, Wallet, X,
 } from "lucide-react";
 import type { NavGroup } from "@/lib/nav";
 import { cn, initials } from "@/lib/utils";
 import { logout } from "@/app/login/actions";
+import { openSearch } from "./command-palette";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   home: House, target: Target, handshake: Handshake, contact: Contact, calendar: CalendarDays, building: Building2,
@@ -133,6 +134,15 @@ export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
             <PanelLeftOpen className="size-[18px]" />
           </button>
         )}
+        <button
+          onClick={openSearch}
+          title={collapsed ? "Search (Ctrl+K)" : undefined}
+          aria-label="Search"
+          className={cn("mx-3 mb-1 flex h-9 items-center gap-3 rounded-lg bg-white/[0.06] text-[13px] text-white/55 transition-colors hover:bg-white/10 hover:text-white", collapsed ? "justify-center" : "px-3")}
+        >
+          <Search className="size-4 shrink-0" />
+          {!collapsed && <><span className="flex-1 text-left">Search…</span><kbd className="rounded border border-white/15 px-1.5 text-[10px]">Ctrl K</kbd></>}
+        </button>
         {navList(collapsed)}
         {footer(collapsed)}
       </aside>
@@ -144,6 +154,9 @@ export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
         </button>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-9 w-auto" />
+        <button onClick={openSearch} className="ml-auto rounded-lg p-1.5 text-white/80" aria-label="Search">
+          <Search className="size-5" />
+        </button>
       </div>
 
       {/* Phone drawer: slides in from the left */}
