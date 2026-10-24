@@ -19,6 +19,18 @@ function ColorSelect({ value }: { value?: string }) {
 }
 
 const Dot = ({ c }: { c: string }) => <span className={cn("size-2.5 shrink-0 rounded-full", color(c).dot)} />;
+function UnitStatusSelect({ value, disabled }: { value?: string | null; disabled?: boolean }) {
+  return (
+    <select name="unitStatus" defaultValue={value ?? ""} disabled={disabled} className="input w-36" aria-label="Sets unit to" title="Linked units are set to this status when a deal enters the stage">
+      <option value="">Unit: no change</option>
+      <option value="hold">Unit → On hold</option>
+      <option value="booked">Unit → Booked</option>
+      <option value="sold">Unit → Sold</option>
+      <option value="rented">Unit → Rented</option>
+    </select>
+  );
+}
+
 const Order = ({ value }: { value: number }) => <input name="sortOrder" type="number" defaultValue={value} className="input w-16" aria-label="Order" title="Order" />;
 
 export default async function CrmSettingsPage() {
@@ -32,7 +44,7 @@ export default async function CrmSettingsPage() {
 
   return (
     <>
-      <PageHeader title="CRM Settings" description="Lead statuses, deal pipelines and lead sources. Lower order numbers come first." />
+      <PageHeader title="CRM Settings" description="Lead statuses, deal pipelines and lead sources. Lower order numbers come first. “Unit →” sets linked property units when a deal enters that stage; Lost always releases them." />
       <fieldset disabled={!editable} className="space-y-10">
         <Section title="Lead statuses" hint="Open = active work. Converted = set automatically on convert. Junk = closed without a deal.">
           <Card className="divide-y divide-line">
@@ -93,6 +105,7 @@ export default async function CrmSettingsPage() {
                         <ColorSelect value={s.color} />
                         <input name="probability" type="number" min={0} max={100} defaultValue={s.probability} className="input w-20" aria-label="Probability %" title="Probability %" />
                         <Order value={s.sortOrder} />
+                        <UnitStatusSelect value={s.unitStatus} disabled={s.kind === "lost"} />
                         {s.kind !== "open" && <Badge tone={s.kind === "won" ? "green" : "red"}>{s.kind}</Badge>}
                         <span className="flex-1" />
                         <Badge>{s._count.deals} deals</Badge>

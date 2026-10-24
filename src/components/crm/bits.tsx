@@ -25,7 +25,7 @@ export function ViewToggle({ base, sp, view }: { base: string; sp: Record<string
   const item = (v: "list" | "board", Icon: typeof List, label: string) => (
     <Link
       href={hrefWith(base, sp, { view: v, page: undefined })}
-      className={cn("flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm", view === v ? "bg-white font-medium shadow-sm" : "text-muted hover:text-ink")}
+      className={cn("flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm", view === v ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}
     >
       <Icon className="size-4" /> {label}
     </Link>

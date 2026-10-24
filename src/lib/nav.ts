@@ -13,7 +13,7 @@ export const NAV: NavGroup[] = [
       { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals" },
       { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts" },
       { href: "/crm/tasks", label: "Tasks & Calendar", icon: "calendar", module: "crm.activities" },
-      { href: "/inventory", label: "Inventory", icon: "building", module: "inventory.units", phase: 2 },
+      { href: "/inventory", label: "Inventory", icon: "building", module: "inventory.units" },
       { href: "/reports/crm", label: "CRM Reports", icon: "chart", module: "reports.crm", phase: 3 },
     ],
   },

@@ -4,7 +4,7 @@
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 
   /* Brand */
-  --color-navy-950: #061626;
+  --color-navy-950: #06111d;
   --color-navy-900: #0a223c;
   --color-navy-800: #12304f;
   --color-navy-700: #1c3f63;
@@ -28,6 +28,44 @@ body {
   color: var(--color-ink);
 }
 
+/* ─── Dark theme: remaps surface/text tokens; [data-theme=system] follows the device ─── */
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --color-canvas: #0b1420;
+  --color-surface: #121d2b;
+  --color-line: #233246;
+  --color-ink: #e6ebf2;
+  --color-muted: #8b98a9;
+}
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] {
+    color-scheme: dark;
+    --color-canvas: #0b1420;
+    --color-surface: #121d2b;
+    --color-line: #233246;
+    --color-ink: #e6ebf2;
+    --color-muted: #8b98a9;
+  }
+}
+/* In dark mode, accent-coloured text and solid buttons need lighter shades to stay readable. */
+html[data-theme="dark"] .text-navy-900 { color: var(--color-gold-300); }
+html[data-theme="dark"] .bg-navy-900:not(aside *) { background-color: var(--color-navy-700); }
+html[data-theme="dark"] .only-light, html[data-theme="light"] .only-dark, html[data-theme="system"] .only-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] .text-navy-900 { color: var(--color-gold-300); }
+  html[data-theme="system"] .bg-navy-900:not(aside *) { background-color: var(--color-navy-700); }
+  html[data-theme="system"] .only-light { display: none; }
+  html[data-theme="system"] .only-dark { display: initial; }
+}
+
+/* Wallpaper sits behind the main content; a canvas-tinted veil keeps cards and text readable. */
+.app-wallpaper {
+  background:
+    linear-gradient(color-mix(in srgb, var(--color-canvas) 72%, transparent), color-mix(in srgb, var(--color-canvas) 72%, transparent)) fixed,
+    var(--wallpaper, none);
+  background-color: var(--color-canvas);
+}
+
 body {
   -webkit-font-smoothing: antialiased;
 }
@@ -35,7 +73,7 @@ body {
 @layer components {
   /* Minimal form controls shared across the app */
   .input {
-    @apply h-9 w-full rounded-md border border-line bg-white px-3 text-sm outline-none transition placeholder:text-muted/70 focus:border-navy-700 focus:ring-2 focus:ring-navy-700/10 disabled:bg-canvas;
+    @apply h-9 w-full rounded-md border border-line bg-surface px-3 text-sm outline-none transition placeholder:text-muted/70 focus:border-navy-700 focus:ring-2 focus:ring-navy-700/10 disabled:bg-canvas;
   }
   select.input {
     @apply pr-8;

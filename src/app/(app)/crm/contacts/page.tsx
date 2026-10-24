@@ -65,7 +65,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
             <Link
               key={t}
               href={t === "companies" ? "/crm/contacts?tab=companies" : "/crm/contacts"}
-              className={cn("rounded-md px-3 py-1.5 text-sm capitalize", tab === t ? "bg-white font-medium shadow-sm" : "text-muted hover:text-ink")}
+              className={cn("rounded-md px-3 py-1.5 text-sm capitalize", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}
             >
               {t}
             </Link>

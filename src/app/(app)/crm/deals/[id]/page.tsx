@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
 import { TIMELINE_INCLUDE, assignableUsers, editableActivityIds, fmtPKR } from "@/lib/crm";
 import { fmtDate } from "@/lib/utils";
+import { unitStatus, unitWhere } from "@/lib/inventory";
+import { DealProperty } from "./deal-property";
 import { SubmitButton } from "@/components/action-form";
 import { Button, Card, Drawer, Field, LinkButton } from "@/components/ui";
 import { InfoList, StageBar, StatusPill } from "@/components/crm/bits";
@@ -21,7 +23,11 @@ export default async function DealPage({ params, searchParams }: { params: Promi
   const scope = (await scopeWhere(user, "crm.deals"))!;
   const deal = await db.deal.findFirst({
     where: { id, ...scope },
-    include: { stage: true, pipeline: { include: { stages: { orderBy: { sortOrder: "asc" } } } }, contact: true, lead: true, owner: true, branch: true, source: true },
+    include: {
+      stage: true, pipeline: { include: { stages: { orderBy: { sortOrder: "asc" } } } }, contact: true, lead: true, owner: true, branch: true, source: true,
+      units: { include: { unit: { include: { project: true, block: true } } } },
+      paymentPlan: { include: { items: true } },
+    },
   });
   if (!deal) notFound();
 
@@ -51,6 +57,15 @@ export default async function DealPage({ params, searchParams }: { params: Promi
         assignableUsers(user, "crm.deals"),
       ])
     : null;
+  const unitScope = canEdit ? await unitWhere(user, "view") : null;
+  const linkable = unitScope
+    ? await db.unit.findMany({
+        where: { AND: [unitScope, { status: { in: ["available", "hold"] }, activeDealId: null, deals: { none: { dealId: id } } }] },
+        include: { project: true, block: true },
+        orderBy: [{ project: { name: "asc" } }, { unitNo: "asc" }],
+        take: 400,
+      })
+    : [];
   const commission = deal.value && deal.commissionPct ? (deal.value * deal.commissionPct) / 100 : null;
   const wa = deal.contact?.phoneKey?.replace(/^0/, "92");
 
@@ -138,7 +153,13 @@ export default async function DealPage({ params, searchParams }: { params: Promi
             />
             {deal.notes && <p className="mt-3 whitespace-pre-line rounded-md bg-canvas p-3 text-sm">{deal.notes}</p>}
           </Card>
-          <p className="px-1 text-xs text-muted">Property units will link here in Phase 2 (Inventory).</p>
+          <DealProperty
+            dealId={id}
+            canEdit={canEdit}
+            units={deal.units.map(({ unit }) => ({ id: unit.id, label: [unit.project?.name, unit.block?.name, unit.unitNo].filter(Boolean).join(" · "), price: unit.price, status: unitStatus(unit.status) }))}
+            linkable={linkable.map((u) => ({ id: u.id, group: u.project?.name ?? "Listings", label: `${[u.block?.name, u.unitNo].filter(Boolean).join(" · ")} — ${u.type}${u.price ? ` · ${fmtPKR(u.price, { prefix: false })}` : ""}` }))}
+            plan={deal.paymentPlan && { total: deal.paymentPlan.total, paid: deal.paymentPlan.items.reduce((s, i) => s + i.paidAmount, 0), overdue: deal.paymentPlan.items.filter((i) => i.paidAmount < i.amount && i.dueDate < new Date(new Date().setHours(0, 0, 0, 0))).length, next: deal.paymentPlan.items.filter((i) => i.paidAmount < i.amount).sort((a, b) => +a.dueDate - +b.dueDate)[0] ?? null }}
+          />
           {canDelete && (
             <form action={deleteDeal}>
               <input type="hidden" name="id" value={id} />

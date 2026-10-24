@@ -144,10 +144,10 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         actions={
           <>
             <div className="flex rounded-lg bg-black/5 p-0.5">
-              <Link href={hrefWith(path, keep, { view: undefined })} className={cn("flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm", view === "day" ? "bg-white font-medium shadow-sm" : "text-muted hover:text-ink")}>
+              <Link href={hrefWith(path, keep, { view: undefined })} className={cn("flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm", view === "day" ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
                 <ListChecks className="size-4" /> My day
               </Link>
-              <Link href={hrefWith(path, keep, { view: "calendar" })} className={cn("flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm", view === "calendar" ? "bg-white font-medium shadow-sm" : "text-muted hover:text-ink")}>
+              <Link href={hrefWith(path, keep, { view: "calendar" })} className={cn("flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm", view === "calendar" ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
                 <CalendarDays className="size-4" /> Calendar
               </Link>
             </div>
@@ -171,7 +171,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <button className="h-9 rounded-md border border-line bg-white px-3 text-sm hover:bg-canvas">Show</button>
+          <button className="h-9 rounded-md border border-line bg-surface px-3 text-sm hover:bg-canvas">Show</button>
         </form>
       )}
 

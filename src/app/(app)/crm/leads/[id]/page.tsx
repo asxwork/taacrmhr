@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
 import { TIMELINE_INCLUDE, assignableUsers, editableActivityIds, fmtPKR, INTERESTS } from "@/lib/crm";
 import { fmtDate } from "@/lib/utils";
+import { matchUnitsForLead, sizeLabel, unitLabel } from "@/lib/inventory";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Button, Card, Drawer, Field, LinkButton } from "@/components/ui";
 import { InfoList, StageBar, StatusPill } from "@/components/crm/bits";
@@ -38,7 +39,10 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
     assignableUsers(user, "crm.activities"),
     db.pipeline.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
-  const editableIds = await editableActivityIds(user, activities.map((a) => a.id));
+  const [editableIds, matches] = await Promise.all([
+    editableActivityIds(user, activities.map((a) => a.id)),
+    lead.convertedAt || lead.status.kind === "junk" ? [] : matchUnitsForLead(user, lead),
+  ]);
   const junk = await db.leadStatus.findFirst({ where: { kind: "junk", active: true } });
   const waNumber = lead.phoneKey?.replace(/^0/, "92");
 
@@ -56,17 +60,17 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {lead.phone && (
-              <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2.5 py-1 text-sm hover:bg-canvas">
+              <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-sm hover:bg-canvas">
                 <Phone className="size-3.5" /> {lead.phone}
               </a>
             )}
             {waNumber && (
-              <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2.5 py-1 text-sm text-emerald-700 hover:bg-emerald-50">
+              <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-sm text-emerald-700 hover:bg-emerald-50">
                 <MessageCircle className="size-3.5" /> WhatsApp
               </a>
             )}
             {lead.email && (
-              <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2.5 py-1 text-sm hover:bg-canvas">
+              <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-sm hover:bg-canvas">
                 <Mail className="size-3.5" /> {lead.email}
               </a>
             )}
@@ -134,6 +138,19 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
             />
             {lead.notes && <p className="mt-3 whitespace-pre-line rounded-md bg-canvas p-3 text-sm">{lead.notes}</p>}
           </Card>
+          {matches.length > 0 && (
+            <Card className="p-5">
+              <h2 className="mb-2 text-sm font-medium">Matching units</h2>
+              <ul className="divide-y divide-line">
+                {matches.map((u) => (
+                  <li key={u.id} className="py-2 text-sm">
+                    <Link href={`/inventory/units/${u.id}`} className="font-medium hover:underline">{unitLabel(u)}</Link>
+                    <p className="text-xs text-muted">{u.type} · {sizeLabel(u.size, u.sizeUnit)} · {fmtPKR(u.price)}</p>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
           {(lead.contact || lead.deals.length > 0) && (
             <Card className="p-5">
               <h2 className="mb-2 text-sm font-medium">Linked</h2>

@@ -8,9 +8,9 @@ const buttonBase =
   "inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-3.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50";
 const buttonVariants: Record<ButtonVariant, string> = {
   primary: "bg-navy-900 text-white hover:bg-navy-800",
-  secondary: "border border-line bg-white text-ink hover:bg-canvas",
+  secondary: "border border-line bg-surface text-ink hover:bg-canvas",
   ghost: "text-muted hover:bg-canvas hover:text-ink",
-  danger: "border border-red-200 bg-white text-red-600 hover:bg-red-50",
+  danger: "border border-red-200 bg-surface text-red-600 hover:bg-red-50",
 };
 
 export function buttonClass(variant: ButtonVariant = "primary", className?: string) {
@@ -96,7 +96,7 @@ export function Drawer({ title, closeHref, children, width = "max-w-lg" }: { tit
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <Link href={closeHref} scroll={false} aria-label="Close" className="absolute inset-0 bg-navy-950/30 backdrop-blur-[1px]" />
-      <aside className={cn("relative flex h-full w-full flex-col bg-white shadow-2xl", width)}>
+      <aside className={cn("relative flex h-full w-full flex-col bg-surface shadow-2xl", width)}>
         <header className="flex items-center justify-between border-b border-line px-6 py-4">
           <h2 className="font-semibold">{title}</h2>
           <Link href={closeHref} scroll={false} className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink" aria-label="Close">

@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.module || can(user, i.module)) })).filter((g) => g.items.length);
 
   return (
-    <div className="min-h-screen">
+    <div className="app-wallpaper min-h-screen">
       <Sidebar groups={groups} user={{ name: user.name, roles: user.roleNames.join(", ") || "No role", branch: user.branchName }} />
       <main className="lg:pl-60">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">{children}</div>

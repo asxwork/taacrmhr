@@ -118,7 +118,7 @@ function Card({ card }: { card: KanbanCard }) {
       {...listeners}
       {...attributes}
       className={cn(
-        "rounded-lg border border-line bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition",
+        "rounded-lg border border-line bg-surface p-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition",
         card.draggable && "cursor-grab active:cursor-grabbing",
         isDragging && "relative z-10 rotate-1 shadow-lg",
       )}
@@ -140,7 +140,7 @@ function ReasonDialog({ onSubmit, onCancel }: { onSubmit: (reason: string) => vo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/30 p-4">
       <form
-        className="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl"
+        className="w-full max-w-sm rounded-xl bg-surface p-5 shadow-2xl"
         onSubmit={(e) => {
           e.preventDefault();
           if (reason.trim()) onSubmit(reason.trim());

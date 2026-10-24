@@ -1,0 +1,199 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, ImagePlus, MapPin, Pencil, Phone, Trash2, X } from "lucide-react";
+import { requireUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { scopeWhere } from "@/lib/permissions";
+import { assignableUsers, fmtPKR } from "@/lib/crm";
+import { LISTING_TYPES, sizeLabel, unitAllows, unitStatus, unitWhere } from "@/lib/inventory";
+import { fileUrl } from "@/lib/files";
+import { fmtDate } from "@/lib/utils";
+import { ActionForm, SubmitButton } from "@/components/action-form";
+import { Button, Card, Drawer, EmptyState, LinkButton } from "@/components/ui";
+import { InfoList, StatusPill } from "@/components/crm/bits";
+import { UnitForm } from "../../forms";
+import { deleteUnit, deleteUnitImage, setUnitStatus, uploadUnitImages } from "../../actions";
+
+export const metadata = { title: "Unit" };
+
+export default async function UnitPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ edit?: string; photo?: string }> }) {
+  const user = await requireUser();
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
+  const visible = await unitWhere(user, "view");
+  const unit = visible
+    ? await db.unit.findFirst({
+        where: { id, ...visible },
+        include: { project: true, block: true, owner: true, branch: true, images: { orderBy: { sortOrder: "asc" } }, deals: { include: { deal: { include: { stage: true, owner: true } } } } },
+      })
+    : null;
+  if (!unit) notFound();
+
+  const path = `/inventory/units/${id}`;
+  const [canEdit, canDelete] = await Promise.all([unitAllows(user, unit, "edit"), unitAllows(user, unit, "delete")]);
+  const st = unitStatus(unit.status);
+  const dealScope = await scopeWhere(user, "crm.deals");
+  const visibleDealIds = dealScope
+    ? new Set((await db.deal.findMany({ where: { id: { in: unit.deals.map((d) => d.dealId) }, ...dealScope }, select: { id: true } })).map((d) => d.id))
+    : new Set<string>();
+  const title = unit.project ? `${unit.project.name} · ${unit.unitNo}` : unit.unitNo;
+  const main = unit.images.find((i) => i.id === sp.photo) ?? unit.images[0];
+
+  const editData = sp.edit && canEdit
+    ? await Promise.all([
+        db.project.findMany({ include: { blocks: { orderBy: { sortOrder: "asc" } } }, orderBy: { name: "asc" } }),
+        assignableUsers(user, "inventory.units"),
+      ])
+    : null;
+
+  return (
+    <>
+      <Link href={unit.projectId ? `/inventory/projects/${unit.projectId}` : "/inventory"} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+        <ArrowLeft className="size-4" /> {unit.project?.name ?? "Inventory"}
+      </Link>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+            <StatusPill name={st.label} colorName={st.color} />
+          </div>
+          <p className="mt-1 text-sm text-muted">
+            {unit.type} · {sizeLabel(unit.size, unit.sizeUnit)}{unit.bedrooms ? ` · ${unit.bedrooms} bed` : ""}{unit.bathrooms ? ` · ${unit.bathrooms} bath` : ""}
+            {unit.block ? ` · ${unit.block.name}` : ""}
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-navy-900">{fmtPKR(unit.price)}{unit.purpose === "rent" && <span className="text-sm font-normal text-muted"> / month</span>}</p>
+        </div>
+        {canEdit && <LinkButton href={`${path}?edit=1`} variant="secondary" scroll={false}><Pencil className="size-4" /> Edit</LinkButton>}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="space-y-4">
+          <Card className="overflow-hidden">
+            {main ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={fileUrl(main.path)} alt={title} className="aspect-[16/10] w-full bg-canvas object-cover" />
+                {unit.images.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto p-2">
+                    {unit.images.map((img) => (
+                      <Link key={img.id} href={`${path}?photo=${img.id}`} scroll={false} className={img.id === main.id ? "ring-2 ring-navy-900 rounded-md" : ""}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={fileUrl(img.path)} alt="" className="size-16 rounded-md object-cover" loading="lazy" />
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <EmptyState title="No photos yet" description={canEdit ? "Add photos below." : undefined} />
+            )}
+          </Card>
+
+          {canEdit && (
+            <Card className="p-4">
+              <ActionForm action={uploadUnitImages} className="flex flex-wrap items-center gap-3">
+                <input type="hidden" name="unitId" value={id} />
+                <ImagePlus className="size-4 text-muted" />
+                <input name="images" type="file" multiple accept="image/jpeg,image/png,image/webp" className="flex-1 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
+                <SubmitButton variant="secondary" pendingText="Uploading…">Upload</SubmitButton>
+              </ActionForm>
+              {unit.images.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {unit.images.map((img) => (
+                    <form key={img.id} action={deleteUnitImage} className="relative">
+                      <input type="hidden" name="id" value={img.id} />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={fileUrl(img.path)} alt="" className="size-14 rounded-md object-cover" loading="lazy" />
+                      <button title="Remove photo" className="absolute -right-1.5 -top-1.5 rounded-full bg-surface p-0.5 text-muted shadow hover:text-red-600"><X className="size-3" /></button>
+                    </form>
+                  ))}
+                </div>
+              )}
+              <p className="mt-2 text-xs text-muted">JPG, PNG or WebP · up to 5 MB each · 12 photos max.</p>
+            </Card>
+          )}
+
+          {unit.notes && <Card className="whitespace-pre-line p-5 text-sm">{unit.notes}</Card>}
+        </div>
+
+        <div className="space-y-4">
+          {canEdit && (
+            <Card className="p-5">
+              <h2 className="mb-2 text-sm font-medium">Status</h2>
+              {unit.activeDealId ? (
+                <p className="text-sm text-muted">Managed by its deal. Change the deal stage to update it.</p>
+              ) : (
+                <form action={setUnitStatus} className="flex flex-wrap gap-2">
+                  <input type="hidden" name="id" value={id} />
+                  {(["available", "hold", "offmarket"] as const).map((s) => (
+                    <button key={s} name="status" value={s} disabled={unit.status === s} className="rounded-md border border-line px-3 py-1.5 text-sm enabled:hover:bg-canvas disabled:bg-navy-900 disabled:text-white">
+                      {unitStatus(s).label}
+                    </button>
+                  ))}
+                </form>
+              )}
+            </Card>
+          )}
+          <Card className="p-5">
+            <InfoList
+              rows={[
+                ["Listing", LISTING_TYPES.find((l) => l.value === unit.listingType)?.label],
+                ["Purpose", unit.purpose === "rent" ? "For rent" : "For sale"],
+                ["Floor", unit.floor],
+                ["Facing", unit.facing],
+                ["Features", [unit.corner && "Corner", unit.parkFacing && "Park facing", unit.mainRoad && "Main road"].filter(Boolean).join(", ")],
+                ["Price / unit", unit.price && unit.size ? `${fmtPKR(unit.price / unit.size)} per ${unit.sizeUnit}` : null],
+                ["Listing agent", unit.owner?.name],
+                ["Branch", unit.branch?.name],
+                ["Added", fmtDate(unit.createdAt)],
+              ]}
+            />
+          </Card>
+          {(unit.address || unit.lat) && (
+            <Card className="p-5 text-sm">
+              <p className="flex items-start gap-2"><MapPin className="mt-0.5 size-4 shrink-0 text-muted" /> {unit.address ?? `${unit.lat}, ${unit.lng}`}</p>
+              {unit.lat && unit.lng && (
+                <a href={`https://www.google.com/maps?q=${unit.lat},${unit.lng}`} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-navy-900 underline">Open in Google Maps</a>
+              )}
+            </Card>
+          )}
+          {unit.propertyOwner && (
+            <Card className="p-5 text-sm">
+              <p className="text-xs text-muted">Property owner</p>
+              <p className="font-medium">{unit.propertyOwner}</p>
+              {unit.propertyOwnerPhone && (
+                <a href={`tel:${unit.propertyOwnerPhone}`} className="mt-1 inline-flex items-center gap-1.5 text-muted hover:text-ink"><Phone className="size-3.5" /> {unit.propertyOwnerPhone}</a>
+              )}
+            </Card>
+          )}
+          <Card className="p-5">
+            <h2 className="mb-2 text-sm font-medium">Deals ({unit.deals.length})</h2>
+            {unit.deals.length === 0 ? (
+              <p className="text-sm text-muted">Not linked to any deal.</p>
+            ) : (
+              <ul className="space-y-2.5 text-sm">
+                {unit.deals.map(({ deal }) => (
+                  <li key={deal.id} className="flex items-center justify-between gap-2">
+                    {visibleDealIds.has(deal.id) ? <Link href={`/crm/deals/${deal.id}`} className="truncate font-medium hover:underline">{deal.title}</Link> : <span className="truncate text-muted">{deal.owner?.name ?? "Another agent"}’s deal</span>}
+                    <StatusPill name={deal.stage.name} colorName={deal.stage.color} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+          {canDelete && unit.deals.length === 0 && (
+            <form action={deleteUnit}>
+              <input type="hidden" name="id" value={id} />
+              <Button variant="ghost" className="text-muted hover:text-red-600"><Trash2 className="size-4" /> Delete unit</Button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      {editData && (
+        <Drawer title="Edit unit" closeHref={path}>
+          <UnitForm unit={unit} projects={editData[0]} owners={editData[1]} currentUserId={user.id} cancelHref={path} allowedTypes={[]} />
+        </Drawer>
+      )}
+    </>
+  );
+}

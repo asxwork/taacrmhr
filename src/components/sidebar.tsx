@@ -55,7 +55,7 @@ export function Sidebar({ groups, user }: { groups: NavGroup[]; user: { name: st
   );
 
   const panel = (
-    <div className="flex h-full w-60 flex-col bg-navy-900">
+    <div className="flex h-full w-60 flex-col bg-navy-950">
       <div className="flex h-16 items-center px-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-11 w-auto" />
@@ -85,7 +85,7 @@ export function Sidebar({ groups, user }: { groups: NavGroup[]; user: { name: st
       <aside className="fixed inset-y-0 left-0 z-30 hidden lg:block">{panel}</aside>
 
       {/* Mobile top bar */}
-      <div className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-navy-900 px-4 lg:hidden">
+      <div className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-navy-950 px-4 lg:hidden">
         <button onClick={() => setOpen(true)} className="text-white/80" aria-label="Open menu">
           <Menu className="size-5" />
         </button>

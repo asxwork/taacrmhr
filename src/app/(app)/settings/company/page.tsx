@@ -2,7 +2,9 @@ import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field, PageHeader } from "@/components/ui";
-import { saveBranch, saveCompany } from "./actions";
+import { saveBranch, saveCompany, saveCompanyAppearance } from "./actions";
+import { AppearanceForm } from "@/components/appearance-form";
+import { getCompanyAppearance } from "@/lib/appearance-server";
 
 export const metadata = { title: "Company & Branches" };
 
@@ -57,6 +59,11 @@ export default async function CompanyPage() {
           </Card>
         </Section>
 
+        <Section title="Default appearance" hint="Applies to everyone who hasn’t picked their own theme, colour or wallpaper in My Profile.">
+          <Card className="p-5">
+            <AppearanceForm action={saveCompanyAppearance} values={await getCompanyAppearance()} />
+          </Card>
+        </Section>
       </fieldset>
     </>
   );

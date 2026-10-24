@@ -60,6 +60,7 @@ async function main() {
   await upsertUser("staff@advisor.local", { name: "Usman Tariq", title: "Office Assistant", branchId: bhd.id, role: "Employee" });
 
   await seedCrm([agent1, agent2, manager]);
+  await seedInventory([agent1, agent2]);
   console.log("Seed complete.");
 }
 
@@ -156,3 +157,76 @@ main()
     process.exit(1);
   })
   .finally(() => db.$disconnect());
+
+async function seedInventory(agents: { id: string; branchId: string | null }[]) {
+  // Which unit status each deal stage applies (only fills blanks, so admin edits survive re-seeding).
+  const mapping: [string, string, string][] = [
+    ["Sales", "Token / Booking", "booked"], ["Sales", "Agreement", "booked"], ["Sales", "Payment Plan", "booked"], ["Sales", "Won", "sold"],
+    ["Rentals", "Negotiation", "hold"], ["Rentals", "Won", "rented"],
+  ];
+  for (const [pipeline, stage, unitStatus] of mapping) {
+    await db.stage.updateMany({ where: { name: stage, pipeline: { name: pipeline }, unitStatus: null }, data: { unitStatus } });
+  }
+
+  if ((await db.project.count()) > 0) return;
+  const statuses = ["available", "available", "available", "booked", "available", "sold", "hold", "available"];
+
+  const heights = await db.project.create({
+    data: {
+      name: "Advisor Heights", code: "AH", developer: "Advisor Developers", location: "DHA Phase 8", kind: "residential", status: "active",
+      description: "Luxury apartments with sea-facing towers.", planDownPct: 25, planInstallments: 36, planFrequency: "monthly", planPossessionPct: 10,
+      blocks: { create: [{ name: "Tower A", sortOrder: 0 }, { name: "Tower B", sortOrder: 1 }] },
+    },
+    include: { blocks: true },
+  });
+  let i = 0;
+  for (const block of heights.blocks) {
+    const floors = block.name === "Tower A" ? 5 : 3;
+    for (let floor = 1; floor <= floors; floor++) {
+      for (let n = 1; n <= 4; n++) {
+        const beds = n <= 2 ? 2 : 3;
+        const size = beds === 2 ? 1350 : 1900;
+        await db.unit.create({
+          data: {
+            projectId: heights.id, blockId: block.id, unitNo: `${block.name.slice(-1)}-${floor}0${n}`, type: "Apartment",
+            size, sizeUnit: "sqft", bedrooms: beds, bathrooms: beds, floor: String(floor), facing: n % 2 ? "Sea" : "Park",
+            corner: n === 1 || n === 4, price: size * (24000 + floor * 500), status: statuses[i++ % statuses.length]!,
+          },
+        });
+      }
+    }
+  }
+
+  const palm = await db.project.create({
+    data: {
+      name: "Palm Residency", code: "PR", developer: "Palm Builders", location: "Scheme 33", kind: "residential", status: "active",
+      planDownPct: 20, planInstallments: 12, planFrequency: "quarterly", planPossessionPct: 0,
+      blocks: { create: [{ name: "Block P1", sortOrder: 0 }, { name: "Block P2", sortOrder: 1 }] },
+    },
+    include: { blocks: true },
+  });
+  for (const block of palm.blocks) {
+    for (let n = 1; n <= 16; n++) {
+      const marla = n % 3 === 0 ? 10 : 5;
+      await db.unit.create({
+        data: {
+          projectId: palm.id, blockId: block.id, unitNo: `${block.name.slice(-2)}-${n}`, type: "Plot", size: marla, sizeUnit: "marla",
+          corner: n % 8 === 1, parkFacing: n % 5 === 0, mainRoad: n <= 2, price: marla * 1_150_000 + (n % 8 === 1 ? 800_000 : 0),
+          status: statuses[(i++ + n) % statuses.length]!,
+        },
+      });
+    }
+  }
+
+  // Agent listings (resale / rental)
+  const listings = [
+    { unitNo: "House 42", type: "House", purpose: "sale", listingType: "resale", size: 500, sizeUnit: "sqyd", bedrooms: 5, price: 135_000_000, address: "Khayaban-e-Shamsheer, DHA Phase 5", propertyOwner: "Mr. Kamran Ahmed" },
+    { unitNo: "Flat 3B", type: "Apartment", purpose: "rent", listingType: "rental", size: 1800, sizeUnit: "sqft", bedrooms: 3, price: 250_000, address: "Clifton Block 2", propertyOwner: "Mrs. Rubina Saleem" },
+    { unitNo: "Shop 7", type: "Shop", purpose: "sale", listingType: "resale", size: 400, sizeUnit: "sqft", price: 38_000_000, address: "Bahadurabad Chowrangi", propertyOwner: "Mr. Asif Lakhani" },
+    { unitNo: "Villa 11", type: "House", purpose: "rent", listingType: "rental", size: 1000, sizeUnit: "sqyd", bedrooms: 6, price: 900_000, address: "DHA Phase 6", propertyOwner: "Mr. Naveed Iqbal" },
+  ];
+  for (const [n, l] of listings.entries()) {
+    const agent = agents[n % agents.length]!;
+    await db.unit.create({ data: { ...l, status: "available", ownerId: agent.id, branchId: agent.branchId } });
+  }
+}

@@ -65,17 +65,17 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
             <h1 className="text-xl font-semibold tracking-tight">{contact.name}</h1>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {contact.phone && (
-                <a href={`tel:${contact.phone}`} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2.5 py-1 text-sm hover:bg-canvas">
+                <a href={`tel:${contact.phone}`} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-sm hover:bg-canvas">
                   <Phone className="size-3.5" /> {contact.phone}
                 </a>
               )}
               {wa && (
-                <a href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2.5 py-1 text-sm text-emerald-700 hover:bg-emerald-50">
+                <a href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-sm text-emerald-700 hover:bg-emerald-50">
                   <MessageCircle className="size-3.5" /> WhatsApp
                 </a>
               )}
               {contact.email && (
-                <a href={`mailto:${contact.email}`} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-2.5 py-1 text-sm hover:bg-canvas">
+                <a href={`mailto:${contact.email}`} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-sm hover:bg-canvas">
                   <Mail className="size-3.5" /> {contact.email}
                 </a>
               )}

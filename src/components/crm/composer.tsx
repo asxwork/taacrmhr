@@ -26,7 +26,7 @@ export function Composer({
   const schedulable = type === "task" || type === "meeting" || type === "visit";
 
   return (
-    <div className="rounded-xl border border-line bg-white">
+    <div className="rounded-xl border border-line bg-surface">
       <div className="flex gap-1 border-b border-line px-2 pt-2">
         {tabs.map((t) => (
           <button

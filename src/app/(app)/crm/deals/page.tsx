@@ -90,7 +90,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
               <Link
                 key={p.id}
                 href={hrefWith("/crm/deals", { view: sp.view }, { pipeline: p.id })}
-                className={cn("rounded-md px-3 py-1.5 text-sm", p.id === pipeline.id ? "bg-white font-medium shadow-sm" : "text-muted hover:text-ink")}
+                className={cn("rounded-md px-3 py-1.5 text-sm", p.id === pipeline.id ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}
               >
                 {p.name}
               </Link>
@@ -126,7 +126,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
             ))}
           </select>
         )}
-        <button className="h-9 rounded-md border border-line bg-white px-3 text-sm hover:bg-canvas">Apply</button>
+        <button className="h-9 rounded-md border border-line bg-surface px-3 text-sm hover:bg-canvas">Apply</button>
       </form>
 
       {view === "board" ? (

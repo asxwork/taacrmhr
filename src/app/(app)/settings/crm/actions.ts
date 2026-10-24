@@ -87,7 +87,8 @@ export async function saveStage(_: FormState, fd: FormData): Promise<FormState> 
   const name = str(fd, "name");
   if (!name) return { error: "Stage name is required." };
   const probability = Math.min(100, Math.max(0, Number(str(fd, "probability")) || 0));
-  const data = { name, color: colorOf(fd), probability, sortOrder: orderOf(fd) };
+  const unitStatus = ["hold", "booked", "sold", "rented"].includes(str(fd, "unitStatus")) ? str(fd, "unitStatus") : null;
+  const data = { name, color: colorOf(fd), probability, sortOrder: orderOf(fd), unitStatus };
 
   if (id) await db.stage.update({ where: { id }, data });
   else await db.stage.create({ data: { ...data, pipelineId, kind: "open" } });

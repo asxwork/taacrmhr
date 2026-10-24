@@ -70,7 +70,7 @@ function Row({ item, path, editable }: { item: TimelineItem; path: string; edita
   }
 
   return (
-    <li className={cn("relative flex gap-3", planned && "rounded-lg border p-3", planned && (overdue ? "border-red-200 bg-red-50/40" : "border-line bg-white"))}>
+    <li className={cn("relative flex gap-3", planned && "rounded-lg border p-3", planned && (overdue ? "border-red-200 bg-red-50/40" : "border-line bg-surface"))}>
       <span className={cn("z-10 flex size-8 shrink-0 items-center justify-center rounded-full", planned ? "bg-gold-100 text-gold-700" : "bg-navy-900/5 text-navy-900")}>
         <Icon className="size-4" />
       </span>

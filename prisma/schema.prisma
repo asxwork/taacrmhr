@@ -13,49 +13,55 @@ datasource db {
 // ─── Organization ────────────────────────────────────────────
 
 model Branch {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  code      String   @unique
+  id        String    @id @default(cuid())
+  name      String    @unique
+  code      String    @unique
   address   String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
   users     User[]
   leads     Lead[]
   deals     Deal[]
   contacts  Contact[]
   companies Company[]
+  units     Unit[]
 }
 
 // ─── Users, roles & permissions ──────────────────────────────
 
 model User {
-  id           String         @id @default(cuid())
-  name         String
-  email        String         @unique
-  phone        String?
-  title        String?
-  passwordHash String
-  active       Boolean        @default(true)
-  isSuperAdmin Boolean        @default(false)
-  branchId     String?
-  branch       Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  managerId    String?
-  manager      User?          @relation("Reports", fields: [managerId], references: [id], onDelete: SetNull)
-  reports      User[]         @relation("Reports")
-  roles        UserRole[]
-  sessions     Session[]
-  auditLogs    AuditLog[]
-  notifications Notification[]
-  ownedLeads     Lead[]     @relation("LeadOwner")
-  createdLeads   Lead[]     @relation("LeadCreator")
-  ownedDeals     Deal[]     @relation("DealOwner")
-  ownedContacts  Contact[]  @relation("ContactOwner")
-  ownedCompanies Company[]  @relation("CompanyOwner")
-  activities     Activity[] @relation("ActivityOwner")
-  createdActivities Activity[] @relation("ActivityCreator")
-  lastLoginAt  DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id                String         @id @default(cuid())
+  name              String
+  email             String         @unique
+  phone             String?
+  title             String?
+  passwordHash      String
+  active            Boolean        @default(true)
+  isSuperAdmin      Boolean        @default(false)
+  branchId          String?
+  branch            Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  managerId         String?
+  manager           User?          @relation("Reports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports           User[]         @relation("Reports")
+  roles             UserRole[]
+  sessions          Session[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  ownedLeads        Lead[]         @relation("LeadOwner")
+  createdLeads      Lead[]         @relation("LeadCreator")
+  ownedDeals        Deal[]         @relation("DealOwner")
+  ownedContacts     Contact[]      @relation("ContactOwner")
+  ownedCompanies    Company[]      @relation("CompanyOwner")
+  activities        Activity[]     @relation("ActivityOwner")
+  createdActivities Activity[]     @relation("ActivityCreator")
+  listings          Unit[]         @relation("UnitOwner")
+  /// Appearance: null = use company default
+  theme             String?
+  accent            String?
+  wallpaper         String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@index([branchId])
   @@index([managerId])
@@ -181,6 +187,8 @@ model Stage {
   kind        String   @default("open")
   probability Int      @default(0)
   sortOrder   Int      @default(0)
+  /// Unit status applied to linked units when a deal enters this stage (null = release hold)
+  unitStatus  String?
   deals       Deal[]
 
   @@index([pipelineId])
@@ -230,21 +238,21 @@ model Lead {
 }
 
 model Company {
-  id        String    @id @default(cuid())
-  name      String
-  phone     String?
-  email     String?
-  industry  String?
-  address   String?
-  notes     String? // @text
-  ownerId   String?
-  owner     User?     @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  branchId  String?
-  branch    Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  contacts  Contact[]
-  deals     Deal[]
+  id         String     @id @default(cuid())
+  name       String
+  phone      String?
+  email      String?
+  industry   String?
+  address    String?
+  notes      String? // @text
+  ownerId    String?
+  owner      User?      @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  branchId   String?
+  branch     Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  contacts   Contact[]
+  deals      Deal[]
   activities Activity[]
 
   @@index([ownerId])
@@ -279,34 +287,36 @@ model Contact {
 }
 
 model Deal {
-  id             String      @id @default(cuid())
+  id             String       @id @default(cuid())
   title          String
   pipelineId     String
-  pipeline       Pipeline    @relation(fields: [pipelineId], references: [id])
+  pipeline       Pipeline     @relation(fields: [pipelineId], references: [id])
   stageId        String
-  stage          Stage       @relation(fields: [stageId], references: [id])
+  stage          Stage        @relation(fields: [stageId], references: [id])
   contactId      String?
-  contact        Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
   companyId      String?
-  company        Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  company        Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
   leadId         String?
-  lead           Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
   sourceId       String?
-  source         LeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  source         LeadSource?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   value          Float?
   commissionPct  Float?
   expectedClose  DateTime?
   lostReason     String?
   notes          String? // @text
   ownerId        String?
-  owner          User?       @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  owner          User?        @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   branchId       String?
-  branch         Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  stageChangedAt DateTime    @default(now())
+  branch         Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  stageChangedAt DateTime     @default(now())
   closedAt       DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   activities     Activity[]
+  units          DealUnit[]
+  paymentPlan    PaymentPlan?
 
   @@index([ownerId])
   @@index([branchId])
@@ -341,4 +351,133 @@ model Activity {
   @@index([dealId])
   @@index([contactId])
   @@index([ownerId, dueAt])
+}
+
+// ─── Inventory ───────────────────────────────────────────────
+
+model Project {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  code              String?
+  developer         String?
+  location          String?
+  city              String   @default("Karachi")
+  kind              String   @default("residential") // residential | commercial | mixed
+  status            String   @default("active") // upcoming | active | completed
+  description       String? // @text
+  /// Default payment plan offered for this project
+  planDownPct       Float?
+  planInstallments  Int?
+  planFrequency     String? // monthly | quarterly | biannual
+  planPossessionPct Float?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  blocks            Block[]
+  units             Unit[]
+}
+
+model Block {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int     @default(0)
+  units     Unit[]
+
+  @@unique([projectId, name])
+}
+
+/// listingType: project (company stock) | resale | rental (agent listings)
+/// status: available | hold | booked | sold | rented | offmarket
+model Unit {
+  id                 String      @id @default(cuid())
+  listingType        String      @default("project")
+  purpose            String      @default("sale") // sale | rent
+  projectId          String?
+  project            Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  blockId            String?
+  block              Block?      @relation(fields: [blockId], references: [id], onDelete: SetNull)
+  unitNo             String
+  type               String
+  size               Float?
+  sizeUnit           String      @default("sqft") // marla | kanal | sqft | sqyd
+  bedrooms           Int?
+  bathrooms          Int?
+  floor              String?
+  facing             String?
+  corner             Boolean     @default(false)
+  parkFacing         Boolean     @default(false)
+  mainRoad           Boolean     @default(false)
+  price              Float?
+  status             String      @default("available")
+  address            String?
+  lat                Float?
+  lng                Float?
+  propertyOwner      String?
+  propertyOwnerPhone String?
+  notes              String? // @text
+  ownerId            String?
+  owner              User?       @relation("UnitOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  branchId           String?
+  branch             Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  /// The deal currently holding this unit (booked/sold through it)
+  activeDealId       String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  images             UnitImage[]
+  deals              DealUnit[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([ownerId])
+}
+
+model UnitImage {
+  id        String   @id @default(cuid())
+  unitId    String
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  path      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model DealUnit {
+  dealId    String
+  unitId    String
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([dealId, unitId])
+}
+
+model PaymentPlan {
+  id            String        @id @default(cuid())
+  dealId        String        @unique
+  deal          Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  total         Float
+  downPct       Float
+  installments  Int
+  frequency     String // monthly | quarterly | biannual
+  possessionPct Float         @default(0)
+  startDate     DateTime
+  createdAt     DateTime      @default(now())
+  items         Installment[]
+}
+
+model Installment {
+  id         String      @id @default(cuid())
+  planId     String
+  plan       PaymentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  seq        Int
+  label      String
+  dueDate    DateTime
+  amount     Float
+  paidAmount Float       @default(0)
+  paidAt     DateTime?
+  method     String?
+  reference  String?
+
+  @@index([planId])
+  @@index([dueDate])
 }

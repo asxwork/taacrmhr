@@ -63,3 +63,9 @@ export async function editableActivityIds(user: SessionUser, ids: string[]) {
   const rows = await db.activity.findMany({ where: { id: { in: ids }, ...scope }, select: { id: true } });
   return new Set(rows.map((r) => r.id));
 }
+
+/** A deal the user may edit (crm.deals edit scope), or null. */
+export async function editableDealFor(user: SessionUser, id: string) {
+  const scope = await scopeWhere(user, "crm.deals", "edit");
+  return scope ? db.deal.findFirst({ where: { id, ...scope }, include: { stage: true } }) : null;
+}

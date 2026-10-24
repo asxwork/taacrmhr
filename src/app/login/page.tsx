@@ -10,10 +10,12 @@ export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/dashboard");
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-4">
+    <main className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-sm">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/logo-blue.svg" alt="The Advisor Associates" className="mx-auto mb-10 h-20 w-auto" />
+        <img src="/brand/logo-blue.svg" alt="The Advisor Associates" className="only-light mx-auto mb-10 h-20 w-auto" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/logo-gold.svg" alt="" className="only-dark mx-auto mb-10 h-20 w-auto" />
         <ActionForm action={login} className="space-y-4">
           <Field label="Email">
             <input name="email" type="email" autoComplete="email" required autoFocus className="input" />

@@ -111,7 +111,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         <label className="flex items-center gap-1.5 px-1 text-sm text-muted">
           <input type="checkbox" name="closed" value="1" defaultChecked={!!sp.closed} className="accent-navy-900" /> Include converted &amp; junk
         </label>
-        <button className="h-9 rounded-md border border-line bg-white px-3 text-sm hover:bg-canvas">Apply</button>
+        <button className="h-9 rounded-md border border-line bg-surface px-3 text-sm hover:bg-canvas">Apply</button>
       </form>
 
       {view === "board" ? (

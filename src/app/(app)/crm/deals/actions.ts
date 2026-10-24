@@ -5,19 +5,15 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requirePermission, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
-import { logSystem, ownerBranch, parseAmount, phoneKey, resolveOwner } from "@/lib/crm";
+import { editableDealFor, logSystem, ownerBranch, parseAmount, phoneKey, resolveOwner } from "@/lib/crm";
 import { str, type FormState } from "@/lib/utils";
+import { releaseUnit, syncDealUnits } from "@/lib/inventory";
 import type { SessionUser } from "@/lib/auth";
-
-async function editableDeal(user: SessionUser, id: string) {
-  const scope = await scopeWhere(user, "crm.deals", "edit");
-  return scope ? db.deal.findFirst({ where: { id, ...scope }, include: { stage: true } }) : null;
-}
 
 export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
   const id = str(fd, "id");
   const user = await requirePermission("crm.deals", id ? "edit" : "create");
-  const existing = id ? await editableDeal(user, id) : null;
+  const existing = id ? await editableDealFor(user, id) : null;
   if (id && !existing) return { error: "Deal not found or you can't edit it." };
 
   const title = str(fd, "title");
@@ -75,7 +71,7 @@ export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
 }
 
 async function applyStage(user: SessionUser, id: string, stageId: string, reason?: string) {
-  const deal = await editableDeal(user, id);
+  const deal = await editableDealFor(user, id);
   if (!deal) return { error: "You can't change this deal." };
   const stage = await db.stage.findUnique({ where: { id: stageId } });
   if (!stage || stage.pipelineId !== deal.pipelineId) return { error: "Unknown stage." };
@@ -91,6 +87,7 @@ async function applyStage(user: SessionUser, id: string, stageId: string, reason
       lostReason: stage.kind === "lost" ? reason : null,
     },
   });
+  await syncDealUnits(id);
   await logSystem({ dealId: id }, `Stage: ${deal.stage.name} → ${stage.name}${reason ? ` (${reason})` : ""}`, user.id);
   if (stage.kind !== "open") await audit(user.id, "update", "deal", id, `Deal ${deal.title} marked ${stage.kind}`);
   return {};
@@ -117,8 +114,9 @@ export async function deleteDeal(fd: FormData) {
   const user = await requirePermission("crm.deals", "delete");
   const scope = await scopeWhere(user, "crm.deals", "delete");
   const id = str(fd, "id");
-  const deal = scope ? await db.deal.findFirst({ where: { id, ...scope } }) : null;
+  const deal = scope ? await db.deal.findFirst({ where: { id, ...scope }, include: { units: true } }) : null;
   if (deal) {
+    for (const du of deal.units) await releaseUnit(du.unitId, id);
     await db.deal.delete({ where: { id } });
     await audit(user.id, "delete", "deal", id, `Deleted deal ${deal.title}`);
   }

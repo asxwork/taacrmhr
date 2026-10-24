@@ -3,13 +3,18 @@ import { db } from "@/lib/db";
 import { fmtDate } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Avatar, Badge, Card, Field, PageHeader } from "@/components/ui";
-import { changePassword } from "./actions";
+import { changePassword, saveMyAppearance } from "./actions";
+import { AppearanceForm } from "@/components/appearance-form";
+import { getCompanyAppearance } from "@/lib/appearance-server";
 
 export const metadata = { title: "My Profile" };
 
 export default async function MePage() {
   const session = await requireUser();
-  const user = await db.user.findUniqueOrThrow({ where: { id: session.id }, include: { branch: true, manager: true } });
+  const [user, company] = await Promise.all([
+    db.user.findUniqueOrThrow({ where: { id: session.id }, include: { branch: true, manager: true } }),
+    getCompanyAppearance(),
+  ]);
 
   const rows: [string, React.ReactNode][] = [
     ["Email", user.email],
@@ -63,6 +68,12 @@ export default async function MePage() {
           </ActionForm>
         </Card>
       </div>
+
+      <Card className="mt-6 p-6">
+        <h2 className="mb-1 font-medium">Appearance</h2>
+        <p className="mb-5 text-sm text-muted">Personalise how the app looks for you. Only you see these choices.</p>
+        <AppearanceForm action={saveMyAppearance} values={{ theme: user.theme, accent: user.accent, wallpaper: user.wallpaper }} inherit={company} />
+      </Card>
     </>
   );
 }

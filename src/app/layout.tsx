@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
+import { getAppearance } from "@/lib/appearance-server";
+import { appearanceStyle } from "@/lib/appearance";
+import { fileUrl } from "@/lib/files";
 
 export const metadata: Metadata = {
   title: { default: "The Advisor Associates", template: "%s · The Advisor Associates" },
   description: "CRM & HR platform",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const appearance = await getAppearance();
   return (
-    <html lang="en">
+    <html lang="en" data-theme={appearance.theme} style={appearanceStyle(appearance, fileUrl) as React.CSSProperties}>
       <body className="font-sans">{children}</body>
     </html>
   );
