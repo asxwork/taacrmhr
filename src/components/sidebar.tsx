@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   BarChart3, Briefcase, Building2, CalendarDays, Clock, Contact, Handshake, History, House, Laptop, LogOut, Menu, Plane,
-  Receipt, Settings, Shield, Target, TrendingUp, User, Users, Wallet, X,
+  Receipt, Settings, Shield, SlidersHorizontal, Target, TrendingUp, User, Users, Wallet, X,
 } from "lucide-react";
 import type { NavGroup } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import { logout } from "@/app/login/actions";
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   home: House, target: Target, handshake: Handshake, contact: Contact, calendar: CalendarDays, building: Building2,
   chart: BarChart3, users: Users, clock: Clock, plane: Plane, wallet: Wallet, briefcase: Briefcase, trending: TrendingUp,
-  receipt: Receipt, laptop: Laptop, user: User, shield: Shield, settings: Settings, history: History,
+  receipt: Receipt, laptop: Laptop, user: User, shield: Shield, settings: Settings, sliders: SlidersHorizontal, history: History,
 };
 
 export function Sidebar({ groups, user }: { groups: NavGroup[]; user: { name: string; roles: string; branch: string | null } }) {

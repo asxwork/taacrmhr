@@ -2,22 +2,21 @@ import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field, PageHeader } from "@/components/ui";
-import { saveBranch, saveCompany, saveLeadSource } from "./actions";
+import { saveBranch, saveCompany } from "./actions";
 
-export const metadata = { title: "Company & Lists" };
+export const metadata = { title: "Company & Branches" };
 
 export default async function CompanyPage() {
   const actor = await requirePermission("settings.company");
   const editable = can(actor, "settings.company", "edit");
-  const [companyName, branches, sources] = await Promise.all([
+  const [companyName, branches] = await Promise.all([
     db.setting.findUnique({ where: { key: "company.name" } }),
     db.branch.findMany({ include: { _count: { select: { users: true } } }, orderBy: { name: "asc" } }),
-    db.leadSource.findMany({ orderBy: { sortOrder: "asc" } }),
-  ]);
+]);
 
   return (
     <>
-      <PageHeader title="Company & Lists" description="Company details, branches and the dropdown lists used across the app." />
+      <PageHeader title="Company & Branches" description="Company details and branches. CRM lists live in CRM Settings." />
 
       <fieldset disabled={!editable} className="space-y-8">
         <Section title="Company">
@@ -58,24 +57,6 @@ export default async function CompanyPage() {
           </Card>
         </Section>
 
-        <Section title="Lead sources" hint="Shown when creating a lead. Turn off a source to hide it without losing history.">
-          <Card className="divide-y divide-line">
-            {sources.map((s) => (
-              <ActionForm key={s.id} action={saveLeadSource} className="flex items-center gap-2 p-3">
-                <input type="hidden" name="id" value={s.id} />
-                <input name="name" defaultValue={s.name} required className="input max-w-xs" aria-label="Source name" />
-                <label className="flex flex-1 items-center gap-1.5 px-2 text-sm text-muted">
-                  <input type="checkbox" name="active" defaultChecked={s.active} className="accent-navy-900" /> Active
-                </label>
-                <SubmitButton variant="secondary">Save</SubmitButton>
-              </ActionForm>
-            ))}
-            <ActionForm action={saveLeadSource} className="flex items-center gap-2 bg-canvas/50 p-3">
-              <input name="name" required placeholder="New source, e.g. TikTok" className="input max-w-xs" />
-              <SubmitButton>Add source</SubmitButton>
-            </ActionForm>
-          </Card>
-        </Section>
       </fieldset>
     </>
   );

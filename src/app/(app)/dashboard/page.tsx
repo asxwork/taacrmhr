@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { can, scopeFor } from "@/lib/permissions";
+import { CrmOverview } from "./crm-overview";
 import { NAV } from "@/lib/nav";
 import { MODULE_MAP, SCOPE_LABELS } from "@/lib/rbac";
 import { db } from "@/lib/db";
@@ -42,6 +43,8 @@ export default async function DashboardPage() {
           ))}
         </div>
       )}
+
+      {can(user, "crm.leads") && <CrmOverview user={user} />}
 
       <h2 className="mb-3 text-sm font-medium text-muted">Your workspace</h2>
       {modules.length === 0 ? (

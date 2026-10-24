@@ -40,8 +40,14 @@ export function ActionForm({
   return (
     <form action={formAction} className={className}>
       {state?.error && <p className="mb-4 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
-      {state?.ok && successMessage && (
-        <p className="mb-4 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p>
+      {state?.confirm && (
+        <label className="mb-4 flex gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+          <input type="checkbox" name="confirm" className="mt-0.5 accent-amber-600" />
+          <span>{state.confirm}</span>
+        </label>
+      )}
+      {state?.ok && (state.message ?? successMessage) && (
+        <p className="mb-4 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{state.message ?? successMessage}</p>
       )}
       {children}
     </form>

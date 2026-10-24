@@ -20,6 +20,10 @@ model Branch {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   users     User[]
+  leads     Lead[]
+  deals     Deal[]
+  contacts  Contact[]
+  companies Company[]
 }
 
 // ─── Users, roles & permissions ──────────────────────────────
@@ -42,6 +46,13 @@ model User {
   sessions     Session[]
   auditLogs    AuditLog[]
   notifications Notification[]
+  ownedLeads     Lead[]     @relation("LeadOwner")
+  createdLeads   Lead[]     @relation("LeadCreator")
+  ownedDeals     Deal[]     @relation("DealOwner")
+  ownedContacts  Contact[]  @relation("ContactOwner")
+  ownedCompanies Company[]  @relation("CompanyOwner")
+  activities     Activity[] @relation("ActivityOwner")
+  createdActivities Activity[] @relation("ActivityCreator")
   lastLoginAt  DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -130,9 +141,204 @@ model Setting {
 // ─── CRM config ──────────────────────────────────────────────
 
 model LeadSource {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  active    Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
+  id        String    @id @default(cuid())
+  name      String    @unique
+  active    Boolean   @default(true)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  leads     Lead[]
+  deals     Deal[]
+  contacts  Contact[]
+}
+
+/// kind: open | converted | junk
+model LeadStatus {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  color     String  @default("slate")
+  kind      String  @default("open")
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+  leads     Lead[]
+}
+
+model Pipeline {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  sortOrder Int     @default(0)
+  isDefault Boolean @default(false)
+  stages    Stage[]
+  deals     Deal[]
+}
+
+/// kind: open | won | lost
+model Stage {
+  id          String   @id @default(cuid())
+  pipelineId  String
+  pipeline    Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name        String
+  color       String   @default("slate")
+  kind        String   @default("open")
+  probability Int      @default(0)
+  sortOrder   Int      @default(0)
+  deals       Deal[]
+
+  @@index([pipelineId])
+}
+
+// ─── CRM records ─────────────────────────────────────────────
+// Every scoped record has ownerId + branchId so own/team/branch permissions apply.
+
+model Lead {
+  id             String      @id @default(cuid())
+  name           String
+  phone          String?
+  phoneKey       String?
+  phone2         String?
+  email          String?
+  sourceId       String?
+  source         LeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  campaign       String?
+  interest       String? // buy | rent | invest | sell
+  propertyType   String?
+  location       String?
+  budgetMin      Float?
+  budgetMax      Float?
+  notes          String? // @text
+  statusId       String
+  status         LeadStatus  @relation(fields: [statusId], references: [id])
+  ownerId        String?
+  owner          User?       @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById    String?
+  createdBy      User?       @relation("LeadCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  branchId       String?
+  branch         Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  contactId      String?
+  contact        Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  convertedAt    DateTime?
+  lastActivityAt DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deals          Deal[]
+  activities     Activity[]
+
+  @@index([ownerId])
+  @@index([branchId])
+  @@index([statusId])
+  @@index([phoneKey])
+  @@index([createdAt])
+}
+
+model Company {
+  id        String    @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  industry  String?
+  address   String?
+  notes     String? // @text
+  ownerId   String?
+  owner     User?     @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  branchId  String?
+  branch    Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  contacts  Contact[]
+  deals     Deal[]
+  activities Activity[]
+
+  @@index([ownerId])
+}
+
+model Contact {
+  id         String      @id @default(cuid())
+  name       String
+  phone      String?
+  phoneKey   String?
+  phone2     String?
+  email      String?
+  cnic       String?
+  address    String?
+  companyId  String?
+  company    Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  sourceId   String?
+  source     LeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  notes      String? // @text
+  ownerId    String?
+  owner      User?       @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  branchId   String?
+  branch     Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  leads      Lead[]
+  deals      Deal[]
+  activities Activity[]
+
+  @@index([ownerId])
+  @@index([phoneKey])
+}
+
+model Deal {
+  id             String      @id @default(cuid())
+  title          String
+  pipelineId     String
+  pipeline       Pipeline    @relation(fields: [pipelineId], references: [id])
+  stageId        String
+  stage          Stage       @relation(fields: [stageId], references: [id])
+  contactId      String?
+  contact        Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  companyId      String?
+  company        Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  leadId         String?
+  lead           Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  sourceId       String?
+  source         LeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  value          Float?
+  commissionPct  Float?
+  expectedClose  DateTime?
+  lostReason     String?
+  notes          String? // @text
+  ownerId        String?
+  owner          User?       @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  branchId       String?
+  branch         Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  stageChangedAt DateTime    @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  activities     Activity[]
+
+  @@index([ownerId])
+  @@index([branchId])
+  @@index([stageId])
+}
+
+/// type: note | call | meeting | visit | task | email | system
+/// Tasks/meetings/visits have dueAt; doneAt marks completion.
+model Activity {
+  id          String    @id @default(cuid())
+  type        String
+  subject     String
+  body        String? // @text
+  dueAt       DateTime?
+  doneAt      DateTime?
+  leadId      String?
+  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  dealId      String?
+  deal        Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId   String?
+  contact     Contact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  companyId   String?
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ownerId     String?
+  owner       User?     @relation("ActivityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?     @relation("ActivityCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  branchId    String?
+  createdAt   DateTime  @default(now())
+
+  @@index([leadId])
+  @@index([dealId])
+  @@index([contactId])
+  @@index([ownerId, dueAt])
 }

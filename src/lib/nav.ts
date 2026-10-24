@@ -9,10 +9,10 @@ export const NAV: NavGroup[] = [
   {
     label: "CRM",
     items: [
-      { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads", phase: 1 },
-      { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals", phase: 1 },
-      { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts", phase: 1 },
-      { href: "/crm/tasks", label: "Tasks & Calendar", icon: "calendar", module: "crm.activities", phase: 1 },
+      { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads" },
+      { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals" },
+      { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts" },
+      { href: "/crm/tasks", label: "Tasks & Calendar", icon: "calendar", module: "crm.activities" },
       { href: "/inventory", label: "Inventory", icon: "building", module: "inventory.units", phase: 2 },
       { href: "/reports/crm", label: "CRM Reports", icon: "chart", module: "reports.crm", phase: 3 },
     ],
@@ -45,7 +45,8 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/settings/users", label: "Users", icon: "users", module: "settings.users" },
       { href: "/settings/roles", label: "Roles & Permissions", icon: "shield", module: "settings.roles" },
-      { href: "/settings/company", label: "Company & Lists", icon: "settings", module: "settings.company" },
+      { href: "/settings/company", label: "Company & Branches", icon: "settings", module: "settings.company" },
+      { href: "/settings/crm", label: "CRM Settings", icon: "sliders", module: "settings.company" },
       { href: "/settings/audit", label: "Audit Log", icon: "history", module: "settings.audit" },
     ],
   },

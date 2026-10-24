@@ -30,6 +30,17 @@ export async function teamUserIds(userId: string): Promise<string[]> {
   return [...ids];
 }
 
+/** In-memory version of scopeWhere for already-loaded rows (e.g. which board cards are draggable). */
+export async function scopeMatcher(user: SessionUser, module: string, action: Action) {
+  const scope = scopeFor(user, module, action);
+  const team = scope === "team" ? new Set(await teamUserIds(user.id)) : null;
+  return (r: { ownerId: string | null; branchId: string | null }) =>
+    scope === "all" ||
+    (scope === "branch" && (user.branchId ? r.branchId === user.branchId : r.ownerId === user.id)) ||
+    (scope === "team" && !!r.ownerId && team!.has(r.ownerId)) ||
+    (scope === "own" && r.ownerId === user.id);
+}
+
 /**
  * Prisma `where` fragment restricting records to what the user may see for module/action.
  * Returns null when the user has no access at all. Every list/detail query must use this —

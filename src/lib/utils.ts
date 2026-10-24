@@ -20,7 +20,8 @@ export const fmtDateTime = (d: Date | null | undefined) => (d ? format(d, "d MMM
 export const fmtAgo = (d: Date | null | undefined) => (d ? formatDistanceToNow(d, { addSuffix: true }) : "Never");
 
 /** Shared shape returned by form server actions. */
-export type FormState = { error?: string; ok?: boolean } | undefined;
+/** `confirm`: a warning the user must tick to proceed (e.g. possible duplicate); resubmits with confirm=on. */
+export type FormState = { error?: string; ok?: boolean; message?: string; confirm?: string } | undefined;
 
 export function str(fd: FormData, key: string) {
   const v = fd.get(key);

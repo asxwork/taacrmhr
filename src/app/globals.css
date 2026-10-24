@@ -32,20 +32,22 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Minimal form controls shared across the app */
-.input {
-  @apply h-9 w-full rounded-md border border-line bg-white px-3 text-sm outline-none transition placeholder:text-muted/70 focus:border-navy-700 focus:ring-2 focus:ring-navy-700/10 disabled:bg-canvas;
-}
-select.input {
-  @apply pr-8;
-}
-textarea.input {
-  @apply h-auto py-2;
-}
+@layer components {
+  /* Minimal form controls shared across the app */
+  .input {
+    @apply h-9 w-full rounded-md border border-line bg-white px-3 text-sm outline-none transition placeholder:text-muted/70 focus:border-navy-700 focus:ring-2 focus:ring-navy-700/10 disabled:bg-canvas;
+  }
+  select.input {
+    @apply pr-8;
+  }
+  textarea.input {
+    @apply h-auto py-2;
+  }
 
-.th {
-  @apply px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted;
-}
-.td {
-  @apply px-4 py-3 text-sm;
+  .th {
+    @apply px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted;
+  }
+  .td {
+    @apply px-4 py-3 text-sm;
+  }
 }

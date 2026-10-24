@@ -35,22 +35,3 @@ export async function saveBranch(_: FormState, fd: FormData): Promise<FormState>
   await audit(actor.id, id ? "update" : "create", "branch", branch.id, `${id ? "Updated" : "Added"} branch ${name}`);
   return done();
 }
-
-export async function saveLeadSource(_: FormState, fd: FormData): Promise<FormState> {
-  const actor = await requirePermission("settings.company", "edit");
-  const id = str(fd, "id");
-  const name = str(fd, "name");
-  if (!name) return { error: "Source name is required." };
-
-  const clash = await db.leadSource.findUnique({ where: { name } });
-  if (clash && clash.id !== id) return { error: `“${name}” already exists.` };
-
-  if (id) {
-    await db.leadSource.update({ where: { id }, data: { name, active: fd.get("active") === "on" } });
-  } else {
-    const last = await db.leadSource.aggregate({ _max: { sortOrder: true } });
-    await db.leadSource.create({ data: { name, sortOrder: (last._max.sortOrder ?? 0) + 1 } });
-  }
-  await audit(actor.id, id ? "update" : "create", "leadSource", id || null, `${id ? "Updated" : "Added"} lead source ${name}`);
-  return done();
-}
