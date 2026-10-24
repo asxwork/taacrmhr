@@ -7,6 +7,10 @@ import { audit } from "@/lib/audit";
 import { str, type FormState } from "@/lib/utils";
 import { APPEARANCE_KEYS, readAppearanceForm } from "@/lib/appearance-server";
 import { deleteUpload } from "@/lib/files";
+import { randomBytes } from "node:crypto";
+import bcrypt from "bcryptjs";
+import { requireUser } from "@/lib/auth";
+import { loadDemo, removeDemo } from "@/lib/demo-data";
 
 const done = (): FormState => {
   revalidatePath("/settings/company");
@@ -53,4 +57,25 @@ export async function saveCompanyAppearance(_: FormState, fd: FormData): Promise
   await audit(actor.id, "update", "setting", "appearance", "Updated company appearance defaults");
   revalidatePath("/", "layout");
   return { ok: true, message: "Company defaults saved." };
+}
+
+/** Super Admin only. Sample staff get random passwords nobody knows, so they can't be signed into. */
+export async function loadSampleData(_: FormState): Promise<FormState> {
+  const actor = await requireUser();
+  if (!actor.isSuperAdmin) return { error: "Only a Super Admin can load sample data." };
+  const res = await loadDemo(db, { passwordHash: await bcrypt.hash(randomBytes(24).toString("base64url"), 10), domain: "demo.local", withSuperAdmin: false, codePrefix: "DEMO-" });
+  if ("error" in res) return { error: res.error };
+  await audit(actor.id, "create", "setting", "demo.data", "Loaded sample data");
+  revalidatePath("/", "layout");
+  return { ok: true, message: `Loaded ${res.employees} sample employees with leads, deals, inventory, attendance and salaries.` };
+}
+
+export async function removeSampleData(_: FormState): Promise<FormState> {
+  const actor = await requireUser();
+  if (!actor.isSuperAdmin) return { error: "Only a Super Admin can remove sample data." };
+  const res = await removeDemo(db);
+  if ("error" in res) return { error: res.error };
+  await audit(actor.id, "delete", "setting", "demo.data", `Removed sample data (${res.users} users)`);
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Sample data removed." };
 }

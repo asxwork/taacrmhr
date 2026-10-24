@@ -275,3 +275,27 @@ export async function uploadPhoto(_: FormState, fd: FormData): Promise<FormState
   revalidatePath(path(emp.id));
   return { ok: true };
 }
+
+/** Give an existing employee (e.g. imported) a login with a role. */
+export async function createLoginForEmployee(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!can(user, "settings.users", "create") && scopeFor(user, "hr.employees", "create") !== "all") return { error: "You can't create logins." };
+  const emp = await db.employee.findUnique({ where: { id: str(fd, "id") } });
+  if (!emp || emp.userId) return { error: "This employee already has a login." };
+  const email = str(fd, "email").toLowerCase();
+  const password = str(fd, "password");
+  if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email." };
+  if (password.length < 8) return { error: "Temporary password must be at least 8 characters." };
+  if (await db.user.findUnique({ where: { email } })) return { error: "A login with this email already exists." };
+  const role = await db.role.findUnique({ where: { id: str(fd, "roleId") } });
+  // Only Super Admins may hand out roles other than Employee from here.
+  const allowedRole = role && (user.isSuperAdmin || role.name === "Employee") ? role : await db.role.findUnique({ where: { name: "Employee" } });
+  const created = await db.user.create({
+    data: { name: emp.fullName, email, phone: emp.phone, passwordHash: await hashPassword(password), roles: allowedRole ? { create: { roleId: allowedRole.id } } : undefined },
+  });
+  await db.employee.update({ where: { id: emp.id }, data: { userId: created.id } });
+  await syncUserFromEmployee(emp.id);
+  await audit(user.id, "create", "user", created.id, `Created login ${email} for ${emp.fullName}`);
+  revalidatePath(path(emp.id));
+  return { ok: true, message: `Login created. Share the email and temporary password with ${emp.fullName}; they can change it under My Profile.` };
+}

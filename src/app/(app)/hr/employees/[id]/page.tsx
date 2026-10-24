@@ -14,7 +14,7 @@ import { InfoList, StatusPill } from "@/components/crm/bits";
 import { PersonAvatar } from "@/components/person-avatar";
 import { AssignmentForm, DocumentForm, EmployeeForm, ResignForm } from "../forms";
 import { orgOptions } from "../org-data";
-import { addEmployeeNote, completeExit, confirmEmployee, deleteDocument, rehireEmployee, toggleChecklistItem, uploadPhoto } from "../actions";
+import { addEmployeeNote, completeExit, createLoginForEmployee, confirmEmployee, deleteDocument, rehireEmployee, toggleChecklistItem, uploadPhoto } from "../actions";
 
 export const metadata = { title: "Employee" };
 
@@ -42,6 +42,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
   const tenure = differenceInMonths(emp.leftAt ?? new Date(), emp.joiningDate);
   const needsOrg = canEdit && (sp.assign || sp.edit);
   const org = needsOrg ? await orgOptions() : null;
+  const roles = canEdit && !emp.user ? (await db.role.findMany({ orderBy: { name: "asc" } })).filter((r) => user.isSuperAdmin || r.name === "Employee").sort((a) => (a.name === "Employee" ? -1 : 1)) : [];
   const actors = new Map((await db.user.findMany({ where: { id: { in: [...emp.events.map((e) => e.byId), ...emp.checklist.map((c) => c.doneById)].filter(Boolean) as string[] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
 
   const tabs: [string, string, number?][] = [["overview", "Overview"], ["documents", "Documents", emp.documents.length], ["history", "History", emp.events.length], ["checklist", "Checklists", emp.checklist.filter((c) => !c.doneAt).length || undefined]];
@@ -138,6 +139,19 @@ export default async function EmployeePage({ params, searchParams }: { params: P
             <h2 className="mb-2 text-sm font-medium">Bank</h2>
             <InfoList rows={[["Bank", emp.bankName], ["Account title", emp.accountTitle], ["Account / IBAN", emp.accountNumber]]} />
           </Card>
+          {canEdit && !emp.user && emp.status !== "left" && (
+            <Card className="p-5 lg:col-span-2">
+              <h2 className="mb-1 text-sm font-medium">System login</h2>
+              <p className="mb-3 text-sm text-muted">{emp.fullName} can’t sign in yet. Create a login so they can check in, apply for leave and see payslips.</p>
+              <ActionForm action={createLoginForEmployee} className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                <input type="hidden" name="id" value={id} />
+                <input name="email" type="email" required defaultValue={emp.personalEmail ?? ""} placeholder="Login email" className="input" aria-label="Login email" />
+                <input name="password" type="password" required minLength={8} autoComplete="new-password" placeholder="Temporary password" className="input" aria-label="Temporary password" />
+                <select name="roleId" className="input" aria-label="Role">{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
+                <SubmitButton variant="secondary">Create login</SubmitButton>
+              </ActionForm>
+            </Card>
+          )}
           {canEdit && (
             <Card className="p-5 lg:col-span-2">
               <h2 className="mb-2 text-sm font-medium">Photo</h2>

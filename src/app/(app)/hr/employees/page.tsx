@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { addDays, differenceInCalendarDays } from "date-fns";
-import { Plus, Search } from "lucide-react";
+import { Download, Plus, Search, Upload } from "lucide-react";
+import { ActionForm, SubmitButton } from "@/components/action-form";
+import { importEmployees } from "./import-action";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeFor } from "@/lib/permissions";
 import { EMP_STATUSES, empStatus, employeeWhere } from "@/lib/hr";
@@ -14,7 +16,7 @@ import { orgOptions } from "./org-data";
 
 export const metadata = { title: "Employees" };
 
-type SP = { tab?: string; q?: string; dept?: string; branch?: string; status?: string; new?: string };
+type SP = { tab?: string; q?: string; dept?: string; branch?: string; status?: string; new?: string; import?: string };
 
 export default async function EmployeesPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("hr.employees");
@@ -171,6 +173,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
     );
   }
 
+  const canImport = user.isSuperAdmin || scopeFor(user, "hr.employees", "create") === "all";
   const freeUsers = sp.new && canCreate ? await db.user.findMany({ where: { employee: null, active: true }, select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }) : [];
 
   return (
@@ -178,10 +181,28 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
       <PageHeader
         title="Employees"
         description={`${employees.length} ${sp.status ? "" : "current "}staff`}
-        actions={canCreate && <LinkButton href={hrefWith("/hr/employees", keep, { new: "1" })} scroll={false}><Plus className="size-4" /> Add employee</LinkButton>}
+        actions={canCreate && (
+          <>
+            {canImport && <LinkButton href={hrefWith("/hr/employees", keep, { import: "1" })} variant="secondary" scroll={false}><Upload className="size-4" /> Import</LinkButton>}
+            <LinkButton href={hrefWith("/hr/employees", keep, { new: "1" })} scroll={false}><Plus className="size-4" /> Add employee</LinkButton>
+          </>
+        )}
       />
       {tabs}
       {body}
+      {sp.import && canImport && (
+        <Drawer title="Import employees" closeHref={closeHref}>
+          <div className="space-y-5">
+            <p className="text-sm text-muted">Upload a CSV — save your Excel or ResourceInn export as <b className="text-ink">CSV</b>. One row per employee. Columns are matched by name (Full Name, CNIC, Phone, Branch, Department, Designation, Reports To, Joining Date, Gross Salary, Bank, Account Number, Device ID…). Missing departments and designations are created; people already in the system (same code or CNIC) are skipped.</p>
+            <a href="/templates/employees-sample.csv" download className="inline-flex items-center gap-2 text-sm font-medium text-navy-900 underline"><Download className="size-4" /> Download template with 15 sample employees</a>
+            <ActionForm action={importEmployees} className="space-y-3">
+              <input name="file" type="file" required accept=".csv,text/csv" className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
+              <SubmitButton pendingText="Importing…">Import employees</SubmitButton>
+            </ActionForm>
+            <p className="text-xs text-muted">Logins aren’t created by the import — add them later in Settings → Users and link them to the employee.</p>
+          </div>
+        </Drawer>
+      )}
       {sp.new && canCreate && (
         <Drawer title="Add employee" closeHref={closeHref} width="max-w-2xl">
           <EmployeeForm org={org} freeUsers={freeUsers} canCreateLogin={can(user, "settings.users", "create") || scopeFor(user, "hr.employees", "create") === "all"} cancelHref={closeHref} />

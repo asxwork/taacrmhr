@@ -2,7 +2,8 @@ import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field, PageHeader } from "@/components/ui";
-import { saveBranch, saveCompany, saveCompanyAppearance } from "./actions";
+import { loadSampleData, removeSampleData, saveBranch, saveCompany, saveCompanyAppearance } from "./actions";
+import { demoLoaded } from "@/lib/demo-data";
 import { AppearanceForm } from "@/components/appearance-form";
 import { getCompanyAppearance } from "@/lib/appearance-server";
 
@@ -11,10 +12,11 @@ export const metadata = { title: "Company & Branches" };
 export default async function CompanyPage() {
   const actor = await requirePermission("settings.company");
   const editable = can(actor, "settings.company", "edit");
-  const [companyName, branches] = await Promise.all([
+  const [companyName, branches, hasDemo] = await Promise.all([
     db.setting.findUnique({ where: { key: "company.name" } }),
     db.branch.findMany({ include: { _count: { select: { users: true } } }, orderBy: { name: "asc" } }),
-]);
+    demoLoaded(db),
+  ]);
 
   return (
     <>
@@ -65,6 +67,27 @@ export default async function CompanyPage() {
           </Card>
         </Section>
       </fieldset>
+
+      {actor.isSuperAdmin && (
+        <div className="mt-8">
+          <Section title="Sample data" hint={hasDemo
+            ? "Sample staff (…@demo.local), their leads, deals, listings and employee records, plus the Advisor Heights and Palm Residency projects. Remove them before go-live."
+            : "Fills the CRM and HR with sample leads, deals, inventory, employees, attendance and salaries so you can try things out. Sample staff can’t sign in."}>
+            <Card className="p-5">
+              {hasDemo ? (
+                <ActionForm action={removeSampleData} className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" required className="accent-navy-900" /> Delete all sample records</label>
+                  <SubmitButton variant="danger">Remove sample data</SubmitButton>
+                </ActionForm>
+              ) : (
+                <ActionForm action={loadSampleData}>
+                  <SubmitButton variant="secondary">Load sample data</SubmitButton>
+                </ActionForm>
+              )}
+            </Card>
+          </Section>
+        </div>
+      )}
     </>
   );
 }
