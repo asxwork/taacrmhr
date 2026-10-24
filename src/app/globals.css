@@ -173,3 +173,13 @@ body {
 
 /* Press feedback on buttons (within 100ms). */
 button:not(:disabled):active, a.inline-flex:active { transform: scale(0.98); }
+
+/* ─── Print: only the document (payslips, letters) — no sidebar, bars or animations ─── */
+@media print {
+  aside, nav, .no-print, [data-sidebar] > div.sticky { display: none !important; }
+  .app-main { padding: 0 !important; }
+  .app-wallpaper { background: white !important; }
+  .print-sheet { border: none !important; box-shadow: none !important; padding: 0 !important; }
+  .anim-page, .stagger > * { animation: none !important; }
+  body { background: white !important; }
+}

@@ -127,6 +127,16 @@ async function onApproved(req: Req, actorId: string) {
       if (leaveRequestId) await (await import("./leave")).onLeaveDecision(leaveRequestId, "approved", actorId);
       break;
     }
+    case "loan": {
+      const { loanId } = parse<{ loanId: string }>(req.payload);
+      if (loanId) await db.loan.updateMany({ where: { id: loanId, status: "pending" }, data: { status: "active" } });
+      break;
+    }
+    case "expense": {
+      const { expenseId } = parse<{ expenseId: string }>(req.payload);
+      if (expenseId) await db.expense.updateMany({ where: { id: expenseId, status: "pending" }, data: { status: "approved" } });
+      break;
+    }
     case "attendance_correction": {
       await (await import("./attendance")).applyCorrection(req.employeeId, parse(req.payload), actorId);
       break;
@@ -140,6 +150,11 @@ async function onApproved(req: Req, actorId: string) {
 }
 
 async function onRejected(req: Req, status: "rejected" | "cancelled") {
+  if (req.type === "loan" || req.type === "expense") {
+    const p = parse<{ loanId?: string; expenseId?: string }>(req.payload);
+    if (p.loanId) await db.loan.updateMany({ where: { id: p.loanId, status: "pending" }, data: { status } });
+    if (p.expenseId) await db.expense.updateMany({ where: { id: p.expenseId, status: "pending" }, data: { status } });
+  }
   if (req.type === "leave") {
     const { leaveRequestId } = parse<{ leaveRequestId: string }>(req.payload);
     if (leaveRequestId) await (await import("./leave")).onLeaveDecision(leaveRequestId, status);

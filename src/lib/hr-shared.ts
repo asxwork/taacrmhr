@@ -41,3 +41,5 @@ export const APPROVAL_TYPES: Record<string, string> = {
   loan: "Loan / advance",
   expense: "Expense claim",
 };
+
+export const EXPENSE_CATEGORIES = ["Fuel", "Travel", "Client meeting", "Mobile / internet", "Office supplies", "Marketing", "Site visit", "Other"];

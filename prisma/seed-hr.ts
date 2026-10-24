@@ -143,3 +143,53 @@ export async function seedAttendance(db: PrismaClient, demo = true) {
     await db.leaveRequest.create({ data: { employeeId: agent.id, typeId: annual.id, from, to, days: 2, reason: "Family wedding", status: "approved", decidedAt: new Date() } });
   }
 }
+
+/** Pay components, income-tax slabs, statutory settings; plus demo salaries, a loan and an expense. */
+export async function seedPayroll(db: PrismaClient, demo = true) {
+  const components: [string, number, boolean, number | null][] = [
+    ["Basic salary", 66.67, true, null],
+    ["House rent", 23.33, false, null],
+    ["Medical", 10, false, 10], // tax-free up to 10% of basic
+  ];
+  if (!(await db.payComponent.count())) {
+    await db.payComponent.createMany({ data: components.map(([name, pctOfGross, isBasic, exemptPctOfBasic], i) => ({ name, pctOfGross, isBasic, exemptPctOfBasic, sortOrder: i })) });
+  }
+
+  // Salaried-individual slabs (annual PKR). FY2025-26 per Finance Act 2025; FY2026-27 starts as a copy —
+  // HR must confirm it against the Finance Act 2026 in Payroll → Settings.
+  const slabs: [number, number | null, number, number][] = [
+    [0, 600_000, 0, 0],
+    [600_000, 1_200_000, 0, 1],
+    [1_200_000, 2_200_000, 6_000, 11],
+    [2_200_000, 3_200_000, 116_000, 23],
+    [3_200_000, 4_100_000, 346_000, 30],
+    [4_100_000, null, 616_000, 35],
+  ];
+  for (const fy of ["2025-26", "2026-27"]) {
+    if (await db.taxSlab.count({ where: { fiscalYear: fy } })) continue;
+    await db.taxSlab.createMany({ data: slabs.map(([from, to, fixed, rate]) => ({ fiscalYear: fy, from, to, fixed, rate })) });
+  }
+
+  const settings: [string, string][] = [
+    ["payroll.eobiEmployee", "400"], // 1% of the minimum wage — confirm the current notification
+    ["payroll.eobiEmployer", "2000"],
+    ["payroll.latesPerDay", "3"], // every 3 lates = 1 day's pay deducted (0 = off)
+    ["payroll.overtimeRate", "0"], // × hourly rate; 0 = overtime not paid
+    ["payroll.commission", "off"],
+  ];
+  for (const [key, value] of settings) await db.setting.upsert({ where: { key }, update: {}, create: { key, value } });
+
+  if (!demo || (await db.salaryProfile.count())) return;
+  const employees = await db.employee.findMany({ orderBy: { code: "asc" } });
+  const salaries = [450_000, 220_000, 260_000, 95_000, 80_000, 45_000];
+  for (const [i, e] of employees.entries()) {
+    await db.salaryProfile.create({ data: { employeeId: e.id, gross: salaries[i] ?? 60_000, effectiveFrom: e.joiningDate, pfPct: i < 3 ? 5 : 0 } });
+  }
+  const agent = employees.find((e) => e.code.endsWith("0004"));
+  if (agent) {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    await db.loan.create({ data: { employeeId: agent.id, kind: "advance", amount: 30_000, installment: 10_000, startMonth: month, reason: "Medical emergency", status: "active" } });
+    await db.expense.create({ data: { employeeId: agent.id, date: new Date(now.getFullYear(), now.getMonth(), 5), category: "Fuel", amount: 4_500, description: "Site visits DHA Phase 8", status: "approved" } });
+  }
+}

@@ -11,7 +11,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_ROLES, expandGrants } from "../src/lib/rbac";
-import { seedAttendance, seedHr } from "./seed-hr";
+import { seedAttendance, seedHr, seedPayroll } from "./seed-hr";
 
 const DEMO_PASSWORD = "Advisor@2026";
 const DEMO = process.env.SEED_DEMO?.trim().toLowerCase() !== "false";
@@ -59,6 +59,7 @@ async function main() {
     await seedInventory([], false);
     await seedHr(db, false);
     await seedAttendance(db, false);
+    await seedPayroll(db, false);
     console.log("Seed complete (configuration only).");
     return;
   }
@@ -84,6 +85,7 @@ async function main() {
   await seedInventory([agent1, agent2]);
   await seedHr(db);
   await seedAttendance(db);
+  await seedPayroll(db);
   console.log("Seed complete.");
 }
 

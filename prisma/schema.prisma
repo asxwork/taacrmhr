@@ -597,6 +597,10 @@ model Employee {
   days              AttendanceDay[]
   leaveBalances     LeaveBalance[]
   leaveRequests     LeaveRequest[]
+  salary            SalaryProfile?
+  payslips          Payslip[]
+  loans             Loan[]
+  expenses          Expense[]
 
   @@index([branchId])
   @@index([departmentId])
@@ -817,4 +821,159 @@ model LeaveRequest {
 
   @@index([employeeId, from])
   @@index([status])
+}
+
+// ─── HR: payroll ─────────────────────────────────────────────
+
+/// An employee's current monthly salary. Components split the gross by percentage.
+model SalaryProfile {
+  id            String   @id @default(cuid())
+  employeeId    String   @unique
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  gross         Float
+  eobi          Boolean  @default(true)
+  pfPct         Float    @default(0)
+  taxExempt     Boolean  @default(false)
+  effectiveFrom DateTime
+  updatedAt     DateTime @updatedAt
+}
+
+/// Earning components as % of gross. exemptPctOfBasic: tax-free up to this % of basic (e.g. medical 10%).
+model PayComponent {
+  id               String  @id @default(cuid())
+  name             String  @unique
+  pctOfGross       Float
+  isBasic          Boolean @default(false)
+  exemptPctOfBasic Float?
+  sortOrder        Int     @default(0)
+}
+
+/// Income tax slabs per fiscal year ("2026-27" = Jul 2026–Jun 2027). Tax = fixed + rate% of income above `from`.
+model TaxSlab {
+  id         String @id @default(cuid())
+  fiscalYear String
+  from       Float
+  to         Float?
+  fixed      Float
+  rate       Float
+
+  @@index([fiscalYear])
+}
+
+/// status: draft | approved | paid
+model PayrollRun {
+  id           String              @id @default(cuid())
+  month        String              @unique // yyyy-MM
+  status       String              @default("draft")
+  createdById  String?
+  approvedById String?
+  approvedAt   DateTime?
+  paidAt       DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  payslips     Payslip[]
+  adjustments  PayrollAdjustment[]
+}
+
+model Payslip {
+  id            String        @id @default(cuid())
+  runId         String
+  run           PayrollRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employeeId    String
+  employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  gross         Float
+  earnings      Float
+  deductions    Float
+  tax           Float
+  net           Float
+  daysInMonth   Int
+  employedDays  Int
+  absentDays    Float         @default(0)
+  unpaidLeave   Float         @default(0)
+  lateCount     Int           @default(0)
+  overtimeMin   Int           @default(0)
+  designation   String?
+  department    String?
+  bankName      String?
+  accountTitle  String?
+  accountNumber String?
+  createdAt     DateTime      @default(now())
+  lines         PayslipLine[]
+
+  @@unique([runId, employeeId])
+}
+
+/// kind: earning | deduction. source: component | overtime | commission | expense | adjustment | absence | late | unpaid | loan | tax | eobi | pf
+model PayslipLine {
+  id        String  @id @default(cuid())
+  payslipId String
+  payslip   Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  kind      String
+  label     String
+  amount    Float
+  source    String
+  refId     String?
+  sortOrder Int     @default(0)
+}
+
+/// One-off bonus (+) or deduction (−) for an employee in a run. Survives recalculation.
+model PayrollAdjustment {
+  id          String     @id @default(cuid())
+  runId       String
+  run         PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employeeId  String
+  label       String
+  amount      Float
+  taxable     Boolean    @default(true)
+  createdById String?
+  createdAt   DateTime   @default(now())
+}
+
+// ─── HR: loans & expenses ────────────────────────────────────
+
+/// kind: loan | advance. status: pending | active | closed | rejected | cancelled
+model Loan {
+  id          String          @id @default(cuid())
+  employeeId  String
+  employee    Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind        String          @default("loan")
+  amount      Float
+  installment Float
+  startMonth  String // yyyy-MM: first payroll month to deduct
+  reason      String?
+  status      String          @default("pending")
+  approvalId  String?         @unique
+  createdAt   DateTime        @default(now())
+  repayments  LoanRepayment[]
+
+  @@index([employeeId, status])
+}
+
+/// Created when a payroll run is approved (source = run month) or recorded manually by HR.
+model LoanRepayment {
+  id        String   @id @default(cuid())
+  loanId    String
+  loan      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  amount    Float
+  runId     String?
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+/// status: pending | approved | rejected | cancelled | paid. Paid through payroll (payslipId) once a run is approved.
+model Expense {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date        DateTime
+  category    String
+  amount      Float
+  description String?
+  receipt     String?
+  status      String   @default("pending")
+  approvalId  String?  @unique
+  runId       String?
+  createdAt   DateTime @default(now())
+
+  @@index([employeeId, status])
 }
