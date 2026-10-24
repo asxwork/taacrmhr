@@ -14,7 +14,7 @@ import { DEFAULT_ROLES, expandGrants } from "../src/lib/rbac";
 import { seedAttendance, seedHr } from "./seed-hr";
 
 const DEMO_PASSWORD = "Advisor@2026";
-const DEMO = process.env.SEED_DEMO !== "false";
+const DEMO = process.env.SEED_DEMO?.trim().toLowerCase() !== "false";
 const db = new PrismaClient();
 
 async function main() {

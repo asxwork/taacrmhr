@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { sendMail, smtpConfigured } from "./mail";
 
-const APP_URL = () => process.env.APP_URL ?? "http://localhost:3000";
+const APP_URL = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 
 /**
  * In-app notification, plus an email copy when SMTP is configured and the user has an address.

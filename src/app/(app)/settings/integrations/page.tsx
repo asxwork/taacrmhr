@@ -24,7 +24,7 @@ export default async function IntegrationsPage() {
   if (!fbToken) await setSetting(INTAKE_KEYS.facebookVerify, (fbToken = newSecret()));
 
   const h = await headers();
-  const origin = process.env.APP_URL ?? `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
+  const origin = process.env.APP_URL?.replace(/\/+$/, "") ?? `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
   const assigneeIds = ((await getSetting(INTAKE_KEYS.assignees)) ?? "").split(",").filter(Boolean);
   const [users, hooks, emails] = await Promise.all([
     db.user.findMany({ where: { active: true }, select: { id: true, name: true, title: true }, orderBy: { name: "asc" } }),
