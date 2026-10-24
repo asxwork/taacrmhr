@@ -5,13 +5,15 @@ import { db } from "@/lib/db";
 import { can, scopeFor, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { crmReport, resolvePeriod, toCsv } from "@/lib/reports";
+import { hrReport } from "@/lib/reports-hr";
 
 // CSV downloads. Each kind checks its module's `export` permission and applies the user's scope.
 //   /api/export/leads?q=&status=&source=&owner=&closed=1
 //   /api/export/deals?pipeline=&q=&owner=&stage=
 //   /api/export/report?period=&from=&to=&branch=&owner=
+//   /api/export/hr?period=&from=&to=&branch=   (attendance summary)
 
-const MODULE = { leads: "crm.leads", deals: "crm.deals", report: "reports.crm" } as const;
+const MODULE = { leads: "crm.leads", deals: "crm.deals", report: "reports.crm", hr: "reports.hr" } as const;
 
 export async function GET(req: Request, { params }: { params: Promise<{ kind: string }> }) {
   const user = await getCurrentUser();
@@ -53,6 +55,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
       ["Title", "Pipeline", "Stage", "Value", "Commission %", "Client", "Client phone", "Source", "Responsible", "Branch", "Expected close", "Closed", "Lost reason", "Created"],
       ...deals.map((d) => [d.title, d.pipeline.name, d.stage.name, d.value, d.commissionPct, d.contact?.name ?? "", d.contact?.phone ?? "", d.source?.name ?? "", d.owner?.name ?? "", d.branch?.name ?? "",
         d.expectedClose ? format(d.expectedClose, "yyyy-MM-dd") : "", d.closedAt ? format(d.closedAt, "yyyy-MM-dd") : "", d.lostReason, format(d.createdAt, "yyyy-MM-dd")]),
+    ];
+  } else if (kind === "hr") {
+    const { from, to } = resolvePeriod(sp.get("period") ?? undefined, sp.get("from") ?? undefined, sp.get("to") ?? undefined);
+    const r = (await hrReport(user, { from, to, branchId: scopeFor(user, mod) === "all" ? sp.get("branch") ?? undefined : undefined }))!;
+    rows = [
+      ["Code", "Employee", "Department", "Branch", "Present", "Late", "Half day", "Absent", "Missing check-out", "Leave", "Holidays", "Worked hours", "Overtime hours", "Late minutes"],
+      ...r.attendance.map((a) => [a.code, a.fullName, a.department?.name ?? "", a.branch?.name ?? "", a.present, a.late, a.half, a.absent, a.missing, a.leave, a.holiday, Math.round(a.workedMin / 6) / 10, Math.round(a.overtimeMin / 6) / 10, a.lateMin]),
     ];
   } else {
     const { from, to } = resolvePeriod(sp.get("period") ?? undefined, sp.get("from") ?? undefined, sp.get("to") ?? undefined);

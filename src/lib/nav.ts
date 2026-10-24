@@ -28,7 +28,7 @@ export const NAV: NavGroup[] = [
       { href: "/hr/performance", label: "Performance", icon: "trending", module: "hr.performance" },
       { href: "/hr/expenses", label: "Expenses & Loans", icon: "receipt", module: "hr.expenses" },
       { href: "/hr/assets", label: "Assets", icon: "laptop", module: "hr.assets" },
-      { href: "/reports/hr", label: "HR Reports", icon: "chart", module: "reports.hr", phase: 7 },
+      { href: "/reports/hr", label: "HR Reports", icon: "chart", module: "reports.hr" },
     ],
   },
   {
