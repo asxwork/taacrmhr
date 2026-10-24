@@ -92,9 +92,8 @@ export async function submitManagerReview(_: FormState, fd: FormData): Promise<F
   const a = await db.appraisal.findUnique({ where: { id: str(fd, "id") }, include: { employee: true, cycle: true } });
   if (!a || !(await canReview(user, a))) return { error: "Review not found." };
   if (a.status === "done" || a.cycle.status !== "open") return { error: "This review is already completed or the cycle is closed." };
-  const goals = str(fd, "goals") || null;
   if (fd.get("intent") === "goals") {
-    await db.appraisal.update({ where: { id: a.id }, data: { goals } });
+    await db.appraisal.update({ where: { id: a.id }, data: { goals: str(fd, "goals") || null } });
     refresh(a.cycleId);
     return { ok: true, message: "Goals saved." };
   }
@@ -102,7 +101,7 @@ export async function submitManagerReview(_: FormState, fd: FormData): Promise<F
   if (!managerRating) return { error: "Pick a rating." };
   await db.appraisal.update({
     where: { id: a.id },
-    data: { goals, managerRating, managerComments: str(fd, "managerComments") || null, recommendation: str(fd, "recommendation") || null, status: "done", completedAt: new Date(), reviewerId: a.reviewerId ?? user.id },
+    data: { managerRating, managerComments: str(fd, "managerComments") || null, recommendation: str(fd, "recommendation") || null, status: "done", completedAt: new Date(), reviewerId: a.reviewerId ?? user.id },
   });
   await audit(user.id, "update", "appraisal", a.id, `Completed review of ${a.employee.fullName} (${a.cycle.name}): ${managerRating}/5`);
   await notify(a.employee.userId, `Your review is complete: ${a.cycle.name}`, { link: "/me/performance" });

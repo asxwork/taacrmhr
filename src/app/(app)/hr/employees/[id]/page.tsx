@@ -31,6 +31,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
       documents: { orderBy: { createdAt: "desc" } },
       events: { orderBy: [{ date: "desc" }, { createdAt: "desc" }] },
       checklist: { orderBy: [{ kind: "asc" }, { sortOrder: "asc" }] },
+      assets: { select: { id: true, tag: true, name: true, assignedAt: true }, orderBy: { assignedAt: "desc" } },
     },
   });
   if (!emp || !(can(user, "hr.employees") && (await employeeAllows(user, emp, "view")))) notFound();
@@ -139,6 +140,20 @@ export default async function EmployeePage({ params, searchParams }: { params: P
             <h2 className="mb-2 text-sm font-medium">Bank</h2>
             <InfoList rows={[["Bank", emp.bankName], ["Account title", emp.accountTitle], ["Account / IBAN", emp.accountNumber]]} />
           </Card>
+          {emp.assets.length > 0 && (
+            <Card className="p-5 lg:col-span-2">
+              <h2 className="mb-2 text-sm font-medium">Assets held</h2>
+              <ul className="divide-y divide-line text-sm">
+                {emp.assets.map((a) => (
+                  <li key={a.id} className="flex items-center gap-3 py-2">
+                    <span className="w-24 font-mono text-xs text-muted">{a.tag}</span>
+                    {can(user, "hr.assets") ? <Link href={`/hr/assets?a=${a.id}`} className="flex-1 hover:underline">{a.name}</Link> : <span className="flex-1">{a.name}</span>}
+                    <span className="text-xs text-muted">since {fmtDate(a.assignedAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
           {canEdit && !emp.user && emp.status !== "left" && (
             <Card className="p-5 lg:col-span-2">
               <h2 className="mb-1 text-sm font-medium">System login</h2>

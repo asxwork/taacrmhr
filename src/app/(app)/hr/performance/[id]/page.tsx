@@ -93,12 +93,16 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
             </div>
           )}
           {canEdit && cycle.status === "open" && open.status !== "self" && open.employee.userId !== user.id && (
-            <form action={reopenAppraisal} className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-4 text-sm">
-              <input type="hidden" name="id" value={open.id} />
+            <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-4 text-sm">
               <span className="text-muted">Send back to</span>
-              <button name="to" value="self" className="font-medium text-navy-900 hover:underline">self review</button>
-              {open.status === "done" && <><span className="text-muted">or</span><button name="to" value="manager" className="font-medium text-navy-900 hover:underline">manager review</button></>}
-            </form>
+              {(open.status === "done" ? ["self", "manager"] : ["self"]).map((to) => (
+                <form key={to} action={reopenAppraisal}>
+                  <input type="hidden" name="id" value={open.id} />
+                  <input type="hidden" name="to" value={to} />
+                  <button className="font-medium text-navy-900 hover:underline">{to} review</button>
+                </form>
+              ))}
+            </div>
           )}
         </Drawer>
       )}

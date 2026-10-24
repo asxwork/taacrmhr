@@ -78,12 +78,16 @@ export function ManagerReviewForm({ a }: { a: Appraisal }) {
   return (
     <div className="space-y-5">
       {a.submittedAt ? <AppraisalSummary a={{ ...a, goals: null }} hideManager /> : <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">The employee hasn’t submitted their self review yet. You can still set goals now, or complete the review without it.</p>}
-      <ActionForm action={submitManagerReview} className="space-y-4">
+      <ActionForm action={submitManagerReview} className="space-y-3">
         <input type="hidden" name="id" value={a.id} />
+        <input type="hidden" name="intent" value="goals" />
         <Field label="Goals & expectations" hint="Visible to the employee.">
           <textarea name="goals" rows={3} defaultValue={a.goals ?? ""} className="input" />
         </Field>
-        <button type="submit" name="intent" value="goals" formNoValidate className="text-sm font-medium text-navy-900 hover:underline">Save goals only</button>
+        <SubmitButton variant="secondary">Save goals</SubmitButton>
+      </ActionForm>
+      <ActionForm action={submitManagerReview} className="space-y-4 border-t border-line pt-5">
+        <input type="hidden" name="id" value={a.id} />
         <RatingPicker name="managerRating" value={a.managerRating} />
         <Field label="Manager comments"><textarea name="managerComments" rows={5} defaultValue={a.managerComments ?? ""} className="input" /></Field>
         <Field label="Recommendation" hint="Optional, e.g. “10% increment”, “Promote to Senior Consultant”, “Extend probation”."><input name="recommendation" defaultValue={a.recommendation ?? ""} className="input" /></Field>
