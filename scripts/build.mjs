@@ -1,7 +1,8 @@
 // `npm run build` entry point.
 // Hostinger's build command is fixed to `npm run build`, so when DATABASE_URL points at
 // MySQL this also switches the schema, creates/updates tables and seeds configuration.
-// Locally (SQLite) it is a plain `next build`.
+// Locally (SQLite) it is a plain `next build`. Turbopack is kept for `dev` only: its build
+// spawns PostCSS worker processes that Hostinger's build sandbox kills.
 import { execSync } from "node:child_process";
 
 const run = (cmd) => execSync(cmd, { stdio: "inherit" });
@@ -18,5 +19,5 @@ if (url.startsWith("mysql://")) {
   if (process.env.NODE_ENV === "production" || process.env.CI) {
     console.warn("WARNING: DATABASE_URL is not a mysql:// URL; building without database setup");
   }
-  run("npx next build --turbopack");
+  run("npx next build");
 }
