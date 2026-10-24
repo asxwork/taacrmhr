@@ -601,6 +601,8 @@ model Employee {
   payslips          Payslip[]
   loans             Loan[]
   expenses          Expense[]
+  appraisals        Appraisal[]
+  assets            Asset[]            @relation("AssetHolder")
 
   @@index([branchId])
   @@index([departmentId])
@@ -976,4 +978,127 @@ model Expense {
   createdAt   DateTime @default(now())
 
   @@index([employeeId, status])
+}
+
+// ─── HR: recruitment ─────────────────────────────────────────
+
+/// status: open | on_hold | closed
+model JobOpening {
+  id           String      @id @default(cuid())
+  title        String
+  departmentId String?
+  branchId     String?
+  positions    Int         @default(1)
+  status       String      @default("open")
+  salaryRange  String?
+  description  String? // @text
+  createdById  String?
+  createdAt    DateTime    @default(now())
+  candidates   Candidate[]
+}
+
+/// stage: applied | screening | interview | offer | hired | rejected
+model Candidate {
+  id              String      @id @default(cuid())
+  openingId       String
+  opening         JobOpening  @relation(fields: [openingId], references: [id], onDelete: Cascade)
+  name            String
+  phone           String?
+  email           String?
+  source          String?
+  cv              String?
+  expectedSalary  Float?
+  stage           String      @default("applied")
+  rating          Int?
+  notes           String? // @text
+  hiredEmployeeId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  interviews      Interview[]
+
+  @@index([openingId, stage])
+}
+
+/// mode: onsite | phone | video. outcome: pass | fail | hold
+model Interview {
+  id            String    @id @default(cuid())
+  candidateId   String
+  candidate     Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  at            DateTime
+  mode          String    @default("onsite")
+  interviewerId String?
+  outcome       String?
+  feedback      String? // @text
+  createdAt     DateTime  @default(now())
+}
+
+// ─── HR: performance ─────────────────────────────────────────
+
+/// status: open | closed
+model AppraisalCycle {
+  id         String      @id @default(cuid())
+  name       String
+  from       DateTime
+  to         DateTime
+  status     String      @default("open")
+  createdAt  DateTime    @default(now())
+  appraisals Appraisal[]
+}
+
+/// status: self (waiting for employee) | manager (waiting for reviewer) | done. Ratings 1–5.
+model Appraisal {
+  id              String         @id @default(cuid())
+  cycleId         String
+  cycle           AppraisalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  employeeId      String
+  employee        Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewerId      String?
+  goals           String? // @text
+  selfRating      Int?
+  selfComments    String? // @text
+  managerRating   Int?
+  managerComments String? // @text
+  recommendation  String? // e.g. increment %, promotion
+  status          String         @default("self")
+  submittedAt     DateTime?
+  completedAt     DateTime?
+
+  @@unique([cycleId, employeeId])
+  @@index([reviewerId, status])
+}
+
+// ─── HR: assets ──────────────────────────────────────────────
+
+/// status: available | assigned | repair | retired
+model Asset {
+  id           String     @id @default(cuid())
+  tag          String     @unique
+  name         String
+  category     String
+  serial       String?
+  cost         Float?
+  purchasedAt  DateTime?
+  status       String     @default("available")
+  assignedToId String?
+  assignedTo   Employee?  @relation("AssetHolder", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt   DateTime?
+  notes        String? // @text
+  createdAt    DateTime   @default(now())
+  logs         AssetLog[]
+
+  @@index([assignedToId])
+}
+
+/// action: added | assigned | returned | repair | retired | note
+model AssetLog {
+  id         String   @id @default(cuid())
+  assetId    String
+  asset      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  action     String
+  employeeId String?
+  note       String?
+  byId       String?
+  createdAt  DateTime @default(now())
+
+  @@index([assetId])
 }

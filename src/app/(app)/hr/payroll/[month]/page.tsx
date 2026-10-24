@@ -7,13 +7,12 @@ import { requirePermission, scopeFor } from "@/lib/permissions";
 import { monthDate, payrollEmployeeWhere } from "@/lib/payroll";
 import { fmtPKR } from "@/lib/crm-shared";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Badge, Button, Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
+import { Button, Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
 import { PersonAvatar } from "@/components/person-avatar";
 import { addAdjustment, approvePayroll, deleteRun, markPaid, recalculateRun, removeAdjustment, reopenPayroll } from "../actions";
 
 export const metadata = { title: "Payroll run" };
 
-const TONE = { draft: "amber", approved: "navy", paid: "green" } as const;
 const n = (v: number) => Math.round(v).toLocaleString("en-PK");
 
 export default async function PayrollRunPage({ params, searchParams }: { params: Promise<{ month: string }>; searchParams: Promise<{ slip?: string; missing?: string }> }) {

@@ -23,13 +23,15 @@ export async function GET(_: Request, { params }: { params: Promise<{ path: stri
     const exp = await db.expense.findFirst({ where: { receipt: rel }, include: { employee: { select: { userId: true, branchId: true } } } });
     if (!exp || !(exp.employee.userId === user.id || (can(user, "hr.expenses") && (await scopeMatcher(user, "hr.expenses", "view"))({ ownerId: exp.employee.userId, branchId: exp.employee.branchId })))) return new Response("Not found", { status: 404 });
   }
+  // CVs: recruitment team only.
+  if (rel.startsWith("cvs/") && !can(user, "hr.recruitment") && !(await db.employeeDocument.findUnique({ where: { path: rel } }))) return new Response("Not found", { status: 404 });
   const abs = resolveUpload(rel);
   const type = TYPES[rel.split(".").pop() ?? ""];
   if (!abs || !type) return new Response("Not found", { status: 404 });
   try {
     const data = await readFile(abs);
     return new Response(new Uint8Array(data), {
-      headers: { "Content-Type": type, "Cache-Control": rel.startsWith("hr/") || rel.startsWith("expenses/") ? "private, no-store" : "private, max-age=86400", "X-Content-Type-Options": "nosniff" },
+      headers: { "Content-Type": type, "Cache-Control": /^(hr|expenses|cvs)\//.test(rel) ? "private, no-store" : "private, max-age=86400", "X-Content-Type-Options": "nosniff" },
     });
   } catch {
     return new Response("Not found", { status: 404 });

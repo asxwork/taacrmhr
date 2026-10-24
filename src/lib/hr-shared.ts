@@ -43,3 +43,14 @@ export const APPROVAL_TYPES: Record<string, string> = {
 };
 
 export const EXPENSE_CATEGORIES = ["Fuel", "Travel", "Client meeting", "Mobile / internet", "Office supplies", "Marketing", "Site visit", "Other"];
+
+export const CANDIDATE_STAGES = [
+  { value: "applied", label: "Applied", color: "blue" },
+  { value: "screening", label: "Screening", color: "violet" },
+  { value: "interview", label: "Interview", color: "amber" },
+  { value: "offer", label: "Offer", color: "teal" },
+  { value: "hired", label: "Hired", color: "green" },
+  { value: "rejected", label: "Rejected", color: "red" },
+] as const;
+
+export const ASSET_CATEGORIES = ["Laptop", "Desktop", "Mobile phone", "SIM", "Tablet", "Vehicle", "Keys / access card", "Furniture", "Other"];
