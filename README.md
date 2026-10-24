@@ -35,7 +35,7 @@ Settings → Integrations shows setup status, keys and recent deliveries.
 
 1. hPanel → **Databases → MySQL**: create a database and user. Note the host, name, user and password.
 2. Node.js app → **Build configuration**: Framework **Next.js**, branch **main**, Node **22.x**, root **./**, package manager **npm**.
-   - Build command: `npm run build:hostinger` (switches to MySQL, creates/updates tables, seeds configuration, builds)
+   - Build command: leave it as `npm run build`. When `DATABASE_URL` is a `mysql://` URL it switches to MySQL, creates/updates tables, seeds configuration, then builds (`npm run build:hostinger` does the same explicitly)
    - Output directory: `.next`
 3. **Environment variables** (required): `DATABASE_URL=mysql://USER:PASS@HOST:3306/DBNAME`, `SEED_DEMO=false`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` (10+ chars), `ADMIN_NAME`, `APP_URL=https://your-domain`, `CRON_SECRET` (long random string), `APP_TIMEZONE=Asia/Karachi`.
    Optional: `UPLOAD_DIR` (a folder outside the app so photos and documents survive redeploys), `SMTP_*`, `FB_APP_SECRET`, `FB_PAGE_TOKEN`.
