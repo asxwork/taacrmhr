@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand */
+  --color-navy-950: #061626;
+  --color-navy-900: #0a223c;
+  --color-navy-800: #12304f;
+  --color-navy-700: #1c3f63;
+  --color-gold-100: #f8f1d6;
+  --color-gold-300: #f5d98f;
+  --color-gold-400: #f9c877;
+  --color-gold-600: #b8894a;
+  --color-gold-700: #8c6a45;
+
+  /* Surfaces & text */
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-line: #e6e8ec;
+  --color-ink: #0f1a2a;
+  --color-muted: #6b7280;
+}
+
+html,
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Minimal form controls shared across the app */
+.input {
+  @apply h-9 w-full rounded-md border border-line bg-white px-3 text-sm outline-none transition placeholder:text-muted/70 focus:border-navy-700 focus:ring-2 focus:ring-navy-700/10 disabled:bg-canvas;
+}
+select.input {
+  @apply pr-8;
+}
+textarea.input {
+  @apply h-auto py-2;
+}
+
+.th {
+  @apply px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted;
+}
+.td {
+  @apply px-4 py-3 text-sm;
+}

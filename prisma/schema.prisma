@@ -1,0 +1,138 @@
+// Local dev: SQLite. Production (Hostinger): MySQL — run `npm run db:use-mysql`.
+// Fields marked `// @text` become @db.Text on MySQL (long content).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Organization ────────────────────────────────────────────
+
+model Branch {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  address   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  users     User[]
+}
+
+// ─── Users, roles & permissions ──────────────────────────────
+
+model User {
+  id           String         @id @default(cuid())
+  name         String
+  email        String         @unique
+  phone        String?
+  title        String?
+  passwordHash String
+  active       Boolean        @default(true)
+  isSuperAdmin Boolean        @default(false)
+  branchId     String?
+  branch       Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  managerId    String?
+  manager      User?          @relation("Reports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports      User[]         @relation("Reports")
+  roles        UserRole[]
+  sessions     Session[]
+  auditLogs    AuditLog[]
+  notifications Notification[]
+  lastLoginAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([branchId])
+  @@index([managerId])
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?
+  isSystem    Boolean      @default(false)
+  permissions Permission[]
+  users       UserRole[]
+  createdAt   DateTime     @default(now())
+}
+
+/// One row per (role, module, action). scope: none | own | team | branch | all
+model Permission {
+  id     String @id @default(cuid())
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module String
+  action String
+  scope  String
+
+  @@unique([roleId, module, action])
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ─── Platform ────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  summary   String // @text
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String? // @text
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+model Setting {
+  key   String @id
+  value String // @text
+}
+
+// ─── CRM config ──────────────────────────────────────────────
+
+model LeadSource {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
