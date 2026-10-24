@@ -37,7 +37,13 @@ Settings → Integrations shows setup status, keys and recent deliveries.
 2. Node.js app → **Build configuration**: Framework **Next.js**, branch **main**, Node **22.x**, root **./**, package manager **npm**.
    - Build command: leave it as `npm run build`. When `DATABASE_URL` is a `mysql://` URL it switches to MySQL, creates/updates tables, seeds configuration, then builds (`npm run build:hostinger` does the same explicitly)
    - Output directory: `.next`
-3. **Environment variables** (required): `DATABASE_URL=mysql://USER:PASS@HOST:3306/DBNAME`, `SEED_DEMO=false`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` (10+ chars), `ADMIN_NAME`, `APP_URL=https://your-domain`, `CRON_SECRET` (long random string), `APP_TIMEZONE=Asia/Karachi`.
-   Optional: `UPLOAD_DIR` (a folder outside the app so photos and documents survive redeploys), `SMTP_*`, `FB_APP_SECRET`, `FB_PAGE_TOKEN`.
-4. Deploy. Sign in with ADMIN_EMAIL / ADMIN_PASSWORD, then create users and employees.
-5. hPanel → **Advanced → Cron Jobs**: once a day, fetch `https://your-domain/api/cron/daily?key=<CRON_SECRET>`.
+3. **Environment variables** (required): `DATABASE_URL=mysql://USER:PASS@localhost:3306/DBNAME`, `SEED_DEMO=false`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` (10+ chars), `ADMIN_NAME`, `APP_URL=https://your-domain`, `CRON_SECRET` (long random string), `APP_TIMEZONE=Asia/Karachi`.
+   - Host is `localhost`: the build and the app run on the hosting account itself. User and database names carry the account prefix (`u123456789_…`).
+   - Use a letters-and-numbers database password. `@ # ? / %` break the URL and `$` can be mangled when Hostinger writes `.env`. The build log prints the user, host, database and password length (never the password) to check against hPanel.
+   - `UPLOAD_DIR` (strongly recommended): an absolute folder outside the app, e.g. `/home/u123456789/domains/your-domain/uploads`. Each deploy publishes into a fresh version folder, so uploads kept in the default `./uploads` are lost on redeploy.
+   Optional: `SMTP_*`, `FB_APP_SECRET`, `FB_PAGE_TOKEN`.
+4. Deploy. Sign in with ADMIN_EMAIL / ADMIN_PASSWORD, change the password under **Me**, then remove `ADMIN_PASSWORD` from the environment (it is only used to create the first admin).
+5. A new subdomain needs a DNS **A** record (name = subdomain, value = the site's IP from the hPanel dashboard) and an SSL certificate (hPanel → Security → SSL).
+6. hPanel → **Advanced → Cron Jobs**: once a day, run `curl -s "https://your-domain/api/cron/daily?key=<CRON_SECRET>" > /dev/null` (Hostinger cron runs in UTC: `0 2 * * *` is 07:00 in Karachi).
+
+Production builds don't use Turbopack and pages render per request (`force-dynamic`), so the build never queries the database while prerendering. Both avoid Hostinger's per-account process/thread limits.
