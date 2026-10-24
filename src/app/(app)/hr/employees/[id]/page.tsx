@@ -57,7 +57,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
           <PersonAvatar name={emp.fullName} photo={emp.photo} className="size-16 text-lg" />
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-tight">{emp.fullName}</h1>
+              <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{emp.fullName}</h1>
               <StatusPill name={st.label} colorName={st.color} />
             </div>
             <p className="text-sm text-muted">

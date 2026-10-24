@@ -42,7 +42,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
   const tabs = (
     <div className="mb-4 flex rounded-lg bg-black/5 p-0.5 sm:w-fit">
       {([["directory", "Directory"], ["org", "Org chart"], ["documents", "Expiring documents"]] as const).map(([t, label]) => (
-        <Link key={t} href={t === "directory" ? "/hr/employees" : `/hr/employees?tab=${t}`} className={cn("flex-1 rounded-md px-3 py-1.5 text-center text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
+        <Link key={t} href={t === "directory" ? "/hr/employees" : `/hr/employees?tab=${t}`} className={cn("flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
           {label}
         </Link>
       ))}
@@ -110,7 +110,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
             <Search className="absolute left-3 top-2.5 size-4 text-muted" />
             <input name="q" defaultValue={q} aria-label="Search" placeholder="Name, code, phone or CNIC" className="input pl-9" />
           </div>
-          <select name="dept" defaultValue={sp.dept ?? ""} className="input w-40">
+          <select name="dept" defaultValue={sp.dept ?? ""} className="input w-48">
             <option value="">All departments</option>
             {org.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>

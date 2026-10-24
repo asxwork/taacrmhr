@@ -95,7 +95,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
               <Link
                 key={p.id}
                 href={hrefWith("/crm/deals", { view: sp.view }, { pipeline: p.id })}
-                className={cn("rounded-md px-3 py-1.5 text-sm", p.id === pipeline.id ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}
+                className={cn("whitespace-nowrap rounded-md px-3 py-1.5 text-sm", p.id === pipeline.id ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}
               >
                 {p.name}
               </Link>

@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="app-wallpaper min-h-screen">
       <Sidebar groups={groups} user={{ name: user.name, roles: user.roleNames.join(", ") || "No role", branch: user.branchName }} unread={await unreadCount(user.id)} />
       <main className="lg:pl-60">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">{children}</div>
+        <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-8 sm:pt-8 lg:pb-10">{children}</div>
       </main>
     </div>
   );

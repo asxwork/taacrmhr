@@ -50,7 +50,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       <PageHeader title="Approvals" description="Requests waiting for you, and the ones you’ve sent." />
       <div className="mb-4 flex rounded-lg bg-black/5 p-0.5 sm:w-fit">
         {([["waiting", `Waiting for me${waiting.length ? ` (${waiting.length})` : ""}`], ["mine", "My requests"], ...(isHr ? [["all", "All requests"]] : [])] as [string, string][]).map(([t, label]) => (
-          <Link key={t} href={`/approvals?tab=${t}`} className={cn("flex-1 rounded-md px-3 py-1.5 text-center text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{label}</Link>
+          <Link key={t} href={`/approvals?tab=${t}`} className={cn("flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{label}</Link>
         ))}
       </div>
 

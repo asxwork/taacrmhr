@@ -17,6 +17,9 @@ model Branch {
   name      String     @unique
   code      String     @unique
   address   String?
+  lat       Float?
+  lng       Float?
+  radiusM   Int        @default(150)
   active    Boolean    @default(true)
   createdAt DateTime   @default(now())
   users     User[]
@@ -578,6 +581,9 @@ model Employee {
   designation       Designation?       @relation(fields: [designationId], references: [id], onDelete: SetNull)
   branchId          String?
   branch            Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  shiftId           String?
+  shift             Shift?             @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  deviceUserId      String?            @unique
   managerId         String?
   manager           Employee?          @relation("EmployeeReports", fields: [managerId], references: [id], onDelete: SetNull)
   reports           Employee[]         @relation("EmployeeReports")
@@ -587,6 +593,10 @@ model Employee {
   documents         EmployeeDocument[]
   checklist         ChecklistItem[]
   requests          ApprovalRequest[]
+  punches           AttendancePunch[]
+  days              AttendanceDay[]
+  leaveBalances     LeaveBalance[]
+  leaveRequests     LeaveRequest[]
 
   @@index([branchId])
   @@index([departmentId])
@@ -685,4 +695,126 @@ model ApprovalAction {
   createdAt DateTime        @default(now())
 
   @@index([requestId])
+}
+
+// ─── HR: attendance ──────────────────────────────────────────
+
+/// Times are "HH:mm" in company local time. workDays: ISO weekdays, 1 = Monday … 7 = Sunday.
+model Shift {
+  id         String     @id @default(cuid())
+  name       String     @unique
+  start      String
+  end        String
+  graceMin   Int        @default(15)
+  halfDayMin Int        @default(240)
+  workDays   String     @default("1,2,3,4,5,6")
+  isDefault  Boolean    @default(false)
+  employees  Employee[]
+}
+
+/// branchId null = applies to every branch. date = calendar day (UTC midnight of the local date).
+model Holiday {
+  id       String   @id @default(cuid())
+  date     DateTime
+  name     String
+  branchId String?
+
+  @@index([date])
+}
+
+/// source: web | device | manual
+model AttendancePunch {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  at          DateTime
+  source      String
+  lat         Float?
+  lng         Float?
+  accuracy    Float?
+  distanceM   Int?
+  outside     Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([employeeId, at])
+  @@index([at])
+}
+
+/// status: present | late | half | absent | leave | holiday | weekend | missing (no check-out) | upcoming
+model AttendanceDay {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date        DateTime
+  status      String
+  checkIn     DateTime?
+  checkOut    DateTime?
+  workedMin   Int       @default(0)
+  lateMin     Int       @default(0)
+  earlyMin    Int       @default(0)
+  overtimeMin Int       @default(0)
+  note        String?
+  corrected   Boolean   @default(false)
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([date])
+}
+
+// ─── HR: leave ───────────────────────────────────────────────
+
+/// quota: days per year (0 + unpaid = unlimited). accrual: annual (pro-rated for new joiners) | monthly (quota/12 per month).
+model LeaveType {
+  id               String         @id @default(cuid())
+  name             String         @unique
+  code             String
+  color            String         @default("blue")
+  paid             Boolean        @default(true)
+  quota            Float          @default(0)
+  accrual          String         @default("annual")
+  carryMax         Float          @default(0)
+  halfDay          Boolean        @default(true)
+  gender           String?
+  minServiceMonths Int            @default(0)
+  active           Boolean        @default(true)
+  sortOrder        Int            @default(0)
+  balances         LeaveBalance[]
+  requests         LeaveRequest[]
+}
+
+/// Per employee/type/year: carried forward and manual HR adjustments. Used/pending are computed from requests.
+model LeaveBalance {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  typeId     String
+  type       LeaveType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  year       Int
+  carried    Float     @default(0)
+  adjusted   Float     @default(0)
+  note       String?
+
+  @@unique([employeeId, typeId, year])
+}
+
+/// status: pending | approved | rejected | cancelled
+model LeaveRequest {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  typeId     String
+  type       LeaveType @relation(fields: [typeId], references: [id])
+  from       DateTime
+  to         DateTime
+  halfDay    Boolean   @default(false)
+  days       Float
+  reason     String?
+  status     String    @default("pending")
+  approvalId String?   @unique
+  createdAt  DateTime  @default(now())
+  decidedAt  DateTime?
+
+  @@index([employeeId, from])
+  @@index([status])
 }

@@ -20,6 +20,8 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
 export function Sidebar({ groups, user, unread }: { groups: NavGroup[]; user: { name: string; roles: string; branch: string | null }; unread: number }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const allItems = groups.flatMap((g) => g.items);
+  const quick = QUICK_ORDER.map((href) => allItems.find((i) => i.href === href)).filter((i): i is NonNullable<typeof i> => !!i && !i.phase).slice(0, 4);
 
   const nav = (
     <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
@@ -107,6 +109,26 @@ export function Sidebar({ groups, user, unread }: { groups: NavGroup[]; user: { 
           </div>
         </div>
       )}
+
+      {/* Phone bottom bar: the user's 4 most-used screens + Menu (agents in the field rarely need more). */}
+      <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+        {quick.map((item) => {
+          const Icon = ICONS[item.icon] ?? House;
+          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          return (
+            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center gap-0.5 py-2 text-[11px]", active ? "font-medium text-navy-900" : "text-muted")}>
+              <Icon className={cn("size-5", active && "text-gold-600")} />
+              <span className="max-w-full truncate px-1">{item.label.split(" & ")[0]!.replace(/^My /, "")}</span>
+            </Link>
+          );
+        })}
+        <button onClick={() => setOpen(true)} className="flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] text-muted">
+          <Menu className="size-5" />
+          <span>Menu</span>
+        </button>
+      </nav>
     </>
   );
 }
+
+const QUICK_ORDER = ["/dashboard", "/crm/leads", "/crm/tasks", "/crm/deals", "/me/attendance", "/hr/employees", "/approvals", "/me"];

@@ -40,7 +40,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
         <ArrowLeft className="size-4" /> Companies
       </Link>
       <div className="mb-6 flex items-start justify-between gap-4">
-        <h1 className="text-xl font-semibold tracking-tight">{company.name}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{company.name}</h1>
         {canEdit && (
           <LinkButton href={`${path}?edit=1`} variant="secondary" scroll={false}>
             <Pencil className="size-4" /> Edit

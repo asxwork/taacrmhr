@@ -41,7 +41,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold tracking-tight">{project.name}</h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{project.name}</h1>
             <Badge tone={project.status === "active" ? "green" : "neutral"}>{project.status}</Badge>
           </div>
           <p className="mt-1 text-sm text-muted">

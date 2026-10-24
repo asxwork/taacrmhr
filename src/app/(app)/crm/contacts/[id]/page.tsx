@@ -62,7 +62,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
         <div className="flex items-center gap-4">
           <Avatar name={contact.name} className="size-12 text-base" />
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">{contact.name}</h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{contact.name}</h1>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {contact.phone && (
                 <a href={`tel:${contact.phone}`} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-sm hover:bg-canvas">

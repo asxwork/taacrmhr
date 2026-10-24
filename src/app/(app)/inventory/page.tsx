@@ -75,7 +75,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       {canProjects && (
         <div className="mb-4 flex rounded-lg bg-black/5 p-0.5 sm:w-fit">
           {(["units", "projects"] as const).map((t) => (
-            <Link key={t} href={t === "projects" ? "/inventory?tab=projects" : "/inventory"} className={cn("flex-1 rounded-md px-3 py-1.5 text-center text-sm capitalize", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
+            <Link key={t} href={t === "projects" ? "/inventory?tab=projects" : "/inventory"} className={cn("flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm capitalize", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
               {t}
             </Link>
           ))}

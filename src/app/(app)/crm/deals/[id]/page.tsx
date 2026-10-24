@@ -78,7 +78,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold tracking-tight">{deal.title}</h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{deal.title}</h1>
             <StatusPill name={deal.stage.name} colorName={deal.stage.color} />
           </div>
           <p className="mt-1 text-2xl font-semibold text-navy-900">{fmtPKR(deal.value)}</p>

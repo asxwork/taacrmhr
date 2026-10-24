@@ -53,7 +53,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{title}</h1>
             <StatusPill name={st.label} colorName={st.color} />
           </div>
           <p className="mt-1 text-sm text-muted">

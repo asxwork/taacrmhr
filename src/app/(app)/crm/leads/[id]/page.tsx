@@ -55,7 +55,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold tracking-tight">{lead.name}</h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{lead.name}</h1>
             <StatusPill name={lead.status.name} colorName={lead.status.color} />
           </div>
           <div className="mt-2 flex flex-wrap gap-2">

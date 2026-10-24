@@ -24,7 +24,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader title={`${greeting}, ${firstName}`} description={`${user.roleNames.join(", ") || "No role assigned"}${user.branchName ? ` · ${user.branchName} branch` : ""}`} />
+      <PageHeader eyebrow={new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} title={`${greeting}, ${firstName}`} description={`${user.roleNames.join(", ") || "No role assigned"}${user.branchName ? ` · ${user.branchName} branch` : ""}`} />
 
       {stats && (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">

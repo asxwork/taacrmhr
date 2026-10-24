@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/inter";
+import "@fontsource-variable/playfair-display";
 import "./globals.css";
 import { getAppearance } from "@/lib/appearance-server";
 import { appearanceStyle } from "@/lib/appearance";

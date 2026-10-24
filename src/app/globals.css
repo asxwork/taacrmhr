@@ -2,6 +2,7 @@
 
 @theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Playfair Display Variable", Georgia, "Times New Roman", serif;
 
   /* Brand */
   --color-navy-950: #06111d;
@@ -78,7 +79,8 @@ body {
 @layer components {
   /* Minimal form controls shared across the app */
   .input {
-    @apply h-9 w-full rounded-md border border-line bg-surface px-3 text-sm outline-none transition placeholder:text-muted/70 focus:border-navy-700 focus:ring-2 focus:ring-navy-700/10 disabled:bg-canvas;
+    /* 16px on phones stops iOS zooming into fields; 14px on desktop keeps forms compact. */
+    @apply h-10 w-full rounded-lg border border-line bg-surface px-3 text-base shadow-xs outline-none transition-colors placeholder:text-muted/70 focus:border-navy-700 focus:ring-2 focus:ring-navy-700/10 disabled:bg-canvas sm:text-sm;
   }
   select.input {
     @apply pr-8;
@@ -88,10 +90,13 @@ body {
   }
 
   .th {
-    @apply px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted;
+    @apply sticky top-0 z-[1] bg-canvas px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted;
+  }
+  .card {
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.03);
   }
   .td {
-    @apply px-4 py-3 text-sm;
+    @apply px-4 py-3.5 text-sm;
   }
 }
 
