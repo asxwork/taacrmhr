@@ -5,7 +5,10 @@ export function middleware(req: NextRequest) {
   const hasSession = req.cookies.has("tad_session");
   const isLogin = req.nextUrl.pathname === "/login";
   if (!hasSession && !isLogin) return NextResponse.redirect(new URL("/login", req.url));
-  return NextResponse.next();
+  // The layout reads this to pick the app (CRM/HR/…) and sidebar width before the page renders.
+  const headers = new Headers(req.headers);
+  headers.set("x-pathname", req.nextUrl.pathname);
+  return NextResponse.next({ request: { headers } });
 }
 
 export const config = {

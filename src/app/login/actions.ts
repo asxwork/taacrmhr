@@ -29,7 +29,7 @@ export async function login(_: FormState, fd: FormData): Promise<FormState> {
   await createSession(user.id);
   await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await audit(user.id, "login", "user", user.id, `${user.name} signed in`);
-  redirect("/dashboard");
+  redirect("/home");
 }
 
 export async function logout() {

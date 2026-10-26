@@ -101,6 +101,24 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
   return out;
 }
 
+/**
+ * Attendance drill-down categories (HR dashboard tiles and the ?status= filter on daily attendance).
+ * One definition, so a tile's count always matches the list it opens.
+ */
+export const ATTENDANCE_DRILL = [
+  { key: "present", label: "Present", tone: "green", test: (d: DayResult) => ["present", "late", "half", "missing"].includes(d.status) },
+  { key: "absent", label: "Absent", tone: "red", test: (d: DayResult) => d.status === "absent" },
+  { key: "late", label: "Late arrivals", tone: "amber", test: (d: DayResult) => d.lateMin > 0 },
+  { key: "early", label: "Early left", tone: "violet", test: (d: DayResult) => d.earlyMin > 0 },
+  { key: "missing", label: "No check-out", tone: "orange", test: (d: DayResult) => d.status === "missing" },
+  { key: "half", label: "Half day", tone: "fuchsia", test: (d: DayResult) => d.status === "half" },
+  { key: "leave", label: "On leave", tone: "blue", test: (d: DayResult) => d.status === "leave" },
+  { key: "holiday", label: "Holiday", tone: "teal", test: (d: DayResult) => d.status === "holiday" },
+  { key: "off", label: "Days off", tone: "slate", test: (d: DayResult) => d.status === "weekend" },
+  { key: "pending", label: "Not in yet", tone: "sky", test: (d: DayResult) => d.status === "upcoming" },
+] as const;
+export type DrillKey = (typeof ATTENDANCE_DRILL)[number]["key"];
+
 export function summarize(days: DayResult[]) {
   const count = (s: DayStatus) => days.filter((d) => d.status === s).length;
   return {

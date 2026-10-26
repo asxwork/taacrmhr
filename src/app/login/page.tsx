@@ -7,7 +7,7 @@ import { login } from "./actions";
 export const metadata = { title: "Sign in" };
 
 export default async function LoginPage() {
-  if (await getCurrentUser()) redirect("/dashboard");
+  if (await getCurrentUser()) redirect("/home");
 
   return (
     <main className="grid min-h-screen bg-surface lg:grid-cols-[1.1fr_1fr]">

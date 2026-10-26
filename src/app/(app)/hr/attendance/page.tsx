@@ -3,7 +3,7 @@ import { addDays, endOfMonth, format, isSameDay, isSameMonth, parse, startOfDay,
 import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeFor } from "@/lib/permissions";
-import { DAY_STATUSES, attendanceEmployeeWhere, fmtMinutes, loadAttendance, summarize } from "@/lib/attendance";
+import { ATTENDANCE_DRILL, DAY_STATUSES, attendanceEmployeeWhere, fmtMinutes, loadAttendance, summarize } from "@/lib/attendance";
 import { color } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -15,7 +15,7 @@ import { importDeviceFile, saveDayOverride, saveDeviceIds } from "./actions";
 
 export const metadata = { title: "Attendance" };
 
-type SP = { view?: string; date?: string; month?: string; branch?: string; import?: string; edit?: string };
+type SP = { view?: string; date?: string; month?: string; branch?: string; import?: string; edit?: string; status?: string };
 
 export default async function AttendancePage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("hr.attendance");
@@ -26,7 +26,9 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const month = sp.month ? parse(sp.month, "yyyy-MM", now) : now;
   const isAdmin = user.isSuperAdmin || scopeFor(user, "hr.attendance", "edit") === "all";
   const canEdit = can(user, "hr.attendance", "edit");
-  const keep = { view: sp.view, date: sp.date, month: sp.month, branch: sp.branch };
+  const keep = { view: sp.view, date: sp.date, month: sp.month, branch: sp.branch, status: sp.status };
+  // Drill-down from the HR dashboard tiles: only the employees in that category (daily view).
+  const drill = ATTENDANCE_DRILL.find((c) => c.key === sp.status);
 
   const scope = (await attendanceEmployeeWhere(user))!;
   const [employees, branches] = await Promise.all([
@@ -80,8 +82,9 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   let body: React.ReactNode;
   if (!employees.length) body = <Card><EmptyState title="No employees in your view" /></Card>;
   else if (view === "day") {
-    const rows = employees.map((e) => ({ e, d: (att.get(e.id) ?? [])[0] }));
-    const s = summarize(rows.map((r) => r.d).filter(Boolean));
+    const all = employees.map((e) => ({ e, d: (att.get(e.id) ?? [])[0] }));
+    const s = summarize(all.map((r) => r.d).filter(Boolean));
+    const rows = drill ? all.filter((r) => r.d && drill.test(r.d)) : all;
     body = (
       <>
         <div className="mb-4 grid grid-cols-3 gap-3 sm:grid-cols-6">
@@ -92,6 +95,12 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
             </Card>
           ))}
         </div>
+        {drill && (
+          <p className="mb-3 flex items-center gap-2 text-sm">
+            Showing <b className="font-medium">{drill.label}</b> · {rows.length} of {all.length}
+            <Link href={hrefWith("/hr/attendance", { ...keep, status: undefined }, {})} className="text-muted underline hover:text-ink">Show everyone</Link>
+          </p>
+        )}
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
