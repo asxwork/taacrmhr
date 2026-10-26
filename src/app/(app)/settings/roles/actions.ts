@@ -24,7 +24,8 @@ export async function createRole(_: FormState, fd: FormData): Promise<FormState>
     },
   });
   await audit(actor.id, "create", "role", role.id, `Created role ${name}`);
-  redirect(`/settings/roles/${role.id}`);
+  revalidatePath("/settings/roles");
+  redirect(`/settings/roles#role-${role.id}`);
 }
 
 /** Saves the whole permission matrix. Inputs are named `p:<module>:<action>` with a scope value. */
@@ -66,4 +67,34 @@ export async function deleteRole(fd: FormData) {
   await db.role.delete({ where: { id: roleId } });
   await audit(actor.id, "delete", "role", roleId, `Deleted role ${role.name}`);
   redirect("/settings/roles");
+}
+
+/** One cell of the access matrix, saved the moment it changes. "none" removes the grant. */
+export async function setPermission(roleId: string, module: string, action: string, scope: string): Promise<{ error?: string }> {
+  const actor = await requirePermission("settings.roles", "edit");
+  const mod = MODULES.find((m) => m.key === module);
+  if (!mod || !(mod.actions as readonly string[]).includes(action) || !scopesFor(mod).includes(scope as Scope)) return { error: "Not allowed." };
+  const role = await db.role.findUnique({ where: { id: roleId } });
+  if (!role) return { error: "Role not found." };
+  if (scope === "none") await db.permission.deleteMany({ where: { roleId, module, action } });
+  else await db.permission.upsert({ where: { roleId_module_action: { roleId, module, action } }, update: { scope }, create: { roleId, module, action, scope } });
+  await audit(actor.id, "update", "role", roleId, `${role.name}: ${mod.label} · ${action} → ${scope}`);
+  revalidatePath("/", "layout");
+  return {};
+}
+
+/** Replaces the role's members with the ticked users. Anyone can hold any number of roles. */
+export async function setRoleMembers(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requirePermission("settings.roles", "edit");
+  const roleId = str(fd, "roleId");
+  const role = await db.role.findUnique({ where: { id: roleId } });
+  if (!role) return { error: "Role not found." };
+  const userIds = [...new Set(fd.getAll("userIds").map(String))];
+  const valid = (await db.user.findMany({ where: { id: { in: userIds } }, select: { id: true } })).map((u) => u.id);
+  await db.userRole.deleteMany({ where: { roleId, userId: { notIn: valid } } });
+  const have = new Set((await db.userRole.findMany({ where: { roleId }, select: { userId: true } })).map((r) => r.userId));
+  for (const userId of valid) if (!have.has(userId)) await db.userRole.create({ data: { userId, roleId } });
+  await audit(actor.id, "update", "role", roleId, `${role.name}: ${valid.length} member(s)`);
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Members saved." };
 }

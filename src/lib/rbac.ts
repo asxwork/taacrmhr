@@ -3,16 +3,21 @@
 export const SCOPES = ["none", "own", "team", "branch", "all"] as const;
 export type Scope = (typeof SCOPES)[number];
 
+// Bitrix wording. "Team" = the user plus everyone under them in the "Reports to" chain.
 export const SCOPE_LABELS: Record<Scope, string> = {
-  none: "No access",
-  own: "Own",
-  team: "Team",
-  branch: "Branch",
+  none: "Deny access",
+  own: "Only their own items",
+  team: "Their team's items",
+  branch: "Their branch's items",
   all: "All",
 };
 
 export const ACTIONS = ["view", "create", "edit", "delete", "export", "approve", "assign"] as const;
 export type Action = (typeof ACTIONS)[number];
+
+export const ACTION_LABELS: Record<Action, string> = {
+  view: "Read", create: "Add", edit: "Edit", delete: "Delete", export: "Export", approve: "Approve", assign: "Reassign to others",
+};
 
 export type ModuleDef = {
   key: string;
@@ -83,7 +88,31 @@ function all(scope: Scope, keys: string[]) {
   return Object.fromEntries(keys.map((k) => [k, scope]));
 }
 
+const allModules = MODULES.map((m) => m.key);
+const crmAll = [...crmGroup, "inventory.projects", "inventory.units", "reports.crm"];
+
 export const DEFAULT_ROLES: RoleTemplate[] = [
+  // Bitrix-style roles
+  {
+    name: "Administrator",
+    description: "Everything, including users, roles and settings (like a Super Admin, but as a role).",
+    grants: all("all", allModules),
+  },
+  {
+    name: "Supervisor",
+    description: "All CRM, inventory and CRM reports across the company.",
+    grants: all("all", crmAll),
+  },
+  {
+    name: "Deputy supervisor",
+    description: "CRM and inventory for their team (themselves and everyone reporting to them).",
+    grants: { ...all("team", crmGroup), "inventory.projects": { view: "all" }, "inventory.units": "team", "reports.crm": "team" },
+  },
+  {
+    name: "Observer",
+    description: "Can read their own CRM items but not add, change or delete anything.",
+    grants: { "crm.leads": { view: "own" }, "crm.deals": { view: "own" }, "crm.contacts": { view: "own" }, "crm.activities": { view: "own" }, "inventory.projects": { view: "all" }, "inventory.units": { view: "own" } },
+  },
   {
     name: "HR Manager",
     description: "Runs HR: employees, attendance, leave, payroll, recruitment.",
