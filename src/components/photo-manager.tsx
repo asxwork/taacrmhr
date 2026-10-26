@@ -63,13 +63,13 @@ export function PhotoManager({ photos, title, path, selectedId, canEdit, owner, 
               {photos.map((p, i) => (
                 <div key={p.id} className="relative">
                   {/* eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files */}
-                  <img src={fileUrl(p.path)} alt="" className={cn("size-16 rounded-md object-cover", i === 0 && "ring-2 ring-gold-500")} loading="lazy" />
+                  <img src={fileUrl(p.path)} alt="" className={cn("size-16 rounded-md object-cover", i === 0 && "ring-2 ring-gold-400")} loading="lazy" />
                   <form action={remove} className="absolute -right-1.5 -top-1.5">
                     <input type="hidden" name="id" value={p.id} />
                     <button title="Remove photo" aria-label="Remove photo" className="rounded-full bg-surface p-0.5 text-muted shadow hover:text-red-600"><X className="size-3" /></button>
                   </form>
                   {i === 0 ? (
-                    <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded bg-gold-500 px-1 text-[9px] font-semibold text-white">Cover</span>
+                    <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded bg-gold-400 px-1 text-[9px] font-semibold text-white">Cover</span>
                   ) : (
                     <form action={setCover} className="absolute -bottom-1.5 left-1/2 -translate-x-1/2">
                       <input type="hidden" name="id" value={p.id} />

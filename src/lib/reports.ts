@@ -71,7 +71,7 @@ export async function crmReport(user: SessionUser, f: ReportFilters) {
   const bySource = [...sources, { id: null as string | null, name: "No source" }]
     .map((s) => {
       const rows = leads.filter((l) => l.sourceId === s.id);
-      return { name: s.name, leads: rows.length, converted: rows.filter((l) => l.convertedAt).length };
+      return { id: s.id, name: s.name, leads: rows.length, converted: rows.filter((l) => l.convertedAt).length };
     })
     .filter((s) => s.leads > 0)
     .sort((a, b) => b.leads - a.leads);
@@ -79,7 +79,7 @@ export async function crmReport(user: SessionUser, f: ReportFilters) {
   const pipeline = stages
     .map((s) => {
       const g = openDeals.find((o) => o.stageId === s.id);
-      return { name: s.name, pipeline: s.pipeline.name, count: g?._count ?? 0, value: g?._sum.value ?? 0 };
+      return { id: s.id, pipelineId: s.pipelineId, name: s.name, pipeline: s.pipeline.name, count: g?._count ?? 0, value: g?._sum.value ?? 0 };
     })
     .filter((s) => s.count > 0);
 

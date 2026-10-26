@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { format, isToday, parse, startOfDay } from "date-fns";
-import { ChevronRight, Sunrise, Timer } from "lucide-react";
+import { Sunrise, Timer } from "lucide-react";
 import { db } from "@/lib/db";
 import { requirePermission, scopeFor } from "@/lib/permissions";
 import { ATTENDANCE_DRILL, attendanceEmployeeWhere, loadAttendance, type DayResult } from "@/lib/attendance";
@@ -9,23 +9,9 @@ import { Card, PageHeader } from "@/components/ui";
 import { hrefWith } from "@/components/crm/bits";
 import { PersonAvatar } from "@/components/person-avatar";
 import { AutoFilterForm } from "@/components/auto-filter-form";
+import { DrillTiles } from "@/components/drill-tiles";
 
 export const metadata = { title: "HR Dashboard" };
-
-// Translucent tints read well on both the light and dark themes. Static strings so Tailwind keeps them.
-const TONES: Record<string, { tile: string; bar: string; num: string }> = {
-  navy: { tile: "bg-navy-900/[0.06] border-navy-900/10", bar: "bg-navy-700", num: "text-navy-900" },
-  green: { tile: "bg-emerald-500/10 border-emerald-500/20", bar: "bg-emerald-500", num: "text-emerald-600" },
-  red: { tile: "bg-red-500/10 border-red-500/20", bar: "bg-red-500", num: "text-red-600" },
-  amber: { tile: "bg-amber-500/10 border-amber-500/20", bar: "bg-amber-500", num: "text-amber-600" },
-  violet: { tile: "bg-violet-500/10 border-violet-500/20", bar: "bg-violet-500", num: "text-violet-600" },
-  orange: { tile: "bg-orange-500/10 border-orange-500/20", bar: "bg-orange-500", num: "text-orange-600" },
-  fuchsia: { tile: "bg-fuchsia-500/10 border-fuchsia-500/20", bar: "bg-fuchsia-500", num: "text-fuchsia-600" },
-  blue: { tile: "bg-blue-500/10 border-blue-500/20", bar: "bg-blue-500", num: "text-blue-600" },
-  teal: { tile: "bg-teal-500/10 border-teal-500/20", bar: "bg-teal-500", num: "text-teal-600" },
-  slate: { tile: "bg-slate-500/10 border-slate-500/20", bar: "bg-slate-400", num: "text-slate-500" },
-  sky: { tile: "bg-sky-500/10 border-sky-500/20", bar: "bg-sky-500", num: "text-sky-600" },
-};
 
 type SP = { date?: string; branch?: string };
 
@@ -52,8 +38,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
 
   const link = (status?: string) => hrefWith("/hr/attendance", { date: isToday(date) ? undefined : dateKey, branch: sp.branch, status }, {});
   const tiles = [
-    { key: "active", label: "Active employees", tone: "navy", count: employees.length, href: "/hr/employees" },
-    ...ATTENDANCE_DRILL.map((c) => ({ key: c.key, label: c.label, tone: c.tone, count: rows.filter((r) => c.test(r.d)).length, href: link(c.key) })),
+    { key: "active", label: "Active employees", tone: "navy", value: employees.length, href: "/hr/employees" },
+    ...ATTENDANCE_DRILL.map((c) => ({ key: c.key, label: c.label, tone: c.tone, value: rows.filter((r) => c.test(r.d)).length, href: link(c.key) })),
   ];
   const earlyRisers = rows.filter((r) => r.d.checkIn).sort((a, b) => +a.d.checkIn! - +b.d.checkIn!).slice(0, 8);
   const lateComers = rows.filter((r) => r.d.lateMin > 0).sort((a, b) => b.d.lateMin - a.d.lateMin).slice(0, 8);
@@ -75,21 +61,7 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
             <input type="date" name="date" defaultValue={dateKey} max={format(now, "yyyy-MM-dd")} className="input h-9 w-40" aria-label="Date" />
           </AutoFilterForm>
         </div>
-        <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-          {tiles.map((t) => {
-            const tone = TONES[t.tone] ?? TONES.slate!;
-            return (
-              <Link key={t.key} href={t.href} className={cn("group relative overflow-hidden rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md", tone.tile)}>
-                <span className={cn("mb-3 block h-0.5 w-6 rounded-full", tone.bar)} />
-                <span className="flex items-start justify-between gap-2">
-                  <span className="text-sm font-medium leading-tight">{t.label}</span>
-                  <ChevronRight className="size-4 shrink-0 text-muted transition group-hover:translate-x-0.5" />
-                </span>
-                <span className={cn("mt-1 block text-2xl font-semibold tabular-nums", t.count ? tone.num : "text-muted")}>{t.count}</span>
-              </Link>
-            );
-          })}
-        </div>
+        <DrillTiles tiles={tiles} />
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">

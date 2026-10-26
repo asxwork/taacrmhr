@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 // Minimal single-series charts in plain HTML/CSS (no chart library).
 // One accent hue (--chart, swapped for dark mode), thin marks with 4px rounded data-ends,
 // recessive axis text, hover tooltip on every mark, and exact values available in adjacent tables.
@@ -36,15 +38,17 @@ export function ColumnChart({ data, unit }: { data: { label: string; short: stri
 }
 
 /** Horizontal bars with the label above and the value at the end, in text ink (not the bar colour). */
-export function BarList({ rows, empty = "No data for this period." }: { rows: { name: string; value: number; display: string; sub?: string }[]; empty?: string }) {
+/** `href` makes a row open the list behind it (everything on a report leads somewhere). */
+export function BarList({ rows, empty = "No data for this period." }: { rows: { name: string; value: number; display: string; sub?: string; href?: string }[]; empty?: string }) {
   if (!rows.length) return <p className="text-sm text-muted">{empty}</p>;
   const max = Math.max(1, ...rows.map((r) => r.value));
   return (
     <ul className="space-y-3">
       {rows.map((r) => (
         <li key={r.name} className="group relative">
+          {r.href && <Link href={r.href} className="absolute inset-0 z-[1] rounded" aria-label={`${r.name}: ${r.display}`} />}
           <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-            <span className="truncate">{r.name}</span>
+            <span className={r.href ? "truncate group-hover:underline" : "truncate"}>{r.name}</span>
             <span className="shrink-0 font-medium tabular-nums">{r.display}{r.sub && <span className="ml-1.5 text-xs font-normal text-muted">{r.sub}</span>}</span>
           </div>
           <div className="h-2.5 rounded-full bg-canvas">
