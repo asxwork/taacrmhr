@@ -67,6 +67,7 @@ export async function leadWhere(user: SessionUser, f: LeadFilters, statuses: { i
     const cutoff = subDays(now, stale);
     and.push({ OR: [{ lastActivityAt: { lt: cutoff } }, { lastActivityAt: null, createdAt: { lt: cutoff } }] });
   }
+  if (f.reshuffled) and.push({ reshuffledAt: { not: null } });
   const created = dateRange(f.created, f.cfrom, f.cto);
   if (created) and.push({ createdAt: created });
   const modified = dateRange(f.modified, f.mfrom, f.mto);

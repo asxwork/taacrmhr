@@ -17,6 +17,8 @@ export type SessionUser = {
   branchId: string | null;
   branchName: string | null;
   isSuperAdmin: boolean;
+  /** Holds the one-person Boss role (role key "boss"): sees the Boss dashboard. */
+  isBoss: boolean;
   roleNames: string[];
   perms: PermissionMap;
 };
@@ -79,6 +81,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     branchId: user.branchId,
     branchName: user.branch?.name ?? null,
     isSuperAdmin: user.isSuperAdmin,
+    isBoss: user.roles.some((r) => r.role.key === "boss"),
     roleNames: user.isSuperAdmin ? ["Super Admin"] : user.roles.map((r) => r.role.name),
     perms,
   };

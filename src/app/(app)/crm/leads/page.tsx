@@ -14,6 +14,8 @@ import { Kanban } from "@/components/crm/kanban";
 import { SelectAll } from "@/components/crm/select-all";
 import { LeadFilterBar, type FilterPreset } from "@/components/crm/lead-filter-bar";
 import { Pagination, StageProgress, hrefWith } from "@/components/crm/bits";
+import { LeadBulkBar } from "@/components/crm/lead-bulk-bar";
+import { describe, parseConfig } from "@/lib/automations";
 import { bulkLeads, importLeads, importLeadsFull, moveLead } from "./actions";
 
 export const metadata = { title: "Leads" };
@@ -76,6 +78,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     { name: "Yesterday's leads", query: "created=yesterday&group=all" },
     { name: "Not contacted 7+ days", query: "stale=7" },
     { name: "Overdue activities", query: "activity=overdue" },
+    { name: "Reshuffled", query: "reshuffled=1" },
     { name: "Completed (converted)", query: "group=converted" },
     { name: "Not interested / not valid", query: "group=junk" },
     ...saved.map((s) => ({ id: s.id, name: s.name, query: s.query })),
@@ -83,6 +86,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     ...projects.map((p) => ({ name: p.name, query: `project=${p.id}` })),
   ];
 
+  // Active automations, described in plain words for the run confirmation.
+  const automationOptions = (await db.automation.findMany({ where: { active: true, entity: "lead" }, orderBy: { name: "asc" } })).map((a) => {
+    const c = parseConfig(a.config);
+    return {
+      id: a.id, name: a.name, assign: c.assign, userIds: c.userIds, deletes: c.deleteHistory || c.deleteOpen,
+      steps: describe(c, { stage: statuses.find((st) => st.id === c.stageId)?.name, users: assignees.filter((u) => c.userIds.includes(u.id)).map((u) => u.name) }),
+    };
+  });
   const canCreate = can(user, "crm.leads", "create");
   const canEdit = can(user, "crm.leads", "edit");
   const canDelete = can(user, "crm.leads", "delete");
@@ -207,7 +218,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                           {canEdit && (
                             <td className="td">{canEditRow(l) && <input type="checkbox" name="ids" value={l.id} className="accent-navy-900" aria-label={`Select ${l.name}`} />}</td>
                           )}
-                          <td className="td text-xs tabular-nums text-muted">{l.number ?? "—"}</td>
+                          <td className="td text-xs tabular-nums text-muted">{l.number ?? "—"}{l.reshuffledAt && <span title={`Reshuffled ${l.reshuffleCount}×`} className="mt-1 block w-fit rounded bg-amber-50 px-1 text-[10px] font-medium text-amber-700">Reshuffled</span>}</td>
                           <td className="td max-w-64">
                             <Link href={`/crm/leads/${l.id}`} className="font-medium text-navy-900 hover:underline">{l.name}</Link>
                             <p className="truncate text-xs text-muted">{[l.source?.name, l.project?.name].filter(Boolean).join(" · ") || "—"}</p>
@@ -240,26 +251,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 </table>
               </div>
               {canEdit && (
-                <div className="flex flex-wrap items-center gap-2 border-t border-line bg-canvas/40 px-4 py-2.5">
-                  <span className="text-xs text-muted">With selected:</span>
-                  <select name="op" className="input h-8 w-36 text-xs" defaultValue="">
-                    <option value="" disabled>Choose action</option>
-                    {canAssign && <option value="assign">Assign to…</option>}
-                    <option value="status">Change stage…</option>
-                    {canDelete && <option value="delete">Delete</option>}
-                  </select>
-                  {canAssign && (
-                    <select name="ownerId" className="input h-8 w-40 text-xs" defaultValue="">
-                      <option value="">— person —</option>
-                      {assignees.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
-                  )}
-                  <select name="statusId" className="input h-8 w-36 text-xs" defaultValue="">
-                    <option value="">— stage —</option>
-                    {statuses.filter((s) => s.kind !== "converted").map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                  <SubmitButton variant="secondary" className="h-8 text-xs">Update selected</SubmitButton>
-                </div>
+                <LeadBulkBar
+                  assignees={assignees}
+                  stages={statuses.filter((s) => s.kind !== "converted")}
+                  automations={automationOptions}
+                  canAssign={canAssign}
+                  canDelete={canDelete}
+                  isSuperAdmin={user.isSuperAdmin}
+                />
               )}
               <Pagination base="/crm/leads" sp={keep} page={page} pageSize={PAGE_SIZE} total={total} />
             </ActionForm>

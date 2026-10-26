@@ -43,6 +43,11 @@ export async function saveUser(_: FormState, fd: FormData): Promise<FormState> {
   if (clash && clash.id !== id) return { error: "Another user already has this email." };
 
   const roleIds = fd.getAll("roleIds").map(String);
+  // Roles limited to N people (e.g. Boss = 1): refuse when someone else already fills them.
+  for (const r of await db.role.findMany({ where: { id: { in: roleIds }, maxUsers: { not: null } }, include: { users: { select: { userId: true } } } })) {
+    const others = r.users.filter((u) => u.userId !== id).length;
+    if (others >= r.maxUsers!) return { error: `Only ${r.maxUsers === 1 ? "one person" : `${r.maxUsers} people`} can have the ${r.name} role, and it's already taken.` };
+  }
   const active = id === actor.id ? true : fd.get("active") === "on"; // can't deactivate yourself
   // Only a Super Admin can grant or revoke Super Admin.
   const isSuperAdmin = actor.isSuperAdmin ? fd.get("isSuperAdmin") === "on" || id === actor.id : undefined;

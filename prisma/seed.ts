@@ -10,7 +10,7 @@
 //   staff@advisor.local     Employee (self-service only)
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { DEFAULT_ROLES, expandGrants } from "../src/lib/rbac";
+import { DEFAULT_ROLES, MODULES, expandGrants } from "../src/lib/rbac";
 import { randomBytes } from "node:crypto";
 import { demoLoaded, loadDemo, upgradeDemo } from "../src/lib/demo-data";
 import { nextNumber } from "../src/lib/sequence";
@@ -37,6 +37,16 @@ async function main() {
         permissions: { create: expandGrants(tpl.grants) },
       },
     });
+  }
+
+  // Boss: one person, can read (and export) everything, changes nothing. Found by key so it can be renamed.
+  if (!(await db.role.findFirst({ where: { key: "boss" } }))) {
+    const grants = Object.fromEntries(MODULES.map((m) => [m.key, Object.fromEntries(m.actions.filter((a) => a === "view" || a === "export").map((a) => [a, "all"]))]));
+    await db.role.create({ data: {
+      name: (await db.role.findUnique({ where: { name: "Boss" } })) ? "Boss (owner)" : "Boss", key: "boss", maxUsers: 1, isSystem: true,
+      description: "The owner's view: every CRM and HR number, read-only. Only one person can have it.",
+      permissions: { create: expandGrants(grants) },
+    } });
   }
 
   const sources = ["Facebook", "Instagram", "Website", "Zameen", "Graana", "WhatsApp", "CC", "Direct", "Referral"];
@@ -131,6 +141,15 @@ async function seedCrm() {
     await db.leadStatus.upsert({ where: { name }, update: firstRun ? { sortOrder: i, color } : {}, create: { name, color, kind, sortOrder: i } });
   }
   if (firstRun) await db.setting.create({ data: { key: "crm.leadStages.ordered", value: new Date().toISOString() } });
+
+  // The Reshuffle automation (once; admins can edit or add more in CRM → Automations).
+  if (!(await db.automation.count())) {
+    const fresh = await db.leadStatus.findUnique({ where: { name: "New Request" } });
+    await db.automation.create({ data: {
+      name: "Reshuffle: new agent + New Request",
+      config: JSON.stringify({ assign: "roundrobin", userIds: [], avoidSameAgent: true, stageId: fresh?.id ?? null, deleteOpen: true, deleteHistory: true, markReshuffled: true, planCall: true }),
+    } });
+  }
 
   const pipelines = [
     { name: "Sales", isDefault: true, stages: [["New", "blue", "open", 10], ["Negotiation", "violet", "open", 30], ["Token / Booking", "amber", "open", 60], ["Agreement", "teal", "open", 80], ["Payment Plan", "gold", "open", 90], ["Won", "green", "won", 100], ["Lost", "red", "lost", 0]] },

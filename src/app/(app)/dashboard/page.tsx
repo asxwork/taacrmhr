@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { requireUser } from "@/lib/auth";
@@ -13,6 +14,7 @@ export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const user = await requireUser();
+  if (user.isBoss) redirect("/boss"); // the owner lands on their own overview
   const firstName = user.name.split(" ")[0];
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";

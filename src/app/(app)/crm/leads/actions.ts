@@ -163,6 +163,15 @@ export async function bulkLeads(_: FormState, fd: FormData): Promise<FormState> 
     return { ok: true, message: `Assigned ${leads.length} lead(s) to ${target.name}.` };
   }
 
+  if (op === "automation") {
+    const { runAutomation } = await import("@/lib/automations");
+    if (fd.get("confirmRun") !== "on") return { error: "Tick the box to confirm what this automation will do." };
+    const res = await runAutomation(user, str(fd, "automationId"), ids, fd.getAll("agentIds").map(String));
+    if ("error" in res) return { error: res.error };
+    revalidatePath("/crm/leads");
+    return { ok: true, message: `Done on ${res.count} lead(s)${res.agents.length ? ` — ${res.agents.join(", ")}` : ""}.` };
+  }
+
   if (op === "status") {
     let changed = 0;
     for (const l of leads) if (!(await applyStatus(user, l.id, str(fd, "statusId"))).error) changed++;

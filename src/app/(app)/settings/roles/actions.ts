@@ -91,6 +91,7 @@ export async function setRoleMembers(_: FormState, fd: FormData): Promise<FormSt
   if (!role) return { error: "Role not found." };
   const userIds = [...new Set(fd.getAll("userIds").map(String))];
   const valid = (await db.user.findMany({ where: { id: { in: userIds } }, select: { id: true } })).map((u) => u.id);
+  if (role.maxUsers && valid.length > role.maxUsers) return { error: `Only ${role.maxUsers === 1 ? "one person" : `${role.maxUsers} people`} can have the ${role.name} role.` };
   await db.userRole.deleteMany({ where: { roleId, userId: { notIn: valid } } });
   const have = new Set((await db.userRole.findMany({ where: { roleId }, select: { userId: true } })).map((r) => r.userId));
   for (const userId of valid) if (!have.has(userId)) await db.userRole.create({ data: { userId, roleId } });
