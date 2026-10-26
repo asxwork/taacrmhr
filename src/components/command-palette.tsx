@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Building2, Contact, CornerDownLeft, Handshake, LayoutGrid, Loader2, Search, Target, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NAV_ICONS } from "./nav-icons";
 
-type Hit = { title: string; sub?: string; href: string };
+type Hit = { title: string; sub?: string; href: string; icon?: string };
 type Group = { label: string; items: Hit[] };
 
 const GROUP_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -16,7 +17,7 @@ const GROUP_ICON: Record<string, React.ComponentType<{ className?: string }>> = 
 export const openSearch = () => window.dispatchEvent(new Event("open-search"));
 
 /** Ctrl+K / ⌘K: jump to a page or find a lead, deal, contact, unit or employee. */
-export function CommandPalette({ pages }: { pages: { href: string; label: string }[] }) {
+export function CommandPalette({ pages }: { pages: { href: string; label: string; icon: string }[] }) {
   const router = useRouter();
   const [state, setState] = useState<"closed" | "open" | "closing">("closed");
   const [q, setQ] = useState("");
@@ -84,7 +85,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
   const all = useMemo((): Group[] => {
     const needle = q.trim().toLowerCase();
     const matches = pages.filter((p) => !needle || p.label.toLowerCase().includes(needle)).slice(0, needle ? 4 : 6);
-    return [...(matches.length ? [{ label: "Pages", items: matches.map((p) => ({ title: p.label, href: p.href })) }] : []), ...groups];
+    return [...(matches.length ? [{ label: "Pages", items: matches.map((p) => ({ title: p.label, href: p.href, icon: p.icon })) }] : []), ...groups];
   }, [q, pages, groups]);
   const flat = all.flatMap((g) => g.items);
   const current = Math.min(active, Math.max(flat.length - 1, 0));
@@ -151,13 +152,15 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
           onPointerMove={(e) => { pointer.current = { x: e.clientX, y: e.clientY }; }}
         >
           {all.map((g) => {
-            const Icon = GROUP_ICON[g.label] ?? LayoutGrid;
+            const GroupIcon = GROUP_ICON[g.label] ?? LayoutGrid;
             return (
               <div key={g.label} className="palette-group pb-1">
                 <p className="px-2.5 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted">{g.label}</p>
                 {g.items.map((hit) => {
                   const idx = ++i;
                   const on = idx === current;
+                  // Pages show their own sidebar icon; records show their type's icon.
+                  const Icon = (hit.icon && NAV_ICONS[hit.icon]) || GroupIcon;
                   return (
                     <button
                       key={hit.href}

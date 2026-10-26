@@ -27,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <PageTransition>{children}</PageTransition>
         </div>
       </main>
-      <CommandPalette pages={groups.flatMap((g) => g.items).filter((i) => !i.phase).map((i) => ({ href: i.href, label: i.label }))} />
+      <CommandPalette pages={groups.flatMap((g) => g.items).filter((i) => !i.phase).map((i) => ({ href: i.href, label: i.label, icon: i.icon }))} />
     </div>
   );
 }

@@ -3,20 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  BarChart3, Bell, Briefcase, CheckSquare, Building2, CalendarDays, Clock, Contact, Handshake, History, House, Laptop, LogOut, Menu,
-  PanelLeftClose, PanelLeftOpen, Plane, Plug, Receipt, Search, Settings, Shield, SlidersHorizontal, Target, TrendingUp, User, Users, Wallet, X,
-} from "lucide-react";
+import { Bell, House, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import type { NavGroup } from "@/lib/nav";
 import { cn, initials } from "@/lib/utils";
 import { logout } from "@/app/login/actions";
 import { openSearch } from "./command-palette";
+import { NAV_ICONS } from "./nav-icons";
 
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  home: House, target: Target, handshake: Handshake, contact: Contact, calendar: CalendarDays, building: Building2,
-  chart: BarChart3, users: Users, clock: Clock, plane: Plane, wallet: Wallet, briefcase: Briefcase, trending: TrendingUp,
-  receipt: Receipt, laptop: Laptop, user: User, shield: Shield, settings: Settings, sliders: SlidersHorizontal, plug: Plug, check: CheckSquare, history: History,
-};
+const ICONS = NAV_ICONS;
 
 type Props = { groups: NavGroup[]; user: { name: string; roles: string; branch: string | null }; unread: number; initiallyCollapsed: boolean };
 
