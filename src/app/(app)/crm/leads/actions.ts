@@ -11,6 +11,7 @@ import { str, type FormState } from "@/lib/utils";
 import { notify } from "@/lib/notify";
 import { nextNumber } from "@/lib/sequence";
 import type { SessionUser } from "@/lib/auth";
+import { manualHoldError } from "@/lib/lead-hold";
 
 async function editableLead(user: SessionUser, id: string) {
   const scope = await scopeWhere(user, "crm.leads", "edit");
@@ -92,7 +93,8 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
     await audit(user.id, "update", "lead", id, `Updated lead ${name}`);
   } else {
     // A stage picked on the create screen, else the first open stage.
-    const status = (str(fd, "statusId") && (await db.leadStatus.findFirst({ where: { id: str(fd, "statusId"), kind: "open", active: true } })))
+    const picked = str(fd, "statusId") && !(await manualHoldError(str(fd, "statusId"))) ? str(fd, "statusId") : "";
+    const status = (picked && (await db.leadStatus.findFirst({ where: { id: picked, kind: "open", active: true } })))
       || (await db.leadStatus.findFirst({ where: { kind: "open", active: true }, orderBy: { sortOrder: "asc" } }));
     const lead = await db.lead.create({ data: { ...data, number: await nextNumber("lead"), statusId: status!.id, createdById: user.id } });
     leadId = lead.id;
@@ -112,6 +114,8 @@ async function applyStatus(user: SessionUser, id: string, statusId: string) {
   if (!status) return { error: "Unknown status." };
   if (status.kind === "converted") return { error: "Use “Convert” on the lead to create a deal." };
   if (lead.statusId === statusId) return {};
+  const holdError = await manualHoldError(statusId);
+  if (holdError) return { error: holdError };
   await db.lead.update({ where: { id }, data: { statusId } });
   await logSystem({ leadId: id }, `Status: ${lead.status.name} → ${status.name}`, user.id);
   return {};

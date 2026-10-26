@@ -98,7 +98,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
         ) : (
           <StageBar
             size="lg"
-            steps={statuses}
+            steps={statuses.map((s) => ({ ...s, locked: s.systemKey === "onhold" }))}
             currentId={isJunk ? "" : lead.statusId}
             action={setLeadStatus}
             hidden={{ leadId: id }}

@@ -176,6 +176,8 @@ model LeadStatus {
   kind      String  @default("open")
   sortOrder Int     @default(0)
   active    Boolean @default(true)
+  /// Stages the On-hold rules depend on: "new" (New Request) or "onhold" (On-hold, set only by the system).
+  systemKey String?
   leads     Lead[]
 }
 
@@ -250,6 +252,9 @@ model Lead {
   contactId      String?
   contact        Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
   convertedAt    DateTime?
+  /// When the current responsible person got the lead, and when its stage last changed (kept by db.ts).
+  assignedAt      DateTime?
+  statusChangedAt DateTime?
   lastActivityAt DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt

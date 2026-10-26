@@ -70,6 +70,7 @@ export async function runAutomation(user: SessionUser, automationId: string, lea
     if (c.assign === "one") agents = agents.slice(0, 1);
   }
   const stage = c.stageId ? await db.leadStatus.findUnique({ where: { id: c.stageId } }) : null;
+  if (stage?.systemKey === "onhold") return { error: "On-hold is set automatically; edit this automation to use another stage." };
 
   let turn = 0;
   const given = new Map<string, number>();

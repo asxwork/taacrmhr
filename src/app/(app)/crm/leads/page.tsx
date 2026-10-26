@@ -171,7 +171,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
       {view === "board" ? (
         <Kanban
-          columns={statuses.filter((s) => (filters.group === "all" || filters.stage ? true : filters.group ? s.kind === filters.group : s.kind === "open")).map((s) => ({ id: s.id, name: s.name, dot: color(s.color).dot }))}
+          columns={statuses.filter((s) => (filters.group === "all" || filters.stage ? true : filters.group ? s.kind === filters.group : s.kind === "open")).map((s) => ({ id: s.id, name: s.name, dot: color(s.color).dot, ...(s.systemKey === "onhold" && { locked: true, lockedHint: "On-hold is set automatically when a new lead isn't worked in time." }) }))}
           cards={leads.map((l) => ({
             id: l.id,
             columnId: l.statusId,
@@ -253,7 +253,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               {canEdit && (
                 <LeadBulkBar
                   assignees={assignees}
-                  stages={statuses.filter((s) => s.kind !== "converted")}
+                  stages={statuses.filter((s) => s.kind !== "converted" && s.systemKey !== "onhold")}
                   automations={automationOptions}
                   canAssign={canAssign}
                   canDelete={canDelete}

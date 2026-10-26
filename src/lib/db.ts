@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { forget } from "./memo";
+import { stampLeadWrite } from "./lead-hold-core";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
@@ -8,6 +9,7 @@ const CACHE_PREFIX: Record<string, string> = {
   User: "session:", UserRole: "session:", Role: "session:", Permission: "session:", Session: "session:", Branch: "session:",
   Setting: "setting:",
   Pipeline: "pipelines", Stage: "pipelines",
+  LeadStatus: "leadStatus:",
 };
 const READS = new Set(["findUnique", "findUniqueOrThrow", "findFirst", "findFirstOrThrow", "findMany", "count", "aggregate", "groupBy"]);
 
@@ -17,6 +19,7 @@ function createClient() {
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
+          if (model === "Lead") await stampLeadWrite(base, operation, args as Parameters<typeof stampLeadWrite>[2]);
           const result = await query(args);
           const prefix = CACHE_PREFIX[model];
           if (prefix && !READS.has(operation)) forget(prefix);

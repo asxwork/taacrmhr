@@ -7,9 +7,11 @@ import { PageTransition } from "@/components/page-transition";
 import { CommandPalette } from "@/components/command-palette";
 import { NavProgress } from "@/components/nav-progress";
 import { unreadCount } from "@/lib/notify";
+import { maybeRunHoldRules } from "@/lib/lead-hold";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  maybeRunHoldRules(); // background, at most every 5 minutes
   const collapsed = (await cookies()).get("sidebar")?.value === "collapsed";
 
   // Only show what this user's roles allow — this is what makes Admin and Agent see different apps.

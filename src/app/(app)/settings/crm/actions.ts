@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { COLOR_NAMES } from "@/lib/crm-shared";
 import { str, type FormState } from "@/lib/utils";
+import { HOLD_KEYS } from "@/lib/lead-hold";
 
 const done = (message?: string): FormState => {
   revalidatePath("/settings/crm");
@@ -43,6 +44,8 @@ export async function saveLeadStatus(_: FormState, fd: FormData): Promise<FormSt
 
   const data = { name, kind, color: colorOf(fd), sortOrder: orderOf(fd), active: id ? fd.get("active") === "on" : true };
   if (id) {
+    const system = (await db.leadStatus.findUnique({ where: { id }, select: { systemKey: true } }))?.systemKey;
+    if (system && (kind !== "open" || !data.active)) return { error: "The On-hold rules use this stage, so it must stay Open and Active. You can rename it." };
     if (kind !== "open" || !data.active) {
       const remainingOpen = await db.leadStatus.count({ where: { kind: "open", active: true, NOT: { id } } });
       if (!remainingOpen) return { error: "Keep at least one active open status — new leads start there." };
@@ -107,4 +110,23 @@ export async function deleteStage(_: FormState, fd: FormData): Promise<FormState
   await db.stage.delete({ where: { id: stage.id } });
   await audit(user.id, "delete", "stage", stage.id, `Removed stage ${stage.name}`);
   return done(`Removed “${stage.name}”.`);
+}
+
+/** Settings → CRM → On-hold rules. */
+export async function saveHoldRules(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("settings.company", "edit");
+  const toHold = Math.round(Number(str(fd, "toHoldHours")));
+  const reassign = Math.round(Number(str(fd, "reassignHours")));
+  if (!(toHold >= 1 && toHold <= 720) || !(reassign >= 1 && reassign <= 720)) return { error: "Hours must be between 1 and 720." };
+  const holdingUserId = str(fd, "holdingUserId");
+  if (holdingUserId && !(await db.user.findUnique({ where: { id: holdingUserId }, select: { id: true } }))) return { error: "Choose who held leads go to." };
+  const values: [string, string][] = [
+    [HOLD_KEYS.enabled, fd.get("enabled") === "on" ? "true" : "false"],
+    [HOLD_KEYS.toHoldHours, String(toHold)],
+    [HOLD_KEYS.reassignHours, String(reassign)],
+    [HOLD_KEYS.holdingUserId, holdingUserId],
+  ];
+  for (const [key, value] of values) await db.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
+  await audit(user.id, "update", "setting", null, `On-hold rules: ${fd.get("enabled") === "on" ? "on" : "off"}, ${toHold}h → On-hold, ${reassign}h → reassign`);
+  return done("On-hold rules saved.");
 }

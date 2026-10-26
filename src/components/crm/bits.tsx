@@ -93,7 +93,8 @@ export function StageBar({
   size = "sm",
   after,
 }: {
-  steps: { id: string; name: string; color: string }[];
+  /** locked: shown but not clickable (stages only the system sets, e.g. On-hold). */
+  steps: { id: string; name: string; color: string; locked?: boolean }[];
   currentId: string;
   action: (fd: FormData) => Promise<void>;
   hidden: Record<string, string>;
@@ -117,8 +118,8 @@ export function StageBar({
             key={s.id}
             name="stepId"
             value={s.id}
-            disabled={disabled || s.id === currentId}
-            title={s.name}
+            disabled={disabled || s.id === currentId || s.locked}
+            title={s.locked ? `${s.name}: set automatically` : s.name}
             className={cn(
               "relative flex-1 truncate font-medium transition disabled:cursor-default",
               size === "lg" ? "min-w-28 px-5 py-2.5 text-left text-[13px]" : "min-w-24 px-4 py-2 text-xs",

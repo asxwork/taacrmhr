@@ -6,7 +6,8 @@ import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSe
 import { cn } from "@/lib/utils";
 import { fmtPKR } from "@/lib/crm-shared";
 
-export type KanbanColumn = { id: string; name: string; dot: string; askReason?: boolean };
+/** locked: cards can't be dropped here (stages only the system sets, e.g. On-hold); `lockedHint` explains why. */
+export type KanbanColumn = { id: string; name: string; dot: string; askReason?: boolean; locked?: boolean; lockedHint?: string };
 export type KanbanCard = {
   id: string;
   columnId: string;
@@ -52,7 +53,9 @@ export function Kanban({
     const columnId = e.over ? String(e.over.id) : null;
     const card = optimistic.find((c) => c.id === id);
     if (!columnId || !card || card.columnId === columnId) return;
-    if (columns.find((c) => c.id === columnId)?.askReason) setPendingReason({ id, columnId });
+    const target = columns.find((c) => c.id === columnId);
+    if (target?.locked) return setError(target.lockedHint ?? `Cards can't be moved to ${target.name}.`);
+    if (target?.askReason) setPendingReason({ id, columnId });
     else commit(id, columnId);
   }
 

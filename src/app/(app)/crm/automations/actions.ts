@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { manualHoldError } from "@/lib/lead-hold";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { str, type FormState } from "@/lib/utils";
@@ -26,6 +27,10 @@ export async function saveAutomation(_: FormState, fd: FormData): Promise<FormSt
     stageId: str(fd, "stageId") || null, deleteOpen: fd.get("deleteOpen") === "on", deleteHistory: fd.get("deleteHistory") === "on",
     markReshuffled: fd.get("markReshuffled") === "on", planCall: fd.get("planCall") === "on",
   };
+  if (config.stageId) {
+    const holdError = await manualHoldError(config.stageId);
+    if (holdError) return { error: holdError };
+  }
   const data = { name, config: JSON.stringify(config), active: fd.get("active") !== "off" };
   const a = id ? await db.automation.update({ where: { id }, data }) : await db.automation.create({ data });
   await audit(user.id, id ? "update" : "create", "automation", a.id, `${id ? "Updated" : "Created"} automation ${name}`);

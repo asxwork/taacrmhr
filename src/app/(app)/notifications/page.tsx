@@ -40,7 +40,7 @@ export default async function NotificationsPage() {
                   <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.readAt ? "bg-transparent" : "bg-gold-600")} />
                   <span className="min-w-0 flex-1">
                     <span className={cn("block text-sm", !n.readAt && "font-medium")}>{n.title}</span>
-                    {n.body && <span className="block truncate text-xs text-muted">{n.body}</span>}
+                    {n.body && <span className="block whitespace-pre-line text-xs text-muted">{n.body}</span>}
                   </span>
                   <span className="shrink-0 text-xs text-muted">{fmtAgo(n.createdAt)}</span>
                 </Link>

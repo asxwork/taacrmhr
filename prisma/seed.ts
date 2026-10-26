@@ -122,6 +122,30 @@ async function migrateLeadStages() {
   await db.setting.create({ data: { key: "crm.leadStages.v2", value: new Date().toISOString() } });
 }
 
+/**
+ * On-hold rules (lib/lead-hold.ts): tags the New Request / On-hold stages, creates the "Demo User" that held
+ * leads go to, and once starts every existing lead's clock now, so the first deploy doesn't put old leads on hold.
+ */
+async function seedHoldRules() {
+  for (const [name, key] of [["New Request", "new"], ["On-hold", "onhold"]] as const) {
+    if (await db.leadStatus.findFirst({ where: { systemKey: key } })) continue;
+    const st = await db.leadStatus.findUnique({ where: { name } });
+    if (st) await db.leadStatus.update({ where: { id: st.id }, data: { systemKey: key, kind: "open", active: true } });
+  }
+  if (!(await db.setting.findUnique({ where: { key: "crm.hold.userId" } }))) {
+    const email = "demo.user@hold.local";
+    const demo = (await db.user.findUnique({ where: { email } }))
+      ?? (await db.user.create({ data: { email, name: "Demo User", title: "Holds unassigned leads", passwordHash: await bcrypt.hash(randomBytes(24).toString("base64url"), 10) } }));
+    await db.setting.create({ data: { key: "crm.hold.userId", value: demo.id } });
+  }
+  if (!(await db.setting.findUnique({ where: { key: "crm.hold.v1" } }))) {
+    const now = new Date();
+    await db.lead.updateMany({ where: { assignedAt: null }, data: { assignedAt: now } });
+    await db.lead.updateMany({ where: { statusChangedAt: null }, data: { statusChangedAt: now } });
+    await db.setting.create({ data: { key: "crm.hold.v1", value: now.toISOString() } });
+  }
+}
+
 async function seedCrm() {
   await migrateLeadStages();
   const statuses = [
@@ -141,6 +165,7 @@ async function seedCrm() {
     await db.leadStatus.upsert({ where: { name }, update: firstRun ? { sortOrder: i, color } : {}, create: { name, color, kind, sortOrder: i } });
   }
   if (firstRun) await db.setting.create({ data: { key: "crm.leadStages.ordered", value: new Date().toISOString() } });
+  await seedHoldRules();
 
   // The Reshuffle automation (once; admins can edit or add more in CRM → Automations).
   if (!(await db.automation.count())) {

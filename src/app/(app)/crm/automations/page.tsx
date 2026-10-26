@@ -72,7 +72,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
             <Field label="Move to stage">
               <select name="stageId" defaultValue={c.stageId ?? ""} className="input">
                 <option value="">Don&apos;t change the stage</option>
-                {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {stages.filter((s) => s.systemKey !== "onhold").map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </Field>
 

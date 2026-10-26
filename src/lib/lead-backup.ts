@@ -156,6 +156,8 @@ export async function importLeadsWorkbook(data: ArrayBuffer, actorId: string) {
     };
     const num = cellNum(r["id"] ?? null);
     const existing = num ? await db.lead.findFirst({ where: { number: Math.round(num) } }) : null;
+    // On-hold is only set by the system: a file can keep a lead on hold, never put one there.
+    if (status.systemKey === "onhold" && existing?.statusId !== status.id) data.statusId = existing?.statusId ?? firstOpen!.id;
     if (existing) {
       await db.lead.update({ where: { id: existing.id }, data });
       leadIdByNumber.set(existing.number!, existing.id);
