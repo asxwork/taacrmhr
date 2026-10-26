@@ -5,6 +5,8 @@
 import type { PrismaClient } from "@prisma/client";
 import { nextNumber } from "./sequence";
 import { demoExtras } from "./demo-extras";
+import { demoV2 } from "./demo-v2";
+import { deleteUpload } from "./files";
 
 export type DemoOptions = {
   passwordHash: string;
@@ -59,7 +61,9 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
   ]);
   await demoAttendance(db, employees);
   const extra = await demoExtras(db, o.codePrefix, { head, hr, manager, agent1, agent2, staff }, employees);
-  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra });
+  const empRows = await db.employee.findMany({ where: { id: { in: employees.map((e) => e.id) } }, orderBy: { code: "asc" } });
+  const v2 = await demoV2(db, { head, hr, manager, agent1, agent2, staff }, empRows);
+  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true });
   await db.setting.upsert({ where: { key: MARKER }, update: { value }, create: { key: MARKER, value } });
   return { users: 6, employees: employees.length, projects: projectIds.length };
 }
@@ -72,41 +76,58 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
 export async function upgradeDemo(db: PrismaClient) {
   const row = await db.setting.findUnique({ where: { key: MARKER } });
   if (!row) return;
-  const marker = JSON.parse(row.value) as { domain: string; openingIds?: string[] };
-  if (marker.openingIds) return;
+  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean };
+  if (marker.openingIds && marker.v2) return;
   const users = await db.user.findMany({ where: { email: { endsWith: `@${marker.domain}` } } });
   const by = (local: string) => users.find((x) => x.email === `${local}@${marker.domain}`);
   const [head, hr, manager, agent1, agent2, staff] = ["admin", "hr", "manager", "agent1", "agent2", "staff"].map(by);
   if (!head || !hr || !manager || !agent1 || !agent2 || !staff) return;
   const employees = await db.employee.findMany({ where: { userId: { in: users.map((x) => x.id) } }, orderBy: { code: "asc" } });
-  const earliest = await db.attendancePunch.findFirst({ where: { employeeId: { in: employees.map((e) => e.id) } }, orderBy: { at: "asc" } });
-  if (earliest) {
-    const before = new Date(earliest.at);
-    before.setHours(0, 0, 0, 0);
-    await demoAttendance(db, employees, before);
+  const save = () => db.setting.update({ where: { key: MARKER }, data: { value: JSON.stringify(marker) } });
+  if (!marker.openingIds) {
+    const earliest = await db.attendancePunch.findFirst({ where: { employeeId: { in: employees.map((e) => e.id) } }, orderBy: { at: "asc" } });
+    if (earliest) {
+      const before = new Date(earliest.at);
+      before.setHours(0, 0, 0, 0);
+      await demoAttendance(db, employees, before);
+    }
+    const prefix = employees[0]?.code.replace(/\d+$/, "") ?? "DEMO-";
+    marker = { ...marker, ...(await demoExtras(db, prefix, { head, hr, manager, agent1, agent2, staff }, employees)) };
+    await save();
+    console.log("Sample data upgraded with recruitment, appraisals, assets, payroll, approvals and companies.");
   }
-  const prefix = employees[0]?.code.replace(/\d+$/, "") ?? "DEMO-";
-  const extra = await demoExtras(db, prefix, { head, hr, manager, agent1, agent2, staff }, employees);
-  await db.setting.update({ where: { key: MARKER }, data: { value: JSON.stringify({ ...marker, ...extra }) } });
-  console.log("Sample data upgraded with recruitment, appraisals, assets, payroll, approvals and companies.");
+  if (!marker.v2) {
+    marker = { ...marker, ...(await demoV2(db, { head, hr, manager, agent1, agent2, staff }, employees)), v2: true };
+    await save();
+    console.log("Sample data upgraded with photos, HR requests, attendance logs, On-hold leads and an API connection.");
+  }
 }
 
 export async function removeDemo(db: PrismaClient) {
   const row = await db.setting.findUnique({ where: { key: MARKER } });
   if (!row) return { error: "No sample data is loaded." };
-  const { domain, projectIds, openingIds = [], cycleIds = [], assetIds = [], runIds = [] } = JSON.parse(row.value) as {
+  const { domain, projectIds, openingIds = [], cycleIds = [], assetIds = [], runIds = [], leadIds = [], apiIds = [], logIds = [], v2OpeningIds = [] } = JSON.parse(row.value) as {
     domain: string; projectIds: string[]; openingIds?: string[]; cycleIds?: string[]; assetIds?: string[]; runIds?: string[];
+    leadIds?: string[]; apiIds?: string[]; logIds?: string[]; v2OpeningIds?: string[];
   };
   const users = await db.user.findMany({ where: { email: { endsWith: `@${domain}` } }, select: { id: true } });
   const ids = users.map((u) => u.id);
   const owned = { ownerId: { in: ids } };
+  const photos = await Promise.all([
+    db.projectImage.findMany({ where: { projectId: { in: projectIds } }, select: { path: true } }),
+    db.unitImage.findMany({ where: { unit: { OR: [owned, { projectId: { in: projectIds } }] } }, select: { path: true } }),
+  ]);
   await db.$transaction([
+    db.attendanceLog.deleteMany({ where: { employeeId: null, byId: { in: ids } } }),
     db.activity.deleteMany({ where: { OR: [owned, { createdById: { in: ids } }] } }),
     db.deal.deleteMany({ where: owned }),
-    db.lead.deleteMany({ where: owned }),
+    // Sample leads the On-hold rules moved to the holding user are found by id.
+    db.lead.deleteMany({ where: { OR: [owned, { id: { in: leadIds } }] } }),
+    db.apiConnection.deleteMany({ where: { id: { in: apiIds } } }),
+    db.webhookLog.deleteMany({ where: { id: { in: logIds } } }),
     db.contact.deleteMany({ where: owned }),
     db.company.deleteMany({ where: owned }),
-    db.jobOpening.deleteMany({ where: { id: { in: openingIds } } }),
+    db.jobOpening.deleteMany({ where: { id: { in: [...openingIds, ...v2OpeningIds] } } }),
     db.appraisalCycle.deleteMany({ where: { id: { in: cycleIds } } }),
     db.asset.deleteMany({ where: { id: { in: assetIds } } }),
     db.payrollRun.deleteMany({ where: { id: { in: runIds } } }),
@@ -116,6 +137,7 @@ export async function removeDemo(db: PrismaClient) {
     db.user.deleteMany({ where: { id: { in: ids } } }),
     db.setting.delete({ where: { key: MARKER } }),
   ]);
+  for (const p of photos.flat()) await deleteUpload(p.path);
   return { users: ids.length };
 }
 
