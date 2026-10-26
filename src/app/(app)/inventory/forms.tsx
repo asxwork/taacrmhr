@@ -148,6 +148,11 @@ export function UnitForm({
         </div>
       </details>
 
+      {!unit && (
+        <Field label="Photos (optional)" hint="Up to 12. The first one is the cover; add more later from the unit page.">
+          <input name="photos" type="file" multiple accept="image/jpeg,image/png,image/webp" className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
+        </Field>
+      )}
       <div className="flex gap-2 pt-1">
         <SubmitButton>{unit ? "Save changes" : "Add unit"}</SubmitButton>
         <LinkButton href={cancelHref} variant="ghost" scroll={false}>Cancel</LinkButton>
@@ -224,6 +229,11 @@ export function ProjectForm({ project, cancelHref }: { project?: ProjectValues |
       <Field label="Description">
         <textarea name="description" rows={3} defaultValue={project?.description ?? ""} className="input" />
       </Field>
+      {!project && (
+        <Field label="Photos (optional)" hint="Up to 12. The first one is the cover shown on project cards.">
+          <input name="photos" type="file" multiple accept="image/jpeg,image/png,image/webp" className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
+        </Field>
+      )}
       <div className="flex gap-2 pt-1">
         <SubmitButton>{project ? "Save changes" : "Create project"}</SubmitButton>
         <LinkButton href={cancelHref} variant="ghost" scroll={false}>Cancel</LinkButton>

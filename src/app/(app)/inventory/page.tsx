@@ -38,7 +38,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   ];
   const closeHref = hrefWith("/inventory", keep, {});
 
-  const projects = await db.project.findMany({ include: { blocks: { orderBy: { sortOrder: "asc" } } }, orderBy: { name: "asc" } });
+  const projects = await db.project.findMany({ include: { blocks: { orderBy: { sortOrder: "asc" } }, images: { orderBy: { sortOrder: "asc" }, take: 1 } }, orderBy: { name: "asc" } });
 
   const newDrawer = sp.new && (sp.tab === "projects" ? can(user, "inventory.projects", "create") : allowedTypes.length > 0) && (
     <Drawer title={sp.tab === "projects" ? "New project" : "Add unit / listing"} closeHref={closeHref}>
@@ -99,7 +99,12 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               const total = rows.reduce((s, r) => s + r._count, 0);
               return (
                 <Link key={p.id} href={`/inventory/projects/${p.id}`}>
-                  <Card className="h-full p-5 transition hover:border-navy-900/20">
+                  <Card className="h-full overflow-hidden transition hover:border-navy-900/20">
+                    {p.images[0] && (
+                      // eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files
+                      <img src={fileUrl(p.images[0].path)} alt="" className="aspect-[16/7] w-full object-cover" loading="lazy" />
+                    )}
+                    <div className="p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium">{p.name}</p>
@@ -119,6 +124,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                         const n = rows.find((r) => r.status === s.value)?._count;
                         return n ? <span key={s.value}>{s.label} {n}</span> : null;
                       })}
+                    </div>
                     </div>
                   </Card>
                 </Link>

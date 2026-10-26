@@ -93,7 +93,7 @@ export async function matchUnitsForLead(
         ...(lo != null && hi != null ? [{ price: { gte: lo * 0.9, lte: hi * 1.1 } }] : []),
       ],
     },
-    include: { project: true, block: true },
+    include: { project: true, block: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
     take: 60,
   });
   const words = (lead.location ?? "").toLowerCase().split(/[\s,]+/).filter((w) => w.length > 2);

@@ -411,6 +411,19 @@ model Project {
   blocks            Block[]
   units             Unit[]
   leads             Lead[]
+  /// Photos; the first (sortOrder) is the cover shown on project cards.
+  images            ProjectImage[]
+}
+
+model ProjectImage {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  path      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
 }
 
 model Block {

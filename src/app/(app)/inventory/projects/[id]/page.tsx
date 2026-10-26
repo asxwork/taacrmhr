@@ -8,10 +8,12 @@ import { FREQUENCIES, UNIT_STATUSES, sizeLabel, unitStatus } from "@/lib/invento
 import { cn } from "@/lib/utils";
 import { Badge, Card, Drawer, EmptyState, LinkButton } from "@/components/ui";
 import { BlockForm, BulkUnitsForm, ProjectForm, UnitForm } from "../../forms";
+import { deleteProjectImage, setProjectCover, uploadProjectImages } from "../../actions";
+import { PhotoManager } from "@/components/photo-manager";
 
 export const metadata = { title: "Project" };
 
-type SP = { edit?: string; blocks?: string; bulk?: string; add?: string; status?: string };
+type SP = { edit?: string; blocks?: string; bulk?: string; add?: string; status?: string; photo?: string };
 
 export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SP> }) {
   const user = await requirePermission("inventory.projects");
@@ -20,6 +22,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     where: { id },
     include: {
       blocks: { orderBy: { sortOrder: "asc" }, include: { units: { where: { listingType: "project" }, orderBy: { unitNo: "asc" } } } },
+      images: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!project) notFound();
@@ -91,6 +94,25 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </Link>
         ))}
       </div>
+
+      {(project.images.length > 0 || canEdit) && (
+        <div className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="space-y-3">
+            <PhotoManager
+              photos={project.images}
+              title={project.name}
+              path={path}
+              selectedId={sp.photo}
+              canEdit={canEdit}
+              owner={{ name: "projectId", value: id }}
+              upload={uploadProjectImages}
+              setCover={setProjectCover}
+              remove={deleteProjectImage}
+            />
+          </div>
+          {project.description && <Card className="h-fit whitespace-pre-line p-5 text-sm">{project.description}</Card>}
+        </div>
+      )}
 
       {sales.length > 0 && (
         <div className="mb-4 grid gap-3 sm:grid-cols-3">

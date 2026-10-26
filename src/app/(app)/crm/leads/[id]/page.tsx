@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
 import { TIMELINE_INCLUDE, assignableUsers, editableActivityIds, fmtPKR, INTERESTS } from "@/lib/crm";
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils";
+import { fileUrl } from "@/lib/files";
 import { matchUnitsForLead, sizeLabel, unitLabel, unitOptions } from "@/lib/inventory";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Drawer, EmptyState, Field, LinkButton } from "@/components/ui";
@@ -191,6 +192,10 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
             <ul className="divide-y divide-line">
               {matches.map((u) => (
                 <li key={u.id} className="flex items-center gap-3 px-5 py-3 text-sm">
+                  <Link href={`/inventory/units/${u.id}`} className="size-12 shrink-0 overflow-hidden rounded-md bg-canvas" aria-hidden tabIndex={-1}>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files */}
+                    {u.images[0] && <img src={fileUrl(u.images[0].path)} alt="" className="size-full object-cover" loading="lazy" />}
+                  </Link>
                   <span className="flex-1">
                     <Link href={`/inventory/units/${u.id}`} className="font-medium hover:underline">{unitLabel(u)}</Link>
                     <span className="block text-xs text-muted">{u.type} · {sizeLabel(u.size, u.sizeUnit)}</span>

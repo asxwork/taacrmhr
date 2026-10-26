@@ -1,18 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Handshake, ImagePlus, MapPin, Pencil, Phone, Trash2, X } from "lucide-react";
+import { ArrowLeft, Handshake, MapPin, Pencil, Phone, Trash2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { can, scopeWhere } from "@/lib/permissions";
 import { assignableUsers, fmtPKR } from "@/lib/crm";
 import { LISTING_TYPES, sizeLabel, unitAllows, unitStatus, unitWhere } from "@/lib/inventory";
-import { fileUrl } from "@/lib/files";
 import { fmtDate } from "@/lib/utils";
-import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Button, Card, Drawer, EmptyState, LinkButton } from "@/components/ui";
+import { Button, Card, Drawer, LinkButton } from "@/components/ui";
 import { InfoList, StatusPill } from "@/components/crm/bits";
 import { UnitForm } from "../../forms";
-import { deleteUnit, deleteUnitImage, setUnitStatus, uploadUnitImages } from "../../actions";
+import { deleteUnit, deleteUnitImage, setUnitCover, setUnitStatus, uploadUnitImages } from "../../actions";
+import { PhotoManager } from "@/components/photo-manager";
 
 export const metadata = { title: "Unit" };
 
@@ -43,7 +42,6 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
   const title = unit.project ? `${unit.project.name} · ${unit.unitNo}` : unit.unitNo;
   const canCreateDeal = can(user, "crm.deals", "create") && !unit.activeDealId && ["available", "hold"].includes(unit.status);
   const rentalPipelineId = unit.purpose === "rent" ? (await db.pipeline.findFirst({ where: { name: { contains: "Rent" } }, select: { id: true } }))?.id : undefined;
-  const main = unit.images.find((i) => i.id === sp.photo) ?? unit.images[0];
 
   const editData = sp.edit && canEdit
     ? await Promise.all([
@@ -77,50 +75,17 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-4">
-          <Card className="overflow-hidden">
-            {main ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={fileUrl(main.path)} alt={title} className="aspect-[16/10] w-full bg-canvas object-cover" />
-                {unit.images.length > 1 && (
-                  <div className="flex gap-2 overflow-x-auto p-2">
-                    {unit.images.map((img) => (
-                      <Link key={img.id} href={`${path}?photo=${img.id}`} scroll={false} className={img.id === main.id ? "ring-2 ring-navy-900 rounded-md" : ""}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={fileUrl(img.path)} alt="" className="size-16 rounded-md object-cover" loading="lazy" />
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <EmptyState title="No photos yet" description={canEdit ? "Add photos below." : undefined} />
-            )}
-          </Card>
-
-          {canEdit && (
-            <Card className="p-4">
-              <ActionForm action={uploadUnitImages} className="flex flex-wrap items-center gap-3">
-                <input type="hidden" name="unitId" value={id} />
-                <ImagePlus className="size-4 text-muted" />
-                <input name="images" type="file" multiple accept="image/jpeg,image/png,image/webp" className="flex-1 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
-                <SubmitButton variant="secondary" pendingText="Uploading…">Upload</SubmitButton>
-              </ActionForm>
-              {unit.images.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {unit.images.map((img) => (
-                    <form key={img.id} action={deleteUnitImage} className="relative">
-                      <input type="hidden" name="id" value={img.id} />
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={fileUrl(img.path)} alt="" className="size-14 rounded-md object-cover" loading="lazy" />
-                      <button title="Remove photo" aria-label="Remove photo" className="absolute -right-1.5 -top-1.5 rounded-full bg-surface p-0.5 text-muted shadow hover:text-red-600"><X className="size-3" /></button>
-                    </form>
-                  ))}
-                </div>
-              )}
-              <p className="mt-2 text-xs text-muted">JPG, PNG or WebP · up to 5 MB each · 12 photos max.</p>
-            </Card>
-          )}
+          <PhotoManager
+            photos={unit.images}
+            title={title}
+            path={path}
+            selectedId={sp.photo}
+            canEdit={canEdit}
+            owner={{ name: "unitId", value: id }}
+            upload={uploadUnitImages}
+            setCover={setUnitCover}
+            remove={deleteUnitImage}
+          />
 
           {unit.notes && <Card className="whitespace-pre-line p-5 text-sm">{unit.notes}</Card>}
         </div>

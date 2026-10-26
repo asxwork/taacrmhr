@@ -37,6 +37,9 @@ export async function saveProject(_: FormState, fd: FormData): Promise<FormState
   const project = id
     ? await db.project.update({ where: { id }, data: { ...data, planInstallments: data.planInstallments && Math.round(data.planInstallments) } })
     : await db.project.create({ data: { ...data, planInstallments: data.planInstallments && Math.round(data.planInstallments) } });
+  if (!id && photoFiles(fd, "photos").length) {
+    await addPhotos(photoFiles(fd, "photos").slice(0, MAX_PHOTOS), `projects/${project.id}`, 0, (path, sortOrder) => db.projectImage.create({ data: { projectId: project.id, path, sortOrder } }));
+  }
   await audit(user.id, id ? "update" : "create", "project", project.id, `${id ? "Updated" : "Created"} project ${name}`);
   revalidatePath("/inventory");
   redirect(`/inventory/projects/${project.id}`);
@@ -136,6 +139,10 @@ export async function saveUnit(_: FormState, fd: FormData): Promise<FormState> {
   };
 
   const unit = existing ? await db.unit.update({ where: { id }, data }) : await db.unit.create({ data });
+  // Photos picked in the Add unit form (editing uses the gallery on the unit page).
+  if (!existing && photoFiles(fd, "photos").length) {
+    await addPhotos(photoFiles(fd, "photos").slice(0, MAX_PHOTOS), `units/${unit.id}`, 0, (path, sortOrder) => db.unitImage.create({ data: { unitId: unit.id, path, sortOrder } }));
+  }
   await audit(user.id, existing ? "update" : "create", "unit", unit.id, `${existing ? "Updated" : "Added"} unit ${unitNo}`);
   revalidatePath("/inventory");
   redirect(`/inventory/units/${unit.id}`);
@@ -163,22 +170,73 @@ export async function deleteUnit(fd: FormData) {
   redirect(unit.projectId ? `/inventory/projects/${unit.projectId}` : "/inventory");
 }
 
+// ─── Photos (units and projects) ─────────────────────────────
+
+const MAX_PHOTOS = 12;
+const photoFiles = (fd: FormData, field: string) => fd.getAll(field).filter((f): f is File => f instanceof File && f.size > 0);
+
+/** Saves uploaded photos after the existing ones (the first photo overall is the cover). */
+async function addPhotos(files: File[], dir: string, existing: number, create: (path: string, sortOrder: number) => Promise<unknown>): Promise<FormState> {
+  if (!files.length) return { error: "Choose at least one photo." };
+  if (existing + files.length > MAX_PHOTOS) return { error: `Up to ${MAX_PHOTOS} photos; there's room for ${Math.max(0, MAX_PHOTOS - existing)} more.` };
+  let order = existing;
+  for (const file of files) {
+    const res = await saveImage(file, dir);
+    if ("error" in res) return { error: res.error };
+    await create(res.path, order++);
+  }
+  return { ok: true, message: `Uploaded ${files.length} photo(s).` };
+}
+
+/** Moves one photo to the front (cover) and renumbers the rest in their current order. */
+async function makeCover(images: { id: string; sortOrder: number }[], coverId: string, update: (id: string, sortOrder: number) => Promise<unknown>) {
+  const ordered = [...images].sort((a, b) => a.sortOrder - b.sortOrder);
+  const next = [...ordered.filter((i) => i.id === coverId), ...ordered.filter((i) => i.id !== coverId)];
+  for (const [i, img] of next.entries()) if (img.sortOrder !== i) await update(img.id, i);
+}
+
 export async function uploadUnitImages(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
   const unit = await db.unit.findUnique({ where: { id: str(fd, "unitId") }, include: { _count: { select: { images: true } } } });
   if (!unit || !(await unitAllows(user, unit, "edit"))) return { error: "You can't edit this unit." };
-  const files = fd.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
-  if (!files.length) return { error: "Choose at least one image." };
-  if (unit._count.images + files.length > 12) return { error: "A unit can have up to 12 photos." };
-
-  let order = unit._count.images;
-  for (const file of files) {
-    const res = await saveImage(file, `units/${unit.id}`);
-    if ("error" in res) return { error: res.error };
-    await db.unitImage.create({ data: { unitId: unit.id, path: res.path, sortOrder: order++ } });
-  }
+  const res = await addPhotos(photoFiles(fd, "images"), `units/${unit.id}`, unit._count.images, (path, sortOrder) => db.unitImage.create({ data: { unitId: unit.id, path, sortOrder } }));
   revalidatePath(`/inventory/units/${unit.id}`);
-  return { ok: true, message: `Uploaded ${files.length} photo(s).` };
+  return res;
+}
+
+export async function setUnitCover(fd: FormData) {
+  const user = await requireUser();
+  const img = await db.unitImage.findUnique({ where: { id: str(fd, "id") }, include: { unit: { include: { images: true } } } });
+  if (!img || !(await unitAllows(user, img.unit, "edit"))) return;
+  await makeCover(img.unit.images, img.id, (id, sortOrder) => db.unitImage.update({ where: { id }, data: { sortOrder } }));
+  revalidatePath(`/inventory/units/${img.unitId}`);
+}
+
+export async function uploadProjectImages(_: FormState, fd: FormData): Promise<FormState> {
+  await requirePermission("inventory.projects", "edit");
+  const project = await db.project.findUnique({ where: { id: str(fd, "projectId") }, include: { _count: { select: { images: true } } } });
+  if (!project) return { error: "Project not found." };
+  const res = await addPhotos(photoFiles(fd, "images"), `projects/${project.id}`, project._count.images, (path, sortOrder) => db.projectImage.create({ data: { projectId: project.id, path, sortOrder } }));
+  revalidatePath(`/inventory/projects/${project.id}`);
+  revalidatePath("/inventory");
+  return res;
+}
+
+export async function setProjectCover(fd: FormData) {
+  await requirePermission("inventory.projects", "edit");
+  const img = await db.projectImage.findUnique({ where: { id: str(fd, "id") }, include: { project: { include: { images: true } } } });
+  if (!img) return;
+  await makeCover(img.project.images, img.id, (id, sortOrder) => db.projectImage.update({ where: { id }, data: { sortOrder } }));
+  revalidatePath(`/inventory/projects/${img.projectId}`);
+}
+
+export async function deleteProjectImage(fd: FormData) {
+  await requirePermission("inventory.projects", "edit");
+  const img = await db.projectImage.findUnique({ where: { id: str(fd, "id") } });
+  if (!img) return;
+  await deleteUpload(img.path);
+  await db.projectImage.delete({ where: { id: img.id } });
+  revalidatePath(`/inventory/projects/${img.projectId}`);
 }
 
 export async function deleteUnitImage(fd: FormData) {
