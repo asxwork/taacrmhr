@@ -10,13 +10,14 @@ import { Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/u
 import { Kanban } from "@/components/crm/kanban";
 import { Pagination, StatusPill, ViewToggle, hrefWith } from "@/components/crm/bits";
 import { DealForm } from "./deal-form";
+import { unitLabel, unitWhere } from "@/lib/inventory";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { moveDeal } from "./actions";
 
 export const metadata = { title: "Deals" };
 
 const PAGE_SIZE = 50;
-type SP = { pipeline?: string; q?: string; owner?: string; stage?: string; view?: string; page?: string; new?: string; contact?: string };
+type SP = { pipeline?: string; q?: string; owner?: string; stage?: string; view?: string; page?: string; new?: string; contact?: string; unit?: string };
 
 export default async function DealsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("crm.deals");
@@ -30,6 +31,8 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     ? Promise.all([
         scopeWhere(user, "crm.contacts").then((w) => db.contact.findMany({ where: w ?? { id: "" }, select: { id: true, name: true, phone: true }, orderBy: { name: "asc" }, take: 500 })),
         db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+        // "Create deal" on a unit page: that unit, if this user can see it and it's free.
+        sp.unit ? unitWhere(user, "view").then((w) => w && db.unit.findFirst({ where: { id: sp.unit, activeDealId: null, status: { in: ["available", "hold"] }, ...w }, include: { project: true, block: true } })) : null,
       ])
     : null;
   newDrawerPromise?.catch(() => {});
@@ -54,7 +57,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   const [deals, total, owners, assignees, canEditRow, summary, wonMonth] = await Promise.all([
     db.deal.findMany({
       where,
-      include: { stage: true, contact: { select: { name: true } }, owner: { select: { name: true } } },
+      include: { stage: true, contact: { select: { name: true } }, owner: { select: { name: true } }, units: { take: 1, include: { unit: { select: { unitNo: true, address: true, project: { select: { name: true } }, block: { select: { name: true } } } } } } },
       orderBy: { updatedAt: "desc" },
       skip: view === "list" ? (page - 1) * PAGE_SIZE : 0,
       take: view === "list" ? PAGE_SIZE : 500,
@@ -147,7 +150,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
             columnId: d.stageId,
             title: d.title,
             href: `/crm/deals/${d.id}`,
-            subtitle: d.contact?.name,
+            subtitle: [d.contact?.name, d.units[0] && unitLabel(d.units[0].unit)].filter(Boolean).join(" · ") || undefined,
             amount: d.value ?? undefined,
             owner: d.owner?.name,
             draggable: canEdit && canEditRow(d),
@@ -204,6 +207,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
             cancelHref={closeHref}
             defaultPipelineId={pipeline.id}
             defaultContactId={sp.contact}
+            unit={newDrawer[2] ? { id: newDrawer[2].id, label: unitLabel(newDrawer[2]), price: newDrawer[2].price, purpose: newDrawer[2].purpose } : null}
           />
         </Drawer>
       )}

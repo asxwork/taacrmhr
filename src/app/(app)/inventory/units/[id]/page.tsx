@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ImagePlus, MapPin, Pencil, Phone, Trash2, X } from "lucide-react";
+import { ArrowLeft, Handshake, ImagePlus, MapPin, Pencil, Phone, Trash2, X } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { scopeWhere } from "@/lib/permissions";
+import { can, scopeWhere } from "@/lib/permissions";
 import { assignableUsers, fmtPKR } from "@/lib/crm";
 import { LISTING_TYPES, sizeLabel, unitAllows, unitStatus, unitWhere } from "@/lib/inventory";
 import { fileUrl } from "@/lib/files";
@@ -41,6 +41,8 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
     ? await db.lead.findMany({ where: { unitId: unit.id, ...leadScope }, include: { status: true, owner: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 20 })
     : [];
   const title = unit.project ? `${unit.project.name} · ${unit.unitNo}` : unit.unitNo;
+  const canCreateDeal = can(user, "crm.deals", "create") && !unit.activeDealId && ["available", "hold"].includes(unit.status);
+  const rentalPipelineId = unit.purpose === "rent" ? (await db.pipeline.findFirst({ where: { name: { contains: "Rent" } }, select: { id: true } }))?.id : undefined;
   const main = unit.images.find((i) => i.id === sp.photo) ?? unit.images[0];
 
   const editData = sp.edit && canEdit
@@ -67,7 +69,10 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
           </p>
           <p className="mt-1 text-2xl font-semibold text-navy-900">{fmtPKR(unit.price)}{unit.purpose === "rent" && <span className="text-sm font-normal text-muted"> / month</span>}</p>
         </div>
-        {canEdit && <LinkButton href={`${path}?edit=1`} variant="secondary" scroll={false}><Pencil className="size-4" /> Edit</LinkButton>}
+        <div className="flex flex-wrap gap-2">
+          {canCreateDeal && <LinkButton href={`/crm/deals?new=1&unit=${unit.id}${unit.purpose === "rent" ? "&pipeline=" + (rentalPipelineId ?? "") : ""}`} prefetch><Handshake className="size-4" /> Create deal</LinkButton>}
+          {canEdit && <LinkButton href={`${path}?edit=1`} variant="secondary" scroll={false}><Pencil className="size-4" /> Edit</LinkButton>}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">

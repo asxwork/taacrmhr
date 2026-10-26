@@ -7,6 +7,7 @@ import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissi
 import { TIMELINE_INCLUDE, assignableUsers, editableActivityIds, fmtPKR } from "@/lib/crm";
 import { fmtDate } from "@/lib/utils";
 import { unitStatus, unitWhere } from "@/lib/inventory";
+import { fileUrl } from "@/lib/files";
 import { DealProperty } from "./deal-property";
 import { SubmitButton } from "@/components/action-form";
 import { Button, Card, Drawer, Field, LinkButton } from "@/components/ui";
@@ -26,7 +27,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
     where: { id, ...scope },
     include: {
       stage: true, pipeline: { include: { stages: { orderBy: { sortOrder: "asc" } } } }, contact: true, lead: true, owner: true, branch: true, source: true,
-      units: { include: { unit: { include: { project: true, block: true } } } },
+      units: { include: { unit: { include: { project: true, block: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } } } } },
       paymentPlan: { include: { items: true } },
     },
   });
@@ -39,6 +40,15 @@ export default async function DealPage({ params, searchParams }: { params: Promi
   const won = deal.pipeline.stages.find((s) => s.kind === "won");
   const lost = deal.pipeline.stages.find((s) => s.kind === "lost");
   const closed = deal.stage.kind !== "open";
+
+  // The client's other business with us, so the deal page shows the whole relationship.
+  const leadScope = await scopeWhere(user, "crm.leads");
+  const [otherDeals, clientLeads] = deal.contactId
+    ? await Promise.all([
+        db.deal.findMany({ where: { contactId: deal.contactId, NOT: { id }, ...scope }, include: { stage: true }, orderBy: { createdAt: "desc" }, take: 6 }),
+        leadScope ? db.lead.findMany({ where: { contactId: deal.contactId, ...leadScope }, include: { status: true }, orderBy: { createdAt: "desc" }, take: 6 }) : [],
+      ])
+    : [[], []];
 
   const [activities, actOwners] = await Promise.all([
     db.activity.findMany({
@@ -136,6 +146,23 @@ export default async function DealPage({ params, searchParams }: { params: Promi
                   </a>
                 )}
               </div>
+              {(otherDeals.length > 0 || clientLeads.length > 0) && (
+                <div className="mt-4 space-y-1.5 border-t border-line pt-3 text-sm">
+                  <p className="text-xs font-medium text-muted">Also with this client</p>
+                  {otherDeals.map((d) => (
+                    <Link key={d.id} href={`/crm/deals/${d.id}`} className="flex items-center gap-2 hover:underline">
+                      <span className="min-w-0 flex-1 truncate">Deal: {d.title}</span>
+                      <StatusPill name={d.stage.name} colorName={d.stage.color} />
+                    </Link>
+                  ))}
+                  {clientLeads.map((l) => (
+                    <Link key={l.id} href={`/crm/leads/${l.id}`} className="flex items-center gap-2 hover:underline">
+                      <span className="min-w-0 flex-1 truncate">Lead #{l.number ?? "—"}{l.id === deal.leadId ? " (this deal's lead)" : ""}</span>
+                      <StatusPill name={l.status.name} colorName={l.status.color} />
+                    </Link>
+                  ))}
+                </div>
+              )}
             </Card>
           )}
           <Card className="p-5">
@@ -157,7 +184,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
           <DealProperty
             dealId={id}
             canEdit={canEdit}
-            units={deal.units.map(({ unit }) => ({ id: unit.id, label: [unit.project?.name, unit.block?.name, unit.unitNo].filter(Boolean).join(" · "), price: unit.price, status: unitStatus(unit.status) }))}
+            units={deal.units.map(({ unit }) => ({ id: unit.id, label: [unit.project?.name, unit.block?.name, unit.unitNo].filter(Boolean).join(" · "), price: unit.price, status: unitStatus(unit.status), photo: unit.images[0] ? fileUrl(unit.images[0].path) : null }))}
             linkable={linkable.map((u) => ({ id: u.id, group: u.project?.name ?? "Listings", label: `${[u.block?.name, u.unitNo].filter(Boolean).join(" · ")} — ${u.type}${u.price ? ` · ${fmtPKR(u.price, { prefix: false })}` : ""}` }))}
             plan={deal.paymentPlan && { total: deal.paymentPlan.total, paid: deal.paymentPlan.items.reduce((s, i) => s + i.paidAmount, 0), overdue: deal.paymentPlan.items.filter((i) => i.paidAmount < i.amount && i.dueDate < new Date(new Date().setHours(0, 0, 0, 0))).length, next: deal.paymentPlan.items.filter((i) => i.paidAmount < i.amount).sort((a, b) => +a.dueDate - +b.dueDate)[0] ?? null }}
           />

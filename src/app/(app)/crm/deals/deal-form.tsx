@@ -11,7 +11,7 @@ type DealValues = {
 type Opt = { id: string; name: string };
 
 export function DealForm({
-  deal, pipelines, contacts, sources, owners, currentUserId, cancelHref, defaultPipelineId, defaultContactId,
+  deal, pipelines, contacts, sources, owners, currentUserId, cancelHref, defaultPipelineId, defaultContactId, unit,
 }: {
   deal?: DealValues | null;
   pipelines: Opt[];
@@ -22,13 +22,21 @@ export function DealForm({
   cancelHref: string;
   defaultPipelineId?: string;
   defaultContactId?: string;
+  /** New deal for this unit (from the unit page): linked and held when the deal is created. */
+  unit?: { id: string; label: string; price: number | null; purpose: string } | null;
 }) {
   return (
     <ActionForm action={saveDeal} className="space-y-4">
       {deal && <input type="hidden" name="id" value={deal.id} />}
       <Field label="Deal title" hint="e.g. 3-bed apartment — DHA Phase 8">
-        <input name="title" required defaultValue={deal?.title} className="input" autoFocus />
+        <input name="title" required defaultValue={deal?.title ?? (unit ? `${unit.purpose === "rent" ? "Rent" : "Sale"}: ${unit.label}` : undefined)} className="input" autoFocus />
       </Field>
+      {unit && (
+        <p className="rounded-lg border border-line bg-canvas/60 px-3 py-2 text-sm">
+          <input type="hidden" name="unitId" value={unit.id} />
+          Property: <b className="font-medium">{unit.label}</b>. It&apos;s linked to the deal and held, booked and sold as the deal moves through its stages.
+        </p>
+      )}
       {!deal && (
         <Field label="Pipeline">
           <select name="pipelineId" defaultValue={defaultPipelineId} className="input">
@@ -40,7 +48,7 @@ export function DealForm({
       )}
       <div className="grid grid-cols-2 gap-3">
         <Field label="Value (PKR)" hint="e.g. 2.5 cr, 80 lac">
-          <input name="value" defaultValue={deal?.value ?? ""} className="input" />
+          <input name="value" defaultValue={deal?.value ?? unit?.price ?? ""} className="input" />
         </Field>
         <Field label="Expected close">
           <input name="expectedClose" type="date" defaultValue={deal?.expectedClose ? format(deal.expectedClose, "yyyy-MM-dd") : ""} className="input" />

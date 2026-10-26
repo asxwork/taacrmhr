@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { attachUnitToDeal, unitWhere } from "@/lib/inventory";
 import { requirePermission, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { editableDealFor, logSystem, ownerBranch, parseAmount, phoneKey, resolveOwner } from "@/lib/crm";
@@ -65,6 +66,12 @@ export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
     const deal = await db.deal.create({ data: { ...data, pipelineId: pipeline.id, stageId: pipeline.stages[0].id } });
     dealId = deal.id;
     await logSystem({ dealId }, "Deal created", user.id);
+    const unitScope = str(fd, "unitId") ? await unitWhere(user, "view") : null;
+    const unit = unitScope ? await db.unit.findFirst({ where: { id: str(fd, "unitId"), ...unitScope }, include: { project: true, block: true } }) : null;
+    if (unit) {
+      const error = await attachUnitToDeal(deal, unit, user.id);
+      if (error) await logSystem({ dealId }, `Couldn't link ${unit.unitNo}: ${error}`, user.id);
+    }
     if (ownerId !== user.id) await notify(ownerId, `New deal assigned to you: ${title}`, { body: `By ${user.name}`, link: `/crm/deals/${dealId}`, email: true });
     await audit(user.id, "create", "deal", dealId, `Created deal ${title}`);
   }

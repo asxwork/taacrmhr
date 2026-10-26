@@ -13,6 +13,7 @@ import { nextNumber } from "@/lib/sequence";
 import type { SessionUser } from "@/lib/auth";
 import { manualHoldError } from "@/lib/lead-hold";
 import { applyLeadStatus, runBulkLeads } from "@/lib/lead-ops";
+import { attachUnitToDeal, unitWhere } from "@/lib/inventory";
 
 async function editableLead(user: SessionUser, id: string) {
   const scope = await scopeWhere(user, "crm.leads", "edit");
@@ -159,6 +160,12 @@ export async function convertLead(_: FormState, fd: FormData): Promise<FormState
   if (!pipeline?.stages[0]) return { error: "Choose a pipeline." };
   const title = str(fd, "title") || lead.name;
 
+  // The property this deal is for: picked in the convert form (defaults to the lead's linked unit).
+  const unitScope = await unitWhere(user, "view");
+  const unitId = fd.has("unitId") ? str(fd, "unitId") : lead.unitId ?? "";
+  const unit = unitId && unitScope ? await db.unit.findFirst({ where: { id: unitId, ...unitScope }, include: { project: true, block: true } }) : null;
+  if (unit && unit.activeDealId) return { error: `${unit.unitNo} is already ${unit.status} through another deal. Choose another unit or none.` };
+
   let contact = lead.phoneKey ? await db.contact.findFirst({ where: { phoneKey: lead.phoneKey } }) : null;
   contact ??= await db.contact.create({
     data: { name: lead.name, phone: lead.phone, phoneKey: lead.phoneKey, phone2: lead.phone2, email: lead.email, sourceId: lead.sourceId, ownerId: lead.ownerId, branchId: lead.branchId },
@@ -167,9 +174,13 @@ export async function convertLead(_: FormState, fd: FormData): Promise<FormState
   const deal = await db.deal.create({
     data: {
       title, pipelineId: pipeline.id, stageId: pipeline.stages[0].id, contactId: contact.id, leadId: lead.id, sourceId: lead.sourceId,
-      value: parseAmount(str(fd, "value")) ?? lead.budgetMax ?? lead.budgetMin, ownerId: lead.ownerId, branchId: lead.branchId,
+      value: parseAmount(str(fd, "value")) ?? unit?.price ?? lead.budgetMax ?? lead.budgetMin, ownerId: lead.ownerId, branchId: lead.branchId,
     },
   });
+  if (unit) {
+    const error = await attachUnitToDeal(deal, unit, user.id);
+    if (error) await logSystem({ dealId: deal.id }, `Couldn't link ${unit.unitNo}: ${error}`, user.id);
+  }
   const converted = await db.leadStatus.findFirst({ where: { kind: "converted" }, orderBy: { sortOrder: "asc" } });
   await db.lead.update({ where: { id: lead.id }, data: { statusId: converted?.id ?? lead.statusId, convertedAt: new Date(), contactId: contact.id } });
   await logSystem({ leadId: lead.id }, `Converted to deal “${title}”`, user.id);

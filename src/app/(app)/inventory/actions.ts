@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { requirePermission, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { logSystem, ownerBranch, parseAmount, resolveOwner } from "@/lib/crm";
-import { FREQUENCIES, SIZE_UNITS, UNIT_TYPES, releaseUnit, syncDealUnits, unitAllows, unitLabel, unitWhere } from "@/lib/inventory";
+import { FREQUENCIES, SIZE_UNITS, UNIT_TYPES, attachUnitToDeal, releaseUnit, unitAllows, unitWhere } from "@/lib/inventory";
 import { deleteUpload, saveImage } from "@/lib/files";
 import { str, type FormState } from "@/lib/utils";
 
@@ -201,13 +201,8 @@ export async function linkUnitToDeal(_: FormState, fd: FormData): Promise<FormSt
   const visible = await unitWhere(user, "view");
   const unit = visible ? await db.unit.findFirst({ where: { id: str(fd, "unitId"), ...visible }, include: { project: true, block: true } }) : null;
   if (!unit) return { error: "Choose a unit." };
-  if (unit.activeDealId && unit.activeDealId !== deal.id) return { error: `${unit.unitNo} is already ${unit.status} through another deal.` };
-  if (!["available", "hold"].includes(unit.status) && unit.activeDealId !== deal.id) return { error: `${unit.unitNo} is ${unit.status} and can't be linked.` };
-
-  await db.dealUnit.upsert({ where: { dealId_unitId: { dealId: deal.id, unitId: unit.id } }, update: {}, create: { dealId: deal.id, unitId: unit.id } });
-  if (deal.value == null && unit.price) await db.deal.update({ where: { id: deal.id }, data: { value: unit.price } });
-  await syncDealUnits(deal.id);
-  await logSystem({ dealId: deal.id }, `Linked unit ${unitLabel(unit)}`, user.id);
+  const error = await attachUnitToDeal(deal, unit, user.id);
+  if (error) return { error };
   revalidatePath(`/crm/deals/${deal.id}`);
   return { ok: true };
 }

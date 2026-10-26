@@ -10,7 +10,7 @@ import { linkUnitToDeal, unlinkUnitFromDeal } from "@/app/(app)/inventory/action
 type Props = {
   dealId: string;
   canEdit: boolean;
-  units: { id: string; label: string; price: number | null; status: { label: string; color: string } }[];
+  units: { id: string; label: string; price: number | null; status: { label: string; color: string }; photo: string | null }[];
   linkable: { id: string; group: string; label: string }[];
   plan: { total: number; paid: number; overdue: number; next: { label: string; dueDate: Date; amount: number; paidAmount: number } | null } | null;
 };
@@ -25,8 +25,15 @@ export function DealProperty({ dealId, canEdit, units, linkable, plan }: Props) 
         {units.length === 0 && <p className="mb-3 text-sm text-muted">No unit linked yet.</p>}
         <ul className="mb-3 space-y-2.5">
           {units.map((u) => (
-            <li key={u.id} className="flex items-center gap-2 text-sm">
-              <Link href={`/inventory/units/${u.id}`} className="min-w-0 flex-1 truncate font-medium hover:underline">{u.label}</Link>
+            <li key={u.id} className="flex items-center gap-2.5 text-sm">
+              <Link href={`/inventory/units/${u.id}`} className="size-11 shrink-0 overflow-hidden rounded-md bg-canvas" aria-hidden tabIndex={-1}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files */}
+                {u.photo ? <img src={u.photo} alt="" className="size-full object-cover" loading="lazy" /> : <Building2 className="m-auto mt-3 size-5 text-muted/60" />}
+              </Link>
+              <span className="min-w-0 flex-1">
+                <Link href={`/inventory/units/${u.id}`} className="block truncate font-medium hover:underline">{u.label}</Link>
+                {u.price != null && <span className="text-xs text-muted">{fmtPKR(u.price)}</span>}
+              </span>
               <StatusPill name={u.status.label} colorName={u.status.color} />
               {canEdit && (
                 <form action={unlinkUnitFromDeal}>

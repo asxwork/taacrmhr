@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Layers, Pencil, Plus, Rows3 } from "lucide-react";
 import { db } from "@/lib/db";
-import { can, requirePermission } from "@/lib/permissions";
+import { can, requirePermission, scopeWhere } from "@/lib/permissions";
 import { color, fmtPKR } from "@/lib/crm";
 import { FREQUENCIES, UNIT_STATUSES, sizeLabel, unitStatus } from "@/lib/inventory";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,20 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const availableValue = units.filter((u) => u.status === "available").reduce((s, u) => s + (u.price ?? 0), 0);
   const soldValue = units.filter((u) => u.status === "sold" || u.status === "booked").reduce((s, u) => s + (u.price ?? 0), 0);
   const freq = FREQUENCIES.find((f) => f.value === project.planFrequency)?.label.toLowerCase();
+
+  // Sales on this project: deals on its units and leads asking about it (each within the user's own scope).
+  const [dealScope, leadScope] = await Promise.all([scopeWhere(user, "crm.deals"), scopeWhere(user, "crm.leads")]);
+  const onProject = { units: { some: { unit: { projectId: id } } } };
+  const [openDeals, wonDeals, leadCount] = await Promise.all([
+    dealScope ? db.deal.aggregate({ where: { ...dealScope, ...onProject, closedAt: null }, _count: true, _sum: { value: true } }) : null,
+    dealScope ? db.deal.aggregate({ where: { ...dealScope, ...onProject, stage: { kind: "won" } }, _count: true, _sum: { value: true } }) : null,
+    leadScope ? db.lead.count({ where: { ...leadScope, projectId: id, status: { kind: "open" } } }) : null,
+  ]);
+  const sales: [string, string, string?][] = [
+    ...(openDeals ? [["Open deals", `${openDeals._count}`, fmtPKR(openDeals._sum.value)] as [string, string, string]] : []),
+    ...(wonDeals ? [["Won deals", `${wonDeals._count}`, fmtPKR(wonDeals._sum.value)] as [string, string, string]] : []),
+    ...(leadCount != null ? [["Interested leads", `${leadCount}`, "open, asking about this project"] as [string, string, string]] : []),
+  ];
 
   return (
     <>
@@ -77,6 +91,23 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </Link>
         ))}
       </div>
+
+      {sales.length > 0 && (
+        <div className="mb-4 grid gap-3 sm:grid-cols-3">
+          {sales.map(([label, n, sub]) => {
+            const inner = (
+              <>
+                <p className="text-xs text-muted">{label}</p>
+                <p className="text-xl font-semibold tabular-nums">{n}</p>
+                {sub && <p className="truncate text-xs text-muted">{sub}</p>}
+              </>
+            );
+            return label === "Interested leads"
+              ? <Link key={label} href={`/crm/leads?project=${id}`} className="rounded-xl border border-line bg-surface p-4 shadow-xs hover:bg-canvas">{inner}</Link>
+              : <div key={label} className="rounded-xl border border-line bg-surface p-4 shadow-xs">{inner}</div>;
+          })}
+        </div>
+      )}
 
       {project.blocks.length === 0 ? (
         <Card><EmptyState title="No blocks yet" description="Add a block, tower or phase, then generate its units." action={canEdit && <LinkButton href={`${path}?blocks=1`}>Add block</LinkButton>} /></Card>

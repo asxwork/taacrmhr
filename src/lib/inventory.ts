@@ -4,6 +4,7 @@ import { can, scopeMatcher, scopeWhere } from "./permissions";
 import type { SessionUser } from "./auth";
 import type { Action } from "./rbac";
 import { fmtPKR } from "./crm-shared";
+import { logSystem } from "./crm";
 
 export * from "./inventory-shared";
 
@@ -43,6 +44,25 @@ export async function syncDealUnits(dealId: string) {
       await db.unit.update({ where: { id: unit.id }, data: { status: "available", activeDealId: null } });
     }
   }
+}
+
+/**
+ * Links a unit to a deal: the one path used by the deal page, lead conversion and "Create deal" on a unit.
+ * Refuses a unit another deal holds or that is already booked/sold, fills an empty deal value from the
+ * unit price, and applies the deal's stage to the unit (e.g. hold). Returns an error message, or null.
+ */
+export async function attachUnitToDeal(
+  deal: { id: string; value: number | null },
+  unit: { id: string; unitNo: string; status: string; activeDealId: string | null; price: number | null; project?: { name: string } | null; block?: { name: string } | null; address?: string | null },
+  actorId: string | null,
+) {
+  if (unit.activeDealId && unit.activeDealId !== deal.id) return `${unit.unitNo} is already ${unit.status} through another deal.`;
+  if (!["available", "hold"].includes(unit.status) && unit.activeDealId !== deal.id) return `${unit.unitNo} is ${unit.status} and can't be linked.`;
+  await db.dealUnit.upsert({ where: { dealId_unitId: { dealId: deal.id, unitId: unit.id } }, update: {}, create: { dealId: deal.id, unitId: unit.id } });
+  if (deal.value == null && unit.price) await db.deal.update({ where: { id: deal.id }, data: { value: unit.price } });
+  await syncDealUnits(deal.id);
+  await logSystem({ dealId: deal.id }, `Linked unit ${unitLabel(unit)}`, actorId);
+  return null;
 }
 
 /** Release a unit if this deal holds it (on unlink / deal delete). */

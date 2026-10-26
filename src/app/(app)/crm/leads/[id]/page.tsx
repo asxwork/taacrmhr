@@ -240,10 +240,19 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
                   {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </Field>
-              <Field label="Deal value" hint="e.g. 2.5 cr">
-                <input name="value" defaultValue={lead.budgetMax ?? lead.budgetMin ?? ""} className="input" />
+              <Field label="Deal value" hint="Empty = unit price or budget">
+                <input name="value" placeholder={lead.budgetMax ?? lead.budgetMin ? String(lead.budgetMax ?? lead.budgetMin) : "e.g. 2.5 cr"} className="input" />
               </Field>
             </div>
+            <Field label="Property" hint="Linked to the deal; it is held, booked and sold as the deal moves through its stages.">
+              <select name="unitId" defaultValue={lead.unit && !lead.unit.activeDealId ? lead.unit.id : ""} className="input">
+                <option value="">No unit yet</option>
+                {lead.unit && !lead.unit.activeDealId && <option value={lead.unit.id}>{unitLabel(lead.unit)}{lead.unit.price ? ` · ${fmtPKR(lead.unit.price)}` : ""} (enquired about)</option>}
+                {matches.filter((u) => u.id !== lead.unitId && !u.activeDealId).slice(0, 25).map((u) => (
+                  <option key={u.id} value={u.id}>{unitLabel(u)} · {u.type}{u.price ? ` · ${fmtPKR(u.price)}` : ""}</option>
+                ))}
+              </select>
+            </Field>
             <SubmitButton pendingText="Converting…">Create deal</SubmitButton>
           </ActionForm>
         </Drawer>
