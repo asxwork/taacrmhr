@@ -161,12 +161,13 @@ body {
 .palette-group:nth-child(2) { animation-delay: 30ms; }
 .palette-group:nth-child(3) { animation-delay: 60ms; }
 .palette-group:nth-child(n + 4) { animation-delay: 90ms; }
-.anim-page { animation: rise-in var(--dur-enter) var(--ease-out) both; }
+/* "backwards", not "both": a leftover transform would trap position:fixed drawers inside the page. */
+.anim-page { animation: rise-in var(--dur-enter) var(--ease-out) backwards; }
 .anim-slide-left { animation: slide-in-left var(--dur-enter) var(--ease-out) both; }
 .anim-slide-right { animation: slide-in-right var(--dur-enter) var(--ease-out) both; }
 
 /* Cards in a grid arrive one after another (40ms apart). */
-.stagger > * { animation: rise-in var(--dur-enter) var(--ease-out) both; }
+.stagger > * { animation: rise-in var(--dur-enter) var(--ease-out) backwards; }
 .stagger > *:nth-child(2) { animation-delay: 40ms; }
 .stagger > *:nth-child(3) { animation-delay: 80ms; }
 .stagger > *:nth-child(4) { animation-delay: 120ms; }
