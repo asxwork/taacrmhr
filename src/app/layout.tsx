@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/playfair-display";
 import "./globals.css";
@@ -13,7 +13,11 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: { default: "The Advisor Associates", template: "%s · The Advisor Associates" },
   description: "CRM & HR platform",
+  appleWebApp: { capable: true, title: "Advisor", statusBarStyle: "black-translucent" },
+  icons: { apple: "/brand/icon.png" },
 };
+
+export const viewport: Viewport = { themeColor: "#0A223C" };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const appearance = await getAppearance();

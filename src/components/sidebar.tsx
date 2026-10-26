@@ -45,7 +45,7 @@ export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
   }, [open]);
 
   const navList = (rail: boolean) => (
-    <nav aria-label="Main" className="sidebar-scroll flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
+    <nav aria-label="Main" className={cn("sidebar-scroll flex-1 overflow-y-auto overflow-x-hidden py-3", rail ? "rail-scroll px-0" : "px-3")}>
       {groups.map((g, i) => (
         <div key={g.label ?? i} className={cn(i > 0 && "mt-5")}>
           {g.label && (rail
@@ -64,12 +64,12 @@ export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
                     aria-label={rail ? item.label : undefined}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "group relative flex h-9 items-center gap-3 rounded-lg text-[13px] transition-colors duration-150",
-                      rail ? "justify-center px-0" : "px-3",
+                      "group relative flex items-center gap-3 rounded-lg text-[13px] transition-colors duration-150",
+                      rail ? "mx-auto size-10 justify-center" : "h-9 px-3",
                       active ? "bg-white/10 text-white" : "text-white/65 hover:bg-white/[0.06] hover:text-white",
                     )}
                   >
-                    {active && <span className="nav-indicator absolute inset-y-2 left-0 w-[3px] rounded-full bg-gold-400" />}
+                    {active && !rail && <span className="nav-indicator absolute inset-y-2 left-0 w-[3px] rounded-full bg-gold-400" />}
                     <Icon className={cn("size-[18px] shrink-0 transition-colors", active ? "text-gold-400" : "text-white/55 group-hover:text-white/80")} />
                     {!rail && <span className="flex-1 truncate">{item.label}</span>}
                     {!rail && item.phase && <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-white/45">soon</span>}
@@ -85,22 +85,22 @@ export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
 
   const footer = (rail: boolean) => (
     <div className="border-t border-white/10 p-3">
-      <div className={cn("flex items-center gap-2", rail ? "flex-col" : "px-1")}>
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gold-400/15 text-[11px] font-semibold text-gold-300" title={rail ? `${user.name} · ${user.roles}` : undefined} aria-hidden={!rail}>
+      <div className={cn("flex items-center", rail ? "flex-col gap-1" : "gap-1 px-1")}>
+        <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-gold-400/15 text-[11px] font-semibold text-gold-300", rail && "mb-1")} title={rail ? `${user.name} · ${user.roles}` : undefined} aria-hidden={!rail}>
           {initials(user.name)}
         </span>
         {!rail && (
-          <div className="min-w-0 flex-1">
+          <div className="ml-1.5 min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium text-white">{user.name}</p>
             <p className="truncate text-[11px] text-white/55">{user.roles}{user.branch && ` · ${user.branch}`}</p>
           </div>
         )}
-        <Link href="/notifications" onClick={() => setOpen(false)} className="relative rounded-lg p-2 text-white/55 transition-colors hover:bg-white/10 hover:text-white" title="Notifications" aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}>
+        <Link href="/notifications" onClick={() => setOpen(false)} className="relative flex size-10 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white" title="Notifications" aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}>
           <Bell className="size-[18px]" />
-          {unread > 0 && <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-semibold text-navy-950">{unread > 99 ? "99+" : unread}</span>}
+          {unread > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-semibold text-navy-950">{unread > 99 ? "99+" : unread}</span>}
         </Link>
-        <form action={logout}>
-          <button className="rounded-lg p-2 text-white/55 transition-colors hover:bg-red-500/15 hover:text-red-300" title="Sign out" aria-label="Sign out">
+        <form action={logout} className="flex">
+          <button className="flex size-10 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-red-500/15 hover:text-red-300" title="Sign out" aria-label="Sign out">
             <LogOut className="size-[18px]" />
           </button>
         </form>
@@ -124,13 +124,13 @@ export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
             <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-10 w-auto" />
           )}
           {!collapsed && (
-            <button onClick={toggle} className="rounded-lg p-2 text-white/45 transition-colors hover:bg-white/10 hover:text-white" title="Collapse sidebar" aria-label="Collapse sidebar">
+            <button onClick={toggle} className="flex size-10 items-center justify-center rounded-lg text-white/45 transition-colors hover:bg-white/10 hover:text-white" title="Collapse sidebar" aria-label="Collapse sidebar">
               <PanelLeftClose className="size-[18px]" />
             </button>
           )}
         </div>
         {collapsed && (
-          <button onClick={toggle} className="mx-auto mb-1 rounded-lg p-2 text-white/45 transition-colors hover:bg-white/10 hover:text-white" title="Expand sidebar" aria-label="Expand sidebar">
+          <button onClick={toggle} className="mx-auto mb-1 flex size-10 items-center justify-center rounded-lg text-white/45 transition-colors hover:bg-white/10 hover:text-white" title="Expand sidebar" aria-label="Expand sidebar">
             <PanelLeftOpen className="size-[18px]" />
           </button>
         )}
@@ -138,7 +138,7 @@ export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
           onClick={openSearch}
           title={collapsed ? "Search (Ctrl+K)" : undefined}
           aria-label="Search"
-          className={cn("mx-3 mb-1 flex h-9 items-center gap-3 rounded-lg bg-white/[0.06] text-[13px] text-white/55 transition-colors hover:bg-white/10 hover:text-white", collapsed ? "justify-center" : "px-3")}
+          className={cn("mb-1 flex items-center gap-3 rounded-lg bg-white/[0.06] text-[13px] text-white/55 transition-colors hover:bg-white/10 hover:text-white", collapsed ? "mx-auto size-10 justify-center" : "mx-3 h-9 px-3")}
         >
           <Search className="size-4 shrink-0" />
           {!collapsed && <><span className="flex-1 text-left">Search…</span><kbd className="rounded border border-white/15 px-1.5 text-[10px]">Ctrl K</kbd></>}

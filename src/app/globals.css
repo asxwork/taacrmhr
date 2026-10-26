@@ -142,6 +142,25 @@ body {
 @keyframes slide-in-right { from { transform: translateX(100%); } to { transform: none; } }
 
 .anim-fade { animation: fade-in var(--dur-enter) var(--ease-out) both; }
+
+/* Search palette: pops in from slightly above, slides up from the bottom on phones. */
+@keyframes palette-in { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes palette-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-6px) scale(0.98); } }
+@keyframes sheet-in { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+.palette-in { animation: sheet-in var(--dur-enter) var(--ease-out) both; }
+.palette-out { animation: fade-out var(--dur-exit) var(--ease-in) both; }
+.palette-backdrop-out { animation: fade-out var(--dur-exit) var(--ease-in) both; }
+@media (min-width: 640px) {
+  .palette-in { animation: palette-in 180ms var(--ease-out) both; }
+  .palette-out { animation: palette-out var(--dur-exit) var(--ease-in) both; }
+}
+/* The palette's input lives in a bordered header; the caret is focus enough. */
+.palette-input:focus-visible { outline: none; }
+.palette-group { animation: rise-in 160ms var(--ease-out) both; }
+.palette-group:nth-child(2) { animation-delay: 30ms; }
+.palette-group:nth-child(3) { animation-delay: 60ms; }
+.palette-group:nth-child(n + 4) { animation-delay: 90ms; }
 .anim-page { animation: rise-in var(--dur-enter) var(--ease-out) both; }
 .anim-slide-left { animation: slide-in-left var(--dur-enter) var(--ease-out) both; }
 .anim-slide-right { animation: slide-in-right var(--dur-enter) var(--ease-out) both; }
@@ -156,6 +175,9 @@ body {
 .stagger > *:nth-child(n + 7) { animation-delay: 240ms; }
 
 /* Sidebar ↔ rail: the panel and the page shell move together. */
+/* Icon rail: no scrollbar, so icons never shift off-centre. */
+.sidebar-scroll.rail-scroll { scrollbar-width: none; }
+.sidebar-scroll.rail-scroll::-webkit-scrollbar { display: none; }
 .sidebar-shell { transition: width var(--dur-enter) var(--ease-out); }
 @media (min-width: 1024px) {
   .app-main { padding-left: var(--sb-w); transition: padding-left var(--dur-enter) var(--ease-out); }
