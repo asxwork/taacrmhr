@@ -1,7 +1,7 @@
 // Sidebar structure. An item shows only if the user can `view` its module (no module = everyone).
 // `phase` marks modules not built yet — they render a "coming soon" page.
 
-export type NavItem = { href: string; label: string; icon: string; module?: string; phase?: number };
+export type NavItem = { href: string; label: string; icon: string; module?: string; phase?: number; superAdmin?: boolean };
 export type NavGroup = { label?: string; items: NavItem[] };
 
 export const NAV: NavGroup[] = [
@@ -10,11 +10,13 @@ export const NAV: NavGroup[] = [
     label: "CRM",
     items: [
       { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads" },
+      { href: "/crm/follow-ups", label: "My follow-ups", icon: "phonecall", module: "crm.leads" },
       { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals" },
       { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts" },
       { href: "/crm/tasks", label: "Tasks & Calendar", icon: "calendar", module: "crm.activities" },
       { href: "/inventory", label: "Inventory", icon: "building", module: "inventory.units" },
       { href: "/reports/crm", label: "CRM Reports", icon: "chart", module: "reports.crm" },
+      { href: "/reports/agents", label: "Agent performance", icon: "gauge", superAdmin: true },
     ],
   },
   {

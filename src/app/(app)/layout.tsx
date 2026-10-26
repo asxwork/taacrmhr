@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const collapsed = (await cookies()).get("sidebar")?.value === "collapsed";
 
   // Only show what this user's roles allow — this is what makes Admin and Agent see different apps.
-  const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.module || can(user, i.module)) })).filter((g) => g.items.length);
+  const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => (!i.module || can(user, i.module)) && (!i.superAdmin || user.isSuperAdmin)) })).filter((g) => g.items.length);
 
   return (
     <div className="app-wallpaper min-h-screen" data-sidebar={collapsed ? "collapsed" : "open"}>
