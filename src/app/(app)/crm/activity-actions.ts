@@ -6,6 +6,8 @@ import { requirePermission, scopeWhere } from "@/lib/permissions";
 import { ACTIVITY_TYPES, canAccessEntity, ownerBranch, resolveOwner, type EntityRef } from "@/lib/crm";
 import { str, type FormState } from "@/lib/utils";
 import { notify } from "@/lib/notify";
+import { requireUser } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 import { sendMail } from "@/lib/mail";
 
 const SCHEDULABLE = ["task", "meeting", "visit"];
@@ -71,11 +73,14 @@ export async function toggleActivity(fd: FormData) {
   revalidatePath(str(fd, "path") || "/crm/tasks");
 }
 
+/** Activities are the record of what agents did, so only a Super Admin can delete one. */
 export async function deleteActivity(fd: FormData) {
-  const user = await requirePermission("crm.activities", "delete");
-  const scope = await scopeWhere(user, "crm.activities", "delete");
-  if (!scope) return;
-  await db.activity.deleteMany({ where: { id: str(fd, "id"), type: { not: "system" }, ...scope } });
+  const user = await requireUser();
+  if (!user.isSuperAdmin) return;
+  const act = await db.activity.findFirst({ where: { id: str(fd, "id"), type: { not: "system" } } });
+  if (!act) return;
+  await db.activity.delete({ where: { id: act.id } });
+  await audit(user.id, "delete", "activity", act.id, `Deleted activity “${act.subject}”`);
   revalidatePath(str(fd, "path") || "/crm/tasks");
 }
 

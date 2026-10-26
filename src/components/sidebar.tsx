@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Bell, House, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import type { NavGroup } from "@/lib/nav";
 import { cn, initials } from "@/lib/utils";
@@ -16,19 +16,42 @@ type Props = { groups: NavGroup[]; user: { name: string; roles: string; branch: 
 
 export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
   const pathname = usePathname();
+  const params = useSearchParams();
   const [open, setOpen] = useState(false); // phone drawer
-  const [collapsed, setCollapsed] = useState(initiallyCollapsed); // desktop rail
+  const [collapsed, setCollapsed] = useState(initiallyCollapsed); // desktop rail (the user's choice)
+  const [hovered, setHovered] = useState(false); // rail temporarily opened by hovering
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const allItems = groups.flatMap((g) => g.items);
   const quick = QUICK_ORDER.map((href) => allItems.find((i) => i.href === href)).filter((i): i is NonNullable<typeof i> => !!i && !i.phase).slice(0, 4);
 
-  // Remember the choice (cookie, so the server renders the right width with no flash) and let the
-  // page shell resize with the same animation.
+  // While creating or editing something (a /new page or a New/Edit panel) the sidebar folds away to give
+  // the form room; it comes back by itself afterwards. Hovering the rail still opens it.
+  const creating = pathname.endsWith("/new") || ["new", "edit", "import", "convert"].some((k) => params.has(k));
+  const rail = collapsed || creating;
+  const showRail = rail && !hovered;
+
+  // The page shell's left padding follows the rail (not the hover overlay, which floats above the page).
+  useEffect(() => {
+    document.querySelector("[data-sidebar]")?.setAttribute("data-sidebar", rail ? "collapsed" : "open");
+  }, [rail]);
+  useEffect(() => setHovered(false), [pathname, params]);
+
+  // Remember the choice (cookie, so the server renders the right width with no flash).
   function toggle() {
     const next = !collapsed;
     setCollapsed(next);
+    setHovered(false);
     document.cookie = `sidebar=${next ? "collapsed" : "open"}; path=/; max-age=31536000; samesite=lax`;
-    document.querySelector("[data-sidebar]")?.setAttribute("data-sidebar", next ? "collapsed" : "open");
   }
+  const hoverOpen = () => {
+    if (!rail) return;
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHovered(true), 120);
+  };
+  const hoverClose = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    setHovered(false);
+  };
 
   // Close the phone drawer with Escape.
   useEffect(() => {
@@ -105,40 +128,48 @@ export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
   return (
     <>
       {/* Desktop: full sidebar or icon rail */}
+      {/* Desktop: full sidebar or icon rail. Hovering the rail opens it over the page (it doesn't push content). */}
       <aside
-        className={cn("sidebar-shell fixed inset-y-0 left-0 z-30 hidden flex-col bg-navy-950 lg:flex", collapsed ? "w-[4.5rem]" : "w-60")}
+        onMouseEnter={hoverOpen}
+        onMouseLeave={hoverClose}
+        className={cn(
+          "sidebar-shell fixed inset-y-0 left-0 z-40 hidden flex-col bg-navy-950 lg:flex",
+          showRail ? "w-[4.5rem]" : "w-60",
+          rail && hovered && "shadow-2xl shadow-navy-950/40",
+        )}
         aria-label="Sidebar"
       >
-        <div className={cn("flex h-16 shrink-0 items-center", collapsed ? "justify-center" : "justify-between pl-5 pr-2")}>
-          {collapsed ? (
+        <div className={cn("flex h-16 shrink-0 items-center", showRail ? "justify-center" : "justify-between pl-5 pr-2")}>
+          {showRail ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src="/brand/icon.png" alt="The Advisor Associates" className="size-9 rounded-md" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-10 w-auto" />
           )}
-          {!collapsed && (
-            <button onClick={toggle} className="flex size-10 items-center justify-center rounded-lg text-white/45 transition-colors hover:bg-white/10 hover:text-white" title="Collapse sidebar" aria-label="Collapse sidebar">
-              <PanelLeftClose className="size-[18px]" />
+          {!showRail && !creating && (
+            <button onClick={toggle} className="flex size-10 items-center justify-center rounded-lg text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+              title={collapsed ? "Keep the sidebar open" : "Collapse sidebar"} aria-label={collapsed ? "Keep the sidebar open" : "Collapse sidebar"}>
+              {collapsed ? <PanelLeftOpen className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
             </button>
           )}
         </div>
-        {collapsed && (
+        {showRail && !creating && (
           <button onClick={toggle} className="mx-auto mb-1 flex size-10 items-center justify-center rounded-lg text-white/45 transition-colors hover:bg-white/10 hover:text-white" title="Expand sidebar" aria-label="Expand sidebar">
             <PanelLeftOpen className="size-[18px]" />
           </button>
         )}
         <button
           onClick={openSearch}
-          title={collapsed ? "Search (Ctrl+K)" : undefined}
+          title={showRail ? "Search (Ctrl+K)" : undefined}
           aria-label="Search"
-          className={cn("mb-1 flex items-center gap-3 rounded-lg bg-white/[0.06] text-[13px] text-white/55 transition-colors hover:bg-white/10 hover:text-white", collapsed ? "mx-auto size-10 justify-center" : "mx-3 h-9 px-3")}
+          className={cn("mb-1 flex items-center gap-3 rounded-lg bg-white/[0.06] text-[13px] text-white/55 transition-colors hover:bg-white/10 hover:text-white", showRail ? "mx-auto size-10 justify-center" : "mx-3 h-9 px-3")}
         >
           <Search className="size-4 shrink-0" />
-          {!collapsed && <><span className="flex-1 text-left">Search…</span><kbd className="rounded border border-white/15 px-1.5 text-[10px]">Ctrl K</kbd></>}
+          {!showRail && <><span className="flex-1 text-left">Search…</span><kbd className="rounded border border-white/15 px-1.5 text-[10px]">Ctrl K</kbd></>}
         </button>
-        {navList(collapsed)}
-        {footer(collapsed)}
+        {navList(showRail)}
+        {footer(showRail)}
       </aside>
 
       {/* Phone top bar */}
@@ -172,7 +203,7 @@ export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
       )}
 
       {/* Phone bottom bar: the user's 4 most-used screens + Menu */}
-      <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+      <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
         {quick.map((item) => {
           const Icon = ICONS[item.icon] ?? House;
           const active = pathname === item.href || pathname.startsWith(item.href + "/");

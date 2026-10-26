@@ -113,7 +113,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
   let i = -1;
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-center sm:items-start sm:px-4 sm:pt-[12vh]" role="dialog" aria-modal="true" aria-label="Search">
-      <div className={cn("absolute inset-0 bg-navy-950/45 backdrop-blur-[2px]", leaving ? "palette-backdrop-out" : "anim-fade")} onClick={close} />
+      <div className={cn("absolute inset-0 bg-navy-950/50", leaving ? "palette-backdrop-out" : "anim-fade")} onClick={close} />
       <div
         className={cn(
           "relative flex w-full flex-col overflow-hidden bg-surface shadow-2xl ring-1 ring-black/5 sm:max-h-[70vh] sm:max-w-xl sm:rounded-2xl",

@@ -79,6 +79,10 @@ model Role {
   name        String       @unique
   description String?
   isSystem    Boolean      @default(false)
+  /// Fixed identity for special roles, e.g. "boss" (names can be renamed).
+  key         String?
+  /// Most users who may hold this role (Boss = 1). Null = no limit.
+  maxUsers    Int?
   permissions Permission[]
   users       UserRole[]
   createdAt   DateTime     @default(now())
@@ -226,6 +230,9 @@ model Lead {
   /// All phone numbers / emails as JSON [{type, value}]; phone/phone2/email hold the first ones for search and duplicates.
   phones         String? // @text
   emails         String? // @text
+  /// Set by the Reshuffle automation (fresh start with a new agent).
+  reshuffledAt   DateTime?
+  reshuffleCount Int         @default(0)
   interest       String? // buy | rent | invest | sell
   propertyType   String?
   location       String?
@@ -372,6 +379,8 @@ model Activity {
   @@index([leadId])
   @@index([dealId])
   @@index([contactId])
+  @@index([leadId, doneAt])
+  @@index([type, doneAt])
   @@index([ownerId, dueAt])
 }
 
@@ -1136,4 +1145,16 @@ model SavedFilter {
   createdAt DateTime @default(now())
 
   @@index([userId, module])
+}
+
+/// Named bulk actions run on selected records, e.g. "Reshuffle". config is JSON (see src/lib/automations.ts).
+model Automation {
+  id        String    @id @default(cuid())
+  name      String
+  entity    String    @default("lead")
+  config    String // @text
+  active    Boolean   @default(true)
+  runs      Int       @default(0)
+  lastRunAt DateTime?
+  createdAt DateTime  @default(now())
 }

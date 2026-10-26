@@ -65,9 +65,18 @@ html[data-theme="dark"] .only-light, html[data-theme="light"] .only-dark, html[d
 }
 
 /* Wallpaper sits behind the main content; a canvas-tinted veil keeps cards and text readable. */
-.app-wallpaper {
+/* The wallpaper sits on its own fixed layer behind the page. A "background-attachment: fixed" page background
+   makes the browser repaint everything on every scroll frame (the main cause of scroll lag); a fixed layer is
+   composited once and scrolling just moves the page over it. */
+.app-wallpaper { background-color: var(--color-canvas); isolation: isolate; }
+.app-wallpaper::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background:
-    linear-gradient(color-mix(in srgb, var(--color-canvas) 72%, transparent), color-mix(in srgb, var(--color-canvas) 72%, transparent)) fixed,
+    linear-gradient(color-mix(in srgb, var(--color-canvas) 72%, transparent), color-mix(in srgb, var(--color-canvas) 72%, transparent)),
     var(--wallpaper, none);
   background-color: var(--color-canvas);
 }
@@ -141,6 +150,11 @@ body {
 @keyframes slide-in-left { from { transform: translateX(-100%); } to { transform: none; } }
 @keyframes slide-in-right { from { transform: translateX(100%); } to { transform: none; } }
 
+/* Navigation progress bar: creeps towards 90% while waiting, then fills and fades. */
+@keyframes nav-run { 0% { width: 0; } 20% { width: 45%; } 60% { width: 75%; } 100% { width: 90%; } }
+@keyframes nav-done { from { width: 90%; opacity: 1; } to { width: 100%; opacity: 0; } }
+.nav-progress-run { animation: nav-run 8s cubic-bezier(0.1, 0.6, 0.2, 1) forwards; box-shadow: 0 0 8px rgb(249 200 119 / 0.7); }
+.nav-progress-done { animation: nav-done 300ms ease-out forwards; }
 .anim-fade { animation: fade-in var(--dur-enter) var(--ease-out) both; }
 
 /* Search palette: pops in from slightly above, slides up from the bottom on phones. */
@@ -202,6 +216,7 @@ button:not(:disabled):active, a.inline-flex:active { transform: scale(0.98); }
   aside, nav, .no-print, [data-sidebar] > div.sticky { display: none !important; }
   .app-main { padding: 0 !important; }
   .app-wallpaper { background: white !important; }
+  .app-wallpaper::before { display: none; }
   .print-sheet { border: none !important; box-shadow: none !important; padding: 0 !important; }
   .anim-page, .stagger > * { animation: none !important; }
   body { background: white !important; }

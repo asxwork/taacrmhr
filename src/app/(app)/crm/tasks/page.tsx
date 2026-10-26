@@ -74,7 +74,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
             {items.length === 0 ? (
               <p className="text-sm text-muted">Nothing here.</p>
             ) : (
-              <Timeline items={items} path={path} editableIds={editable} />
+              <Timeline items={items} path={path} editableIds={editable} canDelete={user.isSuperAdmin} />
             )}
           </Card>
         ))}

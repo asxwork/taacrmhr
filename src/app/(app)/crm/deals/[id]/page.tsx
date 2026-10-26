@@ -173,7 +173,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
 
         <div className="space-y-6">
           {can(user, "crm.activities", "create") && <Composer entity={{ dealId: id }} emailTo={deal.contact?.email} path={path} users={actOwners} currentUserId={user.id} />}
-          <Timeline items={items} path={path} editableIds={editableIds} />
+          <Timeline items={items} path={path} editableIds={editableIds} canDelete={user.isSuperAdmin} />
         </div>
       </div>
 

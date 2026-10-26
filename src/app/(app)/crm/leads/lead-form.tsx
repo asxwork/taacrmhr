@@ -123,7 +123,7 @@ export function LeadForm({
         </Field>
       </Group>
 
-      <div className="sticky bottom-0 -mx-5 -mb-5 flex gap-2 rounded-b-xl border-t border-line bg-surface/95 px-5 py-3 backdrop-blur">
+      <div className="sticky bottom-0 -mx-5 -mb-5 flex gap-2 rounded-b-xl border-t border-line bg-surface px-5 py-3">
         <SubmitButton>{lead ? "Save" : "Create lead"}</SubmitButton>
         <LinkButton href={cancelHref} variant="ghost">Cancel</LinkButton>
       </div>

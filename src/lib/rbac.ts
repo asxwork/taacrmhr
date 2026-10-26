@@ -34,7 +34,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "crm.leads", label: "Leads", group: "CRM", actions: [...CRUD, "assign"], scoped: true },
   { key: "crm.deals", label: "Deals", group: "CRM", actions: [...CRUD, "assign"], scoped: true },
   { key: "crm.contacts", label: "Contacts & Companies", group: "CRM", actions: CRUD, scoped: true },
-  { key: "crm.activities", label: "Activities & Tasks", group: "CRM", actions: CRUD, scoped: true },
+  { key: "crm.activities", label: "Activities & Tasks", group: "CRM", actions: ["view", "create", "edit", "export"], scoped: true }, // delete: Super Admin only
   { key: "inventory.projects", label: "Projects & Blocks", group: "Inventory", actions: CRUD, scoped: false },
   { key: "inventory.units", label: "Units / Listings", group: "Inventory", actions: [...CRUD, "assign"], scoped: true },
   { key: "hr.employees", label: "Employees", group: "HR", actions: CRUD, scoped: true },

@@ -5,6 +5,7 @@ import { NAV } from "@/lib/nav";
 import { Sidebar } from "@/components/sidebar";
 import { PageTransition } from "@/components/page-transition";
 import { CommandPalette } from "@/components/command-palette";
+import { NavProgress } from "@/components/nav-progress";
 import { unreadCount } from "@/lib/notify";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -16,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="app-wallpaper min-h-screen" data-sidebar={collapsed ? "collapsed" : "open"}>
+      <NavProgress />
       <Sidebar
         groups={groups}
         user={{ name: user.name, roles: user.roleNames.join(", ") || "No role", branch: user.branchName }}

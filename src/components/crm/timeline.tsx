@@ -27,7 +27,7 @@ const dayLabel = (d: Date) => (isToday(d) ? "Today" : isYesterday(d) ? "Yesterda
  * Bitrix-style record feed: "Things to do" (open scheduled items, soonest first) as action cards,
  * then history newest-first under day dividers. A rail of icons runs down the left.
  */
-export function Timeline({ items, path, editableIds, canPlan = true }: { items: TimelineItem[]; path: string; editableIds: Set<string>; canPlan?: boolean }) {
+export function Timeline({ items, path, editableIds, canPlan = true, canDelete = false }: { items: TimelineItem[]; path: string; editableIds: Set<string>; canPlan?: boolean; /** Super Admin only. */ canDelete?: boolean }) {
   const open = items.filter((i) => i.dueAt && !i.doneAt).sort((a, b) => +a.dueAt! - +b.dueAt!);
   const history = items.filter((i) => !(i.dueAt && !i.doneAt)).sort((a, b) => +(b.doneAt ?? b.createdAt) - +(a.doneAt ?? a.createdAt));
   const days: { label: string; items: TimelineItem[] }[] = [];
@@ -41,7 +41,7 @@ export function Timeline({ items, path, editableIds, canPlan = true }: { items: 
     <div className="relative before:absolute before:inset-y-0 before:left-[19px] before:w-px before:bg-line">
       <Divider tone="green">Things to do</Divider>
       <ul className="space-y-3">
-        {open.map((i) => <TodoCard key={i.id} item={i} path={path} editable={editableIds.has(i.id)} />)}
+        {open.map((i) => <TodoCard key={i.id} item={i} path={path} editable={editableIds.has(i.id)} canDelete={canDelete} />)}
         {open.length === 0 && canPlan && (
           <li className="relative pl-14">
             <Dot className="bg-emerald-600 text-white"><Info className="size-4" /></Dot>
@@ -65,7 +65,7 @@ export function Timeline({ items, path, editableIds, canPlan = true }: { items: 
         <div key={d.label}>
           <Divider>{d.label}</Divider>
           <ul className="space-y-3">
-            {d.items.map((i) => <HistoryRow key={i.id} item={i} path={path} editable={editableIds.has(i.id)} />)}
+            {d.items.map((i) => <HistoryRow key={i.id} item={i} path={path} editable={editableIds.has(i.id)} canDelete={canDelete} />)}
           </ul>
         </div>
       ))}
@@ -87,7 +87,7 @@ function Dot({ children, className }: { children: React.ReactNode; className?: s
   return <span className={cn("absolute left-0 top-2 z-10 flex size-10 items-center justify-center rounded-full ring-4 ring-canvas", className)}>{children}</span>;
 }
 
-function TodoCard({ item, path, editable }: { item: TimelineItem; path: string; editable: boolean }) {
+function TodoCard({ item, path, editable, canDelete }: { item: TimelineItem; path: string; editable: boolean; canDelete: boolean }) {
   const Icon = ICON[item.type] ?? CalendarCheck;
   const overdue = isPast(item.dueAt!);
   return (
@@ -113,11 +113,11 @@ function TodoCard({ item, path, editable }: { item: TimelineItem; path: string; 
                 <Check className="size-3.5" /> Completed
               </button>
             </form>
-            <form action={deleteActivity} className="ml-auto">
+            {canDelete && <form action={deleteActivity} className="ml-auto">
               <input type="hidden" name="id" value={item.id} />
               <input type="hidden" name="path" value={path} />
-              <button title="Delete" aria-label="Delete" className="rounded-md p-1.5 text-muted transition hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /></button>
-            </form>
+              <button title="Delete (Super Admin)" aria-label="Delete" className="rounded-md p-1.5 text-muted transition hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /></button>
+            </form>}
           </div>
         )}
       </div>
@@ -125,7 +125,7 @@ function TodoCard({ item, path, editable }: { item: TimelineItem; path: string; 
   );
 }
 
-function HistoryRow({ item, path, editable }: { item: TimelineItem; path: string; editable: boolean }) {
+function HistoryRow({ item, path, editable, canDelete }: { item: TimelineItem; path: string; editable: boolean; canDelete: boolean }) {
   const Icon = ICON[item.type] ?? CircleDot;
   const when = item.doneAt ?? item.createdAt;
   if (item.type === "system") {
@@ -143,20 +143,20 @@ function HistoryRow({ item, path, editable }: { item: TimelineItem; path: string
         <div className="flex items-start gap-2">
           <p className={cn("flex-1 text-sm font-medium", item.type === "task" && item.doneAt && "text-muted line-through")}>{item.subject}</p>
           <span className="shrink-0 text-xs text-muted">{format(when, "h:mm a")}</span>
-          {editable && (
+          {(editable || canDelete) && (
             <div className="flex shrink-0 gap-0.5 opacity-60 transition group-hover:opacity-100">
-              {item.dueAt && (
+              {editable && item.dueAt && (
                 <form action={toggleActivity}>
                   <input type="hidden" name="id" value={item.id} />
                   <input type="hidden" name="path" value={path} />
                   <button title="Mark as not done" aria-label="Mark as not done" className="rounded p-1 text-emerald-600 hover:bg-canvas"><Check className="size-3.5" /></button>
                 </form>
               )}
-              <form action={deleteActivity}>
+              {canDelete && <form action={deleteActivity}>
                 <input type="hidden" name="id" value={item.id} />
                 <input type="hidden" name="path" value={path} />
-                <button title="Delete" aria-label="Delete" className="rounded p-1 text-muted hover:bg-canvas hover:text-red-600"><Trash2 className="size-3.5" /></button>
-              </form>
+                <button title="Delete (Super Admin)" aria-label="Delete" className="rounded p-1 text-muted hover:bg-canvas hover:text-red-600"><Trash2 className="size-3.5" /></button>
+              </form>}
             </div>
           )}
         </div>

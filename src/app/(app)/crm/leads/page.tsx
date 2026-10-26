@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { addDays, format, isPast, startOfDay } from "date-fns";
 import { CalendarDays, Download, KanbanSquare, List, ListTodo, Phone, Plus, Upload } from "lucide-react";
 import { db } from "@/lib/db";
-import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
+import { can, requirePermission, scopeFor, scopeMatcher, scopeWhere } from "@/lib/permissions";
 import { assignableUsers, color, usersInScope } from "@/lib/crm";
 import { LEAD_FILTER_KEYS, leadWhere, type LeadFilters } from "@/lib/lead-filters";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import { Kanban } from "@/components/crm/kanban";
 import { SelectAll } from "@/components/crm/select-all";
 import { LeadFilterBar, type FilterPreset } from "@/components/crm/lead-filter-bar";
 import { Pagination, StageProgress, hrefWith } from "@/components/crm/bits";
-import { bulkLeads, importLeads, moveLead } from "./actions";
+import { bulkLeads, importLeads, importLeadsFull, moveLead } from "./actions";
 
 export const metadata = { title: "Leads" };
 
@@ -42,7 +42,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const openStatuses = statuses.filter((s) => s.kind === "open");
   const where = await leadWhere(user, filters, statuses);
 
-  const [leads, total] = await Promise.all([
+  // Activity counters over open leads in scope, fetched together with the page of leads.
+  const scope = (await scopeWhere(user, "crm.leads"))!;
+  const openWhere = { ...scope, statusId: { in: openStatuses.map((s) => s.id) } };
+  const today = startOfDay(new Date());
+  const [leads, total, overdue, dueToday, unplanned] = await Promise.all([
     db.lead.findMany({
       where,
       include: { status: true, source: true, project: { select: { name: true } }, owner: { select: { name: true } } },
@@ -51,6 +55,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       take: view === "list" ? PAGE_SIZE : 500,
     }),
     db.lead.count({ where }),
+    db.lead.count({ where: { ...openWhere, activities: { some: { doneAt: null, dueAt: { lt: new Date() } } } } }),
+    db.lead.count({ where: { ...openWhere, activities: { some: { doneAt: null, dueAt: { gte: today, lt: addDays(today, 1) } } } } }),
+    db.lead.count({ where: { ...openWhere, activities: { none: { doneAt: null, dueAt: { not: null } } } } }),
   ]);
 
   // Next planned activity per lead (the Bitrix "Activity" column).
@@ -61,15 +68,6 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     orderBy: { dueAt: "asc" },
   })) if (a.leadId && !next.has(a.leadId)) next.set(a.leadId, { subject: a.subject, dueAt: a.dueAt!, owner: a.owner?.name ?? null });
 
-  // Activity counters over open leads in scope.
-  const scope = (await scopeWhere(user, "crm.leads"))!;
-  const openWhere = { ...scope, statusId: { in: openStatuses.map((s) => s.id) } };
-  const today = startOfDay(new Date());
-  const [overdue, dueToday, unplanned] = await Promise.all([
-    db.lead.count({ where: { ...openWhere, activities: { some: { doneAt: null, dueAt: { lt: new Date() } } } } }),
-    db.lead.count({ where: { ...openWhere, activities: { some: { doneAt: null, dueAt: { gte: today, lt: addDays(today, 1) } } } } }),
-    db.lead.count({ where: { ...openWhere, activities: { none: { doneAt: null, dueAt: { not: null } } } } }),
-  ]);
 
   const presets: FilterPreset[] = [
     { name: "Leads in progress", query: "" },
@@ -124,9 +122,25 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           />
         </div>
         {can(user, "crm.leads", "export") && (
-          <LinkButton href={hrefWith("/api/export/leads", filters, {})} variant="secondary" prefetch={false} title="Download CSV" aria-label="Download CSV" className="ml-auto px-3 sm:ml-0">
-            <Download className="size-4" />
-          </LinkButton>
+          <details className="group relative ml-auto sm:ml-0">
+            <summary className="flex h-10 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm shadow-xs hover:bg-canvas [&::-webkit-details-marker]:hidden" title="Export">
+              <Download className="size-4" /> <span className="hidden sm:inline">Export</span>
+            </summary>
+            <div className="anim-fade absolute right-0 top-12 z-30 w-72 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
+              <a href={hrefWith("/api/export/leads-full", filters, {})} className="block rounded-lg px-3 py-2 hover:bg-canvas">
+                <span className="block text-sm font-medium">Excel with activities</span>
+                <span className="block text-xs text-muted">Every field and every call, note and task for the leads in this filter. Imports back.</span>
+              </a>
+              <a href={hrefWith("/api/export/leads-full", {}, { everything: "1" })} className="block rounded-lg px-3 py-2 hover:bg-canvas">
+                <span className="block text-sm font-medium">Everything (full backup)</span>
+                <span className="block text-xs text-muted">All leads you can see, any stage, with activities.</span>
+              </a>
+              <a href={hrefWith("/api/export/leads", filters, {})} className="block rounded-lg px-3 py-2 hover:bg-canvas">
+                <span className="block text-sm font-medium">CSV (leads only)</span>
+                <span className="block text-xs text-muted">Simple spreadsheet of this list.</span>
+              </a>
+            </div>
+          </details>
         )}
       </div>
 
@@ -290,6 +304,22 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             </label>
             <SubmitButton pendingText="Importing…">Import</SubmitButton>
           </ActionForm>
+
+          {(user.isSuperAdmin || scopeFor(user, "crm.leads", "edit") === "all") && (
+            <ActionForm action={importLeadsFull} className="mt-8 space-y-4 border-t border-line pt-6">
+              <div>
+                <h3 className="font-medium">Restore from Excel (with activities)</h3>
+                <p className="mt-1 text-sm text-muted">
+                  Upload a file from <b className="font-medium text-ink">Export → Excel with activities</b>, edited or not. Leads whose ID already exists are updated,
+                  new IDs are created with the same number, and activities are added (ones already here are skipped, so importing twice is safe).
+                </p>
+              </div>
+              <Field label="Excel file (.xlsx)">
+                <input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
+              </Field>
+              <SubmitButton pendingText="Importing…" variant="secondary">Import with activities</SubmitButton>
+            </ActionForm>
+          )}
         </Drawer>
       )}
     </>

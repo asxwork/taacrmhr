@@ -30,7 +30,7 @@ export type Appearance = { theme: string; accent: string; wallpaper: string };
 export const DEFAULT_APPEARANCE: Appearance = { theme: "light", accent: "navy", wallpaper: "none" };
 
 export function wallpaperCss(value: string, fileUrl: (p: string) => string) {
-  if (value.startsWith("upload:")) return `url("${fileUrl(value.slice(7))}") center / cover no-repeat fixed`;
+  if (value.startsWith("upload:")) return `url("${fileUrl(value.slice(7))}") center / cover no-repeat`;
   return WALLPAPERS.find((w) => w.value === value)?.css ?? "none";
 }
 

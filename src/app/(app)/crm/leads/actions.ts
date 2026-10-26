@@ -298,3 +298,20 @@ export async function importLeads(_: FormState, fd: FormData): Promise<FormState
   revalidatePath("/crm/leads");
   return { ok: true, message: `Imported ${created} lead(s)${skipped ? `, skipped ${skipped}` : ""}.` };
 }
+
+/** Imports a full Excel export (leads + activities). Company-wide lead access or Super Admin only, since it can update any lead. */
+export async function importLeadsFull(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("crm.leads", "create");
+  const { scopeFor } = await import("@/lib/permissions");
+  if (!user.isSuperAdmin && scopeFor(user, "crm.leads", "edit") !== "all") return { error: "Only a Super Admin or someone with company-wide lead access can import a full backup." };
+  const file = fd.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose the Excel file." };
+  if (file.size > 20_000_000) return { error: "File is larger than 20 MB." };
+  if (!/\.xlsx$/i.test(file.name)) return { error: "Use the .xlsx file from “Export with activities”." };
+  const { importLeadsWorkbook } = await import("@/lib/lead-backup");
+  const res = await importLeadsWorkbook(await file.arrayBuffer(), user.id);
+  if ("error" in res) return { error: res.error };
+  await audit(user.id, "create", "lead", null, `Imported ${file.name}: ${res.created} new, ${res.updated} updated, ${res.activities} activities`);
+  revalidatePath("/crm/leads");
+  return { ok: true, message: `Done: ${res.created} new lead(s), ${res.updated} updated, ${res.activities} activit${res.activities === 1 ? "y" : "ies"} added.` };
+}
