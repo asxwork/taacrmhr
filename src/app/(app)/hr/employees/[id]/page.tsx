@@ -126,6 +126,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
               ["Date of birth", emp.dob ? fmtDate(emp.dob) : null],
               ["CNIC", emp.cnic ? `${emp.cnic}${emp.cnicExpiry ? ` · exp ${fmtDate(emp.cnicExpiry)}` : ""}` : null],
               ["Marital status", emp.maritalStatus],
+              ["Passport", emp.passportNo ? `${emp.passportNo}${emp.passportExpiry ? ` · exp ${fmtDate(emp.passportExpiry)}` : ""}` : null],
               ["Blood group", emp.bloodGroup],
               ["Phone", emp.phone],
               ["Personal email", emp.personalEmail],

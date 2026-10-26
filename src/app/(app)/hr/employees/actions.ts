@@ -26,7 +26,7 @@ async function loadEditable(user: SessionUser, id: string) {
 }
 
 const PERSONAL = [
-  "fullName", "fatherName", "gender", "cnic", "maritalStatus", "bloodGroup", "phone", "personalEmail", "address", "city",
+  "fullName", "fatherName", "gender", "cnic", "passportNo", "maritalStatus", "bloodGroup", "phone", "personalEmail", "address", "city",
   "emergencyName", "emergencyRelation", "emergencyPhone", "bankName", "accountTitle", "accountNumber",
 ] as const;
 
@@ -43,7 +43,7 @@ export async function saveEmployee(_: FormState, fd: FormData): Promise<FormStat
   if (!p.fullName || p.fullName.length < 2) return { error: "Full name is required." };
   if (p.cnic && !/^\d{5}-?\d{7}-?\d$/.test(p.cnic)) return { error: "CNIC should look like 42101-1234567-1." };
   const employmentType = EMPLOYMENT_TYPES.some((t) => t.value === str(fd, "employmentType")) ? str(fd, "employmentType") : "permanent";
-  const common = { ...p, fullName: p.fullName, dob: date(fd, "dob"), cnicExpiry: date(fd, "cnicExpiry"), employmentType };
+  const common = { ...p, fullName: p.fullName, dob: date(fd, "dob"), cnicExpiry: date(fd, "cnicExpiry"), passportExpiry: date(fd, "passportExpiry"), employmentType };
 
   if (id) {
     const emp = await loadEditable(user, id);

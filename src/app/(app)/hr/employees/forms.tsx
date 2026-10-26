@@ -1,14 +1,14 @@
 import { format } from "date-fns";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Field, LinkButton } from "@/components/ui";
-import { DOC_TYPES, EMPLOYMENT_TYPES } from "@/lib/hr-shared";
+import { BLOOD_GROUPS, DOC_TYPES, EMPLOYMENT_TYPES } from "@/lib/hr-shared";
 import { changeAssignment, recordResignation, saveEmployee, uploadDocument } from "./actions";
 
 type Opt = { id: string; name: string };
 const d = (v: Date | null | undefined) => (v ? format(v, "yyyy-MM-dd") : "");
 
 type EmployeeValues = {
-  id: string; fullName: string; fatherName: string | null; gender: string | null; dob: Date | null; cnic: string | null; cnicExpiry: Date | null;
+  id: string; fullName: string; fatherName: string | null; gender: string | null; dob: Date | null; cnic: string | null; cnicExpiry: Date | null; passportNo: string | null; passportExpiry: Date | null;
   maritalStatus: string | null; bloodGroup: string | null; phone: string | null; personalEmail: string | null; address: string | null; city: string | null;
   emergencyName: string | null; emergencyRelation: string | null; emergencyPhone: string | null; bankName: string | null; accountTitle: string | null;
   accountNumber: string | null; joiningDate: Date; employmentType: string;
@@ -49,7 +49,17 @@ export function EmployeeForm({
         <div className="grid grid-cols-3 gap-3">
           <Field label="CNIC"><input name="cnic" defaultValue={e?.cnic ?? ""} className="input" placeholder="42101-1234567-1" /></Field>
           <Field label="CNIC expiry"><input name="cnicExpiry" type="date" defaultValue={d(e?.cnicExpiry)} className="input" /></Field>
-          <Field label="Blood group"><input name="bloodGroup" defaultValue={e?.bloodGroup ?? ""} className="input" /></Field>
+          <Field label="Blood group">
+            <select name="bloodGroup" defaultValue={e?.bloodGroup ?? ""} className="input">
+              <option value="">—</option>
+              {BLOOD_GROUPS.map((b) => <option key={b}>{b}</option>)}
+              {e?.bloodGroup && !(BLOOD_GROUPS as readonly string[]).includes(e.bloodGroup) && <option>{e.bloodGroup}</option>}
+            </select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Passport number"><input name="passportNo" defaultValue={e?.passportNo ?? ""} className="input" /></Field>
+          <Field label="Passport expiry"><input name="passportExpiry" type="date" defaultValue={d(e?.passportExpiry)} className="input" /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Phone"><input name="phone" defaultValue={e?.phone ?? ""} className="input" /></Field>

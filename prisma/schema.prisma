@@ -583,6 +583,8 @@ model Employee {
   dob               DateTime?
   cnic              String?
   cnicExpiry        DateTime?
+  passportNo        String?
+  passportExpiry    DateTime?
   maritalStatus     String?
   bloodGroup        String?
   phone             String?

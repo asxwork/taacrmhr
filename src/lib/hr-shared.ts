@@ -15,10 +15,22 @@ export const EMPLOYMENT_TYPES = [
   { value: "consultant", label: "Consultant" },
 ] as const;
 
-export const DOC_TYPES = ["CNIC", "Offer letter", "Contract", "Degree / certificate", "Experience letter", "Resume / CV", "Photo", "Other"] as const;
+export const DOC_TYPES = ["CNIC (front)", "CNIC (back)", "Passport", "CNIC", "Offer letter", "Contract", "Degree / certificate", "Experience letter", "Resume / CV", "Photo", "Other"] as const;
 
 /** Fields an employee may ask HR to change through a profile-update request. */
+export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+
+/** ID pictures an employee keeps on file themselves (Me → Photo & ID). */
+export const ID_DOCS = [
+  { type: "CNIC (front)", label: "CNIC front" },
+  { type: "CNIC (back)", label: "CNIC back" },
+  { type: "Passport", label: "Passport" },
+] as const;
+
 export const SELF_EDITABLE = [
+  { key: "bloodGroup", label: "Blood group" },
+  { key: "cnic", label: "CNIC number" },
+  { key: "passportNo", label: "Passport number" },
   { key: "phone", label: "Phone" },
   { key: "personalEmail", label: "Personal email" },
   { key: "address", label: "Address" },
