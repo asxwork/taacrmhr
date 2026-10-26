@@ -142,7 +142,7 @@ export function Sidebar({ groups, user, unread, initiallyCollapsed }: Props) {
         <div className={cn("flex h-16 shrink-0 items-center", showRail ? "justify-center" : "justify-between pl-5 pr-2")}>
           {showRail ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src="/brand/icon.png" alt="The Advisor Associates" className="size-9 rounded-md" />
+            <img src="/brand/icon.svg" alt="The Advisor Associates" className="size-9 rounded-md" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-10 w-auto" />

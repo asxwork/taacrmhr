@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: { default: "The Advisor Associates", template: "%s · The Advisor Associates" },
   description: "CRM & HR platform",
   appleWebApp: { capable: true, title: "Advisor", statusBarStyle: "black-translucent" },
-  icons: { apple: "/brand/icon.png" },
+  icons: { icon: [{ url: "/brand/icon.svg", type: "image/svg+xml" }], apple: "/brand/icon.png" },
 };
 
 export const viewport: Viewport = { themeColor: "#0A223C" };
