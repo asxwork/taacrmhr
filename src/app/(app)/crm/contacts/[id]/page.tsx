@@ -90,7 +90,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
             </LinkButton>
           )}
           {can(user, "crm.deals", "create") && (
-            <LinkButton href={`/crm/deals?new=1&contact=${id}`}>
+            <LinkButton href={`/crm/deals?new=1&contact=${id}`} prefetch>
               <Plus className="size-4" /> New deal
             </LinkButton>
           )}

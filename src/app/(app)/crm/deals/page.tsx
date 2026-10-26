@@ -4,7 +4,7 @@ import { startOfMonth, subDays } from "date-fns";
 import { Download, Plus, Search } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
-import { assignableUsers, color, fmtPKR, usersInScope } from "@/lib/crm";
+import { assignableUsers, color, fmtPKR, getPipelines, usersInScope } from "@/lib/crm";
 import { cn, fmtDate } from "@/lib/utils";
 import { Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { Kanban } from "@/components/crm/kanban";
@@ -24,11 +24,21 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   const view = sp.view === "list" ? "list" : "board";
   const page = Math.max(1, Number(sp.page) || 1);
 
-  const pipelines = await db.pipeline.findMany({ include: { stages: { orderBy: { sortOrder: "asc" } } }, orderBy: { sortOrder: "asc" } });
+  const canCreate = can(user, "crm.deals", "create");
+  // The New deal drawer's lists load alongside the board instead of after it.
+  const newDrawerPromise = sp.new && canCreate
+    ? Promise.all([
+        scopeWhere(user, "crm.contacts").then((w) => db.contact.findMany({ where: w ?? { id: "" }, select: { id: true, name: true, phone: true }, orderBy: { name: "asc" }, take: 500 })),
+        db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+      ])
+    : null;
+  newDrawerPromise?.catch(() => {});
+
+  const [pipelines, scopeOrNull] = await Promise.all([getPipelines(), scopeWhere(user, "crm.deals")]);
   const pipeline = pipelines.find((p) => p.id === sp.pipeline) ?? pipelines.find((p) => p.isDefault) ?? pipelines[0]!;
   const keep = { pipeline: sp.pipeline, q: sp.q, owner: sp.owner, stage: sp.stage, view: sp.view };
 
-  const scope = (await scopeWhere(user, "crm.deals"))!;
+  const scope = scopeOrNull!;
   const q = sp.q?.trim();
   const recentCutoff = subDays(new Date(), 30);
   const where: Prisma.DealWhereInput = {
@@ -57,16 +67,10 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     db.deal.aggregate({ where: { ...scope, pipelineId: pipeline.id, stage: { kind: "won" }, closedAt: { gte: startOfMonth(new Date()) } }, _sum: { value: true }, _count: true }),
   ]);
 
-  const canCreate = can(user, "crm.deals", "create");
   const canEdit = can(user, "crm.deals", "edit");
   const closeHref = hrefWith("/crm/deals", keep, {});
 
-  const newDrawer = sp.new && canCreate
-    ? await Promise.all([
-        db.contact.findMany({ where: (await scopeWhere(user, "crm.contacts")) ?? { id: "" }, select: { id: true, name: true, phone: true }, orderBy: { name: "asc" }, take: 500 }),
-        db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-      ])
-    : null;
+  const newDrawer = await newDrawerPromise;
 
   return (
     <>
@@ -81,7 +85,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
               </LinkButton>
             )}
             {canCreate && (
-              <LinkButton href={hrefWith("/crm/deals", keep, { new: "1" })} scroll={false}>
+              <LinkButton href={hrefWith("/crm/deals", keep, { new: "1" })} scroll={false} prefetch>
                 <Plus className="size-4" /> New deal
               </LinkButton>
             )}

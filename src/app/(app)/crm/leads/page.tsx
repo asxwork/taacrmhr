@@ -120,7 +120,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">Leads</h1>
         {canCreate && (
           <div className="flex">
-            <LinkButton href="/crm/leads/new" className="rounded-r-none"><Plus className="size-4" /> Create</LinkButton>
+            <LinkButton href="/crm/leads/new" className="rounded-r-none" prefetch><Plus className="size-4" /> Create</LinkButton>
             <LinkButton href={hrefWith("/crm/leads", keep, { import: "1" })} scroll={false} className="rounded-l-none border-l border-white/15 px-2.5" title="Import from CSV" aria-label="Import from CSV"><Upload className="size-4" /></LinkButton>
           </div>
         )}
@@ -191,7 +191,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             <EmptyState
               title="No leads here"
               description={Object.keys(filters).length ? "Nothing matches this filter. Try another preset or reset the filter." : "Create your first lead or import a CSV."}
-              action={canCreate && <LinkButton href="/crm/leads/new">Create lead</LinkButton>}
+              action={canCreate && <LinkButton href="/crm/leads/new" prefetch>Create lead</LinkButton>}
             />
           ) : (
             <ActionForm action={bulkLeads}>

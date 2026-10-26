@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
+import { memo } from "./memo";
 import { maxScope, permKey, type Action, type PermissionMap, type Scope } from "./rbac";
 
 export const SESSION_COOKIE = "tad_session";
@@ -21,6 +22,8 @@ export type SessionUser = {
   isBoss: boolean;
   roleNames: string[];
   perms: PermissionMap;
+  /** Personal appearance overrides (null = company default). */
+  prefs: { theme: string | null; accent: string | null; wallpaper: string | null };
 };
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -49,20 +52,29 @@ export async function destroySession() {
   jar.delete(SESSION_COOKIE);
 }
 
-/** Current user with merged permissions from all roles (most permissive scope wins). Cached per request. */
+/**
+ * Current user with merged permissions from all roles (most permissive scope wins). Cached per request,
+ * and across requests for a few seconds: any write to users, roles, permissions or sessions clears it (db.ts).
+ */
 export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
+  const tokenHash = hashToken(token);
+  const entry = await memo(`session:${tokenHash}`, 30_000, () => loadSessionUser(tokenHash));
+  if (!entry || entry.expiresAt < new Date()) return null;
+  return entry.user;
+});
 
+async function loadSessionUser(tokenHash: string): Promise<{ user: SessionUser; expiresAt: Date } | null> {
   const session = await db.session.findUnique({
-    where: { tokenHash: hashToken(token) },
+    where: { tokenHash },
     include: {
       user: {
         include: { branch: true, roles: { include: { role: { include: { permissions: true } } } } },
       },
     },
   });
-  if (!session || session.expiresAt < new Date() || !session.user.active) return null;
+  if (!session || !session.user.active) return null;
 
   const { user } = session;
   const perms: PermissionMap = {};
@@ -73,7 +85,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     }
   }
 
-  return {
+  const sessionUser: SessionUser = {
     id: user.id,
     name: user.name,
     email: user.email,
@@ -84,8 +96,10 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     isBoss: user.roles.some((r) => r.role.key === "boss"),
     roleNames: user.isSuperAdmin ? ["Super Admin"] : user.roles.map((r) => r.role.name),
     perms,
+    prefs: { theme: user.theme, accent: user.accent, wallpaper: user.wallpaper },
   };
-});
+  return { user: sessionUser, expiresAt: session.expiresAt };
+}
 
 export async function requireUser() {
   const user = await getCurrentUser();

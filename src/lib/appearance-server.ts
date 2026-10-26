@@ -1,13 +1,15 @@
 import { cache } from "react";
 import { db } from "./db";
+import { memo } from "./memo";
 import { getCurrentUser } from "./auth";
 import { ACCENTS, DEFAULT_APPEARANCE, THEMES, WALLPAPERS, type Appearance } from "./appearance";
 import { saveImage } from "./files";
 
 const KEYS = { theme: "appearance.theme", accent: "appearance.accent", wallpaper: "appearance.wallpaper" } as const;
 
+// Read on every page; cached until a setting is written (db.ts clears "setting:").
 export const getCompanyAppearance = cache(async (): Promise<Appearance> => {
-  const rows = await db.setting.findMany({ where: { key: { in: Object.values(KEYS) } } });
+  const rows = await memo("setting:appearance", 300_000, () => db.setting.findMany({ where: { key: { in: Object.values(KEYS) } } }));
   const get = (k: string) => rows.find((r) => r.key === k)?.value;
   return {
     theme: get(KEYS.theme) ?? DEFAULT_APPEARANCE.theme,
@@ -21,11 +23,11 @@ export const getAppearance = cache(async (): Promise<Appearance> => {
   const company = await getCompanyAppearance();
   const user = await getCurrentUser();
   if (!user) return company;
-  const prefs = await db.user.findUnique({ where: { id: user.id }, select: { theme: true, accent: true, wallpaper: true } });
+  const { prefs } = user;
   return {
-    theme: prefs?.theme ?? company.theme,
-    accent: prefs?.accent ?? company.accent,
-    wallpaper: prefs?.wallpaper ?? company.wallpaper,
+    theme: prefs.theme ?? company.theme,
+    accent: prefs.accent ?? company.accent,
+    wallpaper: prefs.wallpaper ?? company.wallpaper,
   };
 });
 

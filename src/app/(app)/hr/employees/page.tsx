@@ -184,7 +184,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
         actions={canCreate && (
           <>
             {canImport && <LinkButton href={hrefWith("/hr/employees", keep, { import: "1" })} variant="secondary" scroll={false}><Upload className="size-4" /> Import</LinkButton>}
-            <LinkButton href={hrefWith("/hr/employees", keep, { new: "1" })} scroll={false}><Plus className="size-4" /> Add employee</LinkButton>
+            <LinkButton href={hrefWith("/hr/employees", keep, { new: "1" })} scroll={false} prefetch><Plus className="size-4" /> Add employee</LinkButton>
           </>
         )}
       />

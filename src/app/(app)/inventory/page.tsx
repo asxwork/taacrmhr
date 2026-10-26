@@ -66,7 +66,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               </div>
             )}
             {(tab === "projects" ? can(user, "inventory.projects", "create") : allowedTypes.length > 0) && (
-              <LinkButton href={hrefWith("/inventory", keep, { new: "1" })} scroll={false}>
+              <LinkButton href={hrefWith("/inventory", keep, { new: "1" })} scroll={false} prefetch>
                 <Plus className="size-4" /> {tab === "projects" ? "New project" : "Add unit"}
               </LinkButton>
             )}

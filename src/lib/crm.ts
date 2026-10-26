@@ -1,10 +1,18 @@
 import { db } from "./db";
+import { memo } from "./memo";
 import { scopeFor, scopeWhere, teamUserIds } from "./permissions";
 import type { SessionUser } from "./auth";
 
 export * from "./crm-shared";
 
 /** Users this person may assign records to, based on their `assign` scope for the module. */
+/** Pipelines with ordered stages. Cached until a pipeline or stage is written (db.ts clears "pipelines"). */
+export function getPipelines() {
+  return memo("pipelines", 300_000, () =>
+    db.pipeline.findMany({ include: { stages: { orderBy: { sortOrder: "asc" } } }, orderBy: { sortOrder: "asc" } }),
+  );
+}
+
 export async function assignableUsers(user: SessionUser, module: string) {
   return usersInScope(user, module, "assign");
 }

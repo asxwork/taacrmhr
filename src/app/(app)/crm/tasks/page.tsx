@@ -152,7 +152,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
               </Link>
             </div>
             {can(user, "crm.activities", "create") && (
-              <LinkButton href={hrefWith(path, keep, { new: "1" })} scroll={false}>
+              <LinkButton href={hrefWith(path, keep, { new: "1" })} scroll={false} prefetch>
                 <Plus className="size-4" /> New task
               </LinkButton>
             )}

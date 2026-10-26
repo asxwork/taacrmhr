@@ -53,7 +53,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
         title="Contacts"
         actions={
           canCreate && (
-            <LinkButton href={hrefWith("/crm/contacts", keep, { new: "1" })} scroll={false}>
+            <LinkButton href={hrefWith("/crm/contacts", keep, { new: "1" })} scroll={false} prefetch>
               <Plus className="size-4" /> {tab === "companies" ? "New company" : "New contact"}
             </LinkButton>
           )
