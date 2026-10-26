@@ -266,32 +266,36 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
         <aside
           onMouseEnter={hoverOpen}
           onMouseLeave={hoverClose}
-          className={cn("sidebar-shell fixed inset-y-0 left-0 z-40 hidden bg-navy-950 lg:flex", showRail ? "w-[5.5rem]" : "w-[19.5rem]", rail && hovered && "shadow-2xl shadow-navy-950/40")}
+          className={cn("sidebar-shell fixed inset-y-0 left-0 z-40 hidden flex-col bg-navy-950 lg:flex", showRail ? "w-[5.5rem]" : "w-[19.5rem]", rail && hovered && "shadow-2xl shadow-navy-950/40")}
           aria-label="Sidebar"
         >
-          <div className="flex w-[5.5rem] shrink-0 flex-col border-r border-white/[0.06]">
-            <div className="flex h-16 shrink-0 items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+          {/* One logo across the top: the icon on the bare rail, the full wordmark when the panel is open. */}
+          <div className={cn("flex h-16 shrink-0 items-center border-b border-white/[0.06]", showRail ? "justify-center" : "justify-between pl-5 pr-2")}>
+            {showRail ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img src="/brand/icon.svg" alt="The Advisor Associates" className="size-9 rounded-md" />
-            </div>
-            {showRail && !creating && <div className="mx-auto mb-1">{collapseButton}</div>}
-            {showRail && appSwitcher(true)}
-            {moduleRail(!showRail)}
-            {showRail && footer(true)}
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-10 w-auto" />
+            )}
+            {!showRail && !creating && collapseButton}
           </div>
-          {!showRail && (
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div className="flex h-16 shrink-0 items-center justify-between pl-4 pr-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-9 w-auto" />
-                {!creating && collapseButton}
-              </div>
-              {appSwitcher(false)}
-              {searchButton(false)}
-              {shownModule && navList(false, [shownModule])}
-              {footer(false)}
+          <div className="flex min-h-0 flex-1">
+            <div className="flex w-[5.5rem] shrink-0 flex-col border-r border-white/[0.06]">
+              {showRail && !creating && <div className="mx-auto mt-2">{collapseButton}</div>}
+              {showRail && appSwitcher(true)}
+              {moduleRail(!showRail)}
+              {showRail && footer(true)}
             </div>
-          )}
+            {!showRail && (
+              <div className="flex min-w-0 flex-1 flex-col pt-3">
+                {appSwitcher(false)}
+                {searchButton(false)}
+                {shownModule && navList(false, [shownModule])}
+                {footer(false)}
+              </div>
+            )}
+          </div>
         </aside>
       ) : (
         <aside

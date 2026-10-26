@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { REQUEST_TYPES } from "../src/lib/request-types";
 
 /** Departments, designations, approval flows and checklist templates. Sample employees live in src/lib/demo-data.ts. */
 export async function seedHr(db: PrismaClient) {
@@ -20,6 +21,8 @@ export async function seedHr(db: PrismaClient) {
     ["expense", "Expense claim", [{ kind: "manager" }, { kind: "hr" }]],
   ];
   for (const [type, name, steps] of flows) await db.approvalFlow.upsert({ where: { type }, update: {}, create: { type, name, steps: JSON.stringify(steps) } });
+  // Requests menu types (WFH, travel, promotion…): default chains, editable in HR Settings → Approval chains.
+  for (const t of REQUEST_TYPES) await db.approvalFlow.upsert({ where: { type: t.type }, update: {}, create: { type: t.type, name: t.label, steps: JSON.stringify(t.steps) } });
 
   const settings: [string, string][] = [
     ["hr.codePrefix", "TAA-"],

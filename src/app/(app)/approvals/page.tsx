@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { scopeFor } from "@/lib/permissions";
 import { canAct, flowSteps, pendingForUser } from "@/lib/approvals";
 import { APPROVAL_TYPES, SELF_EDITABLE } from "@/lib/hr-shared";
+import { requestTypeByType } from "@/lib/request-types";
 import { fileUrl } from "@/lib/files";
 import { cn, fmtAgo, fmtDateTime } from "@/lib/utils";
 import { ActionForm } from "@/components/action-form";
@@ -171,6 +172,22 @@ async function RequestDetails({ type, payload, employee }: { type: string; paylo
     return doc ? (
       <p className="text-sm"><a href={fileUrl(doc.path)} target="_blank" rel="noreferrer" className="font-medium text-navy-900 underline">Open {doc.title}</a> <span className="text-muted">({doc.type})</span></p>
     ) : <p className="text-sm text-muted">The document was removed.</p>;
+  }
+  // WFH, travel, promotion… show each field with its label; selects show the chosen name.
+  const rt = requestTypeByType(type);
+  if (rt) {
+    const names = (data.names ?? {}) as Record<string, string>;
+    const rows = rt.fields.filter((fld) => data[fld.name] && fld.name !== "reason" && fld.name !== "details");
+    return rows.length ? (
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+        {rows.map((fld) => (
+          <div key={fld.name} className="contents">
+            <dt className="text-muted">{fld.label}</dt>
+            <dd className="font-medium">{names[fld.name] ?? String(data[fld.name])}</dd>
+          </div>
+        ))}
+      </dl>
+    ) : null;
   }
   return null;
 }

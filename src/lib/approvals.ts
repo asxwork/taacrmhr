@@ -107,7 +107,7 @@ export async function cancelRequest(user: SessionUser, requestId: string) {
 
 // ─── Type handlers ───────────────────────────────────────────
 
-type Req = { id: string; type: string; employeeId: string; payload: string; title: string };
+type Req = { id: string; type: string; employeeId: string; payload: string; title: string; requesterId?: string | null };
 const parse = <T,>(s: string) => { try { return JSON.parse(s) as T; } catch { return {} as T; } };
 
 async function onApproved(req: Req, actorId: string) {
@@ -146,6 +146,9 @@ async function onApproved(req: Req, actorId: string) {
       if (documentId) await db.employeeDocument.updateMany({ where: { id: documentId, employeeId: req.employeeId }, data: { verified: true } });
       break;
     }
+    default:
+      // WFH, travel, promotion, resignation… (lib/request-types.ts)
+      await (await import("./requests")).applyTypedRequest(req, actorId);
   }
 }
 

@@ -1,4 +1,5 @@
 // Client-safe HR constants.
+import { REQUEST_TYPES } from "./request-types";
 
 export const EMP_STATUSES = [
   { value: "probation", label: "Probation", color: "amber" },
@@ -52,6 +53,7 @@ export const APPROVAL_TYPES: Record<string, string> = {
   attendance_correction: "Attendance correction",
   loan: "Loan / advance",
   expense: "Expense claim",
+  ...Object.fromEntries(REQUEST_TYPES.map((t) => [t.type, t.label])),
 };
 
 export const EXPENSE_CATEGORIES = ["Fuel", "Travel", "Client meeting", "Mobile / internet", "Office supplies", "Marketing", "Site visit", "Other"];
