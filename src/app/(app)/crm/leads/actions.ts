@@ -12,6 +12,7 @@ import { notify } from "@/lib/notify";
 import { nextNumber } from "@/lib/sequence";
 import type { SessionUser } from "@/lib/auth";
 import { manualHoldError } from "@/lib/lead-hold";
+import { applyLeadStatus, runBulkLeads } from "@/lib/lead-ops";
 
 async function editableLead(user: SessionUser, id: string) {
   const scope = await scopeWhere(user, "crm.leads", "edit");
@@ -107,24 +108,10 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
   redirect(`/crm/leads/${leadId}`);
 }
 
-async function applyStatus(user: SessionUser, id: string, statusId: string) {
-  const lead = await editableLead(user, id);
-  if (!lead) return { error: "You can't change this lead." };
-  const status = await db.leadStatus.findUnique({ where: { id: statusId } });
-  if (!status) return { error: "Unknown status." };
-  if (status.kind === "converted") return { error: "Use “Convert” on the lead to create a deal." };
-  if (lead.statusId === statusId) return {};
-  const holdError = await manualHoldError(statusId);
-  if (holdError) return { error: holdError };
-  await db.lead.update({ where: { id }, data: { statusId } });
-  await logSystem({ leadId: id }, `Status: ${lead.status.name} → ${status.name}`, user.id);
-  return {};
-}
-
 /** Kanban drop. */
 export async function moveLead(id: string, statusId: string) {
   const user = await requirePermission("crm.leads", "edit");
-  const res = await applyStatus(user, id, statusId);
+  const res = await applyLeadStatus(user, id, statusId);
   revalidatePath("/crm/leads");
   return res;
 }
@@ -133,56 +120,15 @@ export async function moveLead(id: string, statusId: string) {
 export async function setLeadStatus(fd: FormData) {
   const user = await requirePermission("crm.leads", "edit");
   const id = str(fd, "leadId");
-  await applyStatus(user, id, str(fd, "stepId"));
+  await applyLeadStatus(user, id, str(fd, "stepId"));
   revalidatePath(`/crm/leads/${id}`);
 }
 
 export async function bulkLeads(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requirePermission("crm.leads", "edit");
-  const ids = fd.getAll("ids").map(String);
-  const op = str(fd, "op");
-  if (!ids.length) return { error: "Select at least one lead." };
-
-  if (op === "delete") {
-    const scope = await scopeWhere(user, "crm.leads", "delete");
-    if (!scope) return { error: "You can't delete leads." };
-    const { count } = await db.lead.deleteMany({ where: { id: { in: ids }, ...scope } });
-    await audit(user.id, "delete", "lead", null, `Deleted ${count} lead(s)`);
-    revalidatePath("/crm/leads");
-    return { ok: true, message: `Deleted ${count} lead(s).` };
-  }
-
-  const scope = await scopeWhere(user, "crm.leads", "edit");
-  const leads = scope ? await db.lead.findMany({ where: { id: { in: ids }, ...scope }, select: { id: true } }) : [];
-
-  if (op === "assign") {
-    const target = (await assignableUsers(user, "crm.leads")).find((u) => u.id === str(fd, "ownerId"));
-    if (!target) return { error: "Choose someone you can assign to." };
-    for (const l of leads) {
-      await db.lead.update({ where: { id: l.id }, data: { ownerId: target.id, branchId: target.branchId } });
-      await logSystem({ leadId: l.id }, `Assigned to ${target.name}`, user.id);
-    }
-    if (target.id !== user.id && leads.length) await notify(target.id, `${leads.length} lead(s) assigned to you`, { body: `By ${user.name}`, link: "/crm/leads", email: true });
-    revalidatePath("/crm/leads");
-    return { ok: true, message: `Assigned ${leads.length} lead(s) to ${target.name}.` };
-  }
-
-  if (op === "automation") {
-    const { runAutomation } = await import("@/lib/automations");
-    if (fd.get("confirmRun") !== "on") return { error: "Tick the box to confirm what this automation will do." };
-    const res = await runAutomation(user, str(fd, "automationId"), ids, fd.getAll("agentIds").map(String));
-    if ("error" in res) return { error: res.error };
-    revalidatePath("/crm/leads");
-    return { ok: true, message: `Done on ${res.count} lead(s)${res.agents.length ? ` — ${res.agents.join(", ")}` : ""}.` };
-  }
-
-  if (op === "status") {
-    let changed = 0;
-    for (const l of leads) if (!(await applyStatus(user, l.id, str(fd, "statusId"))).error) changed++;
-    revalidatePath("/crm/leads");
-    return { ok: true, message: `Updated ${changed} lead(s).` };
-  }
-  return { error: "Choose an action." };
+  const res = await runBulkLeads(user, fd);
+  revalidatePath("/crm/leads");
+  return res;
 }
 
 export async function deleteLead(fd: FormData) {

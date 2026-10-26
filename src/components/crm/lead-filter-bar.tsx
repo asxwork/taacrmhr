@@ -13,14 +13,18 @@ export type FilterPreset = { id?: string; name: string; query: string };
 const parse = (q: string): LeadFilters => Object.fromEntries(new URLSearchParams(q)) as LeadFilters;
 
 /** Bitrix-style filter: search box with the active preset as a chip; the panel holds presets (left) and fields (right). Everything applies as you change it. */
-export function LeadFilterBar({ filters, view, presets, options }: {
+export function LeadFilterBar({ filters, view, presets, options, onApply, busy }: {
   filters: LeadFilters;
   view?: string;
   presets: FilterPreset[];
   options: { stages: Opt[]; sources: Opt[]; projects: Opt[]; owners: Opt[] };
+  /** Given: filters are handed to the caller (the in-place list) instead of navigating. */
+  onApply?: (filters: LeadFilters) => void;
+  busy?: boolean;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [navigating, startTransition] = useTransition();
+  const pending = navigating || !!busy;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<LeadFilters>(filters);
   const [saveName, setSaveName] = useState("");
@@ -51,6 +55,7 @@ export function LeadFilterBar({ filters, view, presets, options }: {
   }, [open]);
 
   function go(next: LeadFilters) {
+    if (onApply) return onApply(next);
     const p = new URLSearchParams();
     for (const k of LEAD_FILTER_KEYS) if (next[k]) p.set(k, next[k]!);
     if (view) p.set("view", view);

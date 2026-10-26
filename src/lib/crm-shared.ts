@@ -23,6 +23,8 @@ export function fmtPhone(phone: string | null | undefined) {
 
 /** tel: link that dials the international form. */
 export const telHref = (phone: string | null | undefined) => `tel:${fmtPhone(phone).replace(/\s/g, "")}`;
+/** WhatsApp chat link (wa.me wants the full international number, digits only). */
+export const waHref = (phone: string | null | undefined) => `https://wa.me/${fmtPhone(phone).replace(/\D/g, "")}`;
 
 /** PKR in lakh/crore shorthand: 15000000 → "1.5 Cr", 450000 → "4.5 L". */
 export function fmtPKR(n: number | null | undefined, opts: { prefix?: boolean } = {}) {
