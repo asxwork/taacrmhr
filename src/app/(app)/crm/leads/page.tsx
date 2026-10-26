@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { redirect } from "next/navigation";
 import { addDays, format, isPast, startOfDay } from "date-fns";
 import { CalendarDays, Download, KanbanSquare, List, ListTodo, Phone, Plus, Upload } from "lucide-react";
@@ -151,7 +152,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             columnId: l.statusId,
             title: l.name,
             href: `/crm/leads/${l.id}`,
-            subtitle: [l.project?.name ?? l.propertyType, l.location].filter(Boolean).join(" · ") || l.phone || undefined,
+            subtitle: [l.project?.name ?? l.propertyType, l.location].filter(Boolean).join(" · ") || fmtPhone(l.phone) || undefined,
             meta: [l.number && `#${l.number}`, l.source?.name].filter(Boolean).join(" · "),
             amount: l.budgetMax ?? l.budgetMin ?? undefined,
             owner: l.owner?.name,
@@ -201,7 +202,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                             <StageProgress steps={openStatuses} currentId={l.statusId} name={l.status.name} colorName={l.status.color} kind={l.status.kind} />
                           </td>
                           <td className="td whitespace-nowrap">
-                            {l.phone ? <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1.5 hover:text-navy-900 hover:underline"><Phone className="size-3.5 text-muted" />{l.phone}</a> : <span className="text-muted">—</span>}
+                            {l.phone ? <a href={telHref(l.phone)} className="inline-flex items-center gap-1.5 hover:text-navy-900 hover:underline"><Phone className="size-3.5 text-muted" />{fmtPhone(l.phone)}</a> : <span className="text-muted">—</span>}
                           </td>
                           <td className="td min-w-44 max-w-60">
                             {act ? (

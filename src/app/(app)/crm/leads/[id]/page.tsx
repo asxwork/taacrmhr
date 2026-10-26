@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRightLeft, Mail, MessageCircle, Pencil, Phone, Trash2 } from "lucide-react";
 import { db } from "@/lib/db";
@@ -76,7 +77,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
           <Link href={`${path}?edit=1`} scroll={false} className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink" title="Edit lead" aria-label="Edit lead"><Pencil className="size-4" /></Link>
         )}
         <div className="ml-auto flex items-center gap-2">
-          {lead.phone && <a href={`tel:${lead.phone}`} className={iconBtn} title={`Call ${lead.phone}`} aria-label="Call"><Phone className="size-4" /></a>}
+          {lead.phone && <a href={telHref(lead.phone)} className={iconBtn} title={`Call ${fmtPhone(lead.phone)}`} aria-label="Call"><Phone className="size-4" /></a>}
           {waNumber && <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className={cn(iconBtn, "hover:text-emerald-600")} title="WhatsApp" aria-label="WhatsApp"><MessageCircle className="size-4" /></a>}
           {lead.email && <a href={`mailto:${lead.email}`} className={iconBtn} title={lead.email} aria-label="Email"><Mail className="size-4" /></a>}
           {canConvert && (
@@ -141,8 +142,8 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
               <dl className="space-y-3.5">
                 <Row label="Stage">{lead.status.name}</Row>
                 <Row label="Client name">{lead.name}</Row>
-                <Row label="Phone">{lead.phone && <a href={`tel:${lead.phone}`} className="text-navy-900 underline decoration-dotted underline-offset-4">{lead.phone}</a>}</Row>
-                {lead.phone2 && <Row label="Second phone"><a href={`tel:${lead.phone2}`} className="text-navy-900 underline decoration-dotted underline-offset-4">{lead.phone2}</a></Row>}
+                <Row label="Phone">{lead.phone && <a href={telHref(lead.phone)} className="text-navy-900 underline decoration-dotted underline-offset-4">{fmtPhone(lead.phone)}</a>}</Row>
+                {lead.phone2 && <Row label="Second phone"><a href={telHref(lead.phone2)} className="text-navy-900 underline decoration-dotted underline-offset-4">{fmtPhone(lead.phone2)}</a></Row>}
                 <Row label="Email">{lead.email && <a href={`mailto:${lead.email}`} className="text-navy-900 hover:underline">{lead.email}</a>}</Row>
                 <Row label="Source">{lead.source?.name}</Row>
                 <Row label="Source information">{lead.sourceInfo}</Row>

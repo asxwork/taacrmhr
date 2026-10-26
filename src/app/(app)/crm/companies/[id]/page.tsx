@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fmtPhone } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { db } from "@/lib/db";
@@ -59,7 +60,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
               {contacts.map((c) => (
                 <li key={c.id} className="flex justify-between">
                   <Link href={`/crm/contacts/${c.id}`} className="font-medium hover:underline">{c.name}</Link>
-                  <span className="text-muted">{c.phone}</span>
+                  <span className="text-muted">{fmtPhone(c.phone)}</span>
                 </li>
               ))}
             </ul>

@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { fmtPhone } from "@/lib/crm-shared";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Field, LinkButton } from "@/components/ui";
 import { saveDeal } from "./actions";
@@ -51,7 +52,7 @@ export function DealForm({
         <select name="contactId" defaultValue={deal?.contactId ?? defaultContactId ?? ""} className="input">
           <option value="">— New contact (fill below) —</option>
           {contacts.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>
+            <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${fmtPhone(c.phone)}` : ""}</option>
           ))}
         </select>
         <div className="grid grid-cols-2 gap-2">

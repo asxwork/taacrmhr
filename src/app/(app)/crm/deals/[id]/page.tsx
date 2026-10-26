@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MessageCircle, Pencil, Phone, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { db } from "@/lib/db";
@@ -125,8 +126,8 @@ export default async function DealPage({ params, searchParams }: { params: Promi
               <Link href={`/crm/contacts/${deal.contact.id}`} className="font-medium hover:underline">{deal.contact.name}</Link>
               <div className="mt-2 flex flex-wrap gap-2">
                 {deal.contact.phone && (
-                  <a href={`tel:${deal.contact.phone}`} className="inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1 text-sm hover:bg-canvas">
-                    <Phone className="size-3.5" /> {deal.contact.phone}
+                  <a href={telHref(deal.contact.phone)} className="inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1 text-sm hover:bg-canvas">
+                    <Phone className="size-3.5" /> {fmtPhone(deal.contact.phone)}
                   </a>
                 )}
                 {wa && (

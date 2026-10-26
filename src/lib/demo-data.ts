@@ -1,8 +1,10 @@
-// Sample data: staff users, leads, deals, contacts, inventory, employees, attendance, salaries, a loan and an expense.
+// Sample data: staff users, leads, deals, contacts, inventory, employees, attendance, salaries, a loan and an expense,
+// plus everything in demo-extras.ts (companies, payment plan, approvals, recruitment, appraisals, assets, payroll).
 // Used by the local seed (prisma/seed.ts) and by Settings → Company → "Load sample data" on a live install.
 // Requires the configuration seed (branches, roles, statuses, pipelines, departments, shifts…) to have run.
 import type { PrismaClient } from "@prisma/client";
 import { nextNumber } from "./sequence";
+import { demoExtras } from "./demo-extras";
 
 export type DemoOptions = {
   passwordHash: string;
@@ -56,15 +58,45 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
     { user: staff, dept: "HR & Admin", desig: "Office Assistant", joined: "2024-11-05", status: "active", gender: "male", manager: 1, gross: 45_000 },
   ]);
   await demoAttendance(db, employees);
-  await db.setting.upsert({ where: { key: MARKER }, update: { value: JSON.stringify({ domain: o.domain, projectIds }) }, create: { key: MARKER, value: JSON.stringify({ domain: o.domain, projectIds }) } });
+  const extra = await demoExtras(db, o.codePrefix, { head, hr, manager, agent1, agent2, staff }, employees);
+  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra });
+  await db.setting.upsert({ where: { key: MARKER }, update: { value }, create: { key: MARKER, value } });
   return { users: 6, employees: employees.length, projects: projectIds.length };
 }
 
 /** Deletes the sample users and everything they own (leads, deals, contacts, listings, employee records) plus the sample projects. */
+/**
+ * Brings sample data loaded by an older version up to date (runs from the seed on every deploy; does nothing
+ * once done): earlier attendance for last month's payroll, then everything in demo-extras.
+ */
+export async function upgradeDemo(db: PrismaClient) {
+  const row = await db.setting.findUnique({ where: { key: MARKER } });
+  if (!row) return;
+  const marker = JSON.parse(row.value) as { domain: string; openingIds?: string[] };
+  if (marker.openingIds) return;
+  const users = await db.user.findMany({ where: { email: { endsWith: `@${marker.domain}` } } });
+  const by = (local: string) => users.find((x) => x.email === `${local}@${marker.domain}`);
+  const [head, hr, manager, agent1, agent2, staff] = ["admin", "hr", "manager", "agent1", "agent2", "staff"].map(by);
+  if (!head || !hr || !manager || !agent1 || !agent2 || !staff) return;
+  const employees = await db.employee.findMany({ where: { userId: { in: users.map((x) => x.id) } }, orderBy: { code: "asc" } });
+  const earliest = await db.attendancePunch.findFirst({ where: { employeeId: { in: employees.map((e) => e.id) } }, orderBy: { at: "asc" } });
+  if (earliest) {
+    const before = new Date(earliest.at);
+    before.setHours(0, 0, 0, 0);
+    await demoAttendance(db, employees, before);
+  }
+  const prefix = employees[0]?.code.replace(/\d+$/, "") ?? "DEMO-";
+  const extra = await demoExtras(db, prefix, { head, hr, manager, agent1, agent2, staff }, employees);
+  await db.setting.update({ where: { key: MARKER }, data: { value: JSON.stringify({ ...marker, ...extra }) } });
+  console.log("Sample data upgraded with recruitment, appraisals, assets, payroll, approvals and companies.");
+}
+
 export async function removeDemo(db: PrismaClient) {
   const row = await db.setting.findUnique({ where: { key: MARKER } });
   if (!row) return { error: "No sample data is loaded." };
-  const { domain, projectIds } = JSON.parse(row.value) as { domain: string; projectIds: string[] };
+  const { domain, projectIds, openingIds = [], cycleIds = [], assetIds = [], runIds = [] } = JSON.parse(row.value) as {
+    domain: string; projectIds: string[]; openingIds?: string[]; cycleIds?: string[]; assetIds?: string[]; runIds?: string[];
+  };
   const users = await db.user.findMany({ where: { email: { endsWith: `@${domain}` } }, select: { id: true } });
   const ids = users.map((u) => u.id);
   const owned = { ownerId: { in: ids } };
@@ -73,6 +105,11 @@ export async function removeDemo(db: PrismaClient) {
     db.deal.deleteMany({ where: owned }),
     db.lead.deleteMany({ where: owned }),
     db.contact.deleteMany({ where: owned }),
+    db.company.deleteMany({ where: owned }),
+    db.jobOpening.deleteMany({ where: { id: { in: openingIds } } }),
+    db.appraisalCycle.deleteMany({ where: { id: { in: cycleIds } } }),
+    db.asset.deleteMany({ where: { id: { in: assetIds } } }),
+    db.payrollRun.deleteMany({ where: { id: { in: runIds } } }),
     db.unit.deleteMany({ where: { OR: [owned, { projectId: { in: projectIds } }] } }),
     db.project.deleteMany({ where: { id: { in: projectIds } } }),
     db.employee.deleteMany({ where: { userId: { in: ids } } }),
@@ -278,14 +315,17 @@ async function demoEmployees(db: PrismaClient, prefix: string, people: Person[])
   return employees;
 }
 
-/** ~3 weeks of device punches with a few lates, an absence, a half day and a missing check-out. */
-async function demoAttendance(db: PrismaClient, employees: { id: string; joiningDate: Date }[]) {
+/** Device punches from the 1st of last month to yesterday (so last month's payroll is realistic), with some lates, absences, half days and missing check-outs. */
+async function demoAttendance(db: PrismaClient, employees: { id: string; joiningDate: Date }[], before?: Date) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const punches: { employeeId: string; at: Date; source: string }[] = [];
-  for (let back = 21; back >= 1; back--) {
+  const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const span = Math.round((+today - +firstOfLastMonth) / 864e5);
+  for (let back = span; back >= 1; back--) {
     const d = new Date(today);
     d.setDate(d.getDate() - back);
+    if (before && d >= before) continue; // upgrading: only fill days before the existing punches
     if (d.getDay() === 0) continue; // Sunday off
     for (const [i, e] of employees.entries()) {
       if (d < e.joiningDate) continue;

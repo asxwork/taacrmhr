@@ -10,6 +10,20 @@ export function phoneKey(phone: string | null | undefined) {
   return d || null;
 }
 
+/** Display form with country code: 0300-1234567 → +92 300 1234567, 021-1234567 → +92 21 1234567. Other numbers keep their own +code. */
+export function fmtPhone(phone: string | null | undefined) {
+  if (!phone) return "";
+  const key = phoneKey(phone);
+  if (key && /^03\d{9}$/.test(key)) return `+92 ${key.slice(1, 4)} ${key.slice(4)}`;
+  if (key && /^0[1-9]\d{8,9}$/.test(key)) return `+92 ${key.slice(1, 3)} ${key.slice(3)}`;
+  const raw = phone.trim();
+  const digits = raw.replace(/\D/g, "");
+  return raw.startsWith("+") || digits.length < 11 ? raw : `+${digits}`;
+}
+
+/** tel: link that dials the international form. */
+export const telHref = (phone: string | null | undefined) => `tel:${fmtPhone(phone).replace(/\s/g, "")}`;
+
 /** PKR in lakh/crore shorthand: 15000000 → "1.5 Cr", 450000 → "4.5 L". */
 export function fmtPKR(n: number | null | undefined, opts: { prefix?: boolean } = {}) {
   if (n == null) return "—";

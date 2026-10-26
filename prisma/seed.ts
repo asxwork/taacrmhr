@@ -12,7 +12,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_ROLES, expandGrants } from "../src/lib/rbac";
 import { randomBytes } from "node:crypto";
-import { demoLoaded, loadDemo } from "../src/lib/demo-data";
+import { demoLoaded, loadDemo, upgradeDemo } from "../src/lib/demo-data";
 import { nextNumber } from "../src/lib/sequence";
 import { seedAttendance, seedHr, seedPayroll } from "./seed-hr";
 
@@ -61,6 +61,7 @@ async function main() {
   await seedHr(db);
   await seedAttendance(db);
   await seedPayroll(db);
+  await upgradeDemo(db); // sample data from an older version gets the newer sections
   if (!DEMO) {
     // Live: load the sample data once so the app can be tried out. Settings → Company → "Remove sample data"
     // deletes it, and the flag stops later deploys from adding it back.

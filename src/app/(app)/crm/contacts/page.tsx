@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fmtPhone } from "@/lib/crm-shared";
 import type { Prisma } from "@prisma/client";
 import { Plus, Search } from "lucide-react";
 import { db } from "@/lib/db";
@@ -117,7 +118,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                           </span>
                         </Link>
                       </td>
-                      <td className="td whitespace-nowrap text-muted">{c.phone ?? "—"}</td>
+                      <td className="td whitespace-nowrap text-muted">{fmtPhone(c.phone) || "—"}</td>
                       <td className="td text-muted">{c.company ? <Link href={`/crm/companies/${c.company.id}`} className="hover:underline">{c.company.name}</Link> : "—"}</td>
                       <td className="td text-muted">{c._count.deals}</td>
                       <td className="td text-muted">{c.owner?.name ?? "—"}</td>

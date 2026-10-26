@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft, FileText, Mail, Pencil, Phone, Plus, UserPlus } from "lucide-react";
@@ -52,7 +53,7 @@ export default async function OpeningPage({ params, searchParams }: { params: Pr
         columns={CANDIDATE_STAGES.map((s) => ({ id: s.value, name: s.label, dot: color(s.color).dot }))}
         cards={opening.candidates.map((c) => ({
           id: c.id, columnId: c.stage, title: c.name, href: `${path}?c=${c.id}`,
-          subtitle: [c.source, c.phone].filter(Boolean).join(" · ") || undefined,
+          subtitle: [c.source, fmtPhone(c.phone)].filter(Boolean).join(" · ") || undefined,
           meta: c.rating ? "★".repeat(c.rating) : c.expectedSalary ? fmtPKR(c.expectedSalary) : undefined,
           draggable: canEdit && c.stage !== "hired",
         }))}
@@ -112,7 +113,7 @@ export default async function OpeningPage({ params, searchParams }: { params: Pr
               {canEdit && <Link href={`${path}?editc=${cand.id}`} scroll={false} className="ml-auto text-xs text-muted hover:text-ink hover:underline">Edit</Link>}
             </div>
             <div className="flex flex-wrap gap-2">
-              {cand.phone && <a href={`tel:${cand.phone}`} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-sm hover:bg-canvas"><Phone className="size-3.5" /> {cand.phone}</a>}
+              {cand.phone && <a href={telHref(cand.phone)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-sm hover:bg-canvas"><Phone className="size-3.5" /> {fmtPhone(cand.phone)}</a>}
               {cand.email && <a href={`mailto:${cand.email}`} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-sm hover:bg-canvas"><Mail className="size-3.5" /> {cand.email}</a>}
               {cand.cv && <a href={fileUrl(cand.cv)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-sm hover:bg-canvas"><FileText className="size-3.5" /> CV</a>}
             </div>

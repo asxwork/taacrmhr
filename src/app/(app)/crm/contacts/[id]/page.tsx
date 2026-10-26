@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Mail, MessageCircle, Pencil, Phone, Plus, Trash2 } from "lucide-react";
 import { db } from "@/lib/db";
@@ -65,8 +66,8 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
             <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{contact.name}</h1>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {contact.phone && (
-                <a href={`tel:${contact.phone}`} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-sm hover:bg-canvas">
-                  <Phone className="size-3.5" /> {contact.phone}
+                <a href={telHref(contact.phone)} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-sm hover:bg-canvas">
+                  <Phone className="size-3.5" /> {fmtPhone(contact.phone)}
                 </a>
               )}
               {wa && (
@@ -105,7 +106,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
                 ["Responsible", contact.owner?.name],
                 ["Branch", contact.branch?.name],
                 ["Source", contact.source?.name],
-                ["Second phone", contact.phone2],
+                ["Second phone", fmtPhone(contact.phone2)],
                 ["CNIC", contact.cnic],
                 ["Address", contact.address],
                 ["Since", fmtDate(contact.createdAt)],
