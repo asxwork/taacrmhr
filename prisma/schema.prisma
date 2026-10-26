@@ -540,6 +540,23 @@ model EmailLog {
 }
 
 /// source: webform | facebook. status: created | merged | ignored | error
+/// A named outside system pushing leads into POST /api/v1/leads (Zapier, Make, a website, Zameen e-mails via a parser…).
+model ApiConnection {
+  id          String    @id @default(cuid())
+  name        String
+  /// sha256 of the key; the key itself is shown once, when created or rotated.
+  keyHash     String    @unique
+  keyHint     String
+  /// Source given to its leads when the payload names none.
+  sourceId    String?
+  /// Round-robin pool (comma-separated user ids); empty = the main rotation in Settings → Integrations.
+  assigneeIds String? // @text
+  active      Boolean   @default(true)
+  leadCount   Int       @default(0)
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+}
+
 model WebhookLog {
   id        String   @id @default(cuid())
   source    String

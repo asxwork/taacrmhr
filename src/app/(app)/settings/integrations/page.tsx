@@ -7,7 +7,7 @@ import { smtpConfigured } from "@/lib/mail";
 import { fmtDateTime } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, PageHeader } from "@/components/ui";
-import { regenerateSecret, saveAssignees, sendTestEmail } from "./actions";
+import { createConnection, regenerateSecret, saveAssignees, sendTestEmail, updateConnection } from "./actions";
 
 export const metadata = { title: "Integrations" };
 
@@ -26,11 +26,15 @@ export default async function IntegrationsPage() {
   const h = await headers();
   const origin = process.env.APP_URL?.replace(/\/+$/, "") ?? `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
   const assigneeIds = ((await getSetting(INTAKE_KEYS.assignees)) ?? "").split(",").filter(Boolean);
-  const [users, hooks, emails] = await Promise.all([
+  const [users, hooks, emails, connections, sources] = await Promise.all([
     db.user.findMany({ where: { active: true }, select: { id: true, name: true, title: true }, orderBy: { name: "asc" } }),
     db.webhookLog.findMany({ orderBy: { createdAt: "desc" }, take: 15 }),
     db.emailLog.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
+    db.apiConnection.findMany({ orderBy: { createdAt: "asc" } }),
+    db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
   ]);
+  const apiUrl = `${origin}/api/v1/leads`;
+  const sample = JSON.stringify({ name: "Ali Khan", phone: "0301 2345678", email: "ali@example.com", message: "Interested in a 10 marla plot", location: "DHA Phase 6", budget: "2.5 crore", campaign: "October listing" }, null, 2);
   const smtp = smtpConfigured();
   const fbReady = !!(process.env.FB_APP_SECRET && process.env.FB_PAGE_TOKEN);
 
@@ -48,7 +52,7 @@ export default async function IntegrationsPage() {
 
   return (
     <>
-      <PageHeader title="Integrations" description="Email, website lead capture and Facebook / Instagram Lead Ads." />
+      <PageHeader title="Integrations" description="Email, lead API connections (Zameen, Zapier, Make, websites…), website lead capture and Facebook / Instagram Lead Ads." />
       <div className="space-y-6">
         <Card className="p-5">
           <SectionTitle title="Outgoing email" ok={smtp} okText="Connected" notText="Not configured" />
@@ -72,7 +76,7 @@ export default async function IntegrationsPage() {
 
         <Card className="p-5">
           <SectionTitle title="Who gets new leads" ok={assigneeIds.length > 0} okText={`${assigneeIds.length} in rotation`} notText="Super Admin only" />
-          <p className="mb-3 text-sm text-muted">Website and Facebook leads are shared out one by one (round-robin) across the people ticked below. Repeat enquiries go to the existing lead’s owner.</p>
+          <p className="mb-3 text-sm text-muted">Website, Facebook and API leads (connections without their own agents) are shared out one by one (round-robin) across the people ticked below. Repeat enquiries go to the existing lead’s owner.</p>
           <ActionForm action={saveAssignees}>
             <fieldset disabled={!editable} className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
               {users.map((u) => (
@@ -84,6 +88,87 @@ export default async function IntegrationsPage() {
             </fieldset>
             {editable && <SubmitButton className="mt-3">Save rotation</SubmitButton>}
           </ActionForm>
+        </Card>
+
+        <Card className="p-5">
+          <SectionTitle title="API connections" ok={connections.some((c) => c.active)} okText={`${connections.filter((c) => c.active).length} active`} notText="None yet" />
+          <p className="mb-4 text-sm text-muted">
+            Give every outside system its own key: a portal, an ad tool, Zapier or Make, another website. Leads arrive in New Request with that
+            connection&apos;s source and are shared across its agents (or the main rotation). Turn one off or rotate its key without touching the others.
+          </p>
+          {connections.length > 0 && (
+            <ul className="mb-4 divide-y divide-line rounded-xl border border-line">
+              {connections.map((c) => (
+                <li key={c.id} className="space-y-3 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium">{c.name}</span>
+                    <Badge tone={c.active ? "green" : "neutral"}>{c.active ? "Active" : "Off"}</Badge>
+                    <span className="text-xs text-muted">key …{c.keyHint} · {c.leadCount} lead(s){c.lastUsedAt ? ` · last ${fmtDateTime(c.lastUsedAt)}` : " · never used"}</span>
+                  </div>
+                  {editable && (
+                    <div className="flex flex-wrap items-start gap-2">
+                      <ActionForm action={updateConnection} className="flex flex-1 flex-wrap items-center gap-2">
+                        <input type="hidden" name="id" value={c.id} />
+                        <input name="name" defaultValue={c.name} className="input h-9 w-40" aria-label="Name" />
+                        <select name="sourceId" defaultValue={c.sourceId ?? ""} className="input h-9 w-40" aria-label="Lead source">
+                          <option value="">Source: from payload</option>
+                          {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <details className="relative">
+                          <summary className="flex h-9 cursor-pointer list-none items-center rounded-lg border border-line px-3 text-sm [&::-webkit-details-marker]:hidden">
+                            Agents: {(c.assigneeIds ?? "").split(",").filter(Boolean).length || "main rotation"}
+                          </summary>
+                          <div className="absolute z-20 mt-1 grid max-h-64 w-64 gap-1 overflow-y-auto rounded-xl border border-line bg-surface p-2 shadow-xl">
+                            {users.map((u) => (
+                              <label key={u.id} className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" name="assignees" value={u.id} defaultChecked={(c.assigneeIds ?? "").split(",").includes(u.id)} className="accent-navy-900" /> {u.name}
+                              </label>
+                            ))}
+                          </div>
+                        </details>
+                        <SubmitButton variant="secondary" className="h-9">Save</SubmitButton>
+                      </ActionForm>
+                      {(["rotate", "toggle", "delete"] as const).map((op) => (
+                        <ActionForm key={op} action={updateConnection}>
+                          <input type="hidden" name="id" value={c.id} />
+                          <input type="hidden" name="op" value={op} />
+                          <SubmitButton variant={op === "delete" ? "danger" : "secondary"} className="h-9">{op === "rotate" ? "New key" : op === "toggle" ? (c.active ? "Turn off" : "Turn on") : "Delete"}</SubmitButton>
+                        </ActionForm>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {editable && (
+            <ActionForm action={createConnection} className="flex flex-wrap items-center gap-2 rounded-xl bg-canvas/60 p-3">
+              <input name="name" required placeholder="Name, e.g. Zameen, Zapier, Website 2" className="input h-9 w-64" />
+              <select name="sourceId" defaultValue="" className="input h-9 w-44" aria-label="Lead source">
+                <option value="">Source: from payload</option>
+                {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <SubmitButton className="h-9">Add connection</SubmitButton>
+            </ActionForm>
+          )}
+
+          <details className="mt-4 rounded-xl border border-line p-3 text-sm">
+            <summary className="cursor-pointer font-medium">How to connect (Zameen, Facebook, Google Forms, any website)</summary>
+            <div className="mt-3 space-y-3 text-muted">
+              <Secret label="Endpoint" value={apiUrl} />
+              <p>Send a <b className="font-medium text-ink">POST</b> with the header <code className="rounded bg-canvas px-1 text-xs">Authorization: Bearer YOUR_KEY</code> (or <code className="rounded bg-canvas px-1 text-xs">X-Api-Key</code>). One lead, a list, or <code className="rounded bg-canvas px-1 text-xs">{"{ \"leads\": [...] }"}</code>, up to 100 at a time. Phone or email is required; a repeat phone/email is added to the existing open lead instead of creating a duplicate.</p>
+              <p>Field names are flexible: <span className="text-ink">name / full_name / first_name + last_name, phone / mobile / whatsapp, email, message / comments, location / area / city, property_type, budget / price, campaign, source, interest</span> (buy, rent, invest, sell).</p>
+              <pre className="max-h-64 overflow-auto rounded-lg bg-navy-950 p-4 text-xs leading-relaxed text-white/85">{`curl -X POST ${apiUrl} \\
+  -H "Authorization: Bearer YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '${sample.replace(/\n\s*/g, " ")}'`}</pre>
+              <ul className="list-disc space-y-1.5 pl-5">
+                <li><b className="font-medium text-ink">Zapier or Make (easiest):</b> trigger on the other app (Facebook Lead Ads, Google Forms, Typeform, a new Gmail message…), then a <i>Webhooks → POST</i> action to the endpoint with your key. Use GET on the same URL with the key to test the connection.</li>
+                <li><b className="font-medium text-ink">Zameen, Graana, OLX:</b> these portals don&apos;t push leads to other systems; they e-mail each enquiry. Forward those e-mails to a Zapier <i>Email Parser</i> or Make <i>mailhook</i> address, map name/phone/message, and POST them here. Their exported spreadsheets can also go in through Leads → Import.</li>
+                <li><b className="font-medium text-ink">Your developer or another CRM:</b> give them the endpoint, a key from its own connection and this page.</li>
+              </ul>
+            </div>
+          </details>
         </Card>
 
         <Card className="p-5">
@@ -109,7 +194,7 @@ export default async function IntegrationsPage() {
         <Card className="p-5">
           <h2 className="mb-2 font-medium">Recent incoming leads</h2>
           {hooks.length === 0 ? <p className="text-sm text-muted">Nothing received yet.</p> : (
-            <LogList rows={hooks.map((h) => ({ id: h.id, status: h.status, text: `${h.source === "facebook" ? "Facebook" : "Website"} · ${h.summary}`, at: h.createdAt, href: h.leadId ? `/crm/leads/${h.leadId}` : undefined }))} />
+            <LogList rows={hooks.map((h) => ({ id: h.id, status: h.status, text: `${h.source === "facebook" ? "Facebook" : h.source.startsWith("api:") ? h.source.slice(4) : "Website"} · ${h.summary}`, at: h.createdAt, href: h.leadId ? `/crm/leads/${h.leadId}` : undefined }))} />
           )}
         </Card>
       </div>

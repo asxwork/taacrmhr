@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
-import { INTAKE_KEYS, newSecret, setSetting } from "@/lib/lead-intake";
+import { INTAKE_KEYS, hashKey, newSecret, setSetting } from "@/lib/lead-intake";
 import { sendMail, smtpConfigured } from "@/lib/mail";
-import type { FormState } from "@/lib/utils";
+import { str, type FormState } from "@/lib/utils";
 
 export async function regenerateSecret(fd: FormData) {
   const user = await requirePermission("settings.company", "edit");
@@ -33,4 +33,60 @@ export async function sendTestEmail(): Promise<FormState> {
   if (me.email.endsWith(".local")) return { error: "Your account email is a demo address. Change it in Users first." };
   const res = await sendMail(me.email, "Test email from The Advisor Associates CRM", "If you can read this, outgoing email is working.", { userId: user.id });
   return res.status === "sent" ? { ok: true, message: `Test email sent to ${me.email}.` } : { error: `Failed: ${res.error}` };
+}
+
+// ─── API connections (POST /api/v1/leads) ──────────────────────────────────
+
+const newKey = () => `taa_${newSecret()}`;
+const keyShown = (key: string) => `Copy this key now, it won't be shown again: ${key}`;
+
+async function connectionFields(fd: FormData) {
+  const ids = fd.getAll("assignees").map(String);
+  const valid = ids.length ? await db.user.findMany({ where: { id: { in: ids }, active: true }, select: { id: true } }) : [];
+  const sourceId = str(fd, "sourceId");
+  const source = sourceId ? await db.leadSource.findUnique({ where: { id: sourceId }, select: { id: true } }) : null;
+  return { sourceId: source?.id ?? null, assigneeIds: valid.map((v) => v.id).join(",") || null };
+}
+
+export async function createConnection(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("settings.company", "edit");
+  const name = str(fd, "name");
+  if (name.length < 2) return { error: "Give the connection a name, e.g. Zameen or Website." };
+  const key = newKey();
+  const conn = await db.apiConnection.create({ data: { name, keyHash: hashKey(key), keyHint: key.slice(-4), ...(await connectionFields(fd)) } });
+  await audit(user.id, "create", "apiConnection", conn.id, `Created API connection ${name}`);
+  revalidatePath("/settings/integrations");
+  return { ok: true, message: keyShown(key) };
+}
+
+export async function updateConnection(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("settings.company", "edit");
+  const id = str(fd, "id");
+  const op = str(fd, "op");
+  const conn = await db.apiConnection.findUnique({ where: { id } });
+  if (!conn) return { error: "Connection not found." };
+  if (op === "delete") {
+    await db.apiConnection.delete({ where: { id } });
+    await audit(user.id, "delete", "apiConnection", id, `Deleted API connection ${conn.name}`);
+    revalidatePath("/settings/integrations");
+    return { ok: true, message: "Deleted. Its key no longer works." };
+  }
+  if (op === "rotate") {
+    const key = newKey();
+    await db.apiConnection.update({ where: { id }, data: { keyHash: hashKey(key), keyHint: key.slice(-4) } });
+    await audit(user.id, "update", "apiConnection", id, `Rotated key for ${conn.name}`);
+    revalidatePath("/settings/integrations");
+    return { ok: true, message: keyShown(key) };
+  }
+  if (op === "toggle") {
+    await db.apiConnection.update({ where: { id }, data: { active: !conn.active } });
+    await audit(user.id, "update", "apiConnection", id, `${conn.active ? "Disabled" : "Enabled"} API connection ${conn.name}`);
+    revalidatePath("/settings/integrations");
+    return { ok: true, message: conn.active ? "Disabled. Leads sent with its key are refused." : "Enabled." };
+  }
+  const name = str(fd, "name") || conn.name;
+  await db.apiConnection.update({ where: { id }, data: { name, ...(await connectionFields(fd)) } });
+  await audit(user.id, "update", "apiConnection", id, `Updated API connection ${name}`);
+  revalidatePath("/settings/integrations");
+  return { ok: true, message: "Saved." };
 }
