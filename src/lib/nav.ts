@@ -73,6 +73,7 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/hr/attendance", label: "Daily attendance", icon: "clock", module: "hr.attendance" },
           { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave" },
+          { href: "/hr/attendance/logs", label: "Attendance logs", icon: "history", module: "hr.attendance" },
         ],
       },
       { label: "Requests", icon: "check", items: [{ href: "/approvals", label: "Approvals & requests", icon: "check" }] },

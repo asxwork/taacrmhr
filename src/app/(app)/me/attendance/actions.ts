@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { format, startOfDay } from "date-fns";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { distanceMeters, geofenceMode } from "@/lib/attendance";
+import { distanceMeters, geofenceMode, logAttendance } from "@/lib/attendance";
 import { submitRequest } from "@/lib/approvals";
 import { str, type FormState } from "@/lib/utils";
 
@@ -37,9 +37,13 @@ export async function punchNow(_: FormState, fd: FormData): Promise<FormState> {
   await db.attendancePunch.create({
     data: { employeeId: emp.id, at: now, source: "web", lat: hasFix ? lat : null, lng: hasFix ? lng : null, accuracy: Number.isFinite(accuracy) ? accuracy : null, distanceM: distance, outside: mode !== "off" && outside, createdById: user.id },
   });
+  const verb = today % 2 === 0 ? "Checked in" : "Checked out";
+  await logAttendance({
+    employeeId: emp.id, date: now, kind: "checkin", source: "web", byId: user.id,
+    summary: `${verb} at ${format(now, "h:mm a")} from the web${distance != null ? ` · ~${distance} m from office` : hasFix ? "" : " · no location"}${mode !== "off" && outside ? " · OUTSIDE office" : ""}`,
+  });
   revalidatePath("/me/attendance");
   revalidatePath("/dashboard");
-  const verb = today % 2 === 0 ? "Checked in" : "Checked out";
   return { ok: true, message: `${verb} at ${format(now, "h:mm a")}${mode === "warn" && fence && outside ? " — noted as outside the office" : ""}.` };
 }
 

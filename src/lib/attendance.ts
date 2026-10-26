@@ -1,4 +1,4 @@
-import { addDays, differenceInMinutes, eachDayOfInterval, getISODay, isSameDay, startOfDay } from "date-fns";
+import { addDays, differenceInMinutes, eachDayOfInterval, format, getISODay, isSameDay, startOfDay } from "date-fns";
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { scopeWhere } from "./permissions";
@@ -205,6 +205,20 @@ export function parseDeviceLog(text: string): { rows: DevicePunch[]; skipped: nu
   return { rows, skipped };
 }
 
+export type AttendanceLogKind = "checkin" | "import" | "hr_edit" | "correction" | "delete";
+
+/** Appends to the attendance log (Attendance → Attendance logs). Entries are never edited; only a Super Admin can delete one. */
+export async function logAttendance(e: {
+  employeeId?: string | null; date: Date; kind: AttendanceLogKind; source?: string | null; summary: string; before?: string | null; after?: string | null; byId?: string | null;
+}) {
+  const by = e.byId ? await db.user.findUnique({ where: { id: e.byId }, select: { name: true } }) : null;
+  await db.attendanceLog.create({ data: { ...e, employeeId: e.employeeId ?? null, byId: e.byId ?? null, byName: by?.name ?? (e.byId ? null : "System") } });
+}
+
+/** One line per punch for log before/after snapshots. */
+export const punchLines = (punches: { at: Date; source: string }[]) =>
+  punches.length ? punches.map((p) => `${format(p.at, "h:mm a")} (${p.source})`).join(", ") : "no punches";
+
 /** Saves device punches for mapped employees, skipping ones already stored. */
 export async function importDevicePunches(rows: DevicePunch[], byUserId: string) {
   const employees = await db.employee.findMany({ where: { deviceUserId: { in: [...new Set(rows.map((r) => r.deviceUserId))] } }, select: { id: true, deviceUserId: true } });
@@ -227,6 +241,16 @@ export async function importDevicePunches(rows: DevicePunch[], byUserId: string)
     return true;
   });
   if (fresh.length) await db.attendancePunch.createMany({ data: fresh.map((f) => ({ ...f, source: "device", createdById: byUserId })) });
+  if (fresh.length) {
+    const names = new Map((await db.employee.findMany({ where: { id: { in: [...new Set(fresh.map((f) => f.employeeId))] } }, select: { id: true, fullName: true } })).map((e) => [e.id, e.fullName]));
+    const per = new Map<string, number>();
+    for (const f of fresh) per.set(f.employeeId, (per.get(f.employeeId) ?? 0) + 1);
+    await logAttendance({
+      date: new Date(), kind: "import", source: "device", byId: byUserId,
+      summary: `Imported ${fresh.length} machine punch(es) for ${per.size} employee(s), ${format(min, "d MMM")}–${format(max, "d MMM yyyy")}${known.length - fresh.length ? `; ${known.length - fresh.length} already stored` : ""}${future ? `; ${future} future-dated skipped` : ""}`,
+      after: [...per].map(([id, n]) => `${names.get(id) ?? id}: ${n}`).join("\n"),
+    });
+  }
   return { added: fresh.length, duplicates: known.length - fresh.length, future, unknown: [...unknown] };
 }
 
@@ -234,6 +258,8 @@ export async function importDevicePunches(rows: DevicePunch[], byUserId: string)
 export async function applyCorrection(employeeId: string, payload: { date: string; checkIn?: string; checkOut?: string; reason?: string }, actorId: string | null) {
   const day = startOfDay(new Date(payload.date));
   if (Number.isNaN(day.getTime())) return;
+  const dayPunches = () => db.attendancePunch.findMany({ where: { employeeId, at: { gte: day, lt: addDays(day, 1) } }, orderBy: { at: "asc" }, select: { at: true, source: true } });
+  const before = punchLines(await dayPunches());
   for (const t of [payload.checkIn, payload.checkOut]) {
     if (!t || !/^\d{2}:\d{2}$/.test(t)) continue;
     const when = at(day, toMin(t));
@@ -247,5 +273,9 @@ export async function applyCorrection(employeeId: string, payload: { date: strin
     where: { employeeId_date: { employeeId, date: day } },
     update: { corrected: true, note: payload.reason ? `Corrected: ${payload.reason}` : "Corrected" },
     create: { employeeId, date: day, status: "auto", corrected: true, note: payload.reason ? `Corrected: ${payload.reason}` : "Corrected" },
+  });
+  await logAttendance({
+    employeeId, date: day, kind: "correction", source: "manual", byId: actorId, before, after: punchLines(await dayPunches()),
+    summary: `Approved correction${payload.checkIn ? ` · in ${payload.checkIn}` : ""}${payload.checkOut ? ` · out ${payload.checkOut}` : ""}${payload.reason ? ` · "${payload.reason}"` : ""}`,
   });
 }

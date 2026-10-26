@@ -657,6 +657,7 @@ model Employee {
   checklist         ChecklistItem[]
   requests          ApprovalRequest[]
   punches           AttendancePunch[]
+  attendanceLogs    AttendanceLog[]
   days              AttendanceDay[]
   leaveBalances     LeaveBalance[]
   leaveRequests     LeaveRequest[]
@@ -811,6 +812,28 @@ model AttendancePunch {
 }
 
 /// status: present | late | half | absent | leave | holiday | weekend | missing (no check-out) | upcoming
+/// Append-only history of attendance: check-ins, machine imports, HR edits, approved corrections, deletions.
+/// Nobody but a Super Admin can remove an entry (and that removal is audited).
+model AttendanceLog {
+  id         String    @id @default(cuid())
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  /// The attendance day concerned (import entries: the import time).
+  date       DateTime
+  kind       String // checkin | import | hr_edit | correction | delete
+  source     String? // web | device | manual
+  summary    String // @text
+  before     String? // @text
+  after      String? // @text
+  byId       String?
+  byName     String?
+  createdAt  DateTime  @default(now())
+
+  @@index([date])
+  @@index([employeeId, date])
+  @@index([createdAt])
+}
+
 model AttendanceDay {
   id          String    @id @default(cuid())
   employeeId  String

@@ -41,6 +41,9 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
   const groups = app.groups;
   const modules = app.layout === "modules";
   const allItems = groups.flatMap((g) => g.items);
+  // Only the closest item lights up (e.g. /hr/attendance/logs, not also /hr/attendance).
+  const activeHref = allItems.filter((i) => isActive(pathname, i.href)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  const isCurrent = (href: string) => href === activeHref;
   const quick = allItems.filter((i) => !i.phase).slice(0, 4);
 
   // HR: the module whose pages show in the panel. Follows the page; clicking a module on the rail picks it.
@@ -89,7 +92,7 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
 
   const itemLink = (item: NavItem, rail: boolean) => {
     const Icon = ICONS[item.icon] ?? House;
-    const active = isActive(pathname, item.href);
+    const active = isCurrent(item.href);
     return (
       <Link
         href={item.href}
