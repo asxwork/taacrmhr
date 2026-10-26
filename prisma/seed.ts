@@ -88,18 +88,49 @@ async function numberLeads() {
   if (missing.length) console.log(`Numbered ${missing.length} lead(s).`);
 }
 
-async function seedCrm() {
-  const statuses = [
-    ["New", "blue", "open"],
-    ["Contacted", "violet", "open"],
-    ["Qualified", "amber", "open"],
-    ["Site Visit", "teal", "open"],
-    ["Converted", "green", "converted"],
-    ["Junk", "red", "junk"],
-  ] as const;
-  for (const [i, [name, color, kind]] of statuses.entries()) {
-    await db.leadStatus.upsert({ where: { name }, update: {}, create: { name, color, kind, sortOrder: i } });
+/**
+ * One-time move to the Bitrix-style lead stages (2026-10). Renames keep every lead on its stage; Qualified leads
+ * move to In Progress and Qualified is removed. Guarded by a setting so admins' later edits are never touched.
+ */
+async function migrateLeadStages() {
+  if (await db.setting.findUnique({ where: { key: "crm.leadStages.v2" } })) return;
+  const rename = async (from: string, to: string) => {
+    const old = await db.leadStatus.findUnique({ where: { name: from } });
+    if (old && !(await db.leadStatus.findUnique({ where: { name: to } }))) await db.leadStatus.update({ where: { id: old.id }, data: { name: to } });
+  };
+  await rename("New", "New Request");
+  await rename("Contacted", "In Progress");
+  await rename("Converted", "Complete lead");
+  await rename("Junk", "Not Valid");
+  const qualified = await db.leadStatus.findUnique({ where: { name: "Qualified" } });
+  const inProgress = await db.leadStatus.findUnique({ where: { name: "In Progress" } });
+  if (qualified && inProgress) {
+    const moved = await db.lead.updateMany({ where: { statusId: qualified.id }, data: { statusId: inProgress.id } });
+    await db.leadStatus.delete({ where: { id: qualified.id } });
+    console.log(`Lead stages: moved ${moved.count} Qualified lead(s) to In Progress.`);
   }
+  await db.setting.create({ data: { key: "crm.leadStages.v2", value: new Date().toISOString() } });
+}
+
+async function seedCrm() {
+  await migrateLeadStages();
+  const statuses = [
+    ["New Request", "blue", "open"],
+    ["In Progress", "violet", "open"],
+    ["Not Answered", "amber", "open"],
+    ["Site Visit", "teal", "open"],
+    ["On-hold", "slate", "open"],
+    ["Finalizing", "gold", "open"],
+    ["Complete lead", "green", "converted"],
+    ["Not Interested", "red", "junk"],
+    ["Not Valid", "slate", "junk"],
+  ] as const;
+  // Creates missing stages. Order and colour are only set the first time (the migration run), never over admin edits.
+  const firstRun = !(await db.setting.findUnique({ where: { key: "crm.leadStages.ordered" } }));
+  for (const [i, [name, color, kind]] of statuses.entries()) {
+    await db.leadStatus.upsert({ where: { name }, update: firstRun ? { sortOrder: i, color } : {}, create: { name, color, kind, sortOrder: i } });
+  }
+  if (firstRun) await db.setting.create({ data: { key: "crm.leadStages.ordered", value: new Date().toISOString() } });
 
   const pipelines = [
     { name: "Sales", isDefault: true, stages: [["New", "blue", "open", 10], ["Negotiation", "violet", "open", 30], ["Token / Booking", "amber", "open", 60], ["Agreement", "teal", "open", 80], ["Payment Plan", "gold", "open", 90], ["Won", "green", "won", 100], ["Lost", "red", "lost", 0]] },

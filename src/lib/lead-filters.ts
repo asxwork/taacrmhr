@@ -44,7 +44,7 @@ export async function leadWhere(user: SessionUser, f: LeadFilters, statuses: { i
   const q = f.q?.trim();
   if (q) {
     const key = phoneKey(q);
-    and.push({ OR: [{ name: { contains: q } }, { email: { contains: q } }, { location: { contains: q } }, { sourceInfo: { contains: q } }, ...(key && key.length >= 4 ? [{ phoneKey: { contains: key } }] : []), ...(/^\d+$/.test(q) ? [{ number: Number(q) }] : [])] });
+    and.push({ OR: [{ name: { contains: q } }, { email: { contains: q } }, { location: { contains: q } }, { sourceInfo: { contains: q } }, { phones: { contains: q } }, { emails: { contains: q } }, ...(key && key.length >= 4 ? [{ phoneKey: { contains: key } }] : []), ...(/^\d+$/.test(q) ? [{ number: Number(q) }] : [])] });
   }
   if (f.name?.trim()) and.push({ name: { contains: f.name.trim() } });
   if (f.phone?.trim()) {

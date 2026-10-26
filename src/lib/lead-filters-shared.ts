@@ -5,8 +5,8 @@ export type LeadFilters = Partial<Record<(typeof LEAD_FILTER_KEYS)[number], stri
 
 export const STATUS_GROUPS = [
   { value: "", label: "In progress" },
-  { value: "converted", label: "Converted" },
-  { value: "junk", label: "Junk" },
+  { value: "converted", label: "Completed" },
+  { value: "junk", label: "Closed" },
   { value: "all", label: "All" },
 ] as const;
 

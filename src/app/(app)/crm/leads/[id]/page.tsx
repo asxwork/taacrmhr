@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
 import { TIMELINE_INCLUDE, assignableUsers, editableActivityIds, fmtPKR, INTERESTS } from "@/lib/crm";
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils";
-import { matchUnitsForLead, sizeLabel, unitLabel } from "@/lib/inventory";
+import { matchUnitsForLead, sizeLabel, unitLabel, unitOptions } from "@/lib/inventory";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Drawer, EmptyState, Field, LinkButton } from "@/components/ui";
 import { CHEVRON_LAST, StageBar, hrefWith } from "@/components/crm/bits";
@@ -23,7 +23,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
   const scope = (await scopeWhere(user, "crm.leads"))!;
   const lead = await db.lead.findFirst({
     where: { id, ...scope },
-    include: { status: true, source: true, project: true, owner: true, createdBy: true, branch: true, contact: true, deals: { include: { stage: true } } },
+    include: { status: true, source: true, project: true, unit: { include: { project: { select: { name: true } }, block: { select: { name: true } } } }, owner: true, createdBy: true, branch: true, contact: true, deals: { include: { stage: true } } },
   });
   if (!lead) notFound();
 
@@ -47,7 +47,9 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
     editableActivityIds(user, activities.map((a) => a.id)),
     lead.convertedAt || lead.status.kind === "junk" ? [] : matchUnitsForLead(user, lead),
   ]);
-  const junk = await db.leadStatus.findFirst({ where: { kind: "junk", active: true } });
+  const phoneList = list(lead.phones, [lead.phone, lead.phone2], "Mobile");
+  const emailList = list(lead.emails, [lead.email], "Work");
+  const closedStages = await db.leadStatus.findMany({ where: { kind: "junk", active: true }, orderBy: { sortOrder: "asc" } });
   const waNumber = lead.phoneKey?.replace(/^0/, "92");
   const closed = !!lead.convertedAt || lead.status.kind === "converted";
   const isJunk = lead.status.kind === "junk";
@@ -86,7 +88,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
         </div>
       </div>
 
-      {/* Stage bar: open stages, then Convert (finish) and Junk */}
+      {/* Stage bar: open stages, then Complete lead (convert) and the closed stages */}
       <div className="mb-5">
         {closed ? (
           <div className="flex items-center gap-3 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white">
@@ -104,21 +106,30 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
             after={
               <>
                 {canConvert ? (
-                  <Link href={`${path}?convert=1`} scroll={false} className={cn("flex min-w-32 shrink-0 items-center px-5 py-2.5 text-[13px] font-medium transition", CHEVRON_LAST, "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100", junk && "rounded-r-none [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%,8px_50%)]")}>
+                  <Link href={`${path}?convert=1`} scroll={false} className={cn("flex min-w-32 shrink-0 items-center px-5 py-2.5 text-[13px] font-medium transition", CHEVRON_LAST, "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100", closedStages.length > 0 && "rounded-r-none [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%,8px_50%)]")}>
                     Complete lead
                   </Link>
                 ) : null}
-                {junk && (
-                  <button name="stepId" value={junk.id} disabled={!canEdit || isJunk}
-                    className={cn("flex min-w-24 shrink-0 items-center px-5 py-2.5 text-[13px] font-medium transition disabled:cursor-default", CHEVRON_LAST, isJunk ? "bg-red-500 text-white" : "bg-black/5 text-muted enabled:hover:bg-red-50 enabled:hover:text-red-600")}>
-                    Junk
-                  </button>
-                )}
+                {/* Closed-without-deal stages (Not Interested, Not Valid…) */}
+                {closedStages.map((s, i) => {
+                  const on = lead.statusId === s.id;
+                  const last = i === closedStages.length - 1;
+                  return (
+                    <button key={s.id} name="stepId" value={s.id} disabled={!canEdit || on}
+                      className={cn(
+                        "flex min-w-28 shrink-0 items-center px-5 py-2.5 text-[13px] font-medium transition disabled:cursor-default",
+                        last ? CHEVRON_LAST : "-ml-1 [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%,8px_50%)]",
+                        on ? "bg-red-500 text-white" : "bg-black/5 text-muted enabled:hover:bg-red-50 enabled:hover:text-red-600",
+                      )}>
+                      {s.name}
+                    </button>
+                  );
+                })}
               </>
             }
           />
         )}
-        {isJunk && canEdit && <p className="mt-2 text-sm text-red-700">Marked as junk. Click a stage above to reopen it.</p>}
+        {isJunk && canEdit && <p className="mt-2 text-sm text-red-700">Closed as “{lead.status.name}”. Click a stage above to reopen it.</p>}
       </div>
 
       <nav className="mb-5 flex flex-wrap gap-1">
@@ -128,8 +139,8 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
       </nav>
 
       {tab === "general" && (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
-          <Card className="p-5 lg:sticky lg:top-6">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,380px)_1fr]">
+          <Card className="p-5 xl:sticky xl:top-6">
             <div className="mb-4 flex items-center justify-between border-b border-line pb-3">
               <h2 className="text-xs font-semibold uppercase tracking-wider">Lead information</h2>
               {canEdit && (editing
@@ -137,17 +148,17 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
                 : <Link href={`${path}?edit=1`} scroll={false} className="text-sm text-muted hover:text-ink">edit</Link>)}
             </div>
             {editing ? (
-              <LeadForm lead={lead} sources={sources} projects={projects} owners={owners} currentUserId={user.id} cancelHref={path} />
+              <LeadForm lead={lead} sources={sources} projects={projects} units={editing ? await unitOptions(user) : []} owners={owners} currentUserId={user.id} cancelHref={path} />
             ) : (
               <dl className="space-y-3.5">
                 <Row label="Stage">{lead.status.name}</Row>
                 <Row label="Client name">{lead.name}</Row>
-                <Row label="Phone">{lead.phone && <a href={telHref(lead.phone)} className="text-navy-900 underline decoration-dotted underline-offset-4">{fmtPhone(lead.phone)}</a>}</Row>
-                {lead.phone2 && <Row label="Second phone"><a href={telHref(lead.phone2)} className="text-navy-900 underline decoration-dotted underline-offset-4">{fmtPhone(lead.phone2)}</a></Row>}
-                <Row label="Email">{lead.email && <a href={`mailto:${lead.email}`} className="text-navy-900 hover:underline">{lead.email}</a>}</Row>
+                <Row label="Phone">{phoneList.length > 0 && <ContactValues items={phoneList.map((p) => ({ ...p, href: telHref(p.value), text: fmtPhone(p.value) }))} />}</Row>
+                <Row label="E-mail">{emailList.length > 0 && <ContactValues items={emailList.map((e) => ({ ...e, href: `mailto:${e.value}`, text: e.value }))} />}</Row>
                 <Row label="Source">{lead.source?.name}</Row>
                 <Row label="Source information">{lead.sourceInfo}</Row>
                 {lead.campaign && <Row label="Campaign">{lead.campaign}</Row>}
+                <Row label="Property">{lead.unit && <Link href={`/inventory/units/${lead.unit.id}`} className="text-navy-900 hover:underline">{unitLabel(lead.unit)}</Link>}</Row>
                 <Row label="Project">{lead.project && <Link href={`/inventory/projects/${lead.project.id}`} className="text-navy-900 hover:underline">{lead.project.name}</Link>}</Row>
                 <Row label="Interest">{[INTERESTS.find((i) => i.value === lead.interest)?.label, lead.propertyType].filter(Boolean).join(" · ")}</Row>
                 <Row label="Preferred location">{lead.location}</Row>
@@ -248,5 +259,29 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <dt className="text-xs text-muted">{label}</dt>
       <dd className={cn("mt-0.5 break-words text-sm", empty && "text-muted/60")}>{empty ? "field is empty" : children}</dd>
     </div>
+  );
+}
+
+/** Saved [{type, value}] list, or the older single fields. */
+function list(json: string | null, fallback: (string | null)[], type: string): { type: string; value: string }[] {
+  if (json) {
+    try {
+      const v = JSON.parse(json) as { type: string; value: string }[];
+      if (Array.isArray(v) && v.length) return v;
+    } catch {}
+  }
+  return fallback.filter((x): x is string => !!x).map((value) => ({ type, value }));
+}
+
+function ContactValues({ items }: { items: { type: string; href: string; text: string }[] }) {
+  return (
+    <ul className="space-y-1">
+      {items.map((i) => (
+        <li key={i.href} className="flex items-baseline justify-between gap-3">
+          <a href={i.href} className="text-navy-900 underline decoration-dotted underline-offset-4">{i.text}</a>
+          <span className="shrink-0 text-xs text-muted">{i.type}</span>
+        </li>
+      ))}
+    </ul>
   );
 }

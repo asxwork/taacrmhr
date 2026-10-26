@@ -3,6 +3,7 @@ import { db } from "./db";
 import { can, scopeMatcher, scopeWhere } from "./permissions";
 import type { SessionUser } from "./auth";
 import type { Action } from "./rbac";
+import { fmtPKR } from "./crm-shared";
 
 export * from "./inventory-shared";
 
@@ -81,4 +82,19 @@ export async function matchUnitsForLead(
     return words.filter((w) => hay.includes(w)).length;
   };
   return candidates.sort((a, b) => score(b) - score(a)).slice(0, limit);
+}
+
+/** Units/listings the user may see, as picker options for "the property this lead is about". */
+export async function unitOptions(user: SessionUser) {
+  const where = await unitWhere(user);
+  if (!where) return [];
+  const units = await db.unit.findMany({
+    where, include: { project: { select: { name: true } }, block: { select: { name: true } } },
+    orderBy: [{ project: { name: "asc" } }, { unitNo: "asc" }], take: 2000,
+  });
+  return units.map((u) => ({
+    id: u.id,
+    label: unitLabel(u),
+    sub: [u.type, u.status, u.price ? fmtPKR(u.price) : null, u.listingType !== "project" ? u.address : null].filter(Boolean).join(" · "),
+  }));
 }

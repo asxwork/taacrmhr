@@ -35,6 +35,11 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
   const visibleDealIds = dealScope
     ? new Set((await db.deal.findMany({ where: { id: { in: unit.deals.map((d) => d.dealId) }, ...dealScope }, select: { id: true } })).map((d) => d.id))
     : new Set<string>();
+  // Leads that came in about this exact unit (only the ones this user may see).
+  const leadScope = await scopeWhere(user, "crm.leads");
+  const enquiries = leadScope
+    ? await db.lead.findMany({ where: { unitId: unit.id, ...leadScope }, include: { status: true, owner: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 20 })
+    : [];
   const title = unit.project ? `${unit.project.name} · ${unit.unitNo}` : unit.unitNo;
   const main = unit.images.find((i) => i.id === sp.photo) ?? unit.images[0];
 
@@ -148,6 +153,19 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
               ]}
             />
           </Card>
+          {enquiries.length > 0 && (
+            <Card className="p-5">
+              <h2 className="mb-2 text-sm font-medium">Leads for this property <span className="text-muted">{enquiries.length}</span></h2>
+              <ul className="divide-y divide-line">
+                {enquiries.map((l) => (
+                  <li key={l.id} className="flex items-center gap-2 py-2 text-sm">
+                    <Link href={`/crm/leads/${l.id}`} className="min-w-0 flex-1 truncate font-medium hover:underline">{l.name}</Link>
+                    <StatusPill name={l.status.name} colorName={l.status.color} />
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
           {(unit.address || unit.lat) && (
             <Card className="p-5 text-sm">
               <p className="flex items-start gap-2"><MapPin className="mt-0.5 size-4 shrink-0 text-muted" /> {unit.address ?? `${unit.lat}, ${unit.lng}`}</p>

@@ -220,6 +220,12 @@ model Lead {
   sourceInfo     String? // @text
   projectId      String?
   project        Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  /// The specific unit/listing the enquiry is about.
+  unitId         String?
+  unit           Unit?       @relation("LeadUnit", fields: [unitId], references: [id], onDelete: SetNull)
+  /// All phone numbers / emails as JSON [{type, value}]; phone/phone2/email hold the first ones for search and duplicates.
+  phones         String? // @text
+  emails         String? // @text
   interest       String? // buy | rent | invest | sell
   propertyType   String?
   location       String?
@@ -245,6 +251,7 @@ model Lead {
 
   @@index([ownerId])
   @@index([branchId])
+  @@index([unitId])
   @@index([projectId])
   @@index([number])
   @@index([statusId])
@@ -443,6 +450,7 @@ model Unit {
   images             UnitImage[]
   deals              DealUnit[]
 
+  leads              Lead[]      @relation("LeadUnit")
   @@index([projectId])
   @@index([status])
   @@index([ownerId])

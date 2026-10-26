@@ -28,6 +28,20 @@ async function findDuplicate(key: string | null, email: string | null, exceptLea
   return null;
 }
 
+/** Parses a posted [{type, value}] list, dropping blanks; at most 10 entries. */
+function contactList(raw: string) {
+  try {
+    const v: unknown = JSON.parse(raw || "[]");
+    if (!Array.isArray(v)) return [];
+    return v
+      .filter((e): e is { type?: unknown; value: string } => !!e && typeof e.value === "string" && e.value.trim() !== "")
+      .map((e) => ({ type: String(e.type ?? "Other").slice(0, 20), value: e.value.trim().slice(0, 80) }))
+      .slice(0, 10);
+  } catch {
+    return [];
+  }
+}
+
 export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
   const id = str(fd, "id");
   const user = await requirePermission("crm.leads", id ? "edit" : "create");
@@ -35,8 +49,11 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
   if (id && !existing) return { error: "Lead not found or you can't edit it." };
 
   const name = str(fd, "name");
-  const phone = str(fd, "phone");
-  const email = str(fd, "email").toLowerCase() || null;
+  // The form posts every phone/email as a JSON list; the first ones double as the primary fields (search, duplicates).
+  const phones = fd.has("phones") ? contactList(str(fd, "phones")) : null;
+  const emails = fd.has("emails") ? contactList(str(fd, "emails")) : null;
+  const phone = phones ? phones[0]?.value ?? "" : str(fd, "phone");
+  const email = (emails ? emails[0]?.value ?? "" : str(fd, "email")).toLowerCase() || null;
   if (name.length < 2) return { error: "Name is required." };
   if (!phone && !email) return { error: "Add a phone number or email." };
 
@@ -49,10 +66,16 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
   const ownerId = await resolveOwner(user, "crm.leads", str(fd, "ownerId"), existing?.ownerId);
   const budgetMin = parseAmount(str(fd, "budgetMin"));
   const budgetMax = parseAmount(str(fd, "budgetMax"));
+  // The unit/listing this enquiry is about; its project fills in the lead's project when none is chosen.
+  const unit = str(fd, "unitId") ? await db.unit.findUnique({ where: { id: str(fd, "unitId") }, select: { id: true, projectId: true } }) : null;
+  const projectId = (str(fd, "projectId") && (await db.project.findUnique({ where: { id: str(fd, "projectId") }, select: { id: true } }))?.id) || unit?.projectId || null;
   const data = {
-    name, phone: phone || null, phoneKey: key, phone2: str(fd, "phone2") || null, email,
+    name, phone: phone || null, phoneKey: key, email,
+    phone2: phones ? phones[1]?.value ?? null : str(fd, "phone2") || null,
+    ...(phones && { phones: phones.length ? JSON.stringify(phones) : null }),
+    ...(emails && { emails: emails.length ? JSON.stringify(emails) : null }),
     sourceId: str(fd, "sourceId") || null, campaign: str(fd, "campaign") || null, sourceInfo: str(fd, "sourceInfo") || null,
-    projectId: (str(fd, "projectId") && (await db.project.findUnique({ where: { id: str(fd, "projectId") }, select: { id: true } }))?.id) || null,
+    projectId, ...(fd.has("unitId") && { unitId: unit?.id ?? null }),
     interest: str(fd, "interest") || null, propertyType: str(fd, "propertyType") || null,
     location: str(fd, "location") || null, budgetMin, budgetMax, notes: str(fd, "notes") || null,
     ownerId, branchId: await ownerBranch(ownerId),

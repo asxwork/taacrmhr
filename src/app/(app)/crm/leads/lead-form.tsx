@@ -1,11 +1,12 @@
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Field, LinkButton } from "@/components/ui";
 import { INTERESTS, PROPERTY_TYPES } from "@/lib/crm-shared";
+import { EmailList, PhoneList, UnitPicker, type UnitOption } from "@/components/crm/contact-lists";
 import { saveLead } from "./actions";
 
 type LeadValues = {
   id: string; name: string; phone: string | null; phone2: string | null; email: string | null; sourceId: string | null;
-  sourceInfo: string | null; projectId: string | null;
+  sourceInfo: string | null; projectId: string | null; unitId: string | null; phones: string | null; emails: string | null;
   campaign: string | null; interest: string | null; propertyType: string | null; location: string | null;
   budgetMin: number | null; budgetMax: number | null; notes: string | null; ownerId: string | null;
 };
@@ -17,6 +18,7 @@ export function LeadForm({
   lead,
   sources,
   projects,
+  units,
   owners,
   stages,
   currentUserId,
@@ -25,6 +27,7 @@ export function LeadForm({
   lead?: LeadValues | null;
   sources: Opt[];
   projects: Opt[];
+  units: UnitOption[];
   owners: Opt[];
   /** Only when creating: the stage the new lead starts in. */
   stages?: Opt[];
@@ -46,15 +49,14 @@ export function LeadForm({
         <Field label="Client name">
           <input name="name" required defaultValue={lead?.name} className="input" autoFocus={!lead} placeholder="e.g. Ahmed Siddiqui" />
         </Field>
-        <Field label="Phone">
-          <input name="phone" type="tel" defaultValue={lead?.phone ?? ""} className="input" placeholder="0300-1234567" />
-        </Field>
-        <Field label="Second phone">
-          <input name="phone2" type="tel" defaultValue={lead?.phone2 ?? ""} className="input" />
-        </Field>
-        <Field label="Email">
-          <input name="email" type="email" defaultValue={lead?.email ?? ""} className="input" />
-        </Field>
+        <div>
+          <p className="mb-1.5 text-xs font-medium text-ink/80">Phone</p>
+          <PhoneList name="phones" initial={entries(lead?.phones, [lead?.phone, lead?.phone2], "Mobile")} />
+        </div>
+        <div>
+          <p className="mb-1.5 text-xs font-medium text-ink/80">E-mail</p>
+          <EmailList name="emails" initial={entries(lead?.emails, [lead?.email], "Work")} />
+        </div>
       </Group>
 
       <Group title="Where it came from">
@@ -73,6 +75,9 @@ export function LeadForm({
       </Group>
 
       <Group title="Requirement">
+        <Field label="Property" hint="The exact unit or listing this enquiry is about, if any.">
+          <UnitPicker name="unitId" options={units} initial={lead?.unitId} />
+        </Field>
         <Field label="Project">
           <select name="projectId" defaultValue={lead?.projectId ?? ""} className="input">
             <option value="">—</option>
@@ -133,4 +138,15 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
       {children}
     </fieldset>
   );
+}
+
+/** Saved JSON list, or the older single fields for leads created before lists existed. */
+function entries(json: string | null | undefined, fallback: (string | null | undefined)[], type: string) {
+  if (json) {
+    try {
+      const v = JSON.parse(json) as { type: string; value: string }[];
+      if (Array.isArray(v) && v.length) return v;
+    } catch {}
+  }
+  return fallback.filter((x): x is string => !!x).map((value) => ({ type, value }));
 }

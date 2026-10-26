@@ -106,7 +106,7 @@ export function StageBar({
   const currentIndex = steps.findIndex((s) => s.id === currentId);
   const activeColor = color(steps[currentIndex]?.color ?? "slate").bar;
   return (
-    <form action={action} className="flex overflow-x-auto rounded-lg">
+    <form action={action} className="flex overflow-x-auto rounded-lg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {Object.entries(hidden).map(([k, v]) => (
         <input key={k} type="hidden" name={k} value={v} />
       ))}
