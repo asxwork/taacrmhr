@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { comingSoon } from "@/components/coming-soon";
 import { format } from "date-fns";
 import { ArrowLeft, Download, Printer, RefreshCw, Trash2, X } from "lucide-react";
 import { db } from "@/lib/db";
@@ -19,7 +20,8 @@ export default async function PayrollRunPage({ params, searchParams }: { params:
   const user = await requirePermission("hr.payroll");
   const [{ month }, sp] = await Promise.all([params, searchParams]);
   const run = await db.payrollRun.findUnique({ where: { month } });
-  if (!run) notFound();
+  // Planned pages under /hr/payroll/… (e.g. Dashboard) land here before the catch-all.
+  if (!run) return (await comingSoon(`/hr/payroll/${month}`)) ?? notFound();
   const scope = (await payrollEmployeeWhere(user))!;
   const isAdmin = user.isSuperAdmin || scopeFor(user, "hr.payroll", "edit") === "all";
   const canApprove = user.isSuperAdmin || scopeFor(user, "hr.payroll", "approve") === "all";

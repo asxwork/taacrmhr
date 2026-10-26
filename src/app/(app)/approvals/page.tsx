@@ -15,20 +15,22 @@ import { cancelMyRequest, decideRequest } from "./actions";
 export const metadata = { title: "Approvals" };
 
 const STATUS_TONE = { pending: "amber", approved: "green", rejected: "red", cancelled: "neutral" } as const;
-type SP = { tab?: string; open?: string };
+type SP = { tab?: string; open?: string; type?: string };
 
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requireUser();
   const sp = await searchParams;
   const isHr = user.isSuperAdmin || scopeFor(user, "hr.employees", "view") === "all";
-  const waiting = await pendingForUser(user);
+  // ?type= narrows to one kind of request (HR → Requests → Leave › Approvals, etc.).
+  const type = sp.type && sp.type in APPROVAL_TYPES ? sp.type : undefined;
+  const waiting = (await pendingForUser(user)).filter((r) => !type || r.type === type);
   const tab = sp.tab === "mine" ? "mine" : sp.tab === "all" && isHr ? "all" : waiting.length || sp.tab === "waiting" ? "waiting" : "mine";
 
   const include = { employee: { select: { fullName: true, code: true } }, requester: { select: { name: true } } } as const;
   const list =
     tab === "waiting" ? waiting
     : await db.approvalRequest.findMany({
-        where: (tab === "mine" ? { requesterId: user.id } : {}) as Prisma.ApprovalRequestWhereInput,
+        where: { ...(tab === "mine" ? { requesterId: user.id } : {}), ...(type && { type }) } as Prisma.ApprovalRequestWhereInput,
         include, orderBy: { createdAt: "desc" }, take: 200,
       });
 
@@ -43,14 +45,16 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const actNow = open && openAllowed ? await canAct(user, open) : false;
   const steps = open && openAllowed ? await flowSteps(open.type) : [];
   const stepUsers = new Map((await db.user.findMany({ where: { id: { in: steps.map((s) => s.userId).filter(Boolean) as string[] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
-  const closeHref = tab === "waiting" ? "/approvals" : `/approvals?tab=${tab}`;
+  const withType = (q: string) => (!type ? q : q ? `${q}&type=${type}` : `?type=${type}`);
+  const closeHref = tab === "waiting" ? `/approvals${withType("")}` : `/approvals${withType(`?tab=${tab}`)}`;
 
   return (
     <>
-      <PageHeader title="Approvals" description="Requests waiting for you, and the ones you’ve sent." />
+      <PageHeader title={type ? `${APPROVAL_TYPES[type]} requests` : "Approvals"} description="Requests waiting for you, and the ones you’ve sent." />
+      {type && <p className="mb-3 text-sm text-muted">Only {APPROVAL_TYPES[type]!.toLowerCase()} requests. <Link href={tab === "waiting" ? "/approvals" : `/approvals?tab=${tab}`} className="underline hover:text-ink">Show all types</Link></p>}
       <div className="mb-4 flex rounded-lg bg-black/5 p-0.5 sm:w-fit">
         {([["waiting", `Waiting for me${waiting.length ? ` (${waiting.length})` : ""}`], ["mine", "My requests"], ...(isHr ? [["all", "All requests"]] : [])] as [string, string][]).map(([t, label]) => (
-          <Link key={t} href={`/approvals?tab=${t}`} className={cn("flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{label}</Link>
+          <Link key={t} href={`/approvals${withType(`?tab=${t}`)}`} className={cn("flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{label}</Link>
         ))}
       </div>
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { comingSoon } from "@/components/coming-soon";
 import type { Prisma } from "@prisma/client";
 import { format } from "date-fns";
 import { ArrowLeft } from "lucide-react";
@@ -19,7 +20,8 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
   const user = await requirePermission("hr.performance");
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const cycle = await db.appraisalCycle.findUnique({ where: { id } });
-  if (!cycle) notFound();
+  // Planned pages under /hr/performance/… (Reports, Settings) land here before the catch-all.
+  if (!cycle) return (await comingSoon(`/hr/performance/${id}`)) ?? notFound();
   const scope = (await scopeWhere(user, "hr.performance", "view", { owner: "userId", branch: "branchId" })) as Prisma.EmployeeWhereInput;
   const appraisals = await db.appraisal.findMany({
     // An empty relation filter inside OR matches nothing in Prisma, so only add the OR when scope is limited.

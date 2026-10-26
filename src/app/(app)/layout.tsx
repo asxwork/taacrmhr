@@ -19,7 +19,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const apps = appsFor(user);
   const last = apps.find((a) => a.key === jar.get("app")?.value);
   const current = appForPath(apps, h.get("x-pathname") ?? "") ?? last ?? apps[0]!;
-  const pages = [...new Map(apps.flatMap((a) => a.groups.flatMap((g) => g.items)).filter((i) => !i.phase).map((i) => [i.href, { href: i.href, label: i.label, icon: i.icon }])).values()];
+  const pageItems = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]))).filter((item) => !item.phase);
+  const pages = [...new Map(pageItems.map((item) => [item.href, { href: item.href, label: item.label, icon: item.icon }])).values()];
 
   return (
     <div className="app-wallpaper min-h-screen" data-sidebar={sidebarMode(current.layout, collapsed)}>

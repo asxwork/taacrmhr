@@ -54,7 +54,7 @@ export default async function IntegrationsPage() {
     <>
       <PageHeader title="Integrations" description="Email, lead API connections (Zameen, Zapier, Make, websites…), website lead capture and Facebook / Instagram Lead Ads." />
       <div className="space-y-6">
-        <Card className="p-5">
+        <Card id="email" className="scroll-mt-20 p-5">
           <SectionTitle title="Outgoing email" ok={smtp} okText="Connected" notText="Not configured" />
           {smtp ? (
             <p className="text-sm text-muted">Sending as <b className="font-medium text-ink">{process.env.SMTP_FROM ?? process.env.SMTP_USER}</b> via {process.env.SMTP_HOST}.</p>

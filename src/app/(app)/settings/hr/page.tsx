@@ -31,7 +31,7 @@ export default async function HrSettingsPage() {
     <>
       <PageHeader title="HR Settings" description="Organisation, shifts, holidays, leave types, checklists and approval chains." />
       <div className="space-y-8">
-        <Section title="Departments">
+        <Section id="departments" title="Departments">
           <Card className="divide-y divide-line">
             {departments.map((d) => (
               <ActionForm key={d.id} action={saveDepartment} className="flex flex-wrap items-center gap-2 p-3">
@@ -57,7 +57,7 @@ export default async function HrSettingsPage() {
           </Card>
         </Section>
 
-        <Section title="Designations">
+        <Section id="designations" title="Designations">
           <Card className="divide-y divide-line">
             {designations.map((d) => (
               <ActionForm key={d.id} action={saveDesignation} className="flex flex-wrap items-center gap-2 p-3">
@@ -78,7 +78,7 @@ export default async function HrSettingsPage() {
           </Card>
         </Section>
 
-        <Section title="Employee defaults & checklists" hint="One checklist item per line. New hires get the onboarding list; recording a resignation creates the exit list.">
+        <Section id="checklists" title="Employee defaults & checklists" hint="One checklist item per line. New hires get the onboarding list; recording a resignation creates the exit list.">
           <Card className="p-5">
             <ActionForm action={saveHrGeneral} className="space-y-4" successMessage="Saved.">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -96,7 +96,7 @@ export default async function HrSettingsPage() {
 
         <AttendanceSettings />
 
-        <Section title="Approval chains" hint="Who approves each kind of request, in order. “Manager” is the employee’s reporting manager (falls back to HR if they have none).">
+        <Section id="approvals" title="Approval chains" hint="Who approves each kind of request, in order. “Manager” is the employee’s reporting manager (falls back to HR if they have none).">
           <Card className="divide-y divide-line">
             {flows.map((f) => {
               let steps: Step[] = [];
@@ -134,9 +134,10 @@ export default async function HrSettingsPage() {
   );
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+/** `id` is the anchor the HR menu links to (e.g. /settings/hr#approvals). */
+function Section({ id, title, hint, children }: { id: string; title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section>
+    <section id={id} className="scroll-mt-20">
       <h2 className="font-medium">{title}</h2>
       {hint ? <p className="mb-3 mt-0.5 text-sm text-muted">{hint}</p> : <div className="mb-3" />}
       {children}

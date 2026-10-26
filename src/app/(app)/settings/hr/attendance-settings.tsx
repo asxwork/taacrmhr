@@ -20,7 +20,7 @@ export async function AttendanceSettings() {
 
   return (
     <>
-      <Block title="Shifts" hint="Late after start + grace. Fewer worked hours than the half-day threshold counts as a half day.">
+      <Block id="shifts" title="Shifts" hint="Late after start + grace. Fewer worked hours than the half-day threshold counts as a half day.">
         <Card className="divide-y divide-line">
           {[...shifts, null].map((s) => (
             <ActionForm key={s?.id ?? "new"} action={saveShift} className={`grid gap-3 p-4 sm:grid-cols-[1.4fr_repeat(4,1fr)] ${s ? "" : "bg-canvas/50"}`}>
@@ -46,7 +46,7 @@ export async function AttendanceSettings() {
         </Card>
       </Block>
 
-      <Block title={`Public holidays ${year}`} hint="Islamic holidays move each year — check them against the official notification.">
+      <Block id="holidays" title={`Public holidays ${year}`} hint="Islamic holidays move each year — check them against the official notification.">
         <Card className="divide-y divide-line">
           {holidays.map((h) => (
             <div key={h.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
@@ -70,7 +70,7 @@ export async function AttendanceSettings() {
         </Card>
       </Block>
 
-      <Block title="Check-in location (geo-fence)" hint="Web check-ins are compared with the branch location. Get coordinates by right-clicking the office in Google Maps.">
+      <Block id="geofence" title="Check-in location (geo-fence)" hint="Web check-ins are compared with the branch location. Get coordinates by right-clicking the office in Google Maps.">
         <Card className="p-5">
           <ActionForm action={saveGeofence} className="space-y-4" successMessage="Saved.">
             <Field label="Mode" className="max-w-sm">
@@ -95,7 +95,7 @@ export async function AttendanceSettings() {
         </Card>
       </Block>
 
-      <Block title="Leave types" hint="Quota is days per year. Unpaid with quota 0 = unlimited. Annual = granted up-front (pro-rated for new joiners); monthly = earned each month.">
+      <Block id="leave-types" title="Leave types" hint="Quota is days per year. Unpaid with quota 0 = unlimited. Annual = granted up-front (pro-rated for new joiners); monthly = earned each month.">
         <Card className="divide-y divide-line">
           {[...types, null].map((t) => (
             <ActionForm key={t?.id ?? "new"} action={saveLeaveType} className={`grid gap-3 p-4 sm:grid-cols-6 ${t ? "" : "bg-canvas/50"}`}>
@@ -128,9 +128,10 @@ export async function AttendanceSettings() {
   );
 }
 
-function Block({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+/** `id` is the anchor the HR menu links to (e.g. /settings/hr#holidays). */
+function Block({ id, title, hint, children }: { id: string; title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section>
+    <section id={id} className="scroll-mt-20">
       <h2 className="font-medium">{title}</h2>
       {hint ? <p className="mb-3 mt-0.5 text-sm text-muted">{hint}</p> : <div className="mb-3" />}
       {children}

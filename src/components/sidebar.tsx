@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, House, LayoutGrid, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
+import { Bell, ChevronDown, ChevronRight, House, LayoutGrid, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { appForPath, sidebarMode, type AppKey, type NavGroup, type NavItem } from "@/lib/nav";
 import type { UserApp } from "@/lib/apps";
 import { cn, initials } from "@/lib/utils";
@@ -15,8 +15,9 @@ const ICONS = NAV_ICONS;
 
 type Props = { apps: UserApp[]; initialApp: AppKey; user: { name: string; roles: string; branch: string | null }; unread: number; initiallyCollapsed: boolean };
 
+const pathOf = (href: string) => href.split(/[?#]/)[0]!;
 const isActive = (pathname: string, href: string) => {
-  const path = href.split("?")[0]!;
+  const path = pathOf(href);
   return pathname === path || (path !== "/me" && path !== "/hr" && pathname.startsWith(path + "/"));
 };
 
@@ -40,10 +41,17 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
   const app = pathApp ?? apps.find((a) => a.key === lastKey) ?? apps[0]!;
   const groups = app.groups;
   const modules = app.layout === "modules";
-  const allItems = groups.flatMap((g) => g.items);
-  // Only the closest item lights up (e.g. /hr/attendance/logs, not also /hr/attendance).
-  const activeHref = allItems.filter((i) => isActive(pathname, i.href)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  const allItems = groups.flatMap((g) => g.items.flatMap((i) => i.children ?? [i]));
+  // Only the closest item lights up (e.g. /hr/attendance/logs, not also /hr/attendance). Among links to the
+  // same page, the one whose ?query matches the URL wins, then the plain link.
+  const query = params.toString();
+  const score = (href: string) => {
+    const [, q = ""] = href.split("#")[0]!.split("?");
+    return pathOf(href).length * 4 + (q && query.includes(q) ? 2 : 0) + (q || href.includes("#") ? 0 : 1) - (q && !query.includes(q) ? 4 : 0);
+  };
+  const activeHref = allItems.filter((i) => isActive(pathname, i.href)).sort((a, b) => score(b.href) - score(a.href))[0]?.href;
   const isCurrent = (href: string) => href === activeHref;
+  const [openSubs, setOpenSubs] = useState<Record<string, boolean>>({});
   const quick = allItems.filter((i) => !i.phase).slice(0, 4);
 
   // HR: the module whose pages show in the panel. Follows the page; clicking a module on the rail picks it.
@@ -121,7 +129,27 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
           {g.label && (rail
             ? <div className="mx-auto mb-2 h-px w-6 bg-white/10" aria-hidden />
             : <p className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-white/50">{g.label}</p>)}
-          <ul className="space-y-0.5">{g.items.map((item) => <li key={item.href}>{itemLink(item, rail)}</li>)}</ul>
+          <ul className="space-y-0.5">
+            {g.items.map((item) => {
+              if (!item.children || rail) return <li key={item.label}>{itemLink(item, rail)}</li>;
+              // Sub-menu: open while one of its pages is current, or when the user opens it.
+              const key = `${g.label}/${item.label}`;
+              const hasCurrent = item.children.some((c) => isCurrent(c.href));
+              const isOpen = openSubs[key] ?? hasCurrent;
+              const Icon = ICONS[item.icon] ?? House;
+              return (
+                <li key={item.label}>
+                  <button type="button" onClick={() => setOpenSubs((o) => ({ ...o, [key]: !isOpen }))} aria-expanded={isOpen}
+                    className={cn("group flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] transition-colors", hasCurrent ? "text-white" : "text-white/65 hover:bg-white/[0.06] hover:text-white")}>
+                    <Icon className={cn("size-[18px] shrink-0", hasCurrent ? "text-gold-400" : "text-white/55 group-hover:text-white/80")} />
+                    <span className="flex-1 truncate">{item.label}</span>
+                    <ChevronRight className={cn("size-4 text-white/40 transition-transform", isOpen && "rotate-90")} />
+                  </button>
+                  {isOpen && <ul className="anim-fade ml-4 mt-0.5 space-y-0.5 border-l border-white/10 pl-2">{item.children.map((c) => <li key={c.href}>{itemLink(c, false)}</li>)}</ul>}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       ))}
     </nav>
