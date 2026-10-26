@@ -1,53 +1,50 @@
-import type { Prisma } from "@prisma/client";
 import Link from "next/link";
-import { Download, Plus, Search, Upload } from "lucide-react";
+import { redirect } from "next/navigation";
+import { addDays, format, isPast, startOfDay } from "date-fns";
+import { CalendarDays, Download, KanbanSquare, List, ListTodo, Phone, Plus, Upload } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
-import { assignableUsers, color, fmtPKR, usersInScope } from "@/lib/crm";
-import { fmtAgo } from "@/lib/utils";
+import { assignableUsers, color, usersInScope } from "@/lib/crm";
+import { LEAD_FILTER_KEYS, leadWhere, type LeadFilters } from "@/lib/lead-filters";
+import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
+import { Avatar, Card, Drawer, EmptyState, Field, LinkButton } from "@/components/ui";
 import { Kanban } from "@/components/crm/kanban";
 import { SelectAll } from "@/components/crm/select-all";
-import { Pagination, StatusPill, ViewToggle, hrefWith } from "@/components/crm/bits";
-import { LeadForm } from "./lead-form";
+import { LeadFilterBar, type FilterPreset } from "@/components/crm/lead-filter-bar";
+import { Pagination, StageProgress, hrefWith } from "@/components/crm/bits";
 import { bulkLeads, importLeads, moveLead } from "./actions";
 
 export const metadata = { title: "Leads" };
 
 const PAGE_SIZE = 50;
-type SP = { q?: string; status?: string; source?: string; owner?: string; closed?: string; view?: string; page?: string; new?: string; import?: string };
+type SP = LeadFilters & { view?: string; page?: string; new?: string; import?: string };
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("crm.leads");
   const sp = await searchParams;
+  if (sp.new) redirect("/crm/leads/new");
   const view = sp.view === "board" ? "board" : "list";
   const page = Math.max(1, Number(sp.page) || 1);
-  const keep = { q: sp.q, status: sp.status, source: sp.source, owner: sp.owner, closed: sp.closed, view: sp.view };
+  const filters = Object.fromEntries(LEAD_FILTER_KEYS.filter((k) => sp[k]).map((k) => [k, sp[k]])) as LeadFilters;
+  const keep: Record<string, string | undefined> = { ...filters, view: sp.view };
 
-  const scope = (await scopeWhere(user, "crm.leads"))!;
-  const [statuses, sources, owners, assignees, canEditRow] = await Promise.all([
+  const [statuses, sources, projects, owners, assignees, canEditRow, saved] = await Promise.all([
     db.leadStatus.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+    db.project.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     usersInScope(user, "crm.leads", "view"),
     assignableUsers(user, "crm.leads"),
     scopeMatcher(user, "crm.leads", "edit"),
+    db.savedFilter.findMany({ where: { userId: user.id, module: "crm.leads" }, orderBy: { createdAt: "asc" } }),
   ]);
-
-  const openIds = statuses.filter((s) => s.kind === "open").map((s) => s.id);
-  const q = sp.q?.trim();
-  const where: Prisma.LeadWhereInput = {
-    ...scope,
-    ...(q && { OR: [{ name: { contains: q } }, { phone: { contains: q } }, { email: { contains: q } }, { location: { contains: q } }] }),
-    ...(sp.status ? { statusId: sp.status } : !sp.closed && { statusId: { in: openIds } }),
-    ...(sp.source && { sourceId: sp.source }),
-    ...(sp.owner && { ownerId: sp.owner }),
-  };
+  const openStatuses = statuses.filter((s) => s.kind === "open");
+  const where = await leadWhere(user, filters, statuses);
 
   const [leads, total] = await Promise.all([
     db.lead.findMany({
       where,
-      include: { status: true, source: true, owner: { select: { name: true } } },
+      include: { status: true, source: true, project: { select: { name: true } }, owner: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       skip: view === "list" ? (page - 1) * PAGE_SIZE : 0,
       take: view === "list" ? PAGE_SIZE : 500,
@@ -55,80 +52,107 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     db.lead.count({ where }),
   ]);
 
+  // Next planned activity per lead (the Bitrix "Activity" column).
+  const next = new Map<string, { subject: string; dueAt: Date; owner: string | null }>();
+  for (const a of await db.activity.findMany({
+    where: { leadId: { in: leads.map((l) => l.id) }, doneAt: null, dueAt: { not: null } },
+    include: { owner: { select: { name: true } } },
+    orderBy: { dueAt: "asc" },
+  })) if (a.leadId && !next.has(a.leadId)) next.set(a.leadId, { subject: a.subject, dueAt: a.dueAt!, owner: a.owner?.name ?? null });
+
+  // Activity counters over open leads in scope.
+  const scope = (await scopeWhere(user, "crm.leads"))!;
+  const openWhere = { ...scope, statusId: { in: openStatuses.map((s) => s.id) } };
+  const today = startOfDay(new Date());
+  const [overdue, dueToday, unplanned] = await Promise.all([
+    db.lead.count({ where: { ...openWhere, activities: { some: { doneAt: null, dueAt: { lt: new Date() } } } } }),
+    db.lead.count({ where: { ...openWhere, activities: { some: { doneAt: null, dueAt: { gte: today, lt: addDays(today, 1) } } } } }),
+    db.lead.count({ where: { ...openWhere, activities: { none: { doneAt: null, dueAt: { not: null } } } } }),
+  ]);
+
+  const presets: FilterPreset[] = [
+    { name: "Leads in progress", query: "" },
+    { name: "My leads", query: "owner=me" },
+    { name: "Today's leads", query: "created=today&group=all" },
+    { name: "Yesterday's leads", query: "created=yesterday&group=all" },
+    { name: "Not contacted 7+ days", query: "stale=7" },
+    { name: "Overdue activities", query: "activity=overdue" },
+    { name: "Converted", query: "group=converted" },
+    { name: "Junk", query: "group=junk" },
+    ...saved.map((s) => ({ id: s.id, name: s.name, query: s.query })),
+    ...sources.map((s) => ({ name: s.name, query: `source=${s.id}` })),
+    ...projects.map((p) => ({ name: p.name, query: `project=${p.id}` })),
+  ];
+
   const canCreate = can(user, "crm.leads", "create");
   const canEdit = can(user, "crm.leads", "edit");
   const canDelete = can(user, "crm.leads", "delete");
   const canAssign = assignees.length > 1;
   const closeHref = hrefWith("/crm/leads", keep, {});
+  const counter = (label: string, n: number, activity: string, tone: string) => (
+    <Link
+      href={hrefWith("/crm/leads", { view: sp.view }, { activity: filters.activity === activity ? undefined : activity })}
+      className={cn("flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors", filters.activity === activity ? "bg-navy-900/[0.07] font-medium text-navy-900" : "text-muted hover:bg-canvas hover:text-ink")}
+    >
+      <span className={cn("min-w-5 rounded-full px-1.5 text-center text-xs font-semibold tabular-nums", n ? tone : "bg-black/5 text-muted")}>{n > 99 ? "99+" : n}</span>
+      {label}
+    </Link>
+  );
+  const viewTab = (href: string, Icon: typeof List, label: string, on: boolean) => (
+    <Link href={href} className={cn("flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm", on ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
+      <Icon className="size-4" /><span className="hidden sm:inline">{label}</span>
+    </Link>
+  );
 
   return (
     <>
-      <PageHeader
-        title="Leads"
-        actions={
-          <>
-            <ViewToggle base="/crm/leads" sp={keep} view={view} />
-            {can(user, "crm.leads", "export") && (
-              <LinkButton href={hrefWith("/api/export/leads", { ...keep, view: undefined }, {})} variant="secondary" prefetch={false} title="Download CSV" aria-label="Download CSV">
-                <Download className="size-4" />
-              </LinkButton>
-            )}
-            {canCreate && (
-              <>
-                <LinkButton href={hrefWith("/crm/leads", keep, { import: "1" })} variant="secondary" scroll={false}>
-                  <Upload className="size-4" /> Import
-                </LinkButton>
-                <LinkButton href={hrefWith("/crm/leads", keep, { new: "1" })} scroll={false}>
-                  <Plus className="size-4" /> New lead
-                </LinkButton>
-              </>
-            )}
-          </>
-        }
-      />
-
-      <form className="mb-4 flex flex-wrap gap-2">
-        {sp.view && <input type="hidden" name="view" value={sp.view} />}
-        <div className="relative min-w-56 flex-1">
-          <Search className="absolute left-3 top-2.5 size-4 text-muted" />
-          <input name="q" defaultValue={q} aria-label="Search" placeholder="Search name, phone, email, location" className="input pl-9" />
-        </div>
-        <select name="status" defaultValue={sp.status ?? ""} className="input w-36">
-          <option value="">Open statuses</option>
-          {statuses.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-        <select name="source" defaultValue={sp.source ?? ""} className="input w-36">
-          <option value="">All sources</option>
-          {sources.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-        {owners.length > 1 && (
-          <select name="owner" defaultValue={sp.owner ?? ""} className="input w-40">
-            <option value="">Everyone</option>
-            {owners.map((o) => (
-              <option key={o.id} value={o.id}>{o.name}</option>
-            ))}
-          </select>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">Leads</h1>
+        {canCreate && (
+          <div className="flex">
+            <LinkButton href="/crm/leads/new" className="rounded-r-none"><Plus className="size-4" /> Create</LinkButton>
+            <LinkButton href={hrefWith("/crm/leads", keep, { import: "1" })} scroll={false} className="rounded-l-none border-l border-white/15 px-2.5" title="Import from CSV" aria-label="Import from CSV"><Upload className="size-4" /></LinkButton>
+          </div>
         )}
-        <label className="flex items-center gap-1.5 px-1 text-sm text-muted">
-          <input type="checkbox" name="closed" value="1" defaultChecked={!!sp.closed} className="accent-navy-900" /> Include converted &amp; junk
-        </label>
-        <button className="h-9 rounded-md border border-line bg-surface px-3 text-sm hover:bg-canvas">Apply</button>
-      </form>
+        <div className="order-last w-full sm:order-none sm:w-auto sm:min-w-80 sm:flex-1">
+          <LeadFilterBar
+            filters={filters}
+            view={sp.view}
+            presets={presets}
+            options={{ stages: statuses.map((s) => ({ id: s.id, name: s.name })), sources, projects, owners }}
+          />
+        </div>
+        {can(user, "crm.leads", "export") && (
+          <LinkButton href={hrefWith("/api/export/leads", filters, {})} variant="secondary" prefetch={false} title="Download CSV" aria-label="Download CSV" className="ml-auto px-3 sm:ml-0">
+            <Download className="size-4" />
+          </LinkButton>
+        )}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="flex rounded-lg bg-black/5 p-0.5">
+          {viewTab(hrefWith("/crm/leads", { ...keep, page: undefined }, { view: "board" }), KanbanSquare, "Kanban", view === "board")}
+          {viewTab(hrefWith("/crm/leads", { ...keep, page: undefined }, { view: undefined }), List, "List", view === "list")}
+          {viewTab("/crm/tasks", ListTodo, "Activities", false)}
+          {viewTab("/crm/tasks?view=calendar", CalendarDays, "Calendar", false)}
+        </div>
+        <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5">
+          {counter("Overdue", overdue, "overdue", "bg-red-500 text-white")}
+          {counter("Today", dueToday, "today", "bg-gold-600 text-white")}
+          {counter("Nothing planned", unplanned, "none", "bg-navy-900 text-white")}
+        </div>
+      </div>
 
       {view === "board" ? (
         <Kanban
-          columns={statuses.filter((s) => sp.closed || s.kind === "open").map((s) => ({ id: s.id, name: s.name, dot: color(s.color).dot }))}
+          columns={statuses.filter((s) => (filters.group === "all" || filters.stage ? true : filters.group ? s.kind === filters.group : s.kind === "open")).map((s) => ({ id: s.id, name: s.name, dot: color(s.color).dot }))}
           cards={leads.map((l) => ({
             id: l.id,
             columnId: l.statusId,
             title: l.name,
             href: `/crm/leads/${l.id}`,
-            subtitle: [l.propertyType, l.location].filter(Boolean).join(" · ") || l.phone || undefined,
-            meta: l.source?.name,
+            subtitle: [l.project?.name ?? l.propertyType, l.location].filter(Boolean).join(" · ") || l.phone || undefined,
+            meta: [l.number && `#${l.number}`, l.source?.name].filter(Boolean).join(" · "),
             amount: l.budgetMax ?? l.budgetMin ?? undefined,
             owner: l.owner?.name,
             draggable: canEdit && canEditRow(l),
@@ -140,8 +164,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           {leads.length === 0 ? (
             <EmptyState
               title="No leads here"
-              description={q || sp.status || sp.source || sp.owner ? "Try clearing filters." : "Create your first lead or import a CSV."}
-              action={canCreate && <LinkButton href="/crm/leads?new=1" scroll={false}>New lead</LinkButton>}
+              description={Object.keys(filters).length ? "Nothing matches this filter. Try another preset or reset the filter." : "Create your first lead or import a CSV."}
+              action={canCreate && <LinkButton href="/crm/leads/new">Create lead</LinkButton>}
             />
           ) : (
             <ActionForm action={bulkLeads}>
@@ -150,39 +174,53 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   <thead className="border-b border-line bg-canvas/60">
                     <tr>
                       {canEdit && <th className="th w-10"><SelectAll /></th>}
-                      <th className="th">Name</th>
-                      <th className="th">Status</th>
-                      <th className="th">Interest</th>
-                      <th className="th">Budget</th>
-                      <th className="th">Source</th>
-                      <th className="th">Responsible</th>
+                      <th className="th w-16">ID</th>
+                      <th className="th">Lead</th>
+                      <th className="th">Stage</th>
+                      <th className="th">Phone</th>
+                      <th className="th">Activity</th>
                       <th className="th">Created</th>
+                      <th className="th">Responsible</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
-                    {leads.map((l) => (
-                      <tr key={l.id} className="hover:bg-canvas/60">
-                        {canEdit && (
-                          <td className="td">
-                            {canEditRow(l) && <input type="checkbox" name="ids" value={l.id} className="accent-navy-900" aria-label={`Select ${l.name}`} />}
+                    {leads.map((l) => {
+                      const act = next.get(l.id);
+                      const late = act && isPast(act.dueAt);
+                      return (
+                        <tr key={l.id} className="align-top transition-colors hover:bg-canvas/60">
+                          {canEdit && (
+                            <td className="td">{canEditRow(l) && <input type="checkbox" name="ids" value={l.id} className="accent-navy-900" aria-label={`Select ${l.name}`} />}</td>
+                          )}
+                          <td className="td text-xs tabular-nums text-muted">{l.number ?? "—"}</td>
+                          <td className="td max-w-64">
+                            <Link href={`/crm/leads/${l.id}`} className="font-medium text-navy-900 hover:underline">{l.name}</Link>
+                            <p className="truncate text-xs text-muted">{[l.source?.name, l.project?.name].filter(Boolean).join(" · ") || "—"}</p>
                           </td>
-                        )}
-                        <td className="td">
-                          <Link href={`/crm/leads/${l.id}`} className="font-medium hover:underline">{l.name}</Link>
-                          <p className="text-xs text-muted">{l.phone ?? l.email}</p>
-                        </td>
-                        <td className="td"><StatusPill name={l.status.name} colorName={l.status.color} /></td>
-                        <td className="td text-muted">
-                          <span className="capitalize">{l.interest ?? "—"}</span>
-                          {l.propertyType && ` · ${l.propertyType}`}
-                          {l.location && <p className="text-xs">{l.location}</p>}
-                        </td>
-                        <td className="td whitespace-nowrap">{fmtPKR(l.budgetMax ?? l.budgetMin)}</td>
-                        <td className="td text-muted">{l.source?.name ?? "—"}</td>
-                        <td className="td text-muted">{l.owner?.name ?? "—"}</td>
-                        <td className="td whitespace-nowrap text-muted">{fmtAgo(l.createdAt)}</td>
-                      </tr>
-                    ))}
+                          <td className="td">
+                            <StageProgress steps={openStatuses} currentId={l.statusId} name={l.status.name} colorName={l.status.color} kind={l.status.kind} />
+                          </td>
+                          <td className="td whitespace-nowrap">
+                            {l.phone ? <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1.5 hover:text-navy-900 hover:underline"><Phone className="size-3.5 text-muted" />{l.phone}</a> : <span className="text-muted">—</span>}
+                          </td>
+                          <td className="td min-w-44 max-w-60">
+                            {act ? (
+                              <>
+                                <p className={cn("text-xs font-medium", late ? "text-red-600" : "text-ink/80")}>{format(act.dueAt, "d MMM yyyy, h:mm a")}</p>
+                                <p className="truncate text-sm">{act.subject}</p>
+                                {act.owner && <p className="text-xs text-muted">for <span className="text-navy-900">{act.owner}</span></p>}
+                              </>
+                            ) : (
+                              <Link href={`/crm/leads/${l.id}#composer`} className="text-xs text-muted hover:text-navy-900 hover:underline">+ Plan activity</Link>
+                            )}
+                          </td>
+                          <td className="td whitespace-nowrap text-sm text-muted">{format(l.createdAt, "d MMM yyyy")}</td>
+                          <td className="td whitespace-nowrap">
+                            {l.owner ? <span className="flex items-center gap-2 text-sm"><Avatar name={l.owner.name} className="size-7 text-[10px]" />{l.owner.name}</span> : <span className="text-muted">—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -192,36 +230,26 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   <select name="op" className="input h-8 w-36 text-xs" defaultValue="">
                     <option value="" disabled>Choose action</option>
                     {canAssign && <option value="assign">Assign to…</option>}
-                    <option value="status">Change status…</option>
+                    <option value="status">Change stage…</option>
                     {canDelete && <option value="delete">Delete</option>}
                   </select>
                   {canAssign && (
                     <select name="ownerId" className="input h-8 w-40 text-xs" defaultValue="">
                       <option value="">— person —</option>
-                      {assignees.map((u) => (
-                        <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
+                      {assignees.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
                   )}
                   <select name="statusId" className="input h-8 w-36 text-xs" defaultValue="">
-                    <option value="">— status —</option>
-                    {statuses.filter((s) => s.kind !== "converted").map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
+                    <option value="">— stage —</option>
+                    {statuses.filter((s) => s.kind !== "converted").map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
-                  <SubmitButton variant="secondary" className="h-8 text-xs">Apply</SubmitButton>
+                  <SubmitButton variant="secondary" className="h-8 text-xs">Update selected</SubmitButton>
                 </div>
               )}
               <Pagination base="/crm/leads" sp={keep} page={page} pageSize={PAGE_SIZE} total={total} />
             </ActionForm>
           )}
         </Card>
-      )}
-
-      {sp.new && canCreate && (
-        <Drawer title="New lead" closeHref={closeHref}>
-          <LeadForm sources={sources} owners={assignees} currentUserId={user.id} cancelHref={closeHref} />
-        </Drawer>
       )}
 
       {sp.import && canCreate && (
@@ -237,18 +265,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             <Field label="Source (when the file has none)">
               <select name="sourceId" className="input" defaultValue="">
                 <option value="">—</option>
-                {sources.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
+                {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </Field>
             {canAssign && (
               <fieldset className="space-y-2">
                 <legend className="mb-1.5 text-xs font-medium text-ink/80">Assign to</legend>
                 <select name="assign" className="input" defaultValue={user.id}>
-                  {assignees.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
+                  {assignees.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                   <option value="rr">Round-robin across selected people ↓</option>
                 </select>
                 <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-line p-2.5">

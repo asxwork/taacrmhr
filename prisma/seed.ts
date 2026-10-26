@@ -13,6 +13,7 @@ import bcrypt from "bcryptjs";
 import { DEFAULT_ROLES, expandGrants } from "../src/lib/rbac";
 import { randomBytes } from "node:crypto";
 import { demoLoaded, loadDemo } from "../src/lib/demo-data";
+import { nextNumber } from "../src/lib/sequence";
 import { seedAttendance, seedHr, seedPayroll } from "./seed-hr";
 
 const DEMO_PASSWORD = "Advisor@2026";
@@ -55,6 +56,7 @@ async function main() {
   }
 
   await seedCrm();
+  await numberLeads();
   await seedInventory();
   await seedHr(db);
   await seedAttendance(db);
@@ -76,6 +78,13 @@ async function main() {
     await loadDemo(db, { passwordHash: await bcrypt.hash(DEMO_PASSWORD, 10), domain: "advisor.local", withSuperAdmin: true, codePrefix: "TAA-" });
   }
   console.log("Seed complete.");
+}
+
+/** Gives every lead without a number one, oldest first, continuing the counter. */
+async function numberLeads() {
+  const missing = await db.lead.findMany({ where: { number: null }, select: { id: true }, orderBy: { createdAt: "asc" } });
+  for (const l of missing) await db.lead.update({ where: { id: l.id }, data: { number: await nextNumber("lead", db) } });
+  if (missing.length) console.log(`Numbered ${missing.length} lead(s).`);
 }
 
 async function seedCrm() {

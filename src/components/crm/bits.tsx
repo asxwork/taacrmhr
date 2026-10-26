@@ -65,6 +65,24 @@ export function Pagination({ base, sp, page, pageSize, total }: { base: string; 
   );
 }
 
+/** List-view stage indicator: one segment per step, filled up to the current one, name underneath. */
+export function StageProgress({ steps, currentId, name, colorName, kind }: { steps: { id: string }[]; currentId: string; name: string; colorName: string; kind?: string }) {
+  const index = steps.findIndex((s) => s.id === currentId);
+  const finished = kind === "converted" || kind === "won" || kind === "junk" || kind === "lost";
+  const filled = finished ? steps.length : index + 1;
+  const bar = color(kind === "junk" || kind === "lost" ? "red" : kind === "converted" || kind === "won" ? "green" : colorName).bar;
+  return (
+    <div className="w-40">
+      <div className="flex gap-0.5" aria-hidden>
+        {steps.map((s, i) => (
+          <span key={s.id} className={cn("h-1.5 flex-1 first:rounded-l-full last:rounded-r-full", i < filled ? bar : "bg-black/[0.07]")} />
+        ))}
+      </div>
+      <p className="mt-1 truncate text-xs text-muted">{name}</p>
+    </div>
+  );
+}
+
 /** Bitrix-style chevron progress bar. Each step is a submit button in a form bound to `action`. */
 export function StageBar({
   steps,
@@ -72,12 +90,18 @@ export function StageBar({
   action,
   hidden,
   disabled,
+  size = "sm",
+  after,
 }: {
   steps: { id: string; name: string; color: string }[];
   currentId: string;
   action: (fd: FormData) => Promise<void>;
   hidden: Record<string, string>;
   disabled?: boolean;
+  /** "lg" is the full-width bar at the top of a record page. */
+  size?: "sm" | "lg";
+  /** Extra steps after the regular ones (e.g. a "Convert" finish step). */
+  after?: React.ReactNode;
 }) {
   const currentIndex = steps.findIndex((s) => s.id === currentId);
   const activeColor = color(steps[currentIndex]?.color ?? "slate").bar;
@@ -96,19 +120,26 @@ export function StageBar({
             disabled={disabled || s.id === currentId}
             title={s.name}
             className={cn(
-              "relative min-w-24 flex-1 truncate px-4 py-2 text-xs font-medium transition first:rounded-l-lg last:rounded-r-lg",
-              "[clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%,8px_50%)] first:[clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%)] last:[clip-path:polygon(0_0,100%_0,100%_100%,0_100%,8px_50%)]",
+              "relative flex-1 truncate font-medium transition disabled:cursor-default",
+              size === "lg" ? "min-w-28 px-5 py-2.5 text-left text-[13px]" : "min-w-24 px-4 py-2 text-xs",
+              // Hidden inputs come first in the form, so position is decided by index, not :first/:last.
+              i === 0 ? "rounded-l-lg [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%)]"
+                : i === steps.length - 1 && !after ? "-ml-1 rounded-r-lg [clip-path:polygon(0_0,100%_0,100%_100%,0_100%,8px_50%)]"
+                : "-ml-1 [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%,8px_50%)]",
               reached ? cn(activeColor, "text-white") : "bg-black/5 text-muted enabled:hover:bg-black/10 enabled:hover:text-ink",
-              "-ml-1 first:ml-0 disabled:cursor-default",
             )}
           >
             {s.name}
           </button>
         );
       })}
+      {after}
     </form>
   );
 }
+
+/** Chevron-shaped finish step that sits at the end of a StageBar (a link, not a stage change). */
+export const CHEVRON_LAST = "-ml-1 [clip-path:polygon(0_0,100%_0,100%_100%,0_100%,8px_50%)] rounded-r-lg";
 
 export function InfoList({ rows }: { rows: [string, React.ReactNode][] }) {
   return (

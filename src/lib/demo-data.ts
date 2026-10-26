@@ -2,6 +2,7 @@
 // Used by the local seed (prisma/seed.ts) and by Settings → Company → "Load sample data" on a live install.
 // Requires the configuration seed (branches, roles, statuses, pipelines, departments, shifts…) to have run.
 import type { PrismaClient } from "@prisma/client";
+import { nextNumber } from "./sequence";
 
 export type DemoOptions = {
   passwordHash: string;
@@ -104,7 +105,7 @@ async function demoCrm(db: PrismaClient, owners: { id: string; branchId: string 
     const budget = (i % 4 + 1) * 15_000_000;
     const lead = await db.lead.create({
       data: {
-        name, phone, phoneKey: phone, email: `${name.split(" ")[0]!.toLowerCase()}@example.com`,
+        number: await nextNumber("lead", db), name, phone, phoneKey: phone, email: `${name.split(" ")[0]!.toLowerCase()}@example.com`,
         sourceId: src(srcNames[i % srcNames.length]!), interest: i % 3 === 0 ? "rent" : "buy",
         propertyType: types[i % types.length], location: locations[i % locations.length],
         budgetMin: budget, budgetMax: budget * 1.3, statusId: status.id,

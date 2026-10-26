@@ -206,6 +206,8 @@ model Stage {
 
 model Lead {
   id             String      @id @default(cuid())
+  /// Permanent, ever-increasing number shown as the lead ID. Never reused, even after deletes.
+  number         Int?
   name           String
   phone          String?
   phoneKey       String?
@@ -214,6 +216,10 @@ model Lead {
   sourceId       String?
   source         LeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   campaign       String?
+  /// Where exactly the lead came from, e.g. the Zameen ad title or the Facebook form.
+  sourceInfo     String? // @text
+  projectId      String?
+  project        Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
   interest       String? // buy | rent | invest | sell
   propertyType   String?
   location       String?
@@ -239,6 +245,8 @@ model Lead {
 
   @@index([ownerId])
   @@index([branchId])
+  @@index([projectId])
+  @@index([number])
   @@index([statusId])
   @@index([phoneKey])
   @@index([createdAt])
@@ -381,6 +389,7 @@ model Project {
   createdAt         DateTime @default(now())
   blocks            Block[]
   units             Unit[]
+  leads             Lead[]
 }
 
 model Block {
@@ -1101,4 +1110,22 @@ model AssetLog {
   createdAt  DateTime @default(now())
 
   @@index([assetId])
+}
+
+/// Ever-increasing counters (e.g. lead numbers). Only ever incremented, so numbers are never reused.
+model Sequence {
+  name  String @id
+  value Int    @default(0)
+}
+
+/// A user's saved list filter (Bitrix-style presets). query is the URL query string.
+model SavedFilter {
+  id        String   @id @default(cuid())
+  userId    String
+  module    String
+  name      String
+  query     String // @text
+  createdAt DateTime @default(now())
+
+  @@index([userId, module])
 }

@@ -9,6 +9,7 @@ import { ASSET_CATEGORIES } from "@/lib/hr-shared";
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Drawer, EmptyState, Field, LinkButton, PageHeader, buttonClass } from "@/components/ui";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 import { assetAction, deleteAsset, saveAsset } from "./actions";
 
 export const metadata = { title: "Assets" };
@@ -66,15 +67,14 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
           </Link>
         ))}
       </div>
-      <form className="mb-3 flex flex-wrap gap-2">
+      <AutoFilterForm className="mb-3 flex flex-wrap gap-2">
         {sp.status && <input type="hidden" name="status" value={sp.status} />}
         <label className="relative min-w-56 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           <input name="q" defaultValue={sp.q} placeholder="Search tag, name, serial or holder" className="input pl-9" />
         </label>
         <select name="category" defaultValue={sp.category ?? ""} className="input w-auto"><option value="">All categories</option>{ASSET_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select>
-        <button className={buttonClass("secondary")}>Filter</button>
-      </form>
+      </AutoFilterForm>
 
       <Card className="overflow-hidden">
         {assets.length === 0 ? <EmptyState title="No assets" description={sp.q || sp.status || sp.category ? "Nothing matches these filters." : "Add laptops, phones, SIMs and other equipment to track who has them."} /> : (

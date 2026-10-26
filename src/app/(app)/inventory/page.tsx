@@ -11,6 +11,7 @@ import { fileUrl } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { Badge, Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { Pagination, StatusPill, hrefWith } from "@/components/crm/bits";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ProjectForm, UnitForm } from "./forms";
 
 export const metadata = { title: "Inventory" };
@@ -159,7 +160,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   return (
     <>
       {header}
-      <form className="mb-4 flex flex-wrap gap-2">
+      <AutoFilterForm className="mb-4 flex flex-wrap gap-2">
         {sp.view && <input type="hidden" name="view" value={sp.view} />}
         <div className="relative min-w-52 flex-1">
           <Search className="absolute left-3 top-2.5 size-4 text-muted" />
@@ -183,8 +184,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </select>
         <input name="min" defaultValue={sp.min} placeholder="Min price" className="input w-28" />
         <input name="max" defaultValue={sp.max} placeholder="Max price" className="input w-28" />
-        <button className="h-9 rounded-md border border-line bg-surface px-3 text-sm hover:bg-canvas">Apply</button>
-      </form>
+      </AutoFilterForm>
 
       {units.length === 0 ? (
         <Card><EmptyState title="No units match" description="Try clearing filters." /></Card>

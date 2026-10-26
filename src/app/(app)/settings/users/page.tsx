@@ -5,6 +5,7 @@ import { can, requirePermission } from "@/lib/permissions";
 import { fmtAgo } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Avatar, Badge, Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 import { saveUser } from "./actions";
 
 export const metadata = { title: "Users" };
@@ -49,7 +50,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
         }
       />
 
-      <form className="mb-4 flex flex-wrap gap-2">
+      <AutoFilterForm className="mb-4 flex flex-wrap gap-2">
         <div className="relative min-w-60 flex-1">
           <Search className="absolute left-3 top-2.5 size-4 text-muted" />
           <input name="q" defaultValue={q} aria-label="Search" placeholder="Search name, email or phone" className="input pl-9" />
@@ -60,8 +61,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
             <option key={b.id} value={b.id}>{b.name}</option>
           ))}
         </select>
-        <button className="sr-only">Filter</button>
-      </form>
+      </AutoFilterForm>
 
       <Card className="overflow-hidden">
         {users.length === 0 ? (

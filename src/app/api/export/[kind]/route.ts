@@ -6,9 +6,10 @@ import { can, scopeFor, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { crmReport, resolvePeriod, toCsv } from "@/lib/reports";
 import { hrReport } from "@/lib/reports-hr";
+import { LEAD_FILTER_KEYS, leadWhere, type LeadFilters } from "@/lib/lead-filters";
 
 // CSV downloads. Each kind checks its module's `export` permission and applies the user's scope.
-//   /api/export/leads?q=&status=&source=&owner=&closed=1
+//   /api/export/leads?<same filters as the lead list>
 //   /api/export/deals?pipeline=&q=&owner=&stage=
 //   /api/export/report?period=&from=&to=&branch=&owner=
 //   /api/export/hr?period=&from=&to=&branch=   (attendance summary)
@@ -27,19 +28,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
   let rows: (string | number | null)[][] = [];
 
   if (kind === "leads") {
-    const scope = (await scopeWhere(user, mod, "export"))!;
-    const openIds = (await db.leadStatus.findMany({ where: { kind: "open" }, select: { id: true } })).map((s) => s.id);
-    const where: Prisma.LeadWhereInput = {
-      ...scope,
-      ...(q && { OR: [{ name: { contains: q } }, { phone: { contains: q } }, { email: { contains: q } }, { location: { contains: q } }] }),
-      ...(sp.get("status") ? { statusId: sp.get("status")! } : !sp.get("closed") && { statusId: { in: openIds } }),
-      ...(sp.get("source") && { sourceId: sp.get("source")! }),
-      ...(sp.get("owner") && { ownerId: sp.get("owner")! }),
-    };
-    const leads = await db.lead.findMany({ where, include: { status: true, source: true, owner: true, branch: true }, orderBy: { createdAt: "desc" }, take: 20000 });
+    // Same filters as the list page (and its saved presets), so the file matches the screen.
+    const filters = Object.fromEntries(LEAD_FILTER_KEYS.filter((k) => sp.get(k)).map((k) => [k, sp.get(k)!])) as LeadFilters;
+    const where = await leadWhere(user, filters, await db.leadStatus.findMany());
+    const leads = await db.lead.findMany({ where, include: { status: true, source: true, owner: true, branch: true, project: true }, orderBy: { createdAt: "desc" }, take: 20000 });
     rows = [
-      ["Name", "Phone", "Email", "Status", "Source", "Campaign", "Interest", "Property type", "Location", "Budget from", "Budget to", "Responsible", "Branch", "Created"],
-      ...leads.map((l) => [l.name, l.phone, l.email, l.status.name, l.source?.name ?? "", l.campaign, l.interest, l.propertyType, l.location, l.budgetMin, l.budgetMax, l.owner?.name ?? "", l.branch?.name ?? "", format(l.createdAt, "yyyy-MM-dd HH:mm")]),
+      ["ID", "Name", "Phone", "Email", "Status", "Source", "Campaign", "Interest", "Property type", "Location", "Budget from", "Budget to", "Responsible", "Branch", "Created", "Project", "Source information"],
+      ...leads.map((l) => [l.number, l.name, l.phone, l.email, l.status.name, l.source?.name ?? "", l.campaign, l.interest, l.propertyType, l.location, l.budgetMin, l.budgetMax, l.owner?.name ?? "", l.branch?.name ?? "", format(l.createdAt, "yyyy-MM-dd HH:mm"), l.project?.name ?? "", l.sourceInfo]),
     ];
   } else if (kind === "deals") {
     const scope = (await scopeWhere(user, mod, "export"))!;

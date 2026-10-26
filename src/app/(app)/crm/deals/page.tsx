@@ -10,6 +10,7 @@ import { Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/u
 import { Kanban } from "@/components/crm/kanban";
 import { Pagination, StatusPill, ViewToggle, hrefWith } from "@/components/crm/bits";
 import { DealForm } from "./deal-form";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 import { moveDeal } from "./actions";
 
 export const metadata = { title: "Deals" };
@@ -108,7 +109,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
         </div>
       </div>
 
-      <form className="mb-4 flex flex-wrap gap-2">
+      <AutoFilterForm className="mb-4 flex flex-wrap gap-2">
         <input type="hidden" name="pipeline" value={pipeline.id} />
         {sp.view && <input type="hidden" name="view" value={sp.view} />}
         <div className="relative min-w-56 flex-1">
@@ -131,8 +132,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
             ))}
           </select>
         )}
-        <button className="h-9 rounded-md border border-line bg-surface px-3 text-sm hover:bg-canvas">Apply</button>
-      </form>
+      </AutoFilterForm>
 
       {view === "board" ? (
         <Kanban

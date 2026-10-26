@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { db } from "./db";
 import { logSystem, parseAmount, phoneKey } from "./crm";
 import { notify } from "./notify";
+import { nextNumber } from "./sequence";
 
 export const INTAKE_KEYS = {
   webformKey: "webform.key",
@@ -84,7 +85,7 @@ export async function ingestLead(input: IncomingLead, origin: "webform" | "faceb
 
   const lead = await db.lead.create({
     data: {
-      name, phone: phone || null, phoneKey: key, email, sourceId: source?.id ?? null, campaign: clip(input.campaign) || null,
+      number: await nextNumber("lead"), name, phone: phone || null, phoneKey: key, email, sourceId: source?.id ?? null, campaign: clip(input.campaign) || null,
       interest, propertyType: clip(input.propertyType) || null, location: clip(input.location) || null,
       budgetMin: budget, budgetMax: budget, notes: input.message ? clip(input.message, 2000) : null,
       statusId: status!.id, ownerId: owner?.id ?? null, branchId: owner?.branchId ?? null,

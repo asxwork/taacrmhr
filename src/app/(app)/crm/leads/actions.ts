@@ -9,6 +9,7 @@ import { audit } from "@/lib/audit";
 import { assignableUsers, logSystem, ownerBranch, parseAmount, phoneKey, resolveOwner } from "@/lib/crm";
 import { str, type FormState } from "@/lib/utils";
 import { notify } from "@/lib/notify";
+import { nextNumber } from "@/lib/sequence";
 import type { SessionUser } from "@/lib/auth";
 
 async function editableLead(user: SessionUser, id: string) {
@@ -50,7 +51,8 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
   const budgetMax = parseAmount(str(fd, "budgetMax"));
   const data = {
     name, phone: phone || null, phoneKey: key, phone2: str(fd, "phone2") || null, email,
-    sourceId: str(fd, "sourceId") || null, campaign: str(fd, "campaign") || null,
+    sourceId: str(fd, "sourceId") || null, campaign: str(fd, "campaign") || null, sourceInfo: str(fd, "sourceInfo") || null,
+    projectId: (str(fd, "projectId") && (await db.project.findUnique({ where: { id: str(fd, "projectId") }, select: { id: true } }))?.id) || null,
     interest: str(fd, "interest") || null, propertyType: str(fd, "propertyType") || null,
     location: str(fd, "location") || null, budgetMin, budgetMax, notes: str(fd, "notes") || null,
     ownerId, branchId: await ownerBranch(ownerId),
@@ -66,8 +68,10 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
     }
     await audit(user.id, "update", "lead", id, `Updated lead ${name}`);
   } else {
-    const status = await db.leadStatus.findFirst({ where: { kind: "open", active: true }, orderBy: { sortOrder: "asc" } });
-    const lead = await db.lead.create({ data: { ...data, statusId: status!.id, createdById: user.id } });
+    // A stage picked on the create screen, else the first open stage.
+    const status = (str(fd, "statusId") && (await db.leadStatus.findFirst({ where: { id: str(fd, "statusId"), kind: "open", active: true } })))
+      || (await db.leadStatus.findFirst({ where: { kind: "open", active: true }, orderBy: { sortOrder: "asc" } }));
+    const lead = await db.lead.create({ data: { ...data, number: await nextNumber("lead"), statusId: status!.id, createdById: user.id } });
     leadId = lead.id;
     await logSystem({ leadId }, "Lead created", user.id);
     if (ownerId !== user.id) await notify(ownerId, `New lead assigned to you: ${name}`, { body: `By ${user.name}`, link: `/crm/leads/${leadId}`, email: true });
@@ -253,7 +257,7 @@ export async function importLeads(_: FormState, fd: FormData): Promise<FormState
     const budget = parseAmount(get("budget"));
     const lead = await db.lead.create({
       data: {
-        name, phone: phone || null, phoneKey: key, email,
+        number: await nextNumber("lead"), name, phone: phone || null, phoneKey: key, email,
         sourceId: sources.find((s) => s.name.toLowerCase() === srcName)?.id ?? defaultSource,
         campaign: get("campaign") || null, interest: get("interest").toLowerCase() || null,
         propertyType: get("propertyType") || null, location: get("location") || null,

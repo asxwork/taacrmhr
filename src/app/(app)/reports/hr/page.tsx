@@ -7,6 +7,7 @@ import { PERIODS, resolvePeriod } from "@/lib/reports";
 import { hrReport } from "@/lib/reports-hr";
 import { Card, LinkButton, PageHeader } from "@/components/ui";
 import { BarList, ColumnChart } from "@/components/charts";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 import { hrefWith } from "@/components/crm/bits";
 
 export const metadata = { title: "HR Reports" };
@@ -42,7 +43,7 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Pr
         )}
       />
 
-      <form className="mb-6 flex flex-wrap items-end gap-2">
+      <AutoFilterForm className="mb-6 flex flex-wrap items-end gap-2">
         <select name="period" defaultValue={sp.period ?? "month"} className="input w-40">
           {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
@@ -54,8 +55,7 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Pr
             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         )}
-        <button className="h-9 rounded-md border border-line bg-surface px-3 text-sm hover:bg-canvas">Apply</button>
-      </form>
+      </AutoFilterForm>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tiles.map(([label, value, sub]) => (

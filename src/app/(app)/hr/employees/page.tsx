@@ -12,6 +12,7 @@ import { Badge, Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/compo
 import { PersonAvatar } from "@/components/person-avatar";
 import { StatusPill, hrefWith } from "@/components/crm/bits";
 import { EmployeeForm } from "./forms";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 import { orgOptions } from "./org-data";
 
 export const metadata = { title: "Employees" };
@@ -107,7 +108,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
   } else {
     body = (
       <>
-        <form className="mb-4 flex flex-wrap gap-2">
+        <AutoFilterForm className="mb-4 flex flex-wrap gap-2">
           <div className="relative min-w-56 flex-1">
             <Search className="absolute left-3 top-2.5 size-4 text-muted" />
             <input name="q" defaultValue={q} aria-label="Search" placeholder="Name, code, phone or CNIC" className="input pl-9" />
@@ -126,8 +127,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
             <option value="">Current staff</option>
             {EMP_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
-          <button className="h-9 rounded-md border border-line bg-surface px-3 text-sm hover:bg-canvas">Apply</button>
-        </form>
+        </AutoFilterForm>
         <Card className="overflow-hidden">
           {employees.length === 0 ? <EmptyState title="No employees found" /> : (
             <div className="overflow-x-auto">

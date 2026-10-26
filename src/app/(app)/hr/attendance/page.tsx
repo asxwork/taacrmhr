@@ -10,6 +10,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
 import { StatusPill, hrefWith } from "@/components/crm/bits";
 import { PersonAvatar } from "@/components/person-avatar";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 import { importDeviceFile, saveDayOverride, saveDeviceIds } from "./actions";
 
 export const metadata = { title: "Attendance" };
@@ -63,7 +64,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
         )}
       </div>
       {branches.length > 1 && (
-        <form className="flex gap-2">
+        <AutoFilterForm className="flex gap-2">
           {sp.view && <input type="hidden" name="view" value={sp.view} />}
           {sp.date && <input type="hidden" name="date" value={sp.date} />}
           {sp.month && <input type="hidden" name="month" value={sp.month} />}
@@ -71,8 +72,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
             <option value="">All branches</option>
             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
-          <button className="h-10 rounded-lg border border-line bg-surface px-3 text-sm hover:bg-canvas">Apply</button>
-        </form>
+        </AutoFilterForm>
       )}
     </div>
   );

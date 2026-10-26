@@ -6,6 +6,7 @@ import { fmtPKR, usersInScope } from "@/lib/crm";
 import { PERIODS, crmReport, resolvePeriod } from "@/lib/reports";
 import { Card, LinkButton, PageHeader } from "@/components/ui";
 import { BarList, ColumnChart } from "@/components/charts";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 import { hrefWith } from "@/components/crm/bits";
 
 export const metadata = { title: "CRM Reports" };
@@ -46,7 +47,7 @@ export default async function CrmReportsPage({ searchParams }: { searchParams: P
         )}
       />
 
-      <form className="mb-6 flex flex-wrap items-end gap-2">
+      <AutoFilterForm className="mb-6 flex flex-wrap items-end gap-2">
         <select name="period" defaultValue={sp.period ?? "month"} className="input w-40">
           {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
@@ -64,8 +65,7 @@ export default async function CrmReportsPage({ searchParams }: { searchParams: P
             {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}
-        <button className="h-9 rounded-md border border-line bg-surface px-3 text-sm hover:bg-canvas">Apply</button>
-      </form>
+      </AutoFilterForm>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tiles.map(([label, value, sub]) => (

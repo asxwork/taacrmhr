@@ -24,20 +24,29 @@ export function Composer({
   /** When set, adds an Email tab that sends to this address. */
   emailTo?: string | null;
 }) {
-  const base = types ? ACTIVITY_TYPES.filter((t) => types.includes(t.value)) : ACTIVITY_TYPES;
-  const tabs: { value: string; label: string }[] = emailTo ? [...base, { value: "email", label: "Email" }] : [...base];
+  // Planning the next step comes first (Bitrix "Activity"); notes are "Comments".
+  const ORDER = ["task", "call", "meeting", "visit", "note"];
+  const base = (types ? ACTIVITY_TYPES.filter((t) => types.includes(t.value)) : [...ACTIVITY_TYPES])
+    .sort((a, b) => ORDER.indexOf(a.value) - ORDER.indexOf(b.value))
+    .map((t) => ({ value: t.value as string, label: t.value === "task" ? "Activity" : t.value === "note" ? "Comment" : t.label }));
+  const tabs: { value: string; label: string }[] = emailTo ? [...base, { value: "email", label: "E-mail" }] : base;
   const [type, setType] = useState<string>(tabs[0]!.value);
   const schedulable = type === "task" || type === "meeting" || type === "visit";
 
   return (
-    <div className="rounded-xl border border-line bg-surface">
-      <div className="flex gap-1 border-b border-line px-2 pt-2">
+    <div id="composer" className="scroll-mt-6 rounded-xl border border-line bg-surface shadow-xs">
+      <div className="flex gap-1 overflow-x-auto px-3 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist">
         {tabs.map((t) => (
           <button
             key={t.value}
             type="button"
+            role="tab"
+            aria-selected={type === t.value}
             onClick={() => setType(t.value)}
-            className={cn("rounded-t-md px-3 py-1.5 text-sm", type === t.value ? "border-b-2 border-navy-900 font-medium text-ink" : "text-muted hover:text-ink")}
+            className={cn(
+              "shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors",
+              type === t.value ? "bg-navy-900/[0.07] font-medium text-navy-900 ring-1 ring-navy-900/15" : "text-muted hover:bg-canvas hover:text-ink",
+            )}
           >
             {t.label}
           </button>
@@ -63,7 +72,7 @@ export function Composer({
         ))}
         <input type="hidden" name="type" value={type} />
         <input type="hidden" name="path" value={path} />
-        {type !== "note" && <input name="subject" placeholder={type === "call" ? "Call summary, e.g. Discussed payment plan" : "Title"} className="input" />}
+        {type !== "note" && <input name="subject" placeholder={type === "call" ? "Call summary, e.g. Discussed payment plan" : type === "task" ? "Things to do, e.g. Call back with payment plan" : "Title"} className="input" />}
         <textarea
           name="body"
           rows={type === "note" ? 3 : 2}
