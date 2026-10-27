@@ -34,7 +34,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   if (tab === "runs") {
     const runs = await db.payrollRun.findMany({ include: { payslips: { select: { net: true, gross: true, tax: true } } }, orderBy: { month: "desc" } });
     body = (
-      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_300px]">
         <Card className="overflow-hidden">
           {runs.length === 0 ? <EmptyState title="No payroll runs yet" description="Create this month’s payroll to calculate everyone’s salary." /> : (
             <ul className="divide-y divide-line">
@@ -115,7 +115,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
     const fy = sp.fy ?? fiscalYearOf(thisMonth);
     const slabs = await db.taxSlab.findMany({ where: { fiscalYear: fy }, orderBy: { from: "asc" } });
     body = (
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="h-fit p-5">
           <h2 className="mb-3 font-medium">Salary structure & statutory</h2>
           <ActionForm action={savePayrollSettings} className="space-y-4" successMessage="Saved.">

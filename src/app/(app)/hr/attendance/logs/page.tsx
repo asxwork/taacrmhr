@@ -147,7 +147,7 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
                     {(l.before || l.after) && (
                       <details className="mt-1 text-xs">
                         <summary className="cursor-pointer text-muted hover:text-ink">Before / after</summary>
-                        <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+                        <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
                           {l.before && <pre className="whitespace-pre-wrap rounded-md bg-red-500/5 p-2 font-sans">{`Before\n${l.before}`}</pre>}
                           {l.after && <pre className="whitespace-pre-wrap rounded-md bg-emerald-500/5 p-2 font-sans">{`After\n${l.after}`}</pre>}
                         </div>

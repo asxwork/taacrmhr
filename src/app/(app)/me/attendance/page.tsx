@@ -41,7 +41,7 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
     <>
       <PageHeader eyebrow={format(now, "EEEE d MMMM")} title="My Attendance" description={`${emp.shift?.name ?? "Default shift"}${emp.branch ? ` · ${emp.branch.name}` : ""}`} />
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-[360px_1fr]">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted">Today</p>
           <div className="mb-4 mt-1 flex items-baseline justify-between">

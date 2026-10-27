@@ -24,6 +24,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
 
   const path = `/crm/contacts/${id}`;
   const canEdit = can(user, "crm.contacts", "edit") && (await scopeMatcher(user, "crm.contacts", "edit"))(contact);
+  const canOpenCompany = !!contact.company && (await scopeMatcher(user, "crm.contacts", "view"))(contact.company);
   const canDelete = can(user, "crm.contacts", "delete") && (await scopeMatcher(user, "crm.contacts", "delete"))(contact);
 
   // Linked records are still filtered by the user's own lead/deal scope.
@@ -97,12 +98,12 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
         <div className="space-y-4">
           <Card className="p-5">
             <InfoList
               rows={[
-                ["Company", contact.company ? <Link key="c" href={`/crm/companies/${contact.company.id}`} className="hover:underline">{contact.company.name}</Link> : null],
+                ["Company", contact.company ? (canOpenCompany ? <Link key="c" href={`/crm/companies/${contact.company.id}`} className="hover:underline">{contact.company.name}</Link> : contact.company.name) : null],
                 ["Responsible", contact.owner?.name],
                 ["Branch", contact.branch?.name],
                 ["Source", contact.source?.name],

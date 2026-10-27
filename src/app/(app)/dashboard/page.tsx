@@ -56,7 +56,7 @@ export default async function DashboardPage() {
           You have self-service access. Use <Link href="/me" className="font-medium text-navy-900 underline">My Profile</Link> to view your details.
         </Card>
       ) : (
-        <div className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="stagger grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) => {
             const scope = scopeFor(user, m.module!);
             return (

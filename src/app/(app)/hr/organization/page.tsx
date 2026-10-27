@@ -52,7 +52,7 @@ export default async function OrganizationPage() {
     <>
       <PageHeader title="Organization" description={`${total} active people across ${branches.length} branch(es), ${departments.length} departments and ${designations.length} designations.`}
         actions={<LinkButton href="/hr/employees?tab=org" variant="secondary">Hierarchy chart</LinkButton>} />
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {section("Branches", <Building2 className="size-4 text-muted" />, "/settings/company", [
           ...branches.map((b) => ({ id: b.id, name: b.name, n: count(byBranch, (r: { branchId: string | null }) => r.branchId === b.id), href: `/hr/employees?branch=${b.id}` })),
         ])}

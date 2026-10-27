@@ -44,7 +44,7 @@ export default async function LettersPage({ searchParams }: { searchParams: Prom
       </div>
 
       {tab === "generate" && (
-        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
           <Card className="h-fit p-5">
             <h2 className="mb-3 text-sm font-semibold">1. Choose</h2>
             <AutoFilterForm className="space-y-3">
@@ -107,7 +107,7 @@ export default async function LettersPage({ searchParams }: { searchParams: Prom
       {tab === "templates" && canEdit && (
         <>
           <div className="mb-4 flex justify-end"><LinkButton href="/hr/letters?tab=templates&new=1" scroll={false}><Plus className="size-4" /> New template</LinkButton></div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {templates.map((t) => (
               <Card key={t.id} className={cn("flex flex-col p-5", !t.active && "opacity-60")}>
                 <div className="mb-2 flex items-start justify-between gap-2">
@@ -129,7 +129,7 @@ export default async function LettersPage({ searchParams }: { searchParams: Prom
         <Drawer title={editing ? `Edit ${editing.name}` : "New letter template"} closeHref="/hr/letters?tab=templates" width="max-w-3xl">
           <ActionForm action={saveTemplate} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
-            <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_200px]">
               <Field label="Name"><input name="name" required defaultValue={editing?.name} className="input" /></Field>
               <Field label="Type"><select name="category" defaultValue={editing?.category ?? "other"} className="input">{LETTER_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select></Field>
             </div>

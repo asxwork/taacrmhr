@@ -20,7 +20,7 @@ export function LiveClock({ timeZone }: { timeZone: string }) {
             const a = (i * 6 * Math.PI) / 180;
             const long = i % 5 === 0;
             const lit = now && i <= sec;
-            return <line key={i} x1={100 + Math.sin(a) * (long ? 82 : 86)} y1={100 - Math.cos(a) * (long ? 82 : 86)} x2={100 + Math.sin(a) * 94} y2={100 - Math.cos(a) * 94}
+            return <line key={i} x1={r2(100 + Math.sin(a) * (long ? 82 : 86))} y1={r2(100 - Math.cos(a) * (long ? 82 : 86))} x2={r2(100 + Math.sin(a) * 94)} y2={r2(100 - Math.cos(a) * 94)}
               strokeWidth={long ? 3 : 1.5} strokeLinecap="round" className={lit ? "stroke-gold-400" : "stroke-line"} />;
           })}
         </svg>
@@ -37,3 +37,6 @@ export function LiveClock({ timeZone }: { timeZone: string }) {
     </div>
   );
 }
+
+/** Server and browser can differ in the last digits of sin/cos; rounding keeps the SVG identical (no hydration mismatch). */
+const r2 = (n: number) => Math.round(n * 100) / 100;

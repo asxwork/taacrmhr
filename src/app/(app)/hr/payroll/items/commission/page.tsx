@@ -30,7 +30,7 @@ export default async function CommissionPage({ searchParams }: { searchParams: P
         Deal commission through payroll is <Badge tone={settings.commission ? "green" : "neutral"}>{settings.commission ? "on" : "off"}</Badge>{" "}
         <Link href="/hr/payroll?tab=settings" className="text-navy-700 hover:underline">change in payroll settings</Link>
       </p>
-      <div className="mb-6 grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
         <Card className="overflow-x-auto">
           {deals.length === 0 ? <EmptyState title="No won deals with commission this month" /> : (
             <table className="w-full min-w-[620px] text-sm">

@@ -29,7 +29,7 @@ export default async function MePage() {
     <>
       <PageHeader title="My Profile" />
       <MyEmployment userId={user.id} />
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
         <Card className="p-6">
           <div className="mb-6 flex items-center gap-4">
             <Avatar name={user.name} className="size-14 text-base" />

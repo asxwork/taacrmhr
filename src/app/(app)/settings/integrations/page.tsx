@@ -78,7 +78,7 @@ export default async function IntegrationsPage() {
           <SectionTitle title="Who gets new leads" ok={assigneeIds.length > 0} okText={`${assigneeIds.length} in rotation`} notText="Super Admin only" />
           <p className="mb-3 text-sm text-muted">Website, Facebook and API leads (connections without their own agents) are shared out one by one (round-robin) across the people ticked below. Repeat enquiries go to the existing lead’s owner.</p>
           <ActionForm action={saveAssignees}>
-            <fieldset disabled={!editable} className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+            <fieldset disabled={!editable} className="min-w-0 grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
               {users.map((u) => (
                 <label key={u.id} className="flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm">
                   <input type="checkbox" name="assignees" value={u.id} defaultChecked={assigneeIds.includes(u.id)} className="accent-navy-900" />

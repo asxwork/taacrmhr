@@ -37,7 +37,7 @@ export async function BossCrmReport({ user, from, to, links }: { user: SessionUs
         { key: "days", label: "Days to close", tone: "violet", value: k.daysToClose != null ? Math.round(k.daysToClose) : "—", sub: "average, won deals" },
       ]} />
 
-      <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[3fr_2fr]">
         <Card className="p-5">
           <h3 className="mb-4 text-sm font-medium">New leads over time</h3>
           <ColumnChart data={crm.overTime} unit="leads" />
@@ -48,7 +48,7 @@ export async function BossCrmReport({ user, from, to, links }: { user: SessionUs
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-5">
           <h3 className="mb-4 text-sm font-medium">Open pipeline by stage</h3>
           <BarList rows={crm.pipeline.map((s) => ({ name: `${s.pipeline} · ${s.name}`, value: s.value || s.count, display: fmtPKR(s.value), sub: `${s.count} deal(s)`, href: `/crm/deals?view=list&pipeline=${s.pipelineId}&stage=${s.id}` }))} empty="No open deals." />

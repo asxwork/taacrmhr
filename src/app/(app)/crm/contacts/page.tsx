@@ -38,6 +38,9 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
       : [],
     tab === "contacts" ? db.contact.count({ where: contactWhere }) : db.company.count({ where: companyWhere }),
   ]);
+  // A contact can belong to a company someone else owns: only link companies this user can open.
+  const linked = [...new Set(contacts.flatMap((c) => (c.company ? [c.company.id] : [])))];
+  const openable = new Set(linked.length ? (await db.company.findMany({ where: { id: { in: linked }, ...scope }, select: { id: true } })).map((c) => c.id) : []);
 
   const drawerData = sp.new && canCreate
     ? await Promise.all([
@@ -119,7 +122,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                         </Link>
                       </td>
                       <td className="td whitespace-nowrap text-muted">{fmtPhone(c.phone) || "—"}</td>
-                      <td className="td text-muted">{c.company ? <Link href={`/crm/companies/${c.company.id}`} className="hover:underline">{c.company.name}</Link> : "—"}</td>
+                      <td className="td text-muted">{c.company ? (openable.has(c.company.id) ? <Link href={`/crm/companies/${c.company.id}`} className="hover:underline">{c.company.name}</Link> : c.company.name) : "—"}</td>
                       <td className="td text-muted">{c._count.deals}</td>
                       <td className="td text-muted">{c.owner?.name ?? "—"}</td>
                       <td className="td whitespace-nowrap text-muted">{fmtAgo(c.updatedAt)}</td>

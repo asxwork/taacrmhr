@@ -66,7 +66,7 @@ export default async function LayoutsPage({ searchParams }: { searchParams: Prom
           <ActionForm action={saveLayout} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
             <input type="hidden" name="appKey" value={appKey} />
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Name"><input name="name" required defaultValue={editing?.name ?? `${appName(appKey)} layout`} className="input" /></Field>
               <Field label="For">
                 <select name="audience" defaultValue={editing?.audience ?? "role"} className="input">
@@ -81,7 +81,7 @@ export default async function LayoutsPage({ searchParams }: { searchParams: Prom
 
             {appKey === "home" ? (
               <>
-                <fieldset>
+                <fieldset className="min-w-0">
                   <legend className="mb-2 text-sm font-medium">App tiles to show (My Space always shows)</legend>
                   <div className="flex flex-wrap gap-3 text-sm">
                     {APPS.map((a) => <label key={a.key} className="flex items-center gap-1.5"><input type="checkbox" name="apps" value={a.key} defaultChecked={!editing?.apps || editing.apps.split(",").includes(a.key)} /> {a.name}</label>)}
@@ -104,7 +104,7 @@ export default async function LayoutsPage({ searchParams }: { searchParams: Prom
                         <input name={`order:${gi}`} type="number" min={1} defaultValue={order.indexOf(g.label ?? "") + 1 || gi + 1} className="input h-7 w-14 px-2 text-xs" aria-label={`Order of ${g.label ?? "main"}`} />
                         <span className="text-sm font-semibold">{g.label ?? "Main"}</span>
                       </div>
-                      <div className="grid gap-1.5 text-sm sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">
                         {g.items.flatMap((i) => i.children ? i.children.map((c) => ({ ...c, label: `${i.label} › ${c.label}` })) : [i]).map((i) => (
                           <label key={i.href} className="flex items-center gap-1.5"><input type="checkbox" name="show" value={i.href} defaultChecked={!hidden.has(i.href)} /> {i.label}</label>
                         ))}

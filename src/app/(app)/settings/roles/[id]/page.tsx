@@ -37,8 +37,8 @@ export default async function RoleEditPage({ params }: { params: Promise<{ id: s
 
       <ActionForm action={saveRolePermissions} successMessage="Permissions saved. Changes apply on the user's next page load.">
         <input type="hidden" name="roleId" value={role.id} />
-        <fieldset disabled={!editable} className="space-y-6">
-          <Card className="grid gap-4 p-5 sm:grid-cols-2">
+        <fieldset disabled={!editable} className="min-w-0 space-y-6">
+          <Card className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
             <Field label="Role name">
               <input name="name" defaultValue={role.name} required className="input" />
             </Field>

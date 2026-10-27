@@ -62,7 +62,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
             {editing && <input type="hidden" name="id" value={editing.id} />}
             <Field label="Name"><input name="name" required defaultValue={editing?.name ?? ""} className="input" placeholder="e.g. Reshuffle: new agent + New Request" autoFocus /></Field>
 
-            <fieldset className="space-y-2">
+            <fieldset className="min-w-0 space-y-2">
               <legend className="mb-1.5 text-xs font-medium text-ink/80">Clean up</legend>
               <Check name="deleteHistory" on={c.deleteHistory}>Delete activity history (calls, notes, meetings, emails)</Check>
               <Check name="deleteOpen" on={c.deleteOpen}>Delete open tasks and planned follow-ups</Check>
@@ -76,7 +76,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
               </select>
             </Field>
 
-            <fieldset className="space-y-2">
+            <fieldset className="min-w-0 space-y-2">
               <legend className="mb-1.5 text-xs font-medium text-ink/80">Responsible agent</legend>
               <select name="assign" defaultValue={c.assign} className="input">
                 <option value="keep">Keep the current agent</option>
@@ -94,7 +94,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
               <Check name="avoidSameAgent" on={c.avoidSameAgent}>Never give a lead back to the agent who already had it</Check>
             </fieldset>
 
-            <fieldset className="space-y-2">
+            <fieldset className="min-w-0 space-y-2">
               <legend className="mb-1.5 text-xs font-medium text-ink/80">After</legend>
               <Check name="planCall" on={c.planCall}>Plan a “Call the client” task for the new agent, due now</Check>
               <Check name="markReshuffled" on={c.markReshuffled}>Mark the lead as reshuffled (shows in the list and the “Reshuffled” filter)</Check>

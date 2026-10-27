@@ -15,7 +15,7 @@ export default async function DncPage() {
   return (
     <>
       <PageHeader title="Do-not-call list" description="Numbers here are skipped on upload and taken out of every queue. “Do not call” on a call adds the number automatically." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <Card className="overflow-x-auto">
           {rows.length === 0 ? <EmptyState title="The list is empty" /> : (
             <ul className="divide-y divide-line text-sm">

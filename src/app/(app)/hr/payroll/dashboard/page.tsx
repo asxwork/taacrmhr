@@ -43,7 +43,7 @@ export default async function PayrollDashboard() {
         { key: "inc", label: "Increments due (30 days)", tone: "gold", value: revisionsDue, href: "/hr/salary-revisions?tab=due" },
         { key: "set", label: "Settlements to prepare", tone: "orange", value: notice, href: "/hr/payroll/settlements" },
       ]} />
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold">Payroll cost by month</h2>
           <LineChart labels={trend.map((r) => format(monthDate(r.month), "MMM yy"))} format={(v) => `${Math.round(v / 1000)}k`}

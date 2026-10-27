@@ -32,7 +32,7 @@ export default async function RecruitmentPage({ searchParams }: { searchParams: 
         <Link href={sp.all ? "/hr/recruitment" : "/hr/recruitment?all=1"} className="text-muted hover:text-ink hover:underline">{sp.all ? "Hide closed openings" : "Show closed openings"}</Link>
       </div>
       {openings.length === 0 ? <Card><EmptyState title="No open positions" description="Create an opening to start collecting candidates." /></Card> : (
-        <div className="stagger grid gap-4 md:grid-cols-2">
+        <div className="stagger grid grid-cols-1 gap-4 md:grid-cols-2">
           {openings.map((o) => (
             <Link key={o.id} href={`/hr/recruitment/${o.id}`}>
               <Card className="h-full p-5 transition hover:border-navy-900/20">

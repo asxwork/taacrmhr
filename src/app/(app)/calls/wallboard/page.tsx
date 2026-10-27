@@ -48,7 +48,7 @@ export default async function Wallboard() {
         { key: "q", label: "Numbers waiting", tone: "sky", value: queue },
         { key: "cb", label: "Callbacks due", tone: "amber", value: dueCallbacks, href: "/calls/callbacks" },
       ]} />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {rows.map((r) => {
           const p = phoneState(r.id);
           const s = p?.presence === "talking" ? { label: `On a call${p.presencePeer ? ` · ${p.presencePeer}` : ""}`, tone: "bg-red-500 animate-pulse" }

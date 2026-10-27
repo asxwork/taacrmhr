@@ -47,7 +47,7 @@ export default async function MyLeavePage() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_1fr]">
         <Card className="h-fit p-5">
           <h2 className="mb-4 font-medium">Apply for leave</h2>
           <ActionForm action={applyMyLeave} className="space-y-4">

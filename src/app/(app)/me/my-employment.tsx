@@ -42,7 +42,7 @@ export async function MyEmployment({ userId }: { userId: string }) {
         ) : (
           <details className="group">
             <summary className="cursor-pointer text-sm font-medium text-navy-900">Request a change</summary>
-            <ActionForm action={requestProfileUpdate} className="mt-3 grid gap-3 sm:grid-cols-2">
+            <ActionForm action={requestProfileUpdate} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {SELF_EDITABLE.map((f) => (
                 <Field key={f.key} label={f.label} className={f.key === "address" ? "sm:col-span-2" : undefined}>
                   {f.key === "bloodGroup" ? (
@@ -66,7 +66,7 @@ export async function MyEmployment({ userId }: { userId: string }) {
       <Card className="p-6 lg:col-span-2">
         <h2 className="mb-1 font-medium">Photo &amp; ID</h2>
         <p className="mb-5 text-sm text-muted">Your photo is saved straight away. ID pictures go to HR to verify; numbers and blood group change through “Request a change”.</p>
-        <div className="grid gap-6 md:grid-cols-[220px_1fr]">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-[220px_1fr]">
           <div className="flex flex-col items-center gap-3 text-center">
             {emp.photo
               // eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files
@@ -81,7 +81,7 @@ export async function MyEmployment({ userId }: { userId: string }) {
             </ActionForm>
           </div>
           <div className="space-y-4">
-            <dl className="grid gap-3 text-sm sm:grid-cols-3">
+            <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
               {([["Blood group", emp.bloodGroup], ["CNIC number", emp.cnic], ["Passport number", emp.passportNo]] as const).map(([k, v]) => (
                 <div key={k} className="rounded-lg bg-canvas/60 px-3 py-2">
                   <dt className="text-xs text-muted">{k}</dt>
@@ -89,7 +89,7 @@ export async function MyEmployment({ userId }: { userId: string }) {
                 </div>
               ))}
             </dl>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {ID_DOCS.map(({ type, label }) => {
                 const doc = latest(type);
                 return (

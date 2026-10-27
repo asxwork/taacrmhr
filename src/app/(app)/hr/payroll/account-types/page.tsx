@@ -23,7 +23,7 @@ export default async function AccountTypesPage() {
   return (
     <>
       <PageHeader title="Account Types" description="Each employee’s payment method is set on their profile (Salary & Benefits); bank accounts in the Banks tab." />
-      <div className="mb-6 grid gap-4 md:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
         {methods.map((m) => (
           <Card key={m.v} className="p-5">
             <p className="text-sm text-muted">{m.label}</p>
@@ -31,7 +31,7 @@ export default async function AccountTypesPage() {
           </Card>
         ))}
       </div>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold">Employee banks</h2>
           <BarList rows={[...banks.entries()].sort((a, b) => b[1] - a[1]).map(([name, n]) => ({ name, value: n, display: String(n) }))} />

@@ -101,7 +101,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               </select>
             </Field>
             {canAssign && (
-              <fieldset className="space-y-2">
+              <fieldset className="min-w-0 space-y-2">
                 <legend className="mb-1.5 text-xs font-medium text-ink/80">Assign to</legend>
                 <select name="assign" className="input" defaultValue={user.id}>
                   {assignees.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}

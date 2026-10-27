@@ -133,7 +133,7 @@ export function LeadForm({
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="space-y-3">
+    <fieldset className="min-w-0 space-y-3">
       <legend className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">{title}</legend>
       {children}
     </fieldset>

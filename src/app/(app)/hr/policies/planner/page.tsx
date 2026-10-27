@@ -19,7 +19,7 @@ export default async function PolicyPlanner() {
   return (
     <>
       <PageHeader title="Policy Planner" description="How attendance is counted. These rules apply everywhere at once: daily attendance, the HR dashboard, reports and payroll deductions." />
-      <ActionForm action={savePolicyPlanner} className="grid gap-6 lg:grid-cols-2">
+      <ActionForm action={savePolicyPlanner} className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section icon={<CircleSlash className="size-5 text-red-500" />} title="Absent Policy" text="A work day with no check-in, no leave and no holiday is absent and deducted at one day's pay (gross ÷ 30).">
           <Field label="Count a day as absent if worked less than (hours)" hint="0 = off. Otherwise shorter days are absent rather than half days.">
             <input name="absentUnderHours" type="number" step="0.5" min={0} max={12} defaultValue={policy.absentUnderMin / 60} disabled={!canEdit} className="input w-32" />

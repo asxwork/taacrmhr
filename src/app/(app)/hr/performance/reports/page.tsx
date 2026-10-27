@@ -42,7 +42,7 @@ export default async function PerformanceReports({ searchParams }: { searchParam
             { key: "m", label: "Waiting for manager", tone: "violet", value: rows.filter((r) => r.status === "manager").length, href: `/hr/performance/${cycle.id}` },
             { key: "d", label: "Completed", tone: "green", value: `${done.length} · ${rows.length ? Math.round((done.length / rows.length) * 100) : 0}%`, sub: done.length ? `average ${avg.toFixed(1)}/5` : undefined, href: `/hr/performance/${cycle.id}` },
           ]} />
-          <div className="mb-6 grid gap-6 lg:grid-cols-3">
+          <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-5"><h2 className="mb-3 text-sm font-semibold">Rating spread</h2>
               <BarList rows={[...RATINGS].reverse().map((r) => { const n = done.filter((d) => d.managerRating === r.value).length; return { name: `${r.value} · ${r.label}`, value: n, display: String(n) }; })} />
             </Card>

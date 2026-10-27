@@ -49,7 +49,7 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
           ))}
         </section>
 
-        <section className="grid gap-8 py-5 sm:grid-cols-2">
+        <section className="grid grid-cols-1 gap-8 py-5 sm:grid-cols-2">
           {([["Earnings", earn, slip.earnings], ["Deductions", ded, slip.deductions]] as const).map(([title, rows, total]) => (
             <div key={title}>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{title}</p>

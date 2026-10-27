@@ -65,7 +65,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       ["Done in the last 7 days", done.map(toItem)],
     ];
     body = (
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {groups.map(([title, items, tone]) => (
           <Card key={title} className={cn("p-5", title === "Done in the last 7 days" && "lg:col-span-2")}>
             <h2 className={cn("mb-3 text-sm font-medium", tone)}>

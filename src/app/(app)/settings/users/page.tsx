@@ -149,7 +149,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
               </Field>
             </div>
 
-            <fieldset className="space-y-2">
+            <fieldset className="min-w-0 space-y-2">
               <legend className="mb-1.5 text-xs font-medium text-ink/80">Roles</legend>
               {roles.map((r) => (
                 <label key={r.id} className="flex cursor-pointer items-start gap-2.5 rounded-md border border-line p-2.5 hover:bg-canvas/60">

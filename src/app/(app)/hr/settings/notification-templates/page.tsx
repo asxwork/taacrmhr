@@ -18,7 +18,7 @@ export default async function NotificationTemplates() {
         {templates.map((t) => (
           <Card key={t.key} className="p-5">
             <div className="mb-3 flex items-center gap-2"><h2 className="font-semibold">{t.label}</h2>{t.custom && <Badge tone="navy">customised</Badge>}</div>
-            <div className="grid gap-3 md:grid-cols-[1fr_1.4fr]">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1.4fr]">
               <Field label="Title"><input name={`${t.key}:title`} defaultValue={t.title} disabled={!canEdit} className="input" /></Field>
               <Field label="Message"><input name={`${t.key}:body`} defaultValue={t.body} disabled={!canEdit} className="input" /></Field>
             </div>

@@ -36,12 +36,12 @@ export default async function PhoneSystem() {
   return (
     <>
       <PageHeader title="Phone system (Issabel)" description="Agents register their own Issabel extensions inside AMS, so calls go through your PBX and lines as usual. AMS does not need admin access to the PBX." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
         <div className="space-y-6">
           <Card className="p-6">
             <h2 className="mb-4 font-semibold">Connection</h2>
             <ActionForm action={savePbx} className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="PBX"><input name="make" defaultValue={pbx.make} className="input" /></Field>
                 <Field label="Version"><input name="model" defaultValue={pbx.model} className="input" placeholder="e.g. Issabel 4" /></Field>
                 <Field label="WebRTC address (WSS)" hint="From step 1 on the right"><input name="wss" defaultValue={pbx.wss} className="input" placeholder="wss://pbx.example.com:8089/ws" /></Field>
@@ -52,7 +52,7 @@ export default async function PhoneSystem() {
                 <Field label="Voicemail code"><input name="voicemail" defaultValue={pbx.voicemail} className="input w-28" /></Field>
               </div>
               <Field label="STUN / TURN servers" hint="One per line. Add a TURN server if agents call from outside the office."><textarea name="ice" rows={2} defaultValue={pbx.ice} className="input font-mono text-xs" /></Field>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Field label="Listen code" hint="Dialled + extension"><input name="spyListen" defaultValue={pbx.spyListen} className="input" placeholder="e.g. 556" /></Field>
                 <Field label="Whisper code"><input name="spyWhisper" defaultValue={pbx.spyWhisper} className="input" placeholder="e.g. 557" /></Field>
                 <Field label="Barge code"><input name="spyBarge" defaultValue={pbx.spyBarge} className="input" placeholder="e.g. 558" /></Field>
@@ -76,7 +76,7 @@ export default async function PhoneSystem() {
               {agents.map((a) => {
                 const s = acc.get(a.id);
                 return (
-                  <ActionForm key={a.id} action={saveExtension} className="grid items-end gap-3 px-6 py-3 sm:grid-cols-[1fr_110px_170px_auto_auto]">
+                  <ActionForm key={a.id} action={saveExtension} className="grid grid-cols-1 items-end gap-3 px-6 py-3 sm:grid-cols-[1fr_110px_170px_auto_auto]">
                     <input type="hidden" name="userId" value={a.id} />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{a.name}</p>

@@ -180,7 +180,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
         rows={emp.relatives.map((r) => [r.name, r.relation, r.dob ? fmtDate(r.dob) : "—", r.cnic ?? "—", r.phone ?? "—",
           <span key="f" className="flex gap-1">{r.emergency && <Badge tone="red">Emergency</Badge>}{r.dependent && <Badge tone="navy">Dependent</Badge>}</span>, del("relative", r.id)])} />
       {canEdit && (
-        <ActionForm action={addRelative} className="mt-4 grid gap-3 rounded-lg border border-dashed border-line p-3 sm:grid-cols-3">
+        <ActionForm action={addRelative} className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-dashed border-line p-3 sm:grid-cols-3">
           <input type="hidden" name="id" value={id} />
           <Field label="Name"><input name="name" required className="input h-9" /></Field>
           <Field label="Relation"><select name="relation" required className="input h-9"><option value="">Select</option>{RELATIONS.map(([v]) => <option key={v}>{v}</option>)}</select></Field>
@@ -208,7 +208,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
       <SectionTitle>Certifications</SectionTitle>
       <MiniTable head={["Certification", "Issued by", "Issued", "Expires", ""]} rows={q("certification").map((x) => [x.title, x.institution ?? "—", x.from ? fmtDate(x.from) : "—", x.to ? fmtDate(x.to) : "—", del("qualification", x.id)])} />
       {canEdit && (
-        <ActionForm action={addQualification} className="mt-4 grid gap-3 rounded-lg border border-dashed border-line p-3 sm:grid-cols-3">
+        <ActionForm action={addQualification} className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-dashed border-line p-3 sm:grid-cols-3">
           <input type="hidden" name="id" value={id} />
           <Field label="Type"><select name="kind" className="input h-9"><option value="experience">Experience</option><option value="education">Education</option><option value="certification">Certification</option></select></Field>
           <Field label="Title / degree / job title"><input name="title" required className="input h-9" /></Field>
@@ -248,7 +248,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
         rows={emp.banks.length ? emp.banks.map((b, i) => [<span key="n">{b.bankName}{i === 0 && <Badge tone="green">Current</Badge>}</span>, b.branchName ?? "—", b.branchCode ?? "—", b.accountTitle ?? "—", b.accountNumber, fmtDate(b.effectiveFrom), del("bank", b.id)])
           : emp.bankName ? [[emp.bankName, "—", "—", emp.accountTitle ?? "—", emp.accountNumber ?? "—", "—", ""]] : []} />
       {canEdit && (
-        <ActionForm action={addBank} className="mt-4 grid gap-3 rounded-lg border border-dashed border-line p-3 sm:grid-cols-3">
+        <ActionForm action={addBank} className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-dashed border-line p-3 sm:grid-cols-3">
           <input type="hidden" name="id" value={id} />
           <Field label="Bank name"><input name="bankName" required className="input h-9" placeholder="e.g. Meezan Bank" /></Field>
           <Field label="Branch name"><input name="branchName" className="input h-9" /></Field>
@@ -292,7 +292,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
   return (
     <>
       <div className="mb-5 overflow-hidden rounded-xl bg-gradient-to-r from-navy-950 via-navy-900 to-navy-800 text-white shadow-sm">
-        <div className="grid items-center gap-5 p-5 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
+        <div className="grid grid-cols-1 items-center gap-5 p-5 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
           <div className="relative mx-auto w-fit">
             <PersonAvatar name={emp.fullName} photo={emp.photo} className="size-24 border-4 border-white/15 bg-white/10 text-2xl text-white" />
             <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gold-400 px-2.5 py-0.5 text-[11px] font-semibold text-navy-950">{p.completion}% Completed</span>

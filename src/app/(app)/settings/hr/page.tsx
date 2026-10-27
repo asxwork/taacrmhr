@@ -81,11 +81,11 @@ export default async function HrSettingsPage() {
         <Section id="checklists" title="Employee defaults & checklists" hint="One checklist item per line. New hires get the onboarding list; recording a resignation creates the exit list.">
           <Card className="p-5">
             <ActionForm action={saveHrGeneral} className="space-y-4" successMessage="Saved.">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Employee code prefix" hint="Codes look like TAA-0007"><input name="codePrefix" defaultValue={prefix} className="input" /></Field>
                 <Field label="Probation (months)"><input name="probationMonths" type="number" min={0} max={24} defaultValue={probation} className="input" /></Field>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Onboarding checklist"><textarea name="onboarding" rows={7} defaultValue={onboarding} className="input" /></Field>
                 <Field label="Exit checklist"><textarea name="offboarding" rows={7} defaultValue={offboarding} className="input" /></Field>
               </div>

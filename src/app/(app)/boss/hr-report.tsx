@@ -36,7 +36,7 @@ export async function BossHrReport({ user, from, to }: { user: SessionUser; from
         { key: "req", label: "Pending requests", tone: "amber", value: pendingByType.reduce((s, p) => s + p._count, 0), href: "/approvals?tab=all" },
       ]} />
 
-      <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[3fr_2fr]">
         <Card className="p-5">
           <h3 className="mb-4 text-sm font-medium">Headcount, last 12 months</h3>
           <ColumnChart data={hr.trend} unit="people" />
@@ -47,7 +47,7 @@ export async function BossHrReport({ user, from, to }: { user: SessionUser; from
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="p-5">
           <h3 className="mb-4 text-sm font-medium">By branch</h3>
           <BarList rows={hr.byBranch.map((b) => ({ name: b.name, value: b.value, display: String(b.value), href: branchId.has(b.name) ? `/hr/employees?branch=${branchId.get(b.name)}` : undefined }))} />
@@ -87,7 +87,7 @@ export async function BossHrReport({ user, from, to }: { user: SessionUser; from
         <Link href="/hr/attendance/logs" className="block border-t border-line px-5 py-2.5 text-xs font-medium text-navy-900 hover:underline">Attendance logs →</Link>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
         <Card className="overflow-hidden">
           <h3 className="border-b border-line px-5 py-3 text-sm font-medium">Payroll by month</h3>
           <table className="w-full">

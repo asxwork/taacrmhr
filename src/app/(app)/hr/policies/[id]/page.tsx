@@ -33,7 +33,7 @@ export default async function PolicyPage({ params }: { params: Promise<{ id: str
       <Link href="/hr/policies" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Policy Documents</Link>
       <PageHeader title={p.title} description={`${p.category} · version ${p.version}${p.publishedAt ? ` · published ${format(p.publishedAt, "d MMM yyyy")}` : ""}`}
         actions={p.filePath && <a href={fileUrl(p.filePath)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-2 text-sm hover:bg-surface"><Download className="size-4" /> Open PDF</a>} />
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
         <Card className="p-6">
           {p.body ? <div className="whitespace-pre-line text-sm leading-relaxed">{p.body}</div> : <p className="text-sm text-muted">See the attached PDF.</p>}
         </Card>

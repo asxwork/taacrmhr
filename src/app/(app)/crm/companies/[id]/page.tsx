@@ -48,7 +48,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           </LinkButton>
         )}
       </div>
-      <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
         <div className="space-y-4">
           <Card className="p-5">
             <InfoList rows={[["Phone", company.phone], ["Email", company.email], ["Industry", company.industry], ["Address", company.address], ["Responsible", company.owner?.name]]} />

@@ -136,7 +136,7 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
 
           {/* Fields */}
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <F label="Lead name"><input value={draft.name ?? ""} onChange={(e) => set({ name: e.target.value }, 400)} className="input" /></F>
               <F label="Phone"><input value={draft.phone ?? ""} onChange={(e) => set({ phone: e.target.value }, 400)} className="input" inputMode="tel" /></F>
               <F label="Status" wide>

@@ -15,7 +15,7 @@ export default async function CustomFieldsPage() {
   return (
     <>
       <PageHeader title="Custom Fields" description="Extra details you want on every employee (e.g. vehicle number, shirt size, EOBI number). They appear on the profile under Employee Info → Additional Information and in the employee report." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
         <Card className="overflow-x-auto">
           {fields.length === 0 ? <EmptyState title="No custom fields yet" /> : (
             <table className="w-full min-w-[520px] text-sm">

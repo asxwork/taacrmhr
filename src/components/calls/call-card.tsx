@@ -68,7 +68,7 @@ export function CallCard({ target, outcomes, action, waText }: {
         <input type="hidden" name="talkSec" value={ended ? ended.talkSec : ""} />
         <input type="hidden" name="callId" value={ended?.callId ?? ""} />
         {ended && <p className="text-xs text-muted">Call ended · talk time {Math.floor(ended.talkSec / 60)}:{String(ended.talkSec % 60).padStart(2, "0")}</p>}
-        <fieldset>
+        <fieldset className="min-w-0">
           <legend className="mb-2 text-sm font-medium">What happened?</legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {outcomes.map((o) => (

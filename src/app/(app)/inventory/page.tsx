@@ -93,7 +93,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         {projects.length === 0 ? (
           <Card><EmptyState title="No projects yet" description="Create a project, add blocks, then generate its units." /></Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {projects.map((p) => {
               const rows = counts.filter((c) => c.projectId === p.id);
               const total = rows.reduce((s, r) => s + r._count, 0);
@@ -195,7 +195,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       {units.length === 0 ? (
         <Card><EmptyState title="No units match" description="Try clearing filters." /></Card>
       ) : view === "grid" ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {units.map((u) => {
             const st = unitStatus(u.status);
             return (

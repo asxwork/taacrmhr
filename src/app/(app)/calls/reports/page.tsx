@@ -34,7 +34,7 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
         <ReportTable head={["Agent", "Calls", "Reached", "Reach %", "Interested", "Callbacks", "WhatsApp", "Talk min"]}
           rows={agents.map((a) => [a.name, a.calls, a.reached, `${a.reachRate}%`, a.interested, a.callbacks, a.whatsapp, a.talkMin])} empty="No calls in this period." />
       </Card>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-5"><h2 className="mb-3 text-sm font-semibold">Outcomes</h2><BarList rows={outcomes.map((o) => ({ name: o.label, value: o.count, display: String(o.count) }))} /></Card>
         <Card className="p-5"><h2 className="mb-3 text-sm font-semibold">Campaigns</h2><BarList rows={campaigns.map((c) => ({ name: c.name, value: c.calls, display: `${c.calls} calls · ${c.interested} interested`, href: c.id ? `/calls/campaigns/${c.id}` : undefined }))} /></Card>
       </div>

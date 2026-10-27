@@ -46,7 +46,7 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
         description="Roles across the top, permissions down the side. Click any value to change it; it saves at once and applies on each user's next page."
       />
 
-      <div className="grid items-start gap-6 xl:grid-cols-[13rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[13rem_minmax(0,1fr)]">
         {/* Sections */}
         <nav className="hidden xl:sticky xl:top-6 xl:block" aria-label="Sections">
           {GROUPS.map((g) => {

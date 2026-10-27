@@ -1,10 +1,11 @@
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 import { notFound } from "next/navigation";
 import { differenceInCalendarDays, format } from "date-fns";
 import { ArrowLeft, ArrowRightLeft, Check, CheckCircle2, FileText, LogOut, RotateCcw, Trash2, UserCheck } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireUser, type SessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { can, scopeFor } from "@/lib/permissions";
+import { can, scopeFor, scopeWhere } from "@/lib/permissions";
 import { employeeAllows } from "@/lib/hr";
 import { loadProfile, profileOptions } from "@/lib/employee-profile";
 import { fileUrl } from "@/lib/files";
@@ -12,6 +13,7 @@ import { cn, fmtDate } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Button, Card, Drawer, EmptyState, LinkButton } from "@/components/ui";
 import { ProfileView } from "@/components/hr/profile-view";
+import { BasicProfile } from "@/components/hr/basic-profile";
 import { Row, SectionTitle } from "@/components/hr/profile-parts";
 import { AssignmentForm, DocumentForm, ResignForm } from "../forms";
 import { orgOptions } from "../org-data";
@@ -25,7 +27,12 @@ export default async function EmployeePage({ params, searchParams }: { params: P
   const user = await requireUser();
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const p = await loadProfile(id);
-  if (!p || !(can(user, "hr.employees") && (await employeeAllows(user, p.emp, "view")))) notFound();
+  if (!p) notFound();
+  if (!(can(user, "hr.employees") && (await employeeAllows(user, p.emp, "view")))) {
+    // Line managers reach team members from attendance, leave and My Space: show them a basic card instead.
+    if (await seesThroughTeam(user, id)) return <BasicProfile emp={p.emp} back={{ href: "/hr/attendance", label: "Attendance" }} />;
+    notFound();
+  }
   const { emp } = p;
 
   const path = `/hr/employees/${id}`;
@@ -113,7 +120,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
       ) : canEdit && emp.status !== "left" ? (
         <div className="px-3 py-3">
           <p className="mb-3 text-sm text-muted">{emp.fullName} can’t sign in yet. Create a login so they can check in, apply for leave and see payslips.</p>
-          <ActionForm action={createLoginForEmployee} className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+          <ActionForm action={createLoginForEmployee} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
             <input type="hidden" name="id" value={id} />
             <input name="email" type="email" required defaultValue={emp.officialEmail ?? emp.personalEmail ?? ""} placeholder="Login email" className="input" aria-label="Login email" />
             <input name="password" type="password" required minLength={8} autoComplete="new-password" placeholder="Temporary password" className="input" aria-label="Temporary password" />
@@ -126,7 +133,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
   );
 
   const history = (
-    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
       <Card className="p-5">
         <ul className="relative space-y-5 before:absolute before:inset-y-1 before:left-[7px] before:w-px before:bg-line">
           {emp.events.map((e) => (
@@ -153,7 +160,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
   );
 
   const checklists = (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {(["onboarding", "offboarding"] as const).map((kind) => {
         const items = emp.checklist.filter((c) => c.kind === kind);
         if (!items.length) return null;
@@ -221,4 +228,14 @@ const EVENT_DOT: Record<string, string> = {
 
 function Banner({ tone, children }: { tone: "amber" | "violet"; children: React.ReactNode }) {
   return <p className={cn("mb-5 rounded-lg border px-4 py-2.5 text-sm", tone === "amber" ? "border-amber-100 bg-amber-50 text-amber-800" : "border-violet-100 bg-violet-50 text-violet-800")}>{children}</p>;
+}
+
+/** Is this employee in the user's attendance or leave view, or one of their direct reports? */
+async function seesThroughTeam(user: SessionUser, id: string) {
+  const scopes = await Promise.all((["hr.attendance", "hr.leave"] as const).map((m) => scopeWhere(user, m, "view", { owner: "userId", branch: "branchId" })));
+  if (scopes.some((x) => x && Object.keys(x).length === 0)) return true; // company-wide view
+  const me = await db.employee.findFirst({ where: { userId: user.id }, select: { id: true } });
+  const or = [...scopes.filter(Boolean), ...(me ? [{ managerId: me.id }] : [])] as Prisma.EmployeeWhereInput[];
+  if (!or.length) return false;
+  return (await db.employee.count({ where: { id, OR: or } })) > 0;
 }

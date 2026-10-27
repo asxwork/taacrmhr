@@ -55,7 +55,7 @@ export function DealForm({
         </Field>
       </div>
 
-      <fieldset className="space-y-2 rounded-lg border border-line p-3">
+      <fieldset className="min-w-0 space-y-2 rounded-lg border border-line p-3">
         <legend className="px-1 text-xs font-medium text-ink/80">Client</legend>
         <select name="contactId" defaultValue={deal?.contactId ?? defaultContactId ?? ""} className="input">
           <option value="">— New contact (fill below) —</option>

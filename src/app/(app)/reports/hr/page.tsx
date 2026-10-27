@@ -67,7 +67,7 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Pr
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         <Card className="p-5">
           <h2 className="mb-4 text-sm font-medium">Headcount at month end</h2>
           <ColumnChart data={r.trend} unit="people" />

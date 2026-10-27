@@ -59,7 +59,7 @@ export async function BossOverview({ user, from, to, links }: { user: SessionUse
       <DrillTiles tiles={tiles} className="mb-6 xl:grid-cols-4" />
 
       <h2 className="mb-3 font-display text-xl font-semibold">Sales</h2>
-      <div className="mb-8 grid items-start gap-4 xl:grid-cols-[3fr_2fr]">
+      <div className="mb-8 grid grid-cols-1 items-start gap-4 xl:grid-cols-[3fr_2fr]">
         <Card className="overflow-hidden">
           <h3 className="border-b border-line px-5 py-3 text-sm font-medium">Agents — who is working</h3>
           <ul className="divide-y divide-line">
@@ -111,7 +111,7 @@ export async function BossOverview({ user, from, to, links }: { user: SessionUse
       </div>
 
       <h2 className="mb-3 font-display text-xl font-semibold">People</h2>
-      <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card className="p-5">
           <h3 className="mb-3 text-sm font-medium">Today</h3>
           <dl className="grid grid-cols-3 gap-3 text-center">

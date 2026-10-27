@@ -10,7 +10,7 @@ export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/home");
 
   return (
-    <main className="grid min-h-screen bg-surface lg:grid-cols-[1.1fr_1fr]">
+    <main className="grid grid-cols-1 min-h-screen bg-surface lg:grid-cols-[1.1fr_1fr]">
       {/* Brand panel (desktop) */}
       <section className="relative hidden overflow-hidden bg-navy-950 lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(rgba(255,255,255,.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.6)_1px,transparent_1px)] [background-size:40px_40px]" />

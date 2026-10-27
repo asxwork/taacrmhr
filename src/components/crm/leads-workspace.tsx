@@ -641,9 +641,9 @@ function AutomationForm({ automation: a, assignees, isSuperAdmin, onRun }: { aut
         <ul className="mt-1 list-disc pl-5 text-muted">{a.steps.map((s) => <li key={s}>{s}</li>)}</ul>
       </div>
       {a.assign !== "keep" && (
-        <fieldset>
+        <fieldset className="min-w-0">
           <legend className="mb-1.5 text-xs font-medium">{a.assign === "one" ? "Give them to" : "Share them between"}</legend>
-          <div className="grid max-h-48 gap-1.5 overflow-y-auto sm:grid-cols-2">
+          <div className="grid grid-cols-1 max-h-48 gap-1.5 overflow-y-auto sm:grid-cols-2">
             {assignees.map((u) => (
               <label key={u.id} className="flex items-center gap-2">
                 <input type={a.assign === "one" ? "radio" : "checkbox"} name="agentIds" value={u.id} defaultChecked={a.userIds.includes(u.id)} className="accent-navy-900" /> {u.name}

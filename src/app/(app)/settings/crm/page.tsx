@@ -50,7 +50,7 @@ export default async function CrmSettingsPage() {
   return (
     <>
       <PageHeader title="CRM Settings" description="Lead statuses, deal pipelines and lead sources. Lower order numbers come first. “Unit →” sets linked property units when a deal enters that stage; Lost always releases them." />
-      <fieldset disabled={!editable} className="space-y-10">
+      <fieldset disabled={!editable} className="min-w-0 space-y-10">
         <Section title="Lead statuses" hint="Open = active work. Converted = set automatically on convert. Junk = closed without a deal.">
           <Card className="divide-y divide-line">
             {statuses.map((s) => (

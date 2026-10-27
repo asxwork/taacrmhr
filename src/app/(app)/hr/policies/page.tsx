@@ -22,7 +22,7 @@ export default async function PoliciesPage() {
       {policies.length === 0 ? (
         <Card><EmptyState title="No published policies yet" description={canManage ? "Add and publish them in Policy Management." : undefined} /></Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {policies.map((p) => {
             const pr = progress.get(p.id) ?? { done: 0, total: 0 };
             const pct = pr.total ? Math.round((pr.done / pr.total) * 100) : 0;

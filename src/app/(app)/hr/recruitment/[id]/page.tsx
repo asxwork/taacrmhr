@@ -154,7 +154,7 @@ export default async function OpeningPage({ params, searchParams }: { params: Pr
                 ))}
               </ul>
               {canEdit && cand.stage !== "hired" && (
-                <ActionForm action={scheduleInterview} className="mt-3 grid gap-2 sm:grid-cols-[1fr_120px_1fr_auto]">
+                <ActionForm action={scheduleInterview} className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px_1fr_auto]">
                   <input type="hidden" name="candidateId" value={cand.id} />
                   <input name="at" type="datetime-local" required className="input" aria-label="Date and time" />
                   <select name="mode" className="input" aria-label="Mode"><option value="onsite">On-site</option><option value="phone">Phone</option><option value="video">Video</option></select>
@@ -170,7 +170,7 @@ export default async function OpeningPage({ params, searchParams }: { params: Pr
             {canEdit && can(user, "hr.employees", "create") && ["offer", "interview"].includes(cand.stage) && (
               <section className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-4">
                 <h3 className="mb-2 flex items-center gap-2 text-sm font-medium"><UserPlus className="size-4" /> Hire {cand.name}</h3>
-                <ActionForm action={hireCandidate} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                <ActionForm action={hireCandidate} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
                   <input type="hidden" name="id" value={cand.id} />
                   <Field label="Joining date"><input name="joiningDate" type="date" required defaultValue={format(new Date(), "yyyy-MM-dd")} className="input" /></Field>
                   <Field label="Designation"><select name="designationId" className="input"><option value="">—</option>{designations.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>

@@ -50,7 +50,7 @@ export function SectionTitle({ icon, children, action }: { icon?: React.ReactNod
 /** One label / value row. */
 export function Row({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
-    <div className="grid items-center gap-1 px-3 py-2 odd:bg-surface/60 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-4">
+    <div className="grid grid-cols-1 items-center gap-1 px-3 py-2 odd:bg-surface/60 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-4">
       <span className="text-xs font-semibold text-ink/80">{label}{required && <span className="text-red-500"> *</span>}</span>
       <div className="min-w-0 text-sm">{children}</div>
     </div>

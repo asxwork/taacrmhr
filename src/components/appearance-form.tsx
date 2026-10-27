@@ -21,7 +21,7 @@ export function AppearanceForm({
 
   return (
     <ActionForm action={action} className="space-y-6">
-      <fieldset>
+      <fieldset className="min-w-0">
         <legend className="mb-2 text-xs font-medium text-ink/80">Theme</legend>
         <div className="flex flex-wrap gap-2">
           {inherit && <Choice name="theme" value="default" checked={!values.theme} label={`Company (${THEMES.find((t) => t.value === inherit.theme)?.label})`} />}
@@ -31,7 +31,7 @@ export function AppearanceForm({
         </div>
       </fieldset>
 
-      <fieldset>
+      <fieldset className="min-w-0">
         <legend className="mb-2 text-xs font-medium text-ink/80">Accent colour</legend>
         <div className="flex flex-wrap gap-3">
           {inherit && <Choice name="accent" value="default" checked={!values.accent} label="Company" />}
@@ -45,7 +45,7 @@ export function AppearanceForm({
         </div>
       </fieldset>
 
-      <fieldset>
+      <fieldset className="min-w-0">
         <legend className="mb-2 text-xs font-medium text-ink/80">Wallpaper</legend>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {inherit && (

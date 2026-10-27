@@ -25,7 +25,7 @@ export default async function MachinesPage() {
     <>
       <AutoRefresh seconds={15} />
       <PageHeader title="Attendance machines" description="Machines send punches here live over the internet. A new machine appears below as soon as it calls in; approve it once." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
         <Card className="overflow-hidden">
           {machines.length === 0 ? (
             <EmptyState title="Waiting for a machine" description="Set the machine's Cloud Server address (steps on the right). It shows up here within a minute; this page refreshes by itself." />

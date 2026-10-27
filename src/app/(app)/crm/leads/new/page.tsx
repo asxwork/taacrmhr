@@ -40,7 +40,7 @@ export default async function NewLeadPage() {
         ))}
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,420px)_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,420px)_1fr]">
         <Card className="p-5">
           <div className="mb-4 flex items-center justify-between border-b border-line pb-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider">Lead information</h2>

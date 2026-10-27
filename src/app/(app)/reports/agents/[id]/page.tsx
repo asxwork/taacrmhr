@@ -64,7 +64,7 @@ export default async function AgentDetailPage({ params, searchParams }: { params
         ))}
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[1fr_380px]">
         <div className="min-w-0 space-y-6">
           <Card className="p-5">
             <h2 className="mb-4 text-sm font-medium">Calls logged per day</h2>

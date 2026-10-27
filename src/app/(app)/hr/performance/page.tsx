@@ -28,7 +28,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
         actions={canCreate && <LinkButton href="/hr/performance?new=1" scroll={false}><Plus className="size-4" /> New review cycle</LinkButton>}
       />
       {cycles.length === 0 ? <Card><EmptyState title="No review cycles yet" description="Open a cycle to start appraisals for your team." /></Card> : (
-        <div className="stagger grid gap-4 md:grid-cols-2">
+        <div className="stagger grid grid-cols-1 gap-4 md:grid-cols-2">
           {cycles.map((c) => {
             const done = c.appraisals.filter((a) => a.status === "done");
             const avg = done.length ? done.reduce((s, a) => s + (a.managerRating ?? 0), 0) / done.length : null;

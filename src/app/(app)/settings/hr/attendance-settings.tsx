@@ -30,7 +30,7 @@ export async function AttendanceSettings() {
               <Field label="End"><input name="end" type="time" defaultValue={s?.end ?? "18:00"} required className="input" /></Field>
               <Field label="Grace (min)"><input name="graceMin" type="number" min={0} max={120} defaultValue={s?.graceMin ?? 15} className="input" /></Field>
               <Field label="Half day under (h)"><input name="halfDayHours" type="number" step="0.5" min={0.5} max={12} defaultValue={(s?.halfDayMin ?? 240) / 60} className="input" /></Field>
-              <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:col-span-4">
+              <fieldset className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1 sm:col-span-4">
                 <legend className="sr-only">Working days</legend>
                 {WEEKDAYS.map((d) => (
                   <label key={d.value} className="flex items-center gap-1.5 text-sm">
@@ -82,7 +82,7 @@ export async function AttendanceSettings() {
             </Field>
             <div className="space-y-2">
               {branches.map((b) => (
-                <div key={b.id} className="grid items-end gap-2 sm:grid-cols-[140px_1fr_1fr_120px]">
+                <div key={b.id} className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[140px_1fr_1fr_120px]">
                   <span className="pb-2.5 text-sm font-medium">{b.name}</span>
                   <Field label="Latitude"><input name={`lat:${b.id}`} defaultValue={b.lat ?? ""} inputMode="decimal" className="input" /></Field>
                   <Field label="Longitude"><input name={`lng:${b.id}`} defaultValue={b.lng ?? ""} inputMode="decimal" className="input" /></Field>

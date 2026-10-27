@@ -107,7 +107,7 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
 
       {show("me") && (<>
       {/* Me: clock in/out, leave summary, clock */}
-      <div className="mb-6 grid gap-6 lg:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Widget title="Mark Clock In/Clock Out">
           {mine ? (
             <div className="space-y-3">
@@ -148,7 +148,7 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
 
       {show("posts") && (<>
       {/* Accolades / News Letter / Words of Wisdom */}
-      <div className="mb-6 grid gap-6 lg:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {company.posts.map(({ kind, rows: posts }) => (
           <Widget key={kind} title={kind === "accolade" ? "Accolades" : kind === "news" ? "News Letter" : "Words of Wisdom"}
             icon={kind === "accolade" ? <Award className="size-4 text-gold-600" /> : kind === "news" ? <Newspaper className="size-4 text-sky-600" /> : <Quote className="size-4 text-violet-600" />}>
@@ -337,7 +337,7 @@ function Widget({ title, icon, action, className, children }: { title: string; i
 }
 
 function Grid({ children }: { children: React.ReactNode }) {
-  return <div className="mb-6 grid gap-6 lg:grid-cols-2">{children}</div>;
+  return <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">{children}</div>;
 }
 
 function Empty({ text = "No Record Found!" }: { text?: string }) {

@@ -17,7 +17,7 @@ export default async function RequestsHome() {
   return (
     <>
       <PageHeader title="Requests" description="Choose what you need. Each request goes to its approvers and you're notified of the decision." actions={<LinkButton href="/approvals?tab=mine" variant="secondary">My requests</LinkButton>} />
-      <div className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="stagger grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[...fixed, ...REQUEST_TYPES.map((t) => ({ href: `/hr/requests/${t.slug}/new`, label: t.label, description: t.description }))].map((r) => (
           <Link key={r.href} href={r.href}>
             <Card className="h-full p-4 transition hover:-translate-y-0.5 hover:border-navy-900/20 hover:shadow-md">

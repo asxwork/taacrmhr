@@ -64,7 +64,7 @@ export default async function PolicyManagePage({ searchParams }: { searchParams:
         <Drawer title={editing ? `Edit ${editing.title}` : "New policy"} closeHref="/hr/policies/manage" width="max-w-2xl">
           <ActionForm action={savePolicy} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
-            <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_200px]">
               <Field label="Title"><input name="title" required defaultValue={editing?.title} className="input" placeholder="e.g. Code of Conduct" /></Field>
               <Field label="Category"><select name="category" defaultValue={editing?.category ?? "General"} className="input">{POLICY_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
             </div>
@@ -72,7 +72,7 @@ export default async function PolicyManagePage({ searchParams }: { searchParams:
               <textarea name="body" rows={12} defaultValue={editing?.body ?? ""} className="input font-mono text-xs" />
             </Field>
             <Field label={editing?.filePath ? "Replace PDF (optional)" : "PDF (optional)"}><input name="file" type="file" accept="application/pdf,image/jpeg,image/png" className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" /></Field>
-            <fieldset className="space-y-2">
+            <fieldset className="min-w-0 space-y-2">
               <legend className="mb-1 text-sm font-medium">Applies to</legend>
               <div className="flex flex-wrap gap-4 text-sm">
                 {(["all", "branches", "departments"] as const).map((a) => (

@@ -14,7 +14,7 @@ export default async function BanksPage() {
   return (
     <>
       <PageHeader title="Disbursement Banks" description="The company accounts salaries are paid from. The default account appears on payroll vouchers." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
         <Card className="overflow-x-auto">
           {banks.length === 0 ? <EmptyState title="No company bank accounts yet" /> : (
             <table className="w-full min-w-[560px] text-sm">

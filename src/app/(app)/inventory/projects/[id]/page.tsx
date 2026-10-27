@@ -96,7 +96,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       </div>
 
       {(project.images.length > 0 || canEdit) && (
-        <div className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="space-y-3">
             <PhotoManager
               photos={project.images}
@@ -115,7 +115,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       )}
 
       {sales.length > 0 && (
-        <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {sales.map(([label, n, sub]) => {
             const inner = (
               <>

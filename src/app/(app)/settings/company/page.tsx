@@ -22,7 +22,7 @@ export default async function CompanyPage() {
     <>
       <PageHeader title="Company & Branches" description="Company details and branches. CRM lists live in CRM Settings." />
 
-      <fieldset disabled={!editable} className="space-y-8">
+      <fieldset disabled={!editable} className="min-w-0 space-y-8">
         <Section title="Company">
           <Card className="p-5">
             <ActionForm action={saveCompany} className="flex flex-wrap items-end gap-3" successMessage="Saved.">

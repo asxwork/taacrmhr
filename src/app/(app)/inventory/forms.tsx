@@ -106,7 +106,7 @@ export function UnitForm({
       </div>
 
       {(unit ? unit.listingType !== "project" : types.some((t) => t.value !== "project")) && (
-        <fieldset className="space-y-3 rounded-lg border border-line p-3">
+        <fieldset className="min-w-0 space-y-3 rounded-lg border border-line p-3">
           <legend className="px-1 text-xs font-medium text-ink/80">Listing details (resale / rental)</legend>
           <Field label="Address">
             <input name="address" defaultValue={unit?.address ?? ""} className="input" />
@@ -205,7 +205,7 @@ export function ProjectForm({ project, cancelHref }: { project?: ProjectValues |
           </select>
         </Field>
       </div>
-      <fieldset className="space-y-3 rounded-lg border border-line p-3">
+      <fieldset className="min-w-0 space-y-3 rounded-lg border border-line p-3">
         <legend className="px-1 text-xs font-medium text-ink/80">Standard payment plan</legend>
         <div className="grid grid-cols-4 gap-3">
           <Field label="Down %">

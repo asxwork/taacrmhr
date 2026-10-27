@@ -29,7 +29,7 @@ export default async function MySurveys() {
                 <ActionForm action={submitSurvey} className="space-y-5">
                   <input type="hidden" name="surveyId" value={s.id} />
                   {parseQuestions(s.questions).map((q, i) => q.kind === "rating" ? (
-                    <fieldset key={i}>
+                    <fieldset key={i} className="min-w-0">
                       <legend className="mb-2 text-sm font-medium">{q.text}</legend>
                       <div className="flex gap-2">
                         {[1, 2, 3, 4, 5].map((n) => (

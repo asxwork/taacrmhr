@@ -9,7 +9,7 @@ export function EncashForm({ employeeId, balances, perDay }: { employeeId?: stri
   return (
     <ActionForm action={sendEncashment} className="space-y-3">
       {employeeId && <input type="hidden" name="employeeId" value={employeeId} />}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Leave type">
           <select name="typeId" required className="input">
             {balances.map((b) => <option key={b.typeId} value={b.typeId}>{b.name} ({b.available} day{b.available === 1 ? "" : "s"} left)</option>)}

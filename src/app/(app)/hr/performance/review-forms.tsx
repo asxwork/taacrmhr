@@ -14,9 +14,9 @@ export const ratingLabel = (n: number | null) => (n ? `${n}/5 · ${RATINGS.find(
 
 function RatingPicker({ name, value }: { name: string; value?: number | null }) {
   return (
-    <fieldset>
+    <fieldset className="min-w-0">
       <legend className="mb-1.5 text-sm font-medium">Rating</legend>
-      <div className="grid gap-1.5 sm:grid-cols-5">
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-5">
         {RATINGS.map((r) => (
           <label key={r.value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm has-[:checked]:border-navy-900 has-[:checked]:bg-navy-900/5 sm:flex-col sm:gap-0.5 sm:text-center">
             <input type="radio" name={name} value={r.value} defaultChecked={value === r.value} required className="accent-navy-900 sm:sr-only" />

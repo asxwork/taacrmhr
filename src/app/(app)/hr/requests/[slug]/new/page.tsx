@@ -43,7 +43,7 @@ export default async function NewRequestPage({ params }: { params: Promise<{ slu
                 </select>
               </Field>
             )}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {t.fields.map((f) => (
                 <Field key={f.name} label={`${f.label}${f.required ? "" : " (optional)"}`} hint={f.hint} className={f.kind === "textarea" ? "sm:col-span-2" : undefined}>
                   {f.kind === "textarea" ? <textarea name={f.name} rows={3} required={f.required} className="input" />

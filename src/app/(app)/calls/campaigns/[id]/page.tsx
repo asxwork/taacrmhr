@@ -52,7 +52,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
         { key: "d", label: "Done", tone: "green", value: count("done", "dnc"), sub: total ? `${Math.round((count("done", "dnc") / total) * 100)}%` : undefined, href: `/calls/campaigns/${id}?status=done` },
       ]} />
 
-      <div className="mb-6 grid gap-6 lg:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold">Add numbers</h2>
           <ActionForm action={uploadNumbers} className="space-y-3">

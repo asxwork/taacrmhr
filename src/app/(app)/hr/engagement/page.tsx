@@ -31,7 +31,7 @@ export default async function EngagementPage({ searchParams }: { searchParams: P
       <PageHeader title="Employee Engagement" description="Short pulse surveys to hear how people feel. Everyone with a login is notified; they answer in My Space → Surveys."
         actions={canEdit && <LinkButton href="/hr/engagement?new=1" scroll={false}><Plus className="size-4" /> New survey</LinkButton>} />
       {surveys.length === 0 ? <Card><EmptyState title="No surveys yet" description="Start with an eNPS-style pulse: how happy are you at work, would you recommend us, what should we change?" /></Card> : (
-        <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
           <Card className="h-fit overflow-hidden">
             <ul className="divide-y divide-line">
               {surveys.map((s) => (

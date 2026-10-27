@@ -14,7 +14,7 @@ export async function PayItemManager({ kind, month, canEdit, labelHint }: { kind
     canEdit ? db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }) : [],
   ]);
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
       <Card className="overflow-x-auto">
         {items.length === 0 ? <EmptyState title={`Nothing for ${format(monthDate(month), "MMMM yyyy")} yet`} /> : (
           <table className="w-full min-w-[520px] text-sm">

@@ -202,7 +202,7 @@ export function DocumentForm({ employeeId, note }: { employeeId: string; note?: 
   return (
     <ActionForm action={uploadDocument} className="space-y-3">
       <input type="hidden" name="employeeId" value={employeeId} />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label="Type">
           <select name="type" className="input">{DOC_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
         </Field>
@@ -229,7 +229,7 @@ function OrgSelect({ name, label, options, value }: { name: string; label: strin
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="space-y-3">
+    <fieldset className="min-w-0 space-y-3">
       <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">{title}</legend>
       {children}
     </fieldset>

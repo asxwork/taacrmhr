@@ -67,7 +67,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ id: s
       {canEdit && !locked && (
         <Card className="mb-6 p-5">
           <h2 className="mb-3 text-sm font-medium">{plan ? "Regenerate schedule" : "Create schedule"}</h2>
-          <ActionForm action={savePaymentPlan} className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <ActionForm action={savePaymentPlan} className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <input type="hidden" name="dealId" value={id} />
             <Field label="Total (PKR)"><input name="total" defaultValue={d.total} required className="input" /></Field>
             <Field label="Down payment %"><input name="downPct" type="number" step="0.1" defaultValue={d.downPct} required className="input" /></Field>

@@ -25,7 +25,7 @@ export default async function MyExpensesPage() {
   return (
     <>
       <PageHeader title="My Expenses & Loans" description="Approved claims are paid with your next salary; loan installments are deducted from it." />
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="mb-4 font-medium">Claim an expense</h2>
           <ActionForm action={submitExpense} className="space-y-3">
@@ -54,7 +54,7 @@ export default async function MyExpensesPage() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="overflow-hidden">
           <h2 className="border-b border-line px-5 py-3 font-medium">My claims</h2>
           {expenses.length === 0 ? <EmptyState title="No claims yet" /> : (
