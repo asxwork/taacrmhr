@@ -160,16 +160,16 @@ export const APPS: AppDef[] = [
         label: "Attendance", icon: "clock",
         items: [
           { href: "/hr/attendance", label: "Daily attendance", icon: "clock", module: "hr.attendance" },
-          { href: "/hr/attendance/schedule", label: "Scheduling", icon: "calendar", module: "hr.attendance", phase: SOON },
+          { href: "/hr/attendance/schedule", label: "Scheduling", icon: "calendar", module: "hr.attendance" },
           { href: "/hr/attendance?view=month", label: "Time Sheet", icon: "sheet", module: "hr.attendance" },
           { href: "/hr/attendance/logs", label: "Attendance Logs", icon: "history", module: "hr.attendance" },
-          { href: "/hr/attendance/device-changes", label: "Device Change Approvals", icon: "filecheck", module: "hr.attendance", phase: SOON },
+          { href: "/hr/attendance/device-changes", label: "Device Change Approvals", icon: "filecheck", module: "hr.attendance" },
           { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave" },
           sub("Reports", [
-            { href: "/hr/attendance/reports/time", label: "Time", icon: "clock", module: "hr.attendance", phase: SOON },
-            { href: "/hr/attendance/reports/scheduling", label: "Scheduling", icon: "calendar", module: "hr.attendance", phase: SOON },
+            { href: "/hr/attendance/reports/time", label: "Time", icon: "clock", module: "hr.attendance" },
+            { href: "/hr/attendance/reports/scheduling", label: "Scheduling", icon: "calendar", module: "hr.attendance" },
             { href: "/hr/leave?tab=balances", label: "Leave", icon: "plane", module: "hr.leave" },
-            { href: "/hr/attendance/reports/travel", label: "Travel", icon: "plane", module: "hr.attendance", phase: SOON },
+            { href: "/hr/attendance/reports/travel", label: "Travel", icon: "plane", module: "hr.attendance" },
           ], "pie"),
           sub("Settings", [
             { href: "/settings/hr#shifts", label: "General", icon: "sliders", module: "hr.employees" },

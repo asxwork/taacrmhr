@@ -74,15 +74,28 @@ export function evaluateDay(input: {
 export async function loadAttendance(employeeIds: string[], from: Date, to: Date) {
   const start = startOfDay(from);
   const endExcl = addDays(startOfDay(to), 1);
-  const [emps, punches, leaves, holidays, overrides, defShift] = await Promise.all([
+  const [emps, punches, leaves, holidays, overrides, defShift, roster, shifts] = await Promise.all([
     db.employee.findMany({ where: { id: { in: employeeIds } }, select: { id: true, branchId: true, joiningDate: true, leftAt: true, shift: true, attendanceExempt: true } }),
     db.attendancePunch.findMany({ where: { employeeId: { in: employeeIds }, at: { gte: start, lt: endExcl } }, select: { employeeId: true, at: true } }),
     db.leaveRequest.findMany({ where: { employeeId: { in: employeeIds }, status: "approved", from: { lt: endExcl }, to: { gte: start } }, include: { type: { select: { name: true } } } }),
     db.holiday.findMany({ where: { date: { gte: start, lt: endExcl } } }),
     db.attendanceDay.findMany({ where: { employeeId: { in: employeeIds }, date: { gte: start, lt: endExcl } } }),
     defaultShift(),
+    db.rosterDay.findMany({ where: { employeeId: { in: employeeIds }, date: { gte: start, lt: endExcl } } }),
+    db.shift.findMany(),
   ]);
   const days = eachDayOfInterval({ start, end: startOfDay(to) });
+  /** The shift for one day: the roster (Scheduling) wins over the employee's usual shift. */
+  const shiftOn = (employeeId: string, usual: ShiftLike | null, d: Date): ShiftLike | null => {
+    const r = roster.find((x) => x.employeeId === employeeId && isSameDay(x.date, d));
+    if (!r) return usual;
+    const base = usual ?? FALLBACK_SHIFT;
+    if (r.off) return { ...base, workDays: "" };
+    const s = r.shiftId ? shifts.find((x) => x.id === r.shiftId) : null;
+    if (s) return { ...s, workDays: "1,2,3,4,5,6,7" };
+    if (r.start && r.end) return { ...base, start: r.start, end: r.end, workDays: "1,2,3,4,5,6,7" };
+    return usual;
+  };
   const now = new Date();
   const out = new Map<string, DayResult[]>();
   for (const e of emps) {
@@ -94,7 +107,7 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
         const holiday = holidays.find((h) => isSameDay(h.date, d) && (!h.branchId || h.branchId === e.branchId));
         const override = overrides.find((o) => o.employeeId === e.id && isSameDay(o.date, d));
         return evaluateDay({
-          date: d, shift: e.shift ?? defShift, now, punches: mine.filter((p) => isSameDay(p.at, d)).map((p) => p.at),
+          date: d, shift: shiftOn(e.id, e.shift ?? defShift, d), now, punches: mine.filter((p) => isSameDay(p.at, d)).map((p) => p.at),
           holiday: holiday?.name ?? null, leave: leave ? { halfDay: leave.halfDay, type: leave.type.name } : null,
           override: override ? { status: override.status, note: override.note } : null,
         });

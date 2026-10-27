@@ -5,7 +5,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { nextNumber } from "./sequence";
 import { demoExtras } from "./demo-extras";
-import { demoCompensation, demoPayrollExtras, demoPolicies, demoPosts, demoProfiles, demoV2 } from "./demo-v2";
+import { demoCompensation, demoPayrollExtras, demoPolicies, demoPosts, demoProfiles, demoScheduling, demoV2 } from "./demo-v2";
 import { deleteUpload } from "./files";
 
 export type DemoOptions = {
@@ -68,7 +68,8 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
   await demoCompensation(db, { hr, manager }, empRows);
   await demoPolicies(db, { hr }, empRows);
   await demoPayrollExtras(db, { hr }, empRows);
-  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true, v3: true, v4: true, v5: true, v6: true, v7: true });
+  await demoScheduling(db, { hr }, empRows);
+  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true, v3: true, v4: true, v5: true, v6: true, v7: true, v8: true });
   await db.setting.upsert({ where: { key: MARKER }, update: { value }, create: { key: MARKER, value } });
   return { users: 6, employees: employees.length, projects: projectIds.length };
 }
@@ -81,8 +82,8 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
 export async function upgradeDemo(db: PrismaClient) {
   const row = await db.setting.findUnique({ where: { key: MARKER } });
   if (!row) return;
-  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean; v3?: boolean; v4?: boolean; v5?: boolean; v6?: boolean; v7?: boolean };
-  if (marker.openingIds && marker.v2 && marker.v3 && marker.v4 && marker.v5 && marker.v6 && marker.v7) return;
+  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean; v3?: boolean; v4?: boolean; v5?: boolean; v6?: boolean; v7?: boolean; v8?: boolean };
+  if (marker.openingIds && marker.v2 && marker.v3 && marker.v4 && marker.v5 && marker.v6 && marker.v7 && marker.v8) return;
   const users = await db.user.findMany({ where: { email: { endsWith: `@${marker.domain}` } } });
   const by = (local: string) => users.find((x) => x.email === `${local}@${marker.domain}`);
   const [head, hr, manager, agent1, agent2, staff] = ["admin", "hr", "manager", "agent1", "agent2", "staff"].map(by);
@@ -135,6 +136,12 @@ export async function upgradeDemo(db: PrismaClient) {
     marker = { ...marker, v7: true };
     await save();
     console.log("Sample data upgraded with payroll extras.");
+  }
+  if (!marker.v8) {
+    await demoScheduling(db, { hr }, employees);
+    marker = { ...marker, v8: true };
+    await save();
+    console.log("Sample data upgraded with scheduling and check-in devices.");
   }
 }
 

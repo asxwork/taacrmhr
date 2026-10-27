@@ -156,6 +156,11 @@ async function onApproved(req: Req, actorId: string) {
       if (encashmentId) await (await import("./compensation")).approveEncashment(encashmentId, actorId);
       break;
     }
+    case "device_change": {
+      const { deviceId } = parse<{ deviceId: string }>(req.payload);
+      if (deviceId) await (await import("./devices")).approveDevice(deviceId);
+      break;
+    }
     default:
       // WFH, travel, promotion, resignation… (lib/request-types.ts)
       await (await import("./requests")).applyTypedRequest(req, actorId);
@@ -179,6 +184,10 @@ async function onRejected(req: Req, status: "rejected" | "cancelled") {
   if (req.type === "leave_encashment") {
     const { encashmentId } = parse<{ encashmentId: string }>(req.payload);
     if (encashmentId) await (await import("./compensation")).closeEncashment(encashmentId, status);
+  }
+  if (req.type === "device_change") {
+    const { deviceId } = parse<{ deviceId: string }>(req.payload);
+    if (deviceId) await (await import("./devices")).rejectDevice(deviceId);
   }
   if (req.type === "document") {
     const { documentId } = parse<{ documentId: string }>(req.payload);

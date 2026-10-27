@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { distanceMeters, geofenceMode, logAttendance } from "@/lib/attendance";
 import { submitRequest } from "@/lib/approvals";
+import { checkDevice } from "@/lib/devices";
 import { str, type FormState } from "@/lib/utils";
 
 /** Web check-in/out. Location is checked against the employee's branch geo-fence. */
@@ -13,6 +14,9 @@ export async function punchNow(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
   const emp = await db.employee.findUnique({ where: { userId: user.id }, include: { branch: true } });
   if (!emp || emp.status === "left") return { error: "Your login isn't linked to an active employee record." };
+
+  const blocked = await checkDevice(emp, user.id);
+  if (blocked) return { error: blocked };
 
   const now = new Date();
   const last = await db.attendancePunch.findFirst({ where: { employeeId: emp.id, at: { lte: now } }, orderBy: { at: "desc" } });

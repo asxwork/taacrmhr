@@ -698,6 +698,8 @@ model Employee {
   policyAcks        PolicyAck[]
   letters           EmployeeLetter[]
   payItems          PayItem[]
+  rosterDays        RosterDay[]
+  devices           CheckinDevice[]
   settlements       FinalSettlement[]
 
   @@index([branchId])
@@ -936,6 +938,41 @@ model Shift {
   workDays   String     @default("1,2,3,4,5,6")
   isDefault  Boolean    @default(false)
   employees  Employee[]
+}
+
+/// Scheduling: one employee's plan for one day, overriding their usual shift. off = day off;
+/// shiftId = another shift; start/end = custom hours. Set by HR in the roster or by an approved shift adjustment.
+model RosterDay {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date        DateTime
+  off         Boolean  @default(false)
+  shiftId     String?
+  start       String?
+  end         String?
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([date])
+}
+
+/// Web check-in device lock: the browser an employee checks in from. status: approved | pending | rejected.
+model CheckinDevice {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  deviceKey  String
+  label      String
+  status     String    @default("pending")
+  approvalId String?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([employeeId])
+  @@index([deviceKey])
 }
 
 /// branchId null = applies to every branch. date = calendar day (UTC midnight of the local date).

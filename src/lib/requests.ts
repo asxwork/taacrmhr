@@ -147,6 +147,12 @@ export async function applyTypedRequest(req: { id: string; type: string; employe
       await event("note", `Overtime: ${p.hours}h on ${format(dayOf(p.date)!, "d MMM yyyy")}`, p.reason, dayOf(p.date)!);
       break;
     case "shift_adjustment":
+      // The adjusted day goes on the roster, so attendance judges it against the new timing.
+      await db.rosterDay.upsert({
+        where: { employeeId_date: { employeeId: emp.id, date: dayOf(p.date)! } },
+        update: { off: false, shiftId: p.shiftId || null, start: p.shiftId ? null : p.start || null, end: p.shiftId ? null : p.end || null, note: "Approved shift adjustment", createdById: actorId },
+        create: { employeeId: emp.id, date: dayOf(p.date)!, shiftId: p.shiftId || null, start: p.shiftId ? null : p.start || null, end: p.shiftId ? null : p.end || null, note: "Approved shift adjustment", createdById: actorId },
+      });
       await event("note", `Shift adjusted on ${format(dayOf(p.date)!, "d MMM yyyy")}: ${p.names?.shiftId ?? `${p.start}–${p.end}`}`, p.reason, dayOf(p.date)!);
       break;
     case "promotion": {

@@ -308,3 +308,34 @@ export async function demoPayrollExtras(db: PrismaClient, u: { hr: { id: string 
   ].filter(Boolean) as { employeeId: string; month: string; kind: string; label: string; amount: number; createdById: string; quantity?: number; rate?: number }[];
   await db.payItem.createMany({ data: rows });
 }
+
+/** A few roster changes this week, registered check-in devices and one device change waiting for approval. */
+export async function demoScheduling(db: PrismaClient, u: { hr: { id: string } }, employees: { id: string; fullName: string; userId: string | null }[]) {
+  if (await db.rosterDay.count({ where: { employeeId: { in: employees.map((e) => e.id) } } })) return;
+  const now = new Date();
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+  const d = (n: number) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + n);
+  const evening = await db.shift.findFirst({ where: { NOT: { isDefault: true } }, orderBy: { name: "asc" } });
+  const e = (i: number) => employees[i];
+  const rows = [
+    e(3) && { employeeId: e(3)!.id, date: d(5), off: true, note: "Scheduled by HR", createdById: u.hr.id },
+    e(4) && evening && { employeeId: e(4)!.id, date: d(2), shiftId: evening.id, note: "Scheduled by HR", createdById: u.hr.id },
+    e(4) && evening && { employeeId: e(4)!.id, date: d(3), shiftId: evening.id, note: "Scheduled by HR", createdById: u.hr.id },
+    e(2) && { employeeId: e(2)!.id, date: d(4), start: "11:00", end: "20:00", note: "Approved shift adjustment", createdById: u.hr.id },
+  ].filter(Boolean) as { employeeId: string; date: Date; note: string; createdById: string; off?: boolean; shiftId?: string; start?: string; end?: string }[];
+  await db.rosterDay.createMany({ data: rows });
+  for (const [i, x] of employees.slice(0, 5).entries()) {
+    await db.checkinDevice.create({ data: { employeeId: x.id, deviceKey: `demo-${x.id}`, label: i % 2 ? "Chrome on Android" : "Safari on iPhone/iPad", status: "approved", lastUsedAt: new Date(now.getTime() - (i + 1) * 3_600_000) } });
+  }
+  const who = e(4);
+  if (who) {
+    const dev = await db.checkinDevice.create({ data: { employeeId: who.id, deviceKey: `demo-new-${who.id}`, label: "Chrome on Windows" } });
+    const req = await db.approvalRequest.create({
+      data: {
+        type: "device_change", employeeId: who.id, requesterId: who.userId ?? u.hr.id, title: `New check-in device · ${who.fullName}: Chrome on Windows`, summary: "Wants to check in from a new device",
+        payload: JSON.stringify({ deviceId: dev.id }), actions: { create: { step: 0, userId: who.userId ?? u.hr.id, decision: "submitted" } },
+      },
+    });
+    await db.checkinDevice.update({ where: { id: dev.id }, data: { approvalId: req.id } });
+  }
+}
