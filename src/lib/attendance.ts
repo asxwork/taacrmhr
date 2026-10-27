@@ -5,6 +5,7 @@ import { scopeWhere } from "./permissions";
 import type { SessionUser } from "./auth";
 import type { Action } from "./rbac";
 import type { DayStatus } from "./attendance-shared";
+import { attendancePolicy } from "./attendance-policy";
 
 export * from "./attendance-shared";
 
@@ -34,6 +35,8 @@ export type DayResult = {
 export function evaluateDay(input: {
   date: Date; shift: ShiftLike | null; punches: Date[]; holiday?: string | null; leave?: { halfDay: boolean; type: string } | null;
   override?: { status: string; note: string | null } | null; now?: Date;
+  /** Policy Planner rules (lib/attendance-policy.ts); defaults when left out. */
+  policy?: { absentUnderMin: number; overtimeAfterMin: number };
 }): DayResult {
   const shift = input.shift ?? FALLBACK_SHIFT;
   const now = input.now ?? new Date();
@@ -65,7 +68,8 @@ export function evaluateDay(input: {
     return { ...base, lateMin, status: isSameDay(day, now) ? (lateMin ? "late" : "present") : "missing" };
   }
   const earlyMin = checkOut < at(day, toMin(shift.end) - shift.graceMin) ? differenceInMinutes(end, checkOut) : 0;
-  const overtimeMin = differenceInMinutes(checkOut, end) > OVERTIME_AFTER_MIN ? differenceInMinutes(checkOut, end) : 0;
+  const overtimeMin = differenceInMinutes(checkOut, end) > (input.policy?.overtimeAfterMin ?? OVERTIME_AFTER_MIN) ? differenceInMinutes(checkOut, end) : 0;
+  if (input.policy?.absentUnderMin && workedMin < input.policy.absentUnderMin && !input.leave) return { ...base, lateMin, earlyMin, status: "absent", note: base.note ?? "Too short to count (attendance policy)" };
   const half = workedMin < shift.halfDayMin || input.leave?.halfDay;
   return { ...base, lateMin, earlyMin, overtimeMin, status: half ? "half" : lateMin ? "late" : "present" };
 }
@@ -74,7 +78,7 @@ export function evaluateDay(input: {
 export async function loadAttendance(employeeIds: string[], from: Date, to: Date) {
   const start = startOfDay(from);
   const endExcl = addDays(startOfDay(to), 1);
-  const [emps, punches, leaves, holidays, overrides, defShift, roster, shifts] = await Promise.all([
+  const [emps, punches, leaves, holidays, overrides, defShift, roster, shifts, policy] = await Promise.all([
     db.employee.findMany({ where: { id: { in: employeeIds } }, select: { id: true, branchId: true, joiningDate: true, leftAt: true, shift: true, attendanceExempt: true } }),
     db.attendancePunch.findMany({ where: { employeeId: { in: employeeIds }, at: { gte: start, lt: endExcl } }, select: { employeeId: true, at: true } }),
     db.leaveRequest.findMany({ where: { employeeId: { in: employeeIds }, status: "approved", from: { lt: endExcl }, to: { gte: start } }, include: { type: { select: { name: true } } } }),
@@ -83,6 +87,7 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
     defaultShift(),
     db.rosterDay.findMany({ where: { employeeId: { in: employeeIds }, date: { gte: start, lt: endExcl } } }),
     db.shift.findMany(),
+    attendancePolicy(),
   ]);
   const days = eachDayOfInterval({ start, end: startOfDay(to) });
   /** The shift for one day: the roster (Scheduling) wins over the employee's usual shift. */
@@ -109,9 +114,11 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
         return evaluateDay({
           date: d, shift: shiftOn(e.id, e.shift ?? defShift, d), now, punches: mine.filter((p) => isSameDay(p.at, d)).map((p) => p.at),
           holiday: holiday?.name ?? null, leave: leave ? { halfDay: leave.halfDay, type: leave.type.name } : null,
-          override: override ? { status: override.status, note: override.note } : null,
+          override: override ? { status: override.status, note: override.note } : null, policy,
         });
       })
+      // Policy Planner: a forgotten check-out can count as a half day or an absence instead of present.
+      .map((r) => (r.status === "missing" && policy.missingAs !== "present" ? { ...r, status: policy.missingAs, note: r.note ?? "No check-out (attendance policy)" } : r))
       // Attendance-exempt staff (Employment Info) are never absent, late or short on a work day.
       .map((r) => (!e.attendanceExempt ? r : ["absent", "late", "half", "missing"].includes(r.status)
         ? { ...r, status: "present" as const, lateMin: 0, earlyMin: 0, note: r.note ?? "Attendance exempt", exempt: true } : { ...r, exempt: true })));
