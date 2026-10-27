@@ -33,26 +33,64 @@ export type AppDef = {
 export const APPS: AppDef[] = [
   {
     key: "crm", name: "CRM", description: "Leads, deals, contacts, inventory", icon: "target", tile: "from-sky-500 to-blue-700",
-    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/inventory", "/reports/crm", "/reports/agents"], layout: "list",
+    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/inventory", "/reports/crm", "/reports/agents", "/settings/crm"], layout: "modules",
     groups: [
-      { items: [{ href: "/dashboard", label: "Dashboard", icon: "home" }] },
+      { label: "Dashboard", icon: "home", items: [{ href: "/dashboard", label: "Dashboard", icon: "home" }] },
       {
-        label: "Sales",
+        label: "Leads", icon: "target",
         items: [
-          { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads" },
-          { href: "/crm/follow-ups", label: "My follow-ups", icon: "phonecall", module: "crm.leads" },
-          { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals" },
+          { href: "/crm/leads", label: "All leads", icon: "target", module: "crm.leads" },
+          { href: "/crm/leads?owner=me", label: "My leads", icon: "user", module: "crm.leads" },
+          { href: "/crm/leads?view=board", label: "Kanban board", icon: "layout", module: "crm.leads" },
+          { href: "/crm/leads?activity=overdue", label: "Overdue follow-ups", icon: "alarm", module: "crm.leads" },
+          { href: "/crm/leads?created=today", label: "New today", icon: "sparkles", module: "crm.leads" },
+          { href: "/crm/leads?group=converted", label: "Converted", icon: "check", module: "crm.leads" },
+          { href: "/crm/leads?group=junk", label: "Closed / junk", icon: "archive", module: "crm.leads" },
+          { href: "/crm/leads/new", label: "Add lead", icon: "plus", module: "crm.leads" },
+        ],
+      },
+      {
+        label: "Deals", icon: "handshake",
+        items: [
+          { href: "/crm/deals", label: "Pipeline", icon: "handshake", module: "crm.deals" },
+          { href: "/crm/deals?view=list", label: "Deal list", icon: "list", module: "crm.deals" },
+        ],
+      },
+      {
+        label: "Contacts", icon: "contact",
+        items: [
           { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts" },
+          { href: "/crm/contacts?tab=companies", label: "Companies", icon: "landmark", module: "crm.contacts" },
+        ],
+      },
+      {
+        label: "Activities", icon: "calendar",
+        items: [
+          { href: "/crm/follow-ups", label: "My follow-ups", icon: "phonecall", module: "crm.leads" },
           { href: "/crm/tasks", label: "Tasks & Calendar", icon: "calendar", module: "crm.activities" },
         ],
       },
-      { label: "Property", items: [{ href: "/inventory", label: "Inventory", icon: "building", module: "inventory.units" }] },
       {
-        label: "Insights",
+        label: "Property", icon: "building",
+        items: [
+          { href: "/inventory", label: "Units", icon: "building", module: "inventory.units" },
+          { href: "/inventory?status=available", label: "Available units", icon: "check", module: "inventory.units" },
+          { href: "/inventory?tab=projects", label: "Projects", icon: "landmark", module: "inventory.projects" },
+        ],
+      },
+      {
+        label: "Insights", icon: "chart",
         items: [
           { href: "/reports/crm", label: "CRM Reports", icon: "chart", module: "reports.crm" },
           { href: "/reports/agents", label: "Agent performance", icon: "gauge", superAdmin: true },
           { href: "/crm/automations", label: "Automations", icon: "workflow", superAdmin: true },
+        ],
+      },
+      {
+        label: "Settings", icon: "settings",
+        items: [
+          { href: "/settings/crm", label: "CRM Settings", icon: "sliders", module: "settings.company" },
+          { href: "/settings/integrations", label: "Lead integrations", icon: "plug", module: "settings.company" },
         ],
       },
     ],
