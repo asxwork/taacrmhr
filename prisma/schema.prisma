@@ -1748,3 +1748,21 @@ model CallRecording {
   @@index([agentId, startedAt])
   @@index([pbxCallId])
 }
+
+/**
+ * Attendance machines (ZKTeco and compatible) that push punches live to /iclock/cdata ("Cloud Server" / ADMS).
+ * A machine that connects for the first time waits as pending until HR approves its serial number.
+ */
+model AttendanceMachine {
+  id          String    @id @default(cuid())
+  serial      String    @unique
+  name        String?
+  status      String    @default("pending") // pending | approved | blocked
+  ip          String?
+  info        String? // @text
+  unknownIds  String? // @text
+  punches     Int       @default(0)
+  lastSeenAt  DateTime?
+  lastPunchAt DateTime?
+  createdAt   DateTime  @default(now())
+}

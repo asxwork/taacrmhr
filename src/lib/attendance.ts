@@ -248,8 +248,8 @@ export async function logAttendance(e: {
 export const punchLines = (punches: { at: Date; source: string }[]) =>
   punches.length ? punches.map((p) => `${format(p.at, "h:mm a")} (${p.source})`).join(", ") : "no punches";
 
-/** Saves device punches for mapped employees, skipping ones already stored. */
-export async function importDevicePunches(rows: DevicePunch[], byUserId: string) {
+/** Saves device punches for mapped employees, skipping ones already stored. Live machine pushes pass log: false. */
+export async function importDevicePunches(rows: DevicePunch[], byUserId: string | null, opts: { log?: boolean } = {}) {
   const employees = await db.employee.findMany({ where: { deviceUserId: { in: [...new Set(rows.map((r) => r.deviceUserId))] } }, select: { id: true, deviceUserId: true } });
   const map = new Map(employees.map((e) => [e.deviceUserId!, e.id]));
   const unknown = new Set(rows.filter((r) => !map.has(r.deviceUserId)).map((r) => r.deviceUserId));
@@ -270,7 +270,7 @@ export async function importDevicePunches(rows: DevicePunch[], byUserId: string)
     return true;
   });
   if (fresh.length) await db.attendancePunch.createMany({ data: fresh.map((f) => ({ ...f, source: "device", createdById: byUserId })) });
-  if (fresh.length) {
+  if (fresh.length && opts.log !== false) {
     const names = new Map((await db.employee.findMany({ where: { id: { in: [...new Set(fresh.map((f) => f.employeeId))] } }, select: { id: true, fullName: true } })).map((e) => [e.id, e.fullName]));
     const per = new Map<string, number>();
     for (const f of fresh) per.set(f.employeeId, (per.get(f.employeeId) ?? 0) + 1);

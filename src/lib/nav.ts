@@ -194,6 +194,7 @@ export const APPS: AppDef[] = [
           { href: "/hr/attendance?view=month", label: "Time Sheet", icon: "sheet", module: "hr.attendance" },
           { href: "/hr/attendance/logs", label: "Attendance Logs", icon: "history", module: "hr.attendance" },
           { href: "/hr/attendance/device-changes", label: "Device Change Approvals", icon: "filecheck", module: "hr.attendance" },
+          { href: "/hr/attendance/machines", label: "Attendance Machines", icon: "fingerprint", module: "hr.attendance" },
           { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave" },
           sub("Reports", [
             { href: "/hr/attendance/reports/time", label: "Time", icon: "clock", module: "hr.attendance" },
@@ -328,7 +329,7 @@ export const APPS: AppDef[] = [
           { href: "/settings/hr", label: "General", icon: "sliders", module: "hr.employees" },
           { href: "/settings/roles", label: "Access Controls", icon: "shield", module: "settings.roles" },
           { href: "/hr/settings/email-verification", label: "Email Verification", icon: "mail", module: "settings.company" },
-          { href: "/hr/attendance?import=1", label: "Machine", icon: "fingerprint", module: "hr.attendance" },
+          { href: "/hr/attendance/machines", label: "Machine", icon: "fingerprint", module: "hr.attendance" },
           { href: "/settings/integrations#email", label: "Mail Logs", icon: "mail", module: "settings.company" },
           { href: "/settings/integrations", label: "Integrations", icon: "plug", module: "settings.company" },
           sub("Customization", [
