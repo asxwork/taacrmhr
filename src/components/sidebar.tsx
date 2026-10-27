@@ -209,7 +209,7 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
     const AppIcon = ICONS[app.icon] ?? House;
     if (compact) {
       return (
-        <Link href="/home" title={`${app.name} · all apps`} aria-label="All apps" className="mx-auto mb-1 flex size-10 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white">
+        <Link href="/home?all=1" title={`${app.name} · all apps`} aria-label="All apps" className="mx-auto mb-1 flex size-10 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white">
           <LayoutGrid className="size-[18px]" />
         </Link>
       );
@@ -234,7 +234,7 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
                 </Link>
               );
             })}
-            <Link href="/home" role="menuitem" className="mt-1 flex items-center gap-2.5 rounded-lg border-t border-white/10 px-2.5 pb-1.5 pt-2.5 text-[13px] text-white/60 hover:text-white">
+            <Link href="/home?all=1" role="menuitem" className="mt-1 flex items-center gap-2.5 rounded-lg border-t border-white/10 px-2.5 pb-1.5 pt-2.5 text-[13px] text-white/60 hover:text-white">
               <LayoutGrid className="size-4" /> All apps
             </Link>
           </div>
@@ -332,7 +332,7 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
         </button>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-9 w-auto" />
-        <Link href="/home" className="ml-auto rounded-lg p-1.5 text-white/80" aria-label="All apps"><LayoutGrid className="size-5" /></Link>
+        <Link href="/home?all=1" className="ml-auto rounded-lg p-1.5 text-white/80" aria-label="All apps"><LayoutGrid className="size-5" /></Link>
         <button onClick={openSearch} className="rounded-lg p-1.5 text-white/80" aria-label="Search">
           <Search className="size-5" />
         </button>

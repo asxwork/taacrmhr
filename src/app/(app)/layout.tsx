@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
-import { appsFor } from "@/lib/apps";
+import { appsForUser } from "@/lib/apps";
 import { appForPath, sidebarMode, type AppKey } from "@/lib/nav";
 import { Sidebar } from "@/components/sidebar";
 import { PageTransition } from "@/components/page-transition";
@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const collapsed = jar.get("sidebar")?.value === "collapsed";
 
   // Only the apps and pages this user's roles allow — this is what makes Admin and Agent see different apps.
-  const apps = appsFor(user);
+  const apps = await appsForUser(user);
   const last = apps.find((a) => a.key === jar.get("app")?.value);
   const current = appForPath(apps, h.get("x-pathname") ?? "") ?? last ?? apps[0]!;
   const pageItems = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]))).filter((item) => !item.phase);

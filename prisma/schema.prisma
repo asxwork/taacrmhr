@@ -875,6 +875,27 @@ model EngagementResponse {
   @@unique([surveyId, respondentKey])
 }
 
+/// Settings → Layouts: how an app looks for an audience. audience: superadmin | role (roleId) | everyone.
+/// appKey: an app (crm, hr, me, boss, settings, calls) or "home" for the app chooser / start page.
+/// hidden: comma-separated menu hrefs to hide; order: comma-separated module (group) labels in display order.
+model LayoutProfile {
+  id        String   @id @default(cuid())
+  name      String
+  audience  String   @default("everyone")
+  roleId    String?
+  appKey    String
+  style     String?
+  hidden    String? // @text
+  order     String? // @text
+  landing   String?
+  apps      String?
+  sortOrder Int      @default(0)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([appKey])
+}
+
 /// HR dashboard posts. kind: accolade | news | wisdom. employeeId: who an accolade is for.
 model HrPost {
   id          String   @id @default(cuid())

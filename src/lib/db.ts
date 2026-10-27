@@ -8,6 +8,7 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 const CACHE_PREFIX: Record<string, string> = {
   User: "session:", UserRole: "session:", Role: "session:", Permission: "session:", Session: "session:", Branch: "session:",
   Setting: "setting:",
+  LayoutProfile: "layout:",
   Pipeline: "pipelines", Stage: "pipelines",
   LeadStatus: "leadStatus:",
 };

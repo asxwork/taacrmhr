@@ -313,10 +313,11 @@ export const APPS: AppDef[] = [
   },
   {
     key: "me", name: "My Space", description: "Your profile, attendance, leave and payslips", icon: "user", tile: "from-emerald-500 to-teal-700",
-    home: "/me", prefixes: ["/me"], layout: "list",
+    home: "/me/home", prefixes: ["/me"], layout: "list",
     groups: [
       {
         items: [
+          { href: "/me/home", label: "Home", icon: "home" },
           { href: "/me", label: "My Profile", icon: "user" },
           { href: "/me/attendance", label: "My Attendance", icon: "fingerprint" },
           { href: "/me/leave", label: "My Leave", icon: "palm" },
@@ -350,6 +351,7 @@ export const APPS: AppDef[] = [
           { href: "/settings/hr", label: "HR Settings", icon: "clipboard", module: "hr.employees" },
           { href: "/settings/integrations", label: "Integrations", icon: "plug", module: "settings.company" },
           { href: "/settings/audit", label: "Audit Log", icon: "history", module: "settings.audit" },
+          { href: "/settings/layouts", label: "Layouts", icon: "layout", superAdmin: true },
         ],
       },
     ],

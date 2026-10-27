@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bell, LogOut } from "lucide-react";
 import { requireUser } from "@/lib/auth";
-import { appsFor } from "@/lib/apps";
+import { appsForUser } from "@/lib/apps";
+import { layoutsFor } from "@/lib/layouts";
 import { unreadCount } from "@/lib/notify";
 import { logout } from "@/app/login/actions";
 import { NAV_ICONS } from "@/components/nav-icons";
@@ -10,10 +11,13 @@ import { NAV_ICONS } from "@/components/nav-icons";
 export const metadata = { title: "Apps" };
 
 /** Odoo-style home: after signing in people choose an app (CRM, HR, My Space…). Only their apps are shown. */
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
   const user = await requireUser();
-  const apps = appsFor(user);
+  const [apps, layouts, sp] = await Promise.all([appsForUser(user), layoutsFor(user), searchParams]);
   if (apps.length === 1) redirect(apps[0]!.start);
+  // Settings → Layouts → "All apps": a start page sends people straight to work after sign-in ("All apps" still opens this).
+  const landing = layouts.get("home")?.landing;
+  if (landing && !sp.all) redirect(landing);
   const unread = await unreadCount(user.id);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
