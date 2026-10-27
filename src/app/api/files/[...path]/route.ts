@@ -13,6 +13,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ path: stri
   const parts = (await params).path;
   if (parts.some((p) => p === ".." || p === "." || p.includes("\\"))) return new Response("Not found", { status: 404 });
   const rel = parts.join("/");
+  // Call recordings are only served by /api/calls/recordings (Super Admin, audited).
+  if (rel.startsWith("calls/")) return new Response("Not found", { status: 404 });
   // HR documents (CNIC scans, contracts…) are private: only the employee and people who can see their record.
   if (rel.startsWith("hr/")) {
     const doc = await db.employeeDocument.findUnique({ where: { path: rel }, include: { employee: { select: { userId: true, branchId: true } } } });

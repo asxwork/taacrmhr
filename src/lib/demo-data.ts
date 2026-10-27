@@ -5,7 +5,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { nextNumber } from "./sequence";
 import { demoExtras } from "./demo-extras";
-import { demoCalls, demoCompensation, demoPayrollExtras, demoPolicies, demoPosts, demoProfiles, demoProbation, demoScheduling, demoSettingsExtras, demoV2 } from "./demo-v2";
+import { demoCalls, demoSoftphone, demoCompensation, demoPayrollExtras, demoPolicies, demoPosts, demoProfiles, demoProbation, demoScheduling, demoSettingsExtras, demoV2 } from "./demo-v2";
 import { deleteUpload } from "./files";
 
 export type DemoOptions = {
@@ -72,7 +72,8 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
   await demoProbation(db, { manager });
   await demoSettingsExtras(db, empRows);
   await demoCalls(db, o.domain, { manager, agent1 });
-  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true, v3: true, v4: true, v5: true, v6: true, v7: true, v8: true, v9: true, v10: true, v11: true });
+  await demoSoftphone(db, o.domain);
+  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true, v3: true, v4: true, v5: true, v6: true, v7: true, v8: true, v9: true, v10: true, v11: true, v12: true });
   await db.setting.upsert({ where: { key: MARKER }, update: { value }, create: { key: MARKER, value } });
   return { users: 6, employees: employees.length, projects: projectIds.length };
 }
@@ -85,8 +86,8 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
 export async function upgradeDemo(db: PrismaClient) {
   const row = await db.setting.findUnique({ where: { key: MARKER } });
   if (!row) return;
-  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean; v3?: boolean; v4?: boolean; v5?: boolean; v6?: boolean; v7?: boolean; v8?: boolean; v9?: boolean; v10?: boolean; v11?: boolean };
-  if (marker.openingIds && marker.v2 && marker.v3 && marker.v4 && marker.v5 && marker.v6 && marker.v7 && marker.v8 && marker.v9 && marker.v10 && marker.v11) return;
+  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean; v3?: boolean; v4?: boolean; v5?: boolean; v6?: boolean; v7?: boolean; v8?: boolean; v9?: boolean; v10?: boolean; v11?: boolean; v12?: boolean };
+  if (marker.openingIds && marker.v2 && marker.v3 && marker.v4 && marker.v5 && marker.v6 && marker.v7 && marker.v8 && marker.v9 && marker.v10 && marker.v11 && marker.v12) return;
   const users = await db.user.findMany({ where: { email: { endsWith: `@${marker.domain}` } } });
   const by = (local: string) => users.find((x) => x.email === `${local}@${marker.domain}`);
   const [head, hr, manager, agent1, agent2, staff] = ["admin", "hr", "manager", "agent1", "agent2", "staff"].map(by);
@@ -161,6 +162,11 @@ export async function upgradeDemo(db: PrismaClient) {
     marker = { ...marker, v11: true };
     await save();
   }
+  if (!marker.v12) {
+    await demoSoftphone(db, marker.domain);
+    marker = { ...marker, v12: true };
+    await save();
+  }
 }
 
 export async function removeDemo(db: PrismaClient) {
@@ -177,7 +183,10 @@ export async function removeDemo(db: PrismaClient) {
     db.projectImage.findMany({ where: { projectId: { in: projectIds } }, select: { path: true } }),
     db.unitImage.findMany({ where: { unit: { OR: [owned, { projectId: { in: projectIds } }] } }, select: { path: true } }),
   ]);
+  const recordings = await db.callRecording.findMany({ where: { agentId: { in: ids } }, select: { path: true } });
   await db.$transaction([
+    db.callRecording.deleteMany({ where: { agentId: { in: ids } } }),
+    db.sipAccount.deleteMany({ where: { userId: { in: ids } } }),
     db.attendanceLog.deleteMany({ where: { employeeId: null, byId: { in: ids } } }),
     db.hrPost.deleteMany({ where: { createdById: { in: ids } } }),
     db.policy.deleteMany({ where: { createdById: { in: ids } } }),
@@ -202,6 +211,7 @@ export async function removeDemo(db: PrismaClient) {
     db.setting.delete({ where: { key: MARKER } }),
   ]);
   for (const p of photos.flat()) await deleteUpload(p.path);
+  for (const r of recordings) if (r.path) await deleteUpload(r.path);
   return { users: ids.length };
 }
 

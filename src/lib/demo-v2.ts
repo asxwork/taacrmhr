@@ -3,6 +3,9 @@
 // its intake log, a second deal linked to a unit and an employee serving notice. Returns ids for removeDemo.
 import type { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { UPLOAD_ROOT } from "./files";
 import { format, subDays, addDays, isSunday, nextMonday } from "date-fns";
 import { saveDemoPhoto } from "./demo-photos";
 import { hashKey } from "./lead-intake";
@@ -413,5 +416,37 @@ export async function demoCalls(db: PrismaClient, domain: string, u: { manager: 
     const at = new Date(now - (plan.length - i) * 9 * 60_000);
     await db.callLog.create({ data: { targetId: t.id, campaignId: campaign.id, agentId: csr.id, phone: t.phone, outcome, durationSec: dur || null, startedAt: at, notes: outcome === "interested" ? "Wants a 5 marla plot; site visit Saturday" : null } });
     await db.callTarget.update({ where: { id: t.id }, data: { status, outcome, attempts: 1, lastCalledAt: at, callbackAt: status === "callback" ? new Date(now + 2 * 3_600_000) : null } });
+  }
+}
+
+/** A short WAV (two alternating tones) so the sample recordings in the vault can be played. */
+function demoWav(seconds: number, seed: number) {
+  const rate = 8000, n = rate * seconds;
+  const buf = Buffer.alloc(44 + n * 2);
+  buf.write("RIFF", 0); buf.writeUInt32LE(36 + n * 2, 4); buf.write("WAVE", 8); buf.write("fmt ", 12);
+  buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20); buf.writeUInt16LE(1, 22); buf.writeUInt32LE(rate, 24); buf.writeUInt32LE(rate * 2, 28);
+  buf.writeUInt16LE(2, 32); buf.writeUInt16LE(16, 34); buf.write("data", 36); buf.writeUInt32LE(n * 2, 40);
+  for (let i = 0; i < n; i++) {
+    const f = Math.floor(i / (rate * 0.6)) % 2 ? 330 + seed * 20 : 262 + seed * 10;
+    const env = Math.min(1, (i % (rate * 0.6)) / 400) * 0.25;
+    buf.writeInt16LE(Math.round(Math.sin((2 * Math.PI * f * i) / rate) * env * 32767), 44 + i * 2);
+  }
+  return buf;
+}
+
+/** Softphone sample: the CSR agent's extension (no password, so it stays offline) and three recordings in the vault. */
+export async function demoSoftphone(db: PrismaClient, domain: string) {
+  const csr = await db.user.findUnique({ where: { email: `csr@${domain}` } });
+  if (!csr || (await db.callRecording.count({ where: { agentId: csr.id } }))) return;
+  await db.sipAccount.upsert({ where: { userId: csr.id }, update: {}, create: { userId: csr.id, extension: "201" } });
+  const logs = await db.callLog.findMany({ where: { agentId: csr.id, durationSec: { gt: 0 } }, orderBy: { startedAt: "asc" }, take: 3 });
+  for (const [i, l] of logs.entries()) {
+    const rel = path.posix.join("calls", "sample", `${Date.now()}-${randomBytes(6).toString("hex")}.wav`);
+    const abs = path.join(UPLOAD_ROOT, rel);
+    await mkdir(path.dirname(abs), { recursive: true });
+    const wav = demoWav(6, i);
+    await writeFile(abs, wav);
+    const rec = await db.callRecording.create({ data: { agentId: csr.id, phone: l.phone, direction: "out", pbxCallId: `sample-${l.id}`, logId: l.id, path: rel, size: wav.length, mime: "audio/wav", durationSec: l.durationSec ?? 6, startedAt: l.startedAt } });
+    await db.callLog.update({ where: { id: l.id }, data: { recordingId: rec.id, recordingPath: rel, pbxCallId: `sample-${l.id}` } });
   }
 }

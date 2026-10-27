@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageCircle, Phone, PhoneCall } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import type { FormState } from "@/lib/utils";
+import { useSoftphone } from "./softphone";
 
 type Opt = { value: string; label: string; tone: string };
 const TONES: Record<string, string> = {
@@ -16,8 +17,9 @@ const TONES: Record<string, string> = {
 };
 
 /**
- * The number on screen: call it (the phone link starts a timer for talk time), message it on WhatsApp with the
- * campaign's text, then pick what happened. Saving loads the next number.
+ * The number on screen: call it (through the softphone when the agent's extension is registered, otherwise a
+ * phone link that starts a timer), message it on WhatsApp with the campaign's text, then pick what happened.
+ * Saving loads the next number.
  */
 export function CallCard({ target, outcomes, action, waText }: {
   target: { id: string; name: string | null; phone: string; status: string; attempts: number };
@@ -25,6 +27,13 @@ export function CallCard({ target, outcomes, action, waText }: {
 }) {
   const [startedAt, setStartedAt] = useState(0);
   const [picked, setPicked] = useState("");
+  const phone = useSoftphone();
+  const viaPbx = phone?.status === "ready";
+  const live = phone?.call?.targetId === target.id ? phone.call : null;
+  // The finished softphone call for this number: its real talk time and Call-ID go with the outcome.
+  const [ended, setEnded] = useState<{ callId: string; talkSec: number } | null>(null);
+  const done = phone?.lastEnded;
+  useEffect(() => { if (done?.targetId === target.id) setEnded({ callId: done.callId, talkSec: done.talkSec }); }, [done, target.id]);
   const wa = `https://wa.me/${fmtPhone(target.phone).replace(/\D/g, "")}${waText ? `?text=${encodeURIComponent(waText)}` : ""}`;
   return (
     <div>
@@ -34,10 +43,21 @@ export function CallCard({ target, outcomes, action, waText }: {
           <p className="font-mono text-lg tabular-nums text-muted">{fmtPhone(target.phone)}</p>
           <p className="text-xs text-muted">{target.status === "callback" ? "Callback due" : target.attempts ? `Attempt ${target.attempts + 1}` : "First call"}</p>
         </div>
-        <a href={telHref(target.phone)} onClick={() => setStartedAt(Date.now())}
-          className={cn("flex h-14 items-center gap-2 rounded-xl px-6 text-lg font-semibold text-white shadow transition", startedAt ? "bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700")}>
-          {startedAt ? <PhoneCall className="size-5 animate-pulse" /> : <Phone className="size-5" />} {startedAt ? "Calling…" : "Call"}
-        </a>
+        {live ? (
+          <button type="button" onClick={phone!.hangup} className="flex h-14 items-center gap-2 rounded-xl bg-red-600 px-6 text-lg font-semibold text-white shadow hover:bg-red-700">
+            <PhoneCall className="size-5 animate-pulse" /> {live.state === "talking" ? "Hang up" : "Cancel"}
+          </button>
+        ) : viaPbx ? (
+          <button type="button" disabled={!!phone.call} onClick={() => { setEnded(null); phone.dial(target.phone, { targetId: target.id }); }}
+            className="flex h-14 items-center gap-2 rounded-xl bg-emerald-600 px-6 text-lg font-semibold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50">
+            <Phone className="size-5" /> {ended ? "Call again" : "Call"}
+          </button>
+        ) : (
+          <a href={telHref(target.phone)} onClick={() => setStartedAt(Date.now())}
+            className={cn("flex h-14 items-center gap-2 rounded-xl px-6 text-lg font-semibold text-white shadow transition", startedAt ? "bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700")}>
+            {startedAt ? <PhoneCall className="size-5 animate-pulse" /> : <Phone className="size-5" />} {startedAt ? "Calling…" : "Call"}
+          </a>
+        )}
         <a href={wa} target="_blank" rel="noreferrer" className="flex h-14 items-center gap-2 rounded-xl border border-emerald-500/50 px-5 font-semibold text-emerald-700 hover:bg-emerald-500/10">
           <MessageCircle className="size-5" /> WhatsApp
         </a>
@@ -45,6 +65,9 @@ export function CallCard({ target, outcomes, action, waText }: {
       <ActionForm key={target.id} action={action} className="space-y-4">
         <input type="hidden" name="targetId" value={target.id} />
         <input type="hidden" name="startedAt" value={startedAt || ""} />
+        <input type="hidden" name="talkSec" value={ended ? ended.talkSec : ""} />
+        <input type="hidden" name="callId" value={ended?.callId ?? ""} />
+        {ended && <p className="text-xs text-muted">Call ended · talk time {Math.floor(ended.talkSec / 60)}:{String(ended.talkSec % 60).padStart(2, "0")}</p>}
         <fieldset>
           <legend className="mb-2 text-sm font-medium">What happened?</legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">

@@ -122,7 +122,7 @@ export const APPS: AppDef[] = [
           { href: "/calls/reports", label: "Reports", icon: "chart", module: "calls", action: "create" },
         ],
       },
-      { label: "Phone system", icon: "settings", items: [{ href: "/calls/phone-system", label: "Phone system (PBX)", icon: "settings", superAdmin: true }] },
+      { label: "Phone system", icon: "settings", items: [{ href: "/calls/phone-system", label: "Phone system (Issabel)", icon: "settings", superAdmin: true }, { href: "/calls/recordings", label: "Recordings", icon: "lock", superAdmin: true }] },
     ],
   },
   {

@@ -8,6 +8,7 @@ import { can, scopeFor } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { phoneKey } from "@/lib/crm-shared";
 import { OUTCOMES, convertToLead, importNumbers, makeBatches, parseNumbers, recordOutcome, type Outcome } from "@/lib/calls";
+import { linkRecording } from "@/lib/softphone";
 import { str, type FormState } from "@/lib/utils";
 
 /** Campaigns, numbers and batches: supervisors (calls with company-wide create rights) and Super Admins. */
@@ -91,10 +92,14 @@ export async function logCall(_: FormState, fd: FormData): Promise<FormState> {
   const o = str(fd, "outcome") as Outcome;
   if (!OUTCOMES.some((x) => x.value === o)) return { error: "Choose what happened." };
   const callbackAt = str(fd, "callbackAt") ? new Date(str(fd, "callbackAt")) : null;
+  // Softphone calls send the real talk time and the SIP Call-ID; phone-link calls are timed from the click.
   const started = Number(str(fd, "startedAt"));
-  const durationSec = started > 0 ? Math.max(0, Math.min(7200, Math.round((Date.now() - started) / 1000))) : null;
-  const res = await recordOutcome({ targetId: target.id, agentId: user.id, outcome: o, notes: str(fd, "notes").slice(0, 2000) || null, callbackAt, durationSec });
+  const talk = str(fd, "talkSec") === "" ? NaN : Number(str(fd, "talkSec"));
+  const durationSec = Number.isFinite(talk) ? Math.max(0, Math.min(14_400, Math.round(talk))) : started > 0 ? Math.max(0, Math.min(7200, Math.round((Date.now() - started) / 1000))) : null;
+  const pbxCallId = str(fd, "callId").slice(0, 200) || null;
+  const res = await recordOutcome({ targetId: target.id, agentId: user.id, outcome: o, notes: str(fd, "notes").slice(0, 2000) || null, callbackAt, durationSec, pbxCallId });
   if ("error" in res) return { error: res.error };
+  if (pbxCallId) await linkRecording(pbxCallId, user.id);
   let extra = "";
   if (o === "interested" && fd.get("toCrm") === "on") {
     const lead = await convertToLead(target.id, user.name);

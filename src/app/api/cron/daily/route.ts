@@ -7,6 +7,7 @@ import { loadAttendance } from "@/lib/attendance";
 import { applyDueRevisions } from "@/lib/compensation";
 import { renderTemplate } from "@/lib/notify-templates";
 import { perfSettings } from "@/lib/performance-settings";
+import { purgeOldRecordings } from "@/lib/softphone";
 
 // Hostinger cron (once a day, e.g. 07:00): GET https://<domain>/api/cron/daily?key=<CRON_SECRET>
 // Attendance and leave balances are computed live, so this job only sends reminders.
@@ -55,5 +56,8 @@ export async function GET(req: Request) {
     if (vars.years > 0 && same(p.joiningDate)) { const m = await renderTemplate("anniversary", vars); await notify(p.userId, m.title, { body: m.body, link: "/me" }); wishes++; }
   }
 
-  return Response.json({ ok: true, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes });
+  // 4. Call recordings past the retention period (Calls → Phone system).
+  const recordingsPurged = await purgeOldRecordings();
+
+  return Response.json({ ok: true, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
 }

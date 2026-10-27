@@ -1,6 +1,6 @@
 // Calls app (CSR calling centre): campaigns of numbers split into per-agent batches, an agent queue, call
 // outcomes with retries and callbacks, do-not-call, and turning interested callers into CRM leads.
-// The PBX (softphone, recordings) plugs in later through CallLog.pbxCallId / recordingPath.
+// The softphone (lib/softphone.ts) links calls to the PBX through CallLog.pbxCallId and recordings.
 import { addHours } from "date-fns";
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
@@ -20,7 +20,13 @@ export const OUTCOMES = [
   { value: "whatsapp_sent", label: "WhatsApp sent", tone: "teal", reached: false, final: false },
 ] as const;
 export type Outcome = (typeof OUTCOMES)[number]["value"];
-export const outcome = (v: string | null | undefined) => OUTCOMES.find((o) => o.value === v);
+/** Logged automatically by the softphone (not offered to agents as a choice). */
+export const AUTO_OUTCOMES = [
+  { value: "inbound_answered", label: "Inbound · answered", tone: "green", reached: true, final: false },
+  { value: "inbound_missed", label: "Inbound · missed", tone: "red", reached: false, final: false },
+  { value: "manual_call", label: "Keypad call", tone: "blue", reached: true, final: false },
+] as const;
+export const outcome = (v: string | null | undefined) => OUTCOMES.find((o) => o.value === v) ?? AUTO_OUTCOMES.find((o) => o.value === v);
 
 /** Hours before an unanswered number comes back to the agent. */
 export const RETRY_AFTER_HOURS = 3;
@@ -51,7 +57,7 @@ export async function nextTarget(agentId: string) {
 }
 
 /** Saves a call (or WhatsApp) result and moves the number on: done, retry later, callback, or do-not-call. */
-export async function recordOutcome(input: { targetId: string; agentId: string; outcome: Outcome; notes?: string | null; callbackAt?: Date | null; durationSec?: number | null; channel?: string }) {
+export async function recordOutcome(input: { targetId: string; agentId: string; outcome: Outcome; notes?: string | null; callbackAt?: Date | null; durationSec?: number | null; channel?: string; pbxCallId?: string | null }) {
   const t = await db.callTarget.findUnique({ where: { id: input.targetId }, include: { campaign: true } });
   if (!t) return { error: "Number not found." };
   const o = outcome(input.outcome);
@@ -63,7 +69,7 @@ export async function recordOutcome(input: { targetId: string; agentId: string; 
     : o.final ? "done"
     : attempts >= t.campaign.maxAttempts && input.outcome !== "whatsapp_sent" ? "done" : t.status === "new" && input.outcome === "whatsapp_sent" ? "new" : "retry";
   await db.callLog.create({
-    data: { targetId: t.id, campaignId: t.campaignId, agentId: input.agentId, phone: t.phone, outcome: input.outcome, notes: input.notes ?? null, durationSec: input.durationSec ?? null, channel: input.channel ?? (input.outcome === "whatsapp_sent" ? "whatsapp" : "phone") },
+    data: { targetId: t.id, campaignId: t.campaignId, agentId: input.agentId, phone: t.phone, outcome: input.outcome, notes: input.notes ?? null, durationSec: input.durationSec ?? null, pbxCallId: input.pbxCallId ?? null, channel: input.channel ?? (input.outcome === "whatsapp_sent" ? "whatsapp" : "phone") },
   });
   await db.callTarget.update({
     where: { id: t.id },
