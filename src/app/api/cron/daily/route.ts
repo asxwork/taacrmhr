@@ -8,6 +8,7 @@ import { applyDueRevisions } from "@/lib/compensation";
 import { renderTemplate } from "@/lib/notify-templates";
 import { perfSettings } from "@/lib/performance-settings";
 import { purgeOldRecordings } from "@/lib/softphone";
+import { syncAllPullMachines } from "@/lib/attendance-machine";
 
 // Hostinger cron (once a day, e.g. 07:00): GET https://<domain>/api/cron/daily?key=<CRON_SECRET>
 // Attendance and leave balances are computed live, so this job only sends reminders.
@@ -58,6 +59,9 @@ export async function GET(req: Request) {
 
   // 4. Call recordings past the retention period (Calls → Phone system).
   const recordingsPurged = await purgeOldRecordings();
+
+  // 5. Attendance machines AMS connects to directly (also synced more often by /api/cron/machines).
+  await syncAllPullMachines().catch(() => []);
 
   return Response.json({ ok: true, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
 }

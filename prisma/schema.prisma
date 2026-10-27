@@ -1762,6 +1762,14 @@ model AttendanceMachine {
   info        String? // @text
   unknownIds  String? // @text
   punches     Int       @default(0)
+  /// push: the machine calls /iclock (Cloud Server). pull: AMS connects to host:port (ZK protocol, usually 4370).
+  mode        String    @default("push")
+  host        String?
+  port        Int?
+  lastError   String? // @text
+  /// Machine Comm Key (password), encrypted like SIP secrets; blank = 0.
+  commKeyEnc  String? // @text
+  lastSyncAt  DateTime?
   lastSeenAt  DateTime?
   lastPunchAt DateTime?
   createdAt   DateTime  @default(now())
