@@ -265,13 +265,13 @@ export const APPS: AppDef[] = [
           { href: "/hr/performance", label: "Performance", icon: "trending", module: "hr.performance" },
           sub("Probations", [
             { href: "/hr/employees?status=probation", label: "Probationers", icon: "briefcase", module: "hr.employees" },
-            { href: "/hr/probation", label: "Probation Evaluation", icon: "filecheck", module: "hr.performance", phase: SOON },
+            { href: "/hr/probation", label: "Probation Evaluation", icon: "filecheck", module: "hr.performance" },
           ], "briefcase"),
-          { href: "/hr/performance/reports", label: "Reports", icon: "pie", module: "hr.performance", phase: SOON },
+          { href: "/hr/performance/reports", label: "Reports", icon: "pie", module: "hr.performance" },
           sub("Settings", [
-            { href: "/hr/performance/general", label: "General", icon: "sliders", module: "hr.performance", phase: SOON },
+            { href: "/hr/performance/general", label: "General", icon: "sliders", module: "hr.performance" },
             { href: "/settings/hr#checklists", label: "Probation", icon: "chatplus", module: "hr.employees" },
-            { href: "/hr/performance/settings", label: "Performance", icon: "gauge", module: "hr.performance", phase: SOON },
+            { href: "/hr/performance/settings", label: "Performance", icon: "gauge", module: "hr.performance" },
           ], "settings"),
         ],
       },

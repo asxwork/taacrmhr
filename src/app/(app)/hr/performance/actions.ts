@@ -9,6 +9,7 @@ import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissi
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notify";
 import { str, type FormState } from "@/lib/utils";
+import { perfSettings } from "@/lib/performance-settings";
 
 const FIELDS = { owner: "userId", branch: "branchId" };
 
@@ -47,9 +48,14 @@ export async function createCycle(_: FormState, fd: FormData): Promise<FormState
   if (!employees.length) return { error: "No current employees match." };
 
   const cycle = await db.appraisalCycle.create({ data: { name, from, to } });
-  const goals = str(fd, "goals") || null;
-  await db.appraisal.createMany({ data: employees.map((e) => ({ cycleId: cycle.id, employeeId: e.id, reviewerId: e.manager?.userId ?? null, goals })) });
-  for (const e of employees) await notify(e.userId, `Self review open: ${name}`, { body: "Rate your performance for the period and add comments.", link: "/me/performance", email: true });
+  // Assessment → Settings: default goals, and whether employees rate themselves first.
+  const settings = await perfSettings();
+  const goals = str(fd, "goals") || settings.goalsTemplate || null;
+  await db.appraisal.createMany({ data: employees.map((e) => ({ cycleId: cycle.id, employeeId: e.id, reviewerId: e.manager?.userId ?? null, goals, status: settings.selfReview ? "self" : "manager" })) });
+  for (const e of employees) {
+    if (settings.selfReview) await notify(e.userId, `Self review open: ${name}`, { body: "Rate your performance for the period and add comments.", link: "/me/performance", email: true });
+    else if (e.manager?.userId) await notify(e.manager.userId, `Review due: ${e.fullName} (${name})`, { link: `/hr/performance/${cycle.id}`, email: true });
+  }
   await audit(user.id, "create", "appraisalCycle", cycle.id, `Opened review cycle ${name} for ${employees.length} employee(s)`);
   refresh(cycle.id);
   redirect(`/hr/performance/${cycle.id}`);

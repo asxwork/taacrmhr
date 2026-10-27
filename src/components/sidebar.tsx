@@ -55,7 +55,10 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
   const quick = allItems.filter((i) => !i.phase).slice(0, 4);
 
   // HR: the module whose pages show in the panel. Follows the page; clicking a module on the rail picks it.
-  const pageModule = groups.find((g) => g.items.some((i) => isActive(pathname, i.href)));
+  // The module that owns the closest link (sub-menu children included), so /hr/probation opens Assessment, not
+  // the Dashboard whose /hr is merely a prefix.
+  const pageModule = groups.find((g) => g.items.some((i) => (i.children ?? [i]).some((c) => c.href === activeHref)))
+    ?? groups.find((g) => g.items.some((i) => isActive(pathname, i.href)));
   const [picked, setPicked] = useState<string | null>(null);
   useEffect(() => setPicked(null), [pathname]);
   const shownModule = groups.find((g) => g.label === picked) ?? pageModule ?? groups[0];

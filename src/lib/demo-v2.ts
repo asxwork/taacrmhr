@@ -339,3 +339,11 @@ export async function demoScheduling(db: PrismaClient, u: { hr: { id: string } }
     await db.checkinDevice.update({ where: { id: dev.id }, data: { approvalId: req.id } });
   }
 }
+
+/** A submitted probation review for the sample probationer, waiting for HR's decision. */
+export async function demoProbation(db: PrismaClient, u: { manager: { id: string } }) {
+  const p = await db.employee.findFirst({ where: { status: "probation", probationReviews: { none: {} } } });
+  if (!p) return;
+  const ratings = { "Attendance & punctuality": 4, "Quality of work": 4, "Product & market knowledge": 3, "Teamwork & attitude": 5, "Learning & initiative": 4 };
+  await db.probationReview.create({ data: { employeeId: p.id, reviewerId: u.manager.id, ratings: JSON.stringify(ratings), overall: 4, recommendation: "confirm", comments: "Strong start; closed her first Palm Residency booking in month two." } });
+}

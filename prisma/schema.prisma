@@ -699,6 +699,7 @@ model Employee {
   letters           EmployeeLetter[]
   payItems          PayItem[]
   rosterDays        RosterDay[]
+  probationReviews  ProbationReview[]
   devices           CheckinDevice[]
   settlements       FinalSettlement[]
 
@@ -1423,6 +1424,27 @@ model AppraisalCycle {
   status     String      @default("open")
   createdAt  DateTime    @default(now())
   appraisals Appraisal[]
+}
+
+/// Probation evaluation by the line manager (or HR): criteria ratings 1–5 as JSON, a recommendation, then HR's
+/// decision. recommendation/decision: confirm | extend | terminate. status: submitted | decided.
+model ProbationReview {
+  id             String    @id @default(cuid())
+  employeeId     String
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewerId     String?
+  ratings        String // @text
+  overall        Float
+  recommendation String
+  extendMonths   Int?
+  comments       String? // @text
+  status         String    @default("submitted")
+  decision       String?
+  decidedById    String?
+  decidedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([employeeId])
 }
 
 /// status: self (waiting for employee) | manager (waiting for reviewer) | done. Ratings 1–5.
