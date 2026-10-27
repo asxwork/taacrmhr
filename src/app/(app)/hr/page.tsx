@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { differenceInMinutes, format, isToday, parse, startOfDay } from "date-fns";
-import { Award, Cake, FileWarning, Gift, Mail, Newspaper, Quote, Sunrise, Timer, Trash2, UserPlus, Users } from "lucide-react";
+import { Award, Cake, FileCheck2, FileWarning, Gift, Mail, Newspaper, Quote, Sunrise, Timer, Trash2, UserPlus, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeFor } from "@/lib/permissions";
 import { ATTENDANCE_DRILL, DAY_STATUSES, attendanceEmployeeWhere, fmtMinutes, geofenceMode, loadAttendance, type DayResult } from "@/lib/attendance";
 import { companyWidgets, myWidgets } from "@/lib/hr-dashboard";
+import { policiesFor } from "@/lib/policies";
 import { color } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -48,6 +49,7 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
     isHr ? db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }) : [],
   ]);
   const att = employees.length ? await loadAttendance(employees.map((e) => e.id), date, date) : new Map<string, DayResult[]>();
+  const policies = mine ? await policiesFor(mine.employeeId) : (await db.policy.findMany({ where: { status: "published" }, orderBy: { publishedAt: "desc" } })).map((p) => ({ ...p, ackAt: null }));
   const rows = employees.map((e) => ({ e, d: att.get(e.id)?.[0] })).filter((r): r is { e: (typeof employees)[number]; d: DayResult } => !!r.d);
 
   const link = (status?: string) => hrefWith("/hr/attendance", { date: isToday(date) ? undefined : dateKey, branch: sp.branch, status }, {});
@@ -263,7 +265,22 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
       </Grid>
       <Grid>
         <Widget title="Gender Wise Head Count"><BarList rows={h.gender} empty="No Record Found!" /></Widget>
-        <Widget title="Company Documents and Policies"><Empty /></Widget>
+        <Widget title="Company Documents and Policies" action={<Link href={mine ? "/me/policies" : "/hr/policies"} className="text-xs text-navy-700 hover:underline">View all</Link>}>
+          {policies.length ? (
+            <ul className="divide-y divide-line">
+              {policies.slice(0, 6).map((p) => (
+                <li key={p.id} className="flex items-center gap-3 py-2.5">
+                  <FileCheck2 className="size-4 shrink-0 text-navy-700" />
+                  <Link href={mine ? `/me/policies?open=${p.id}` : `/hr/policies/${p.id}`} className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium hover:underline">{p.title}</span>
+                    <span className="block text-xs text-muted">{p.category} · v{p.version}</span>
+                  </Link>
+                  {mine && p.requireAck && (p.ackAt ? <span className="text-xs text-emerald-600">Acknowledged</span> : <span className="text-xs font-medium text-amber-600">Please read</span>)}
+                </li>
+              ))}
+            </ul>
+          ) : <Empty />}
+        </Widget>
       </Grid>
       <Grid>
         <Widget title="Support Email" icon={<Mail className="size-4 text-navy-700" />}>

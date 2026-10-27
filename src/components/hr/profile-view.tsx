@@ -229,6 +229,9 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
       <SectionTitle>Leave Types</SectionTitle>
       <MiniTable head={["Name", "Entitled", "Carry forward", "Additional quota", "Availed", "Pending", "Available"]}
         rows={p.balances.map((b) => [b.type.name, b.unlimited ? "Unlimited" : b.entitled, b.carried, b.adjusted, b.used, b.pending, b.unlimited ? "—" : <b key="a">{b.available}</b>])} />
+      <SectionTitle>Company Policies</SectionTitle>
+      <MiniTable head={["Policy", "Version", "Acknowledged"]}
+        rows={p.policies.map((x) => [x.title, `v${x.version}`, !x.requireAck ? "For information" : x.ackAt ? <Badge key="a" tone="green">{fmtDate(x.ackAt)}</Badge> : <Badge key="a" tone="amber">Pending</Badge>])} />
       <SectionTitle>Attendance Policies</SectionTitle>
       <Row label="Late after">{p.shift ? `${p.shift.graceMin} minutes past ${p.shift.start}` : "—"}</Row>
       <Row label="Half day below">{p.shift ? `${Math.round(p.shift.halfDayMin / 6) / 10} hours worked` : "—"}</Row>
@@ -268,7 +271,18 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
     { key: "assets", label: "Assets", count: emp.assets.length, content: assets },
     { key: "relatives", label: "Relatives", count: emp.relatives.length, content: relatives },
     { key: "qualifications", label: "Qualifications & Experiences", count: emp.qualifications.length, content: qualifications },
-    { key: "documents", label: "My Documents", count: emp.documents.length, content: docsTab },
+    {
+      key: "documents", label: "My Documents", count: emp.documents.length + emp.letters.length, content: (
+        <div className="space-y-4">
+          {docsTab}
+          <Card className="p-4">
+            <SectionTitle icon={<FileText className="size-4" />}>Generate Documents</SectionTitle>
+            <MiniTable head={["Letter", "Issued", ""]} empty="No letters issued yet."
+              rows={emp.letters.map((l) => [l.title, fmtDate(l.issuedAt), <a key="p" href={`/print/letter/${l.id}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-navy-700 hover:underline">Open / print</a>])} />
+          </Card>
+        </div>
+      ),
+    },
     { key: "policies", label: "Policies", content: policies },
     { key: "banks", label: "Banks", content: banks },
     ...extraTabs,

@@ -264,3 +264,29 @@ export async function demoCompensation(db: PrismaClient, u: { hr: { id: string }
     }
   }
 }
+
+/** Published policies (one for Sales only) with some acknowledgements, and two issued letters. */
+export async function demoPolicies(db: PrismaClient, u: { hr: { id: string; name: string } }, employees: { id: string; departmentId: string | null }[]) {
+  if (await db.policy.count()) return;
+  const sales = employees[2]?.departmentId ?? null;
+  const day = (n: number) => new Date(Date.now() - n * 86_400_000);
+  const defs = [
+    { title: "Code of Conduct", category: "Code of conduct", body: "1. Treat clients and colleagues with respect.\n\n2. Never share client data outside the company.\n\n3. Report any conflict of interest to HR.\n\n4. Gifts above PKR 5,000 must be declared.", audience: "all", audienceIds: null, acks: [0, 1, 2, 3, 5] },
+    { title: "Leave Policy 2026", category: "Leave", body: "Annual leave: 14 days, accrued monthly.\n\nCasual leave: 10 days.\n\nSick leave: 8 days; a medical certificate is needed for more than 2 days in a row.\n\nUnused paid leave can be encashed at year end (HR → Leave Encashment).", audience: "all", audienceIds: null, acks: [0, 1, 3] },
+    { title: "IT & Device Acceptable Use", category: "IT & security", body: "Company laptops and phones are for work. Lock your screen when away. Do not install unapproved software.", audience: "all", audienceIds: null, acks: [0, 1] },
+    { title: "Sales Commission Policy", category: "Sales", body: "Commission is paid on won deals at the percentage on the deal, with the payroll of the month the deal closes.", audience: sales ? "departments" : "all", audienceIds: sales, acks: [2] },
+  ];
+  for (const [i, d] of defs.entries()) {
+    const { acks, ...data } = d;
+    const p = await db.policy.create({ data: { ...data, status: "published", publishedAt: day(20 - i * 4), requireAck: true, createdById: u.hr.id } });
+    for (const k of acks) if (employees[k]) await db.policyAck.create({ data: { policyId: p.id, employeeId: employees[k]!.id, version: 1, createdAt: day(15 - k) } });
+  }
+  const { fillTemplate, letterValues } = await import("./letters");
+  const templates = await db.letterTemplate.findMany({ where: { category: { in: ["salary", "appointment"] } } });
+  const pairs = [[templates.find((x) => x.category === "salary"), employees[3]], [templates.find((x) => x.category === "appointment"), employees[4]]] as const;
+  for (const [t, e] of pairs) {
+    if (!t || !e) continue;
+    const body = fillTemplate(t.body, await letterValues(e.id, u.hr.name));
+    await db.employeeLetter.create({ data: { employeeId: e.id, templateId: t.id, title: t.name, body, issuedById: u.hr.id, issuedAt: day(3) } });
+  }
+}

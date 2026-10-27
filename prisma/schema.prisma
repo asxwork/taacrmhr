@@ -695,6 +695,8 @@ model Employee {
   banks             EmployeeBank[]
   salaryRevisions   SalaryRevision[]
   encashments       LeaveEncashment[]
+  policyAcks        PolicyAck[]
+  letters           EmployeeLetter[]
 
   @@index([branchId])
   @@index([departmentId])
@@ -747,6 +749,68 @@ model EmployeeBank {
   accountNumber String
   effectiveFrom DateTime
   createdAt     DateTime @default(now())
+
+  @@index([employeeId])
+}
+
+/// Company policy documents. status: draft | published | archived. audience: all | branches | departments (ids in audienceIds).
+/// Publishing a new version asks everyone to acknowledge again.
+model Policy {
+  id          String      @id @default(cuid())
+  title       String
+  category    String      @default("General")
+  body        String? // @text
+  filePath    String?
+  version     Int         @default(1)
+  status      String      @default("draft")
+  audience    String      @default("all")
+  audienceIds String? // @text
+  requireAck  Boolean     @default(true)
+  publishedAt DateTime?
+  createdById String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  acks        PolicyAck[]
+
+  @@index([status])
+}
+
+model PolicyAck {
+  id         String   @id @default(cuid())
+  policyId   String
+  policy     Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  version    Int
+  createdAt  DateTime @default(now())
+
+  @@unique([policyId, employeeId, version])
+  @@index([employeeId])
+}
+
+/// Letter templates with {{placeholders}} (Letter Management). category: appointment | experience | salary | warning | noc | relieving | other
+model LetterTemplate {
+  id        String           @id @default(cuid())
+  name      String
+  category  String           @default("other")
+  body      String // @text
+  active    Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  letters   EmployeeLetter[]
+}
+
+/// A letter issued to an employee: the template filled in at issue time (and edited), kept as issued.
+model EmployeeLetter {
+  id         String          @id @default(cuid())
+  employeeId String
+  employee   Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  templateId String?
+  template   LetterTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  title      String
+  body       String // @text
+  issuedById String?
+  issuedAt   DateTime        @default(now())
 
   @@index([employeeId])
 }

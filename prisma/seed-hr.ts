@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { REQUEST_TYPES } from "../src/lib/request-types";
+import { DEFAULT_TEMPLATES } from "../src/lib/letters";
 
 /** Departments, designations, approval flows and checklist templates. Sample employees live in src/lib/demo-data.ts. */
 export async function seedHr(db: PrismaClient) {
@@ -23,6 +24,8 @@ export async function seedHr(db: PrismaClient) {
     ["leave_encashment", "Leave encashment", [{ kind: "manager" }, { kind: "hr" }]],
   ];
   for (const [type, name, steps] of flows) await db.approvalFlow.upsert({ where: { type }, update: {}, create: { type, name, steps: JSON.stringify(steps) } });
+  // Letter Management starts with the common letters (only on a fresh install; HR edits them afterwards).
+  if (!(await db.letterTemplate.count())) await db.letterTemplate.createMany({ data: DEFAULT_TEMPLATES });
   // Requests menu types (WFH, travel, promotion…): default chains, editable in HR Settings → Approval chains.
   for (const t of REQUEST_TYPES) await db.approvalFlow.upsert({ where: { type: t.type }, update: {}, create: { type: t.type, name: t.label, steps: JSON.stringify(t.steps) } });
 

@@ -3,6 +3,7 @@
 import { differenceInMonths, format, intervalToDuration } from "date-fns";
 import { db } from "./db";
 import { balancesFor } from "./leave";
+import { policiesFor } from "./policies";
 import { defaultShift } from "./attendance";
 import { COMPLETION_KEYS, type OptionSource } from "./profile-fields";
 
@@ -20,6 +21,7 @@ export async function loadProfile(id: string) {
       relatives: { orderBy: { createdAt: "asc" } },
       qualifications: { orderBy: [{ from: "desc" }, { createdAt: "desc" }] },
       banks: { orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }] },
+      letters: { orderBy: { issuedAt: "desc" }, select: { id: true, title: true, issuedAt: true } },
     },
   });
   if (!emp) return null;
@@ -77,8 +79,8 @@ export async function loadProfile(id: string) {
   } : null;
   const components = s ? await db.payComponent.findMany({ orderBy: { sortOrder: "asc" } }) : [];
 
-  const balances = await balancesFor(emp.id).catch(() => []);
-  return { emp, values, completion, ageText, experienceText, division, components, balances, finalAuthority, shift };
+  const [balances, policies] = await Promise.all([balancesFor(emp.id).catch(() => []), policiesFor(emp.id)]);
+  return { emp, values, completion, ageText, experienceText, division, components, balances, policies, finalAuthority, shift };
 }
 
 export type Profile = NonNullable<Awaited<ReturnType<typeof loadProfile>>>;
