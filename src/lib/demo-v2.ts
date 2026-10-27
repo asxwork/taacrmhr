@@ -375,3 +375,43 @@ export async function demoSettingsExtras(db: PrismaClient, employees: { id: stri
     if (e) await db.engagementResponse.create({ data: { surveyId: s.id, respondentKey: respondentKey(s.id, e.id), answers: JSON.stringify(a) } });
   }
 }
+
+/** A CSR agent login (sharing agent1's sample password and branch), a 60-number campaign and some of today's calls. */
+export async function demoCalls(db: PrismaClient, domain: string, u: { manager: { id: string }; agent1: { id: string } }) {
+  if (await db.callCampaign.count()) return;
+  const template = await db.user.findUnique({ where: { id: u.agent1.id }, select: { passwordHash: true, branchId: true } });
+  const role = await db.role.findUnique({ where: { name: "CSR Agent" } });
+  if (!template || !role) return;
+  const csr = await db.user.upsert({
+    where: { email: `csr@${domain}` }, update: {},
+    create: { email: `csr@${domain}`, name: "Ayesha Noor", title: "CSR Agent", passwordHash: template.passwordHash, branchId: template.branchId, roles: { create: { roleId: role.id } } },
+  });
+  const campaign = await db.callCampaign.create({
+    data: {
+      name: "Palm Residency launch – sample", description: "Old enquiries from Zameen and Facebook", createdById: u.manager.id, sourceName: "CC", maxAttempts: 3,
+      script: "Assalam-o-Alaikum {{name}}, this is {{agent}} from The Advisor Associates.\n\nYou enquired about plots earlier. Palm Residency Phase 2 opens on the 1st: 25% down, 36 monthly installments.\n\nShall I send the details on WhatsApp, or book a site visit this week?",
+      waMessage: "Assalam-o-Alaikum {{name}}, this is {{agent}} from The Advisor Associates. Here are the Palm Residency Phase 2 details as discussed:",
+    },
+  });
+  const first = ["Imran", "Bilal", "Hamza", "Zainab", "Faisal", "Nida", "Usman", "Mehwish", "Asad", "Rabia", "Kamran", "Saima"];
+  const last = ["Khan", "Ahmed", "Malik", "Qureshi", "Siddiqui", "Sheikh", "Butt", "Raza"];
+  const rows = Array.from({ length: 60 }, (_, i) => {
+    const phone = `0300${String(5100000 + i * 137).padStart(7, "0")}`;
+    return { campaignId: campaign.id, phone, phoneKey: phone, name: `${first[i % first.length]} ${last[i % last.length]}`, extra: JSON.stringify({ area: ["DHA", "Bahria Town", "Scheme 33", "Gulshan"][i % 4], source: i % 2 ? "Zameen" : "Facebook" }) };
+  });
+  await db.callTarget.createMany({ data: rows });
+  const ids = (await db.callTarget.findMany({ where: { campaignId: campaign.id }, orderBy: { createdAt: "asc" }, select: { id: true } })).map((t) => t.id);
+  // One batch for the CSR agent; the other 30 numbers wait for the supervisor to hand out.
+  const batch = await db.callBatch.create({ data: { campaignId: campaign.id, name: "Batch 1 · Ayesha Noor", assigneeId: csr.id } });
+  await db.callTarget.updateMany({ where: { id: { in: ids.slice(0, 30) } }, data: { batchId: batch.id, assigneeId: csr.id } });
+  // Today's calls for the CSR agent.
+  const now = Date.now();
+  const plan: [string, string, number][] = [["not_answered", "retry", 0], ["interested", "done", 95], ["busy", "retry", 0], ["callback", "callback", 60], ["not_interested", "done", 40], ["switched_off", "retry", 0], ["interested", "done", 130], ["wrong_number", "done", 10]];
+  for (const [i, [outcome, status, dur]] of plan.entries()) {
+    const t = await db.callTarget.findUnique({ where: { id: ids[i]! } });
+    if (!t) continue;
+    const at = new Date(now - (plan.length - i) * 9 * 60_000);
+    await db.callLog.create({ data: { targetId: t.id, campaignId: campaign.id, agentId: csr.id, phone: t.phone, outcome, durationSec: dur || null, startedAt: at, notes: outcome === "interested" ? "Wants a 5 marla plot; site visit Saturday" : null } });
+    await db.callTarget.update({ where: { id: t.id }, data: { status, outcome, attempts: 1, lastCalledAt: at, callbackAt: status === "callback" ? new Date(now + 2 * 3_600_000) : null } });
+  }
+}

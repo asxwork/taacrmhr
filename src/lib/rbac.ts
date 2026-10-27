@@ -22,7 +22,7 @@ export const ACTION_LABELS: Record<Action, string> = {
 export type ModuleDef = {
   key: string;
   label: string;
-  group: "CRM" | "Inventory" | "HR" | "Reports" | "Settings";
+  group: "CRM" | "Inventory" | "Calls" | "HR" | "Reports" | "Settings";
   actions: readonly Action[];
   /** Records in this module have an owner/branch, so own/team/branch scopes apply. */
   scoped: boolean;
@@ -45,6 +45,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "hr.performance", label: "Performance", group: "HR", actions: [...CRUD, "approve"], scoped: true },
   { key: "hr.expenses", label: "Expenses & Loans", group: "HR", actions: [...CRUD, "approve"], scoped: true },
   { key: "hr.assets", label: "Assets", group: "HR", actions: CRUD, scoped: false },
+  { key: "calls", label: "Calling centre", group: "Calls", actions: [...CRUD, "assign"], scoped: true },
   { key: "reports.crm", label: "CRM Reports", group: "Reports", actions: ["view", "export"], scoped: true },
   { key: "reports.hr", label: "HR Reports", group: "Reports", actions: ["view", "export"], scoped: true },
   { key: "settings.users", label: "Users", group: "Settings", actions: ["view", "create", "edit", "delete"], scoped: false },
@@ -147,6 +148,16 @@ export const DEFAULT_ROLES: RoleTemplate[] = [
     name: "Employee",
     description: "Self-service only (own profile, attendance, leave, payslips).",
     grants: {},
+  },
+  {
+    name: "CSR Agent",
+    description: "Calling team: works their own call batches and turns interested callers into leads.",
+    grants: { calls: { view: "own", edit: "own" }, "crm.leads": { create: "own" } },
+  },
+  {
+    name: "CSR Supervisor",
+    description: "Runs the calling team: campaigns, number batches, wallboard and call reports.",
+    grants: { calls: "all", "crm.leads": { view: "all", create: "all" } },
   },
 ];
 

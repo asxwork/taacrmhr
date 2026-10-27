@@ -26,6 +26,19 @@ async function main() {
     db.branch.upsert({ where: { code: "BHD" }, update: {}, create: { name: "Bahadurabad", code: "BHD", address: "Bahadurabad, Karachi" } }),
   ]);
 
+  // Modules added after a role was first created: give the built-in role its default grants for them (once per module).
+  for (const mod of ["calls"]) {
+    const flag = `rbac.added.${mod}`;
+    if (await db.setting.findUnique({ where: { key: flag } })) continue;
+    for (const tpl of DEFAULT_ROLES) {
+      const role = await db.role.findUnique({ where: { name: tpl.name } });
+      if (!role) continue;
+      for (const row of expandGrants(tpl.grants).filter((r) => r.module === mod)) {
+        await db.permission.upsert({ where: { roleId_module_action: { roleId: role.id, module: row.module, action: row.action } }, update: {}, create: { roleId: role.id, ...row } });
+      }
+    }
+    await db.setting.create({ data: { key: flag, value: "done" } });
+  }
   for (const tpl of DEFAULT_ROLES) {
     await db.role.upsert({
       where: { name: tpl.name },

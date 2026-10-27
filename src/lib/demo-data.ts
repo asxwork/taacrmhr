@@ -5,7 +5,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { nextNumber } from "./sequence";
 import { demoExtras } from "./demo-extras";
-import { demoCompensation, demoPayrollExtras, demoPolicies, demoPosts, demoProfiles, demoProbation, demoScheduling, demoSettingsExtras, demoV2 } from "./demo-v2";
+import { demoCalls, demoCompensation, demoPayrollExtras, demoPolicies, demoPosts, demoProfiles, demoProbation, demoScheduling, demoSettingsExtras, demoV2 } from "./demo-v2";
 import { deleteUpload } from "./files";
 
 export type DemoOptions = {
@@ -71,7 +71,8 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
   await demoScheduling(db, { hr }, empRows);
   await demoProbation(db, { manager });
   await demoSettingsExtras(db, empRows);
-  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true, v3: true, v4: true, v5: true, v6: true, v7: true, v8: true, v9: true, v10: true });
+  await demoCalls(db, o.domain, { manager, agent1 });
+  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true, v3: true, v4: true, v5: true, v6: true, v7: true, v8: true, v9: true, v10: true, v11: true });
   await db.setting.upsert({ where: { key: MARKER }, update: { value }, create: { key: MARKER, value } });
   return { users: 6, employees: employees.length, projects: projectIds.length };
 }
@@ -84,8 +85,8 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
 export async function upgradeDemo(db: PrismaClient) {
   const row = await db.setting.findUnique({ where: { key: MARKER } });
   if (!row) return;
-  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean; v3?: boolean; v4?: boolean; v5?: boolean; v6?: boolean; v7?: boolean; v8?: boolean; v9?: boolean; v10?: boolean };
-  if (marker.openingIds && marker.v2 && marker.v3 && marker.v4 && marker.v5 && marker.v6 && marker.v7 && marker.v8 && marker.v9 && marker.v10) return;
+  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean; v3?: boolean; v4?: boolean; v5?: boolean; v6?: boolean; v7?: boolean; v8?: boolean; v9?: boolean; v10?: boolean; v11?: boolean };
+  if (marker.openingIds && marker.v2 && marker.v3 && marker.v4 && marker.v5 && marker.v6 && marker.v7 && marker.v8 && marker.v9 && marker.v10 && marker.v11) return;
   const users = await db.user.findMany({ where: { email: { endsWith: `@${marker.domain}` } } });
   const by = (local: string) => users.find((x) => x.email === `${local}@${marker.domain}`);
   const [head, hr, manager, agent1, agent2, staff] = ["admin", "hr", "manager", "agent1", "agent2", "staff"].map(by);
@@ -155,6 +156,11 @@ export async function upgradeDemo(db: PrismaClient) {
     marker = { ...marker, v10: true };
     await save();
   }
+  if (!marker.v11) {
+    await demoCalls(db, marker.domain, { manager, agent1 });
+    marker = { ...marker, v11: true };
+    await save();
+  }
 }
 
 export async function removeDemo(db: PrismaClient) {
@@ -175,6 +181,8 @@ export async function removeDemo(db: PrismaClient) {
     db.attendanceLog.deleteMany({ where: { employeeId: null, byId: { in: ids } } }),
     db.hrPost.deleteMany({ where: { createdById: { in: ids } } }),
     db.policy.deleteMany({ where: { createdById: { in: ids } } }),
+    db.callCampaign.deleteMany({ where: { createdById: { in: ids } } }),
+    db.callLog.deleteMany({ where: { agentId: { in: ids } } }),
     db.activity.deleteMany({ where: { OR: [owned, { createdById: { in: ids } }] } }),
     db.deal.deleteMany({ where: owned }),
     // Sample leads the On-hold rules moved to the holding user are found by id.

@@ -896,6 +896,101 @@ model LayoutProfile {
   @@index([appKey])
 }
 
+// ─── Calls (CSR calling centre) ─────────────────────────────
+
+/**
+ * A calling campaign: a list of numbers, a script and a WhatsApp message. status: active | paused | done.
+ */
+model CallCampaign {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  script      String? // @text
+  waMessage   String? // @text
+  maxAttempts Int          @default(3)
+  /// Lead source for numbers converted to leads.
+  sourceName  String?
+  status      String       @default("active")
+  createdById String?
+  createdAt   DateTime     @default(now())
+  batches     CallBatch[]
+  targets     CallTarget[]
+}
+
+/**
+ * A slice of a campaign's numbers handed to one agent.
+ */
+model CallBatch {
+  id         String       @id @default(cuid())
+  campaignId String
+  campaign   CallCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  name       String
+  assigneeId String?
+  createdAt  DateTime     @default(now())
+  targets    CallTarget[]
+
+  @@index([assigneeId])
+}
+
+/// One number to call. status: new | retry | callback | done | dnc.
+model CallTarget {
+  id           String       @id @default(cuid())
+  campaignId   String
+  campaign     CallCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  batchId      String?
+  batch        CallBatch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  assigneeId   String?
+  name         String?
+  phone        String
+  phoneKey     String
+  extra        String? // @text
+  status       String       @default("new")
+  outcome      String?
+  attempts     Int          @default(0)
+  lastCalledAt DateTime?
+  callbackAt   DateTime?
+  notes        String? // @text
+  leadId       String?
+  createdAt    DateTime     @default(now())
+  logs         CallLog[]
+
+  @@index([campaignId, status])
+  @@index([assigneeId, status])
+  @@index([phoneKey])
+}
+
+/// Every call or WhatsApp attempt. channel: phone | whatsapp | softphone. direction: out | in.
+/// recordingPath is filled by the PBX integration and only shown to Super Admins.
+model CallLog {
+  id            String      @id @default(cuid())
+  targetId      String?
+  target        CallTarget? @relation(fields: [targetId], references: [id], onDelete: SetNull)
+  campaignId    String?
+  agentId       String
+  phone         String
+  direction     String      @default("out")
+  channel       String      @default("phone")
+  outcome       String
+  durationSec   Int?
+  notes         String? // @text
+  startedAt     DateTime    @default(now())
+  recordingPath String?
+  pbxCallId     String?
+
+  @@index([agentId, startedAt])
+  @@index([campaignId])
+}
+
+/**
+ * Do-not-call list: numbers never handed to agents again.
+ */
+model DncNumber {
+  id        String   @id @default(cuid())
+  phoneKey  String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
+}
+
 /// HR dashboard posts. kind: accolade | news | wisdom. employeeId: who an accolade is for.
 model HrPost {
   id          String   @id @default(cuid())

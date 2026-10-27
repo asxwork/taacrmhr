@@ -7,7 +7,7 @@ import { layoutsFor, type ResolvedLayout } from "./layouts";
 export type UserApp = AppDef & { /** Where the app opens: its home if the user may see it, else its first page. */ start: string };
 
 const allowed = (user: SessionUser, i: NavItem) =>
-  (!i.module || can(user, i.module)) && (!i.superAdmin || user.isSuperAdmin) && (!i.boss || user.isBoss || user.isSuperAdmin);
+  (!i.module || can(user, i.module, i.action ?? "view")) && (!i.superAdmin || user.isSuperAdmin) && (!i.boss || user.isBoss || user.isSuperAdmin);
 const gated = (i: NavItem): boolean => !!(i.module || i.superAdmin || i.boss) || !!i.children?.some(gated);
 
 /** Items the user may open; a sub-menu keeps only its allowed entries and disappears when none are left. */
