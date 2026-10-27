@@ -59,6 +59,8 @@ export const APPROVAL_TYPES: Record<string, string> = {
   attendance_correction: "Attendance correction",
   loan: "Loan / advance",
   expense: "Expense claim",
+  salary_revision: "Salary revision",
+  leave_encashment: "Leave encashment",
   ...Object.fromEntries(REQUEST_TYPES.map((t) => [t.type, t.label])),
 };
 

@@ -8,6 +8,7 @@ import { can, scopeFor } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { approveRun, generateRun, reopenRun } from "@/lib/payroll";
 import { str, type FormState } from "@/lib/utils";
+import { recordRevision } from "@/lib/compensation";
 
 /** Payroll changes affect everyone's pay, so they need company-wide payroll rights. */
 async function requirePayrollAdmin(action: "edit" | "approve" = "edit") {
@@ -69,6 +70,7 @@ export async function deleteRun(fd: FormData) {
   const run = await db.payrollRun.findUnique({ where: { id: str(fd, "runId") } });
   if (!run || run.status !== "draft") return;
   await db.expense.updateMany({ where: { runId: run.id }, data: { runId: null } });
+  await db.leaveEncashment.updateMany({ where: { runId: run.id }, data: { runId: null } });
   await db.payrollRun.delete({ where: { id: run.id } });
   await audit(user.id, "delete", "payrollRun", run.id, `Deleted draft payroll ${run.month}`);
   redirect("/hr/payroll");
@@ -111,6 +113,7 @@ export async function saveSalary(_: FormState, fd: FormData): Promise<FormState>
   await db.salaryProfile.upsert({ where: { employeeId }, update: data, create: { employeeId, ...data } });
   if (emp.salary && emp.salary.gross !== gross) {
     await db.employeeEvent.create({ data: { employeeId, type: "note", date: data.effectiveFrom, title: `Salary changed: ${emp.salary.gross.toLocaleString("en-PK")} → ${gross.toLocaleString("en-PK")}`, byId: user.id } });
+    await recordRevision({ employeeId, oldGross: emp.salary.gross, newGross: gross, effectiveFrom: data.effectiveFrom, kind: gross > emp.salary.gross ? "adjustment" : "decrement", reason: "Edited in payroll", actorId: user.id });
   }
   await audit(user.id, "update", "salary", employeeId, `Salary for ${emp.fullName} set to ${gross}`);
   revalidatePath("/hr/payroll");

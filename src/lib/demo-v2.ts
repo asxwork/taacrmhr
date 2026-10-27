@@ -208,3 +208,59 @@ export async function demoPosts(db: PrismaClient, u: { hr: { id: string } }, emp
     ],
   });
 }
+
+/** Salary revision history, a pending bulk increment, increments coming due and two leave encashments. */
+export async function demoCompensation(db: PrismaClient, u: { hr: { id: string }; manager: { id: string } }, employees: { id: string; fullName: string }[]) {
+  if (await db.salaryRevision.count({ where: { employeeId: { in: employees.map((e) => e.id) } } })) return;
+  const now = new Date();
+  const d = (days: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
+  const emps = await db.employee.findMany({ where: { id: { in: employees.map((e) => e.id) } }, include: { salary: true }, orderBy: { code: "asc" } });
+  const withSalary = emps.filter((e) => e.salary);
+  // History: last year's increments, already applied.
+  for (const e of withSalary) {
+    const old = Math.round(e.salary!.gross / 1.1);
+    await db.salaryRevision.create({ data: { employeeId: e.id, kind: "increment", oldGross: old, newGross: e.salary!.gross, effectiveFrom: new Date(now.getFullYear(), 0, 1), reason: "Annual increment", status: "approved", appliedAt: new Date(now.getFullYear(), 0, 1), createdById: u.hr.id } });
+    await db.salaryProfile.update({ where: { id: e.salary!.id }, data: { nextIncrementAt: new Date(now.getFullYear() + 1, 0, 1) } });
+  }
+  // Two people due soon (one overdue).
+  if (withSalary[3]) await db.salaryProfile.update({ where: { id: withSalary[3].salary!.id }, data: { nextIncrementAt: d(12) } });
+  if (withSalary[5]) await db.salaryProfile.update({ where: { id: withSalary[5].salary!.id }, data: { nextIncrementAt: d(-5) } });
+  // A pending bulk increment for Sales, as one approval.
+  const sales = withSalary.filter((e) => e.departmentId && e.departmentId === withSalary[2]?.departmentId);
+  if (sales.length) {
+    const ids: string[] = [];
+    for (const e of sales) ids.push((await db.salaryRevision.create({ data: { employeeId: e.id, kind: "increment", oldGross: e.salary!.gross, newGross: Math.round(e.salary!.gross * 1.08), effectiveFrom: d(35), reason: "Sales team mid-year increment (8%)", createdById: u.hr.id } })).id);
+    const req = await db.approvalRequest.create({
+      data: {
+        type: "salary_revision", employeeId: sales[0]!.id, requesterId: u.hr.id, title: `Salary revision · ${sales.length} employees (annual increment)`, summary: "Sales team mid-year increment (8%)",
+        payload: JSON.stringify({ revisionIds: ids }), actions: { create: { step: 0, userId: u.hr.id, decision: "submitted" } },
+      },
+    });
+    await db.salaryRevision.updateMany({ where: { id: { in: ids } }, data: { approvalId: req.id } });
+  }
+  // Leave encashments: one waiting, one approved for the next payroll.
+  const annual = await db.leaveType.findFirst({ where: { active: true, paid: true }, orderBy: [{ accrual: "asc" }, { sortOrder: "asc" }] });
+  if (annual) {
+    for (const [i, status] of (["pending", "approved"] as const).entries()) {
+      const e = withSalary[i + 1];
+      if (!e) continue;
+      const days = 2 + i;
+      const perDay = Math.round((e.salary!.gross / 30) * 100) / 100;
+      const enc = await db.leaveEncashment.create({ data: { employeeId: e.id, typeId: annual.id, typeName: annual.name, year: now.getFullYear(), days, perDay, amount: Math.round(perDay * days), reason: "Unused leave", status, createdById: u.hr.id } });
+      if (status === "pending") {
+        const req = await db.approvalRequest.create({
+          data: {
+            type: "leave_encashment", employeeId: e.id, requesterId: e.userId ?? u.hr.id, title: `Leave encashment · ${e.fullName}: ${days} day(s) ${annual.name}`, summary: "Unused leave",
+            payload: JSON.stringify({ encashmentId: enc.id }), actions: { create: { step: 0, userId: e.userId ?? u.hr.id, decision: "submitted" } },
+          },
+        });
+        await db.leaveEncashment.update({ where: { id: enc.id }, data: { approvalId: req.id } });
+      } else {
+        await db.leaveBalance.upsert({
+          where: { employeeId_typeId_year: { employeeId: e.id, typeId: annual.id, year: now.getFullYear() } },
+          update: { adjusted: { decrement: days } }, create: { employeeId: e.id, typeId: annual.id, year: now.getFullYear(), adjusted: -days, note: "Encashed" },
+        });
+      }
+    }
+  }
+}

@@ -146,6 +146,16 @@ async function onApproved(req: Req, actorId: string) {
       if (documentId) await db.employeeDocument.updateMany({ where: { id: documentId, employeeId: req.employeeId }, data: { verified: true } });
       break;
     }
+    case "salary_revision": {
+      const { revisionIds } = parse<{ revisionIds: string[] }>(req.payload);
+      if (revisionIds?.length) await (await import("./compensation")).applyRevisions(revisionIds, actorId);
+      break;
+    }
+    case "leave_encashment": {
+      const { encashmentId } = parse<{ encashmentId: string }>(req.payload);
+      if (encashmentId) await (await import("./compensation")).approveEncashment(encashmentId, actorId);
+      break;
+    }
     default:
       // WFH, travel, promotion, resignation… (lib/request-types.ts)
       await (await import("./requests")).applyTypedRequest(req, actorId);
@@ -161,6 +171,14 @@ async function onRejected(req: Req, status: "rejected" | "cancelled") {
   if (req.type === "leave") {
     const { leaveRequestId } = parse<{ leaveRequestId: string }>(req.payload);
     if (leaveRequestId) await (await import("./leave")).onLeaveDecision(leaveRequestId, status);
+  }
+  if (req.type === "salary_revision") {
+    const { revisionIds } = parse<{ revisionIds: string[] }>(req.payload);
+    if (revisionIds?.length) await (await import("./compensation")).closeRevisions(revisionIds, status);
+  }
+  if (req.type === "leave_encashment") {
+    const { encashmentId } = parse<{ encashmentId: string }>(req.payload);
+    if (encashmentId) await (await import("./compensation")).closeEncashment(encashmentId, status);
   }
   if (req.type === "document") {
     const { documentId } = parse<{ documentId: string }>(req.payload);

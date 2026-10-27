@@ -693,6 +693,8 @@ model Employee {
   relatives         EmployeeRelative[]
   qualifications    EmployeeQualification[]
   banks             EmployeeBank[]
+  salaryRevisions   SalaryRevision[]
+  encashments       LeaveEncashment[]
 
   @@index([branchId])
   @@index([departmentId])
@@ -1018,6 +1020,49 @@ model SalaryProfile {
   incrementMonths Int       @default(12)
   nextIncrementAt DateTime?
   updatedAt       DateTime  @updatedAt
+}
+
+/// kind: increment | promotion | adjustment | decrement. status: pending | approved | rejected | cancelled.
+/// Revisions raised together (bulk increment) share one approval request.
+model SalaryRevision {
+  id            String    @id @default(cuid())
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind          String    @default("increment")
+  oldGross      Float
+  newGross      Float
+  effectiveFrom DateTime
+  reason        String? // @text
+  status        String    @default("pending")
+  approvalId    String?
+  createdById   String?
+  appliedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+/// Unused paid leave turned into pay. status: pending | approved (waiting for payroll) | paid | rejected | cancelled.
+model LeaveEncashment {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  typeId      String
+  typeName    String
+  year        Int
+  days        Float
+  perDay      Float
+  amount      Float
+  reason      String?
+  status      String   @default("pending")
+  approvalId  String?
+  runId       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([status])
 }
 
 /// Earning components as % of gross. exemptPctOfBasic: tax-free up to this % of basic (e.g. medical 10%).

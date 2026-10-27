@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Button, Card, EmptyState, Field, PageHeader } from "@/components/ui";
 import { applyMyLeave, withdrawLeave } from "../../hr/leave/actions";
+import { encashableBalances, perDayPay } from "@/lib/compensation";
+import { EncashForm } from "@/components/hr/encash-form";
 
 export const metadata = { title: "My Leave" };
 
@@ -16,13 +18,15 @@ const fmtDays = (n: number) => (Number.isFinite(n) ? (Number.isInteger(n) ? Stri
 
 export default async function MyLeavePage() {
   const user = await requireUser();
-  const emp = await db.employee.findUnique({ where: { userId: user.id } });
+  const emp = await db.employee.findUnique({ where: { userId: user.id }, include: { salary: { select: { gross: true } } } });
   if (!emp) return (<><PageHeader title="My Leave" /><Card><EmptyState title="No employee record" description="Ask HR to link your login to your employee profile." /></Card></>);
 
   const year = new Date().getFullYear();
-  const [balances, requests] = await Promise.all([
+  const [balances, requests, encashable, encashments] = await Promise.all([
     balancesFor(emp.id, year),
     db.leaveRequest.findMany({ where: { employeeId: emp.id }, include: { type: true }, orderBy: { from: "desc" }, take: 50 }),
+    encashableBalances(emp.id),
+    db.leaveEncashment.findMany({ where: { employeeId: emp.id }, orderBy: { createdAt: "desc" }, take: 10 }),
   ]);
 
   return (
@@ -85,6 +89,21 @@ export default async function MyLeavePage() {
           )}
         </Card>
       </div>
+      <Card id="encash" className="mt-6 p-5">
+        <h2 className="mb-1 font-medium">Encash leave</h2>
+        <p className="mb-4 text-sm text-muted">Turn unused paid leave into pay. Once approved the days leave your balance and the amount comes with the next payslip.</p>
+        <EncashForm balances={encashable} perDay={emp.salary ? perDayPay(emp.salary.gross) : null} />
+        {encashments.length > 0 && (
+          <ul className="mt-4 divide-y divide-line border-t border-line text-sm">
+            {encashments.map((x) => (
+              <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span>{x.days} day{x.days === 1 ? "" : "s"} {x.typeName} · PKR {Math.round(x.amount).toLocaleString("en-PK")}</span>
+                <Badge tone={x.status === "paid" ? "green" : x.status === "approved" ? "navy" : x.status === "pending" ? "amber" : x.status === "rejected" ? "red" : "neutral"}>{x.status === "approved" ? "approved · next payroll" : x.status}</Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </>
   );
 }

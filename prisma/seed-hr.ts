@@ -19,6 +19,8 @@ export async function seedHr(db: PrismaClient) {
     ["attendance_correction", "Attendance correction", [{ kind: "manager" }]],
     ["loan", "Loan / advance", [{ kind: "manager" }, { kind: "hr" }]],
     ["expense", "Expense claim", [{ kind: "manager" }, { kind: "hr" }]],
+    ["salary_revision", "Salary revision", [{ kind: "hr" }]],
+    ["leave_encashment", "Leave encashment", [{ kind: "manager" }, { kind: "hr" }]],
   ];
   for (const [type, name, steps] of flows) await db.approvalFlow.upsert({ where: { type }, update: {}, create: { type, name, steps: JSON.stringify(steps) } });
   // Requests menu types (WFH, travel, promotion…): default chains, editable in HR Settings → Approval chains.

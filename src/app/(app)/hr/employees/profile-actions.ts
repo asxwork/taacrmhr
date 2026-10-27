@@ -7,6 +7,7 @@ import { can, scopeFor } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { addEvent, employeeAllows, syncUserFromEmployee } from "@/lib/hr";
 import { applyAssignment } from "@/lib/hr-assign";
+import { recordRevision } from "@/lib/compensation";
 import { profileSection, type ProfileField } from "@/lib/profile-fields";
 import { str, type FormState } from "@/lib/utils";
 
@@ -104,6 +105,7 @@ export async function saveProfileSection(_: FormState, fd: FormData): Promise<Fo
       await db.employee.update({ where: { id }, data: { ntn: (ntn as string | null) ?? null } });
       if (emp.salary && emp.salary.gross !== data.gross) {
         await addEvent(id, "note", `Salary changed: ${emp.salary.gross.toLocaleString("en-PK")} → ${data.gross.toLocaleString("en-PK")}`, { date: data.effectiveFrom, byId: user.id });
+        await recordRevision({ employeeId: id, oldGross: emp.salary.gross, newGross: data.gross, effectiveFrom: data.effectiveFrom, kind: data.gross > emp.salary.gross ? "adjustment" : "decrement", reason: "Edited on the profile", actorId: user.id });
       }
       break;
     }

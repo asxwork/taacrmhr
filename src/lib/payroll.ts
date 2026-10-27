@@ -110,9 +110,14 @@ export async function computePayslip(employeeId: string, month: string, runId: s
     lines.push({ kind: a.amount >= 0 ? "earning" : "deduction", label: a.label, amount: r0(Math.abs(a.amount)), source: a.taxable ? "adjustment" : "adjustment-nontax", refId: a.id });
   }
 
+  // Approved leave encashments (HR → People → Leave Encashment): taxable, but a one-off, so not projected over the year.
+  const encashments = await db.leaveEncashment.findMany({ where: { employeeId: emp.id, status: "approved", OR: [{ runId: null }, { runId }] } });
+  for (const x of encashments) lines.push({ kind: "earning", label: `Leave encashment (${x.days} day${x.days === 1 ? "" : "s"} ${x.typeName})`, amount: r0(x.amount), source: "encashment", refId: x.id });
+  const encashed = encashments.reduce((sum, x) => sum + x.amount, 0);
+
   // Taxable income: everything except tax-free reimbursements/allowances, less attendance deductions.
   const taxable = Math.max(0,
-    lines.filter((l) => l.kind === "earning" && l.source !== "adjustment-nontax").reduce((sum, l) => sum + l.amount, 0) - exempt
+    lines.filter((l) => l.kind === "earning" && l.source !== "adjustment-nontax" && l.source !== "encashment").reduce((sum, l) => sum + l.amount, 0) - exempt
     - lines.filter((l) => l.kind === "deduction" && ["absence", "late", "unpaid", "adjustment"].includes(l.source)).reduce((sum, l) => sum + l.amount, 0));
 
   // Approved expense claims are reimbursed tax-free.
@@ -131,7 +136,9 @@ export async function computePayslip(employeeId: string, month: string, runId: s
   if (emp.salary.pfPct > 0) lines.push({ kind: "deduction", label: `Provident fund (${emp.salary.pfPct}%)`, amount: r0((basic * emp.salary.pfPct) / 100), source: "pf" });
 
   // Income tax: project this month's taxable pay over the year, take 1/12 of the annual tax.
-  const tax = emp.salary.taxExempt || !slabs.length ? 0 : r0(annualTax(taxable * 12, slabs) / 12);
+  // An encashment adds its own slice: the extra annual tax it causes on top of the projected salary.
+  const tax = emp.salary.taxExempt || !slabs.length ? 0
+    : r0(annualTax(taxable * 12, slabs) / 12 + (encashed ? annualTax(taxable * 12 + encashed, slabs) - annualTax(taxable * 12, slabs) : 0));
   if (tax) lines.push({ kind: "deduction", label: "Income tax", amount: tax, source: "tax" });
 
   const earnings = lines.filter((l) => l.kind === "earning").reduce((sum, l) => sum + l.amount, 0);
@@ -145,6 +152,7 @@ export async function computePayslip(employeeId: string, month: string, runId: s
     },
     lines,
     expenseIds: expenses.map((e) => e.id),
+    encashmentIds: encashments.map((x) => x.id),
   };
 }
 
@@ -152,6 +160,7 @@ export async function computePayslip(employeeId: string, month: string, runId: s
 export async function generateRun(runId: string, onlyEmployeeId?: string) {
   const run = await db.payrollRun.findUniqueOrThrow({ where: { id: runId } });
   if (run.status !== "draft") throw new Error("Only draft runs can be recalculated.");
+  await (await import("./compensation")).applyDueRevisions(); // increments that took effect since approval
   const start = startOfMonth(monthDate(run.month));
   const end = endOfMonth(start);
   const employees = await db.employee.findMany({
@@ -165,6 +174,7 @@ export async function generateRun(runId: string, onlyEmployeeId?: string) {
   });
 
   await db.expense.updateMany({ where: { runId, status: "approved", ...(onlyEmployeeId && { employeeId: onlyEmployeeId }) }, data: { runId: null } });
+  await db.leaveEncashment.updateMany({ where: { runId, status: "approved", ...(onlyEmployeeId && { employeeId: onlyEmployeeId }) }, data: { runId: null } });
   await db.payslip.deleteMany({ where: { runId, ...(onlyEmployeeId && { employeeId: onlyEmployeeId }) } });
 
   const missing: string[] = [];
@@ -174,6 +184,7 @@ export async function generateRun(runId: string, onlyEmployeeId?: string) {
     if (!slip) continue;
     await db.payslip.create({ data: { ...slip.data, lines: { create: slip.lines.map((l, i) => ({ kind: l.kind, label: l.label, amount: l.amount, source: l.source, refId: l.refId ?? null, sortOrder: i })) } } });
     if (slip.expenseIds.length) await db.expense.updateMany({ where: { id: { in: slip.expenseIds } }, data: { runId } });
+    if (slip.encashmentIds.length) await db.leaveEncashment.updateMany({ where: { id: { in: slip.encashmentIds } }, data: { runId } });
   }
   return { missing };
 }
@@ -190,6 +201,7 @@ export async function approveRun(runId: string, userId: string) {
     }
   }
   await db.expense.updateMany({ where: { runId, status: "approved" }, data: { status: "paid" } });
+  await db.leaveEncashment.updateMany({ where: { runId, status: "approved" }, data: { status: "paid" } });
   await db.payrollRun.update({ where: { id: runId }, data: { status: "approved", approvedById: userId, approvedAt: new Date() } });
   for (const p of run.payslips) await notify(p.employee.userId, `Payslip for ${run.month} is ready`, { link: `/payslips/${p.id}`, email: true });
 }
@@ -202,5 +214,6 @@ export async function reopenRun(runId: string) {
   await db.loanRepayment.deleteMany({ where: { runId } });
   await db.loan.updateMany({ where: { id: { in: reps.map((r) => r.loanId) }, status: "closed" }, data: { status: "active" } });
   await db.expense.updateMany({ where: { runId, status: "paid" }, data: { status: "approved" } });
+  await db.leaveEncashment.updateMany({ where: { runId, status: "paid" }, data: { status: "approved" } });
   await db.payrollRun.update({ where: { id: runId }, data: { status: "draft", approvedById: null, approvedAt: null } });
 }

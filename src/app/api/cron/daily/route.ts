@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { notify } from "@/lib/notify";
 import { hrApproverIds } from "@/lib/approvals";
 import { loadAttendance } from "@/lib/attendance";
+import { applyDueRevisions } from "@/lib/compensation";
 
 // Hostinger cron (once a day, e.g. 07:00): GET https://<domain>/api/cron/daily?key=<CRON_SECRET>
 // Attendance and leave balances are computed live, so this job only sends reminders.
@@ -17,6 +18,9 @@ export async function GET(req: Request) {
 
   const today = startOfDay(new Date());
   const yesterday = subDays(today, 1);
+
+  // 0. Approved salary revisions whose effective date has arrived.
+  await applyDueRevisions();
   const employees = await db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, userId: true, fullName: true, probationEnd: true, status: true } });
 
   // 1. Forgot to check out yesterday.

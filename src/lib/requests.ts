@@ -1,6 +1,7 @@
 // HR requests from REQUEST_TYPES (WFH, travel, promotion, resignation…): validation, submission through the
 // approval engine, and what an approved request changes, so every request is connected to the records it affects.
-import { eachDayOfInterval, format, startOfDay } from "date-fns";
+import { addMonths, eachDayOfInterval, format, startOfDay } from "date-fns";
+import { recordRevision } from "./compensation";
 import { db } from "./db";
 import { submitRequest } from "./approvals";
 import { addEvent, employeeWhere, ensureChecklist } from "./hr";
@@ -154,8 +155,9 @@ export async function applyTypedRequest(req: { id: string; type: string; employe
       if (p.salary) {
         const gross = Number(p.salary);
         const profile = await db.salaryProfile.findUnique({ where: { employeeId: emp.id } });
-        if (profile) await db.salaryProfile.update({ where: { id: profile.id }, data: { gross, effectiveFrom: effective } });
+        if (profile) await db.salaryProfile.update({ where: { id: profile.id }, data: { gross, effectiveFrom: effective, nextIncrementAt: addMonths(effective, profile.incrementMonths || 12) } });
         else await db.salaryProfile.create({ data: { employeeId: emp.id, gross, effectiveFrom: effective } });
+        await recordRevision({ employeeId: emp.id, oldGross: profile?.gross ?? 0, newGross: gross, effectiveFrom: effective, kind: "promotion", reason: p.reason ?? null, actorId });
       }
       await event("promotion", `Promoted to ${p.names?.designationId ?? "new designation"}${p.salary ? ` · gross PKR ${Number(p.salary).toLocaleString("en-PK")}` : ""}`, p.reason, effective);
       break;
