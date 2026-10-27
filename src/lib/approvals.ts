@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { notify } from "./notify";
+import { renderTemplate } from "./notify-templates";
 import { deleteUpload } from "./files";
 import { addEvent } from "./hr";
 import { APPROVAL_TYPES, SELF_EDITABLE } from "./hr-shared";
@@ -62,8 +63,9 @@ export async function submitRequest(input: { type: string; employeeId: string; r
       actions: { create: { step: 0, userId: input.requesterId, decision: "submitted" } },
     },
   });
+  const msg = await renderTemplate("approval_needed", { title: input.title, type: APPROVAL_TYPES[input.type] ?? input.type });
   for (const id of await approversFor(req)) {
-    if (id !== input.requesterId) await notify(id, `Approval needed: ${input.title}`, { body: APPROVAL_TYPES[input.type] ?? input.type, link: `/approvals?open=${req.id}`, email: true });
+    if (id !== input.requesterId) await notify(id, msg.title, { body: msg.body, link: `/approvals?open=${req.id}`, email: true });
   }
   return req;
 }
@@ -79,7 +81,8 @@ export async function decide(user: SessionUser, requestId: string, decision: "ap
   if (decision === "rejected") {
     await db.approvalRequest.update({ where: { id: requestId }, data: { status: "rejected", decidedAt: new Date() } });
     await onRejected(req, "rejected");
-    await notify(req.requesterId, `Rejected: ${req.title}`, { body: `${user.name}: ${comment}`, link: `/approvals?open=${req.id}`, email: true });
+    const msg = await renderTemplate("rejected", { title: req.title, actor: user.name, reason: comment ?? "" });
+    await notify(req.requesterId, msg.title, { body: msg.body, link: `/approvals?open=${req.id}`, email: true });
     return { ok: true };
   }
 
@@ -92,7 +95,8 @@ export async function decide(user: SessionUser, requestId: string, decision: "ap
 
   await db.approvalRequest.update({ where: { id: requestId }, data: { status: "approved", decidedAt: new Date() } });
   await onApproved(req, user.id);
-  await notify(req.requesterId, `Approved: ${req.title}`, { body: `By ${user.name}`, link: `/approvals?open=${req.id}`, email: true });
+  const msg = await renderTemplate("approved", { title: req.title, actor: user.name });
+  await notify(req.requesterId, msg.title, { body: msg.body, link: `/approvals?open=${req.id}`, email: true });
   return { ok: true };
 }
 

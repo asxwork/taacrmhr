@@ -347,3 +347,31 @@ export async function demoProbation(db: PrismaClient, u: { manager: { id: string
   const ratings = { "Attendance & punctuality": 4, "Quality of work": 4, "Product & market knowledge": 3, "Teamwork & attitude": 5, "Learning & initiative": 4 };
   await db.probationReview.create({ data: { employeeId: p.id, reviewerId: u.manager.id, ratings: JSON.stringify(ratings), overall: 4, recommendation: "confirm", comments: "Strong start; closed her first Palm Residency booking in month two." } });
 }
+
+/** Two custom fields and an open engagement survey with a few anonymous answers. */
+export async function demoSettingsExtras(db: PrismaClient, employees: { id: string }[]) {
+  if (!(await db.customField.count())) {
+    await db.customField.createMany({ data: [
+      { label: "Vehicle number", kind: "text", sortOrder: 0 },
+      { label: "Shirt size", kind: "select", options: "S,M,L,XL", sortOrder: 1 },
+    ] });
+  }
+  if (await db.engagementSurvey.count()) return;
+  const { respondentKey } = await import("./engagement");
+  const s = await db.engagementSurvey.create({
+    data: {
+      title: "October pulse", description: "Two minutes, completely anonymous.", anonymous: true,
+      questions: JSON.stringify([
+        { text: "How happy are you at work?", kind: "rating" },
+        { text: "How likely are you to recommend us as a place to work?", kind: "rating" },
+        { text: "Do you have what you need to do your job well?", kind: "rating" },
+        { text: "What is one thing we should change?", kind: "text" },
+      ]),
+    },
+  });
+  const answers = [[4, 5, 3, "Faster approvals for site-visit expenses."], [5, 4, 4, "More training on the CRM."], [3, 3, 2, "A second printer on the sales floor."]];
+  for (const [i, a] of answers.entries()) {
+    const e = employees[i + 1];
+    if (e) await db.engagementResponse.create({ data: { surveyId: s.id, respondentKey: respondentKey(s.id, e.id), answers: JSON.stringify(a) } });
+  }
+}

@@ -8,7 +8,7 @@ import { audit } from "@/lib/audit";
 import { addEvent, employeeAllows, syncUserFromEmployee } from "@/lib/hr";
 import { applyAssignment } from "@/lib/hr-assign";
 import { recordRevision } from "@/lib/compensation";
-import { profileSection, type ProfileField } from "@/lib/profile-fields";
+import { customSection, profileSection, type ProfileField } from "@/lib/profile-fields";
 import { str, type FormState } from "@/lib/utils";
 
 const path = (id: string) => `/hr/employees/${id}`;
@@ -53,7 +53,7 @@ function readFields(fields: ProfileField[], fd: FormData): { data: Record<string
 export async function saveProfileSection(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
   const id = str(fd, "id");
-  const section = profileSection(str(fd, "section"));
+  const section = str(fd, "section") === "custom" ? customSection(await db.customField.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } })) : profileSection(str(fd, "section"));
   if (!section) return { error: "Unknown section." };
   const emp = await editable(user, id);
   if (!emp) return { error: "You can't edit this employee." };
@@ -107,6 +107,14 @@ export async function saveProfileSection(_: FormState, fd: FormData): Promise<Fo
         await addEvent(id, "note", `Salary changed: ${emp.salary.gross.toLocaleString("en-PK")} → ${data.gross.toLocaleString("en-PK")}`, { date: data.effectiveFrom, byId: user.id });
         await recordRevision({ employeeId: id, oldGross: emp.salary.gross, newGross: data.gross, effectiveFrom: data.effectiveFrom, kind: data.gross > emp.salary.gross ? "adjustment" : "decrement", reason: "Edited on the profile", actorId: user.id });
       }
+      break;
+    }
+    case "custom": {
+      // Custom field values live as JSON on the employee, keyed by field id (kept for hidden fields too).
+      let data: Record<string, unknown> = {};
+      try { data = emp.customData ? JSON.parse(emp.customData) : {}; } catch {}
+      for (const [k, val] of Object.entries(v)) data[k.replace(/^cf_/, "")] = val instanceof Date ? val.toISOString().slice(0, 10) : val == null ? "" : String(val);
+      await db.employee.update({ where: { id }, data: { customData: JSON.stringify(data) } });
       break;
     }
     default:

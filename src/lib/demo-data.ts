@@ -5,7 +5,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { nextNumber } from "./sequence";
 import { demoExtras } from "./demo-extras";
-import { demoCompensation, demoPayrollExtras, demoPolicies, demoPosts, demoProfiles, demoProbation, demoScheduling, demoV2 } from "./demo-v2";
+import { demoCompensation, demoPayrollExtras, demoPolicies, demoPosts, demoProfiles, demoProbation, demoScheduling, demoSettingsExtras, demoV2 } from "./demo-v2";
 import { deleteUpload } from "./files";
 
 export type DemoOptions = {
@@ -70,7 +70,8 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
   await demoPayrollExtras(db, { hr }, empRows);
   await demoScheduling(db, { hr }, empRows);
   await demoProbation(db, { manager });
-  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true, v3: true, v4: true, v5: true, v6: true, v7: true, v8: true, v9: true });
+  await demoSettingsExtras(db, empRows);
+  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true, v3: true, v4: true, v5: true, v6: true, v7: true, v8: true, v9: true, v10: true });
   await db.setting.upsert({ where: { key: MARKER }, update: { value }, create: { key: MARKER, value } });
   return { users: 6, employees: employees.length, projects: projectIds.length };
 }
@@ -83,8 +84,8 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
 export async function upgradeDemo(db: PrismaClient) {
   const row = await db.setting.findUnique({ where: { key: MARKER } });
   if (!row) return;
-  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean; v3?: boolean; v4?: boolean; v5?: boolean; v6?: boolean; v7?: boolean; v8?: boolean; v9?: boolean };
-  if (marker.openingIds && marker.v2 && marker.v3 && marker.v4 && marker.v5 && marker.v6 && marker.v7 && marker.v8 && marker.v9) return;
+  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean; v3?: boolean; v4?: boolean; v5?: boolean; v6?: boolean; v7?: boolean; v8?: boolean; v9?: boolean; v10?: boolean };
+  if (marker.openingIds && marker.v2 && marker.v3 && marker.v4 && marker.v5 && marker.v6 && marker.v7 && marker.v8 && marker.v9 && marker.v10) return;
   const users = await db.user.findMany({ where: { email: { endsWith: `@${marker.domain}` } } });
   const by = (local: string) => users.find((x) => x.email === `${local}@${marker.domain}`);
   const [head, hr, manager, agent1, agent2, staff] = ["admin", "hr", "manager", "agent1", "agent2", "staff"].map(by);
@@ -147,6 +148,11 @@ export async function upgradeDemo(db: PrismaClient) {
   if (!marker.v9) {
     await demoProbation(db, { manager });
     marker = { ...marker, v9: true };
+    await save();
+  }
+  if (!marker.v10) {
+    await demoSettingsExtras(db, employees);
+    marker = { ...marker, v10: true };
     await save();
   }
 }

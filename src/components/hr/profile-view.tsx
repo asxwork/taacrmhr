@@ -74,6 +74,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
             ) : emp.photo ? emp.photo.split("/").pop() : <span className="text-muted">—</span>}
           </Row>
         } />
+      {p.customDef && <SectionForm employeeId={id} def={p.customDef} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<User className="size-4" />} />}
       <SectionForm employeeId={id} def={def("quick")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<Phone className="size-4" />} />
       <SectionForm employeeId={id} def={def("cnic")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<IdCard className="size-4" />}
         after={attachment("CNIC Attachment", "CNIC")} />

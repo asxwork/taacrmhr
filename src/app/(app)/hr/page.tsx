@@ -6,6 +6,7 @@ import { can, requirePermission, scopeFor } from "@/lib/permissions";
 import { ATTENDANCE_DRILL, DAY_STATUSES, attendanceEmployeeWhere, fmtMinutes, geofenceMode, loadAttendance, type DayResult } from "@/lib/attendance";
 import { companyWidgets, myWidgets } from "@/lib/hr-dashboard";
 import { policiesFor } from "@/lib/policies";
+import { hiddenWidgets, type WidgetKey } from "@/lib/hr-dashboard-widgets";
 import { color } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -60,12 +61,15 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
   const earlyRisers = rows.filter((r) => r.d.checkIn).sort((a, b) => +a.d.checkIn! - +b.d.checkIn!).slice(0, 6);
   const lateComers = rows.filter((r) => r.d.lateMin > 0).sort((a, b) => b.d.lateMin - a.d.lateMin).slice(0, 6);
   const k = company.kpis;
+  const hidden = await hiddenWidgets(); // System Settings → Customization → Dashboard
+  const show = (w: WidgetKey) => !hidden.has(w);
   const h = company.headcount;
 
   return (
     <>
       <PageHeader title="Dashboard" description={`${format(now, "EEEE d MMMM yyyy")} · ${TZ}`} />
 
+      {show("drill") && (<>
       {/* Attendance drill-down */}
       <Widget title={`Attendance Drill Down${branches.length > 1 ? " By Branch" : ""}`} className="mb-6"
         action={
@@ -81,21 +85,27 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
         }>
         <DrillTiles tiles={tiles} className="xl:grid-cols-4 2xl:grid-cols-5" />
       </Widget>
+      </>)}
 
+      {show("risers") && (<>
       <Grid>
         <PeopleList title="Early Risers" icon={<Sunrise className="size-4 text-amber-500" />}
           rows={earlyRisers.map(({ e, d }) => ({ e, value: format(d.checkIn!, "h:mm a"), sub: e.designation?.name ?? e.code }))} />
         <PeopleList title="Late Comers" icon={<Timer className="size-4 text-red-500" />} action={<span className="text-xs text-muted">{format(date, "MMMM d, yyyy")}</span>}
           rows={lateComers.map(({ e, d }) => ({ e, value: `${d.lateMin} min late`, sub: `In at ${format(d.checkIn!, "h:mm a")}`, tone: "text-red-600" }))} />
       </Grid>
+      </>)}
 
+      {show("kpis") && (<>
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi tone="from-emerald-600 to-emerald-800" value={k.active} label="Active Employees" href="/hr/employees" />
         <Kpi tone="from-sky-600 to-sky-800" value={k.separations30} label="Separations in 30 Days" href="/hr/exits" />
         <Kpi tone="from-amber-500 to-amber-700" value={k.confirmations30} label="Confirmations in 30 Days" href="/hr/employees?status=probation" />
         <Kpi tone="from-red-600 to-red-800" value={k.separationsMonth} label="Separation This Month" href="/hr/exits?tab=left" />
       </div>
+      </>)}
 
+      {show("me") && (<>
       {/* Me: clock in/out, leave summary, clock */}
       <div className="mb-6 grid gap-6 lg:grid-cols-3">
         <Widget title="Mark Clock In/Clock Out">
@@ -134,7 +144,9 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
         </Widget>
         <Widget title="Clock"><LiveClock timeZone={TZ} /></Widget>
       </div>
+      </>)}
 
+      {show("posts") && (<>
       {/* Accolades / News Letter / Words of Wisdom */}
       <div className="mb-6 grid gap-6 lg:grid-cols-3">
         {company.posts.map(({ kind, rows: posts }) => (
@@ -181,7 +193,9 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
           </Widget>
         ))}
       </div>
+      </>)}
 
+      {show("summary") && (<>
       {mine && (
         <>
           <Widget title="Attendance Summary" className="mb-6" action={<span className="text-xs text-muted">{format(now, "MMMM yyyy")}</span>}>
@@ -199,11 +213,15 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
           </Widget>
         </>
       )}
+      </>)}
 
+      {show("absents") && (<>
       <Widget title="Month Wise Absents" className="mb-6" action={<span className="text-xs text-muted">{company.monthAbsents.labels[0]} – {company.monthAbsents.labels.at(-1)}</span>}>
         <LineChart labels={company.monthAbsents.labels} series={[{ name: "Absents", color: "#ea580c", values: company.monthAbsents.values }]} />
       </Widget>
+      </>)}
 
+      {show("people") && (<>
       <Grid>
         <Widget title="Birthday" icon={<Cake className="size-4 text-pink-500" />}>
           {company.birthdays.length ? (
@@ -236,7 +254,9 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
           ) : <Empty />}
         </Widget>
       </Grid>
+      </>)}
 
+      {show("headcount") && (<>
       <Grid>
         <Widget title="Head Count By Age"><BarList rows={h.age} empty="No Record Found!" /></Widget>
         <Widget title="Head Count By Branch"><BarList rows={h.branch} empty="No Record Found!" /></Widget>
@@ -249,6 +269,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
         <Widget title="Head Count By Employment Type"><BarList rows={h.type} empty="No Record Found!" /></Widget>
         <Widget title="Head Count By Location"><BarList rows={h.location} empty="No Record Found!" /></Widget>
       </Grid>
+      </>)}
+      {show("money") && (<>
       <Grid>
         <Widget title="Head Count By Service"><BarList rows={h.service} empty="No Record Found!" /></Widget>
         <Widget title="Attrition By Separation Type" action={<span className="text-xs text-muted">Last 12 months</span>}>{h.attrition.length ? <BarList rows={h.attrition} /> : <Empty />}</Widget>
@@ -263,6 +285,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
           ]} />
         </Widget>
       </Grid>
+      </>)}
+      {show("gender") && (<>
       <Grid>
         <Widget title="Gender Wise Head Count"><BarList rows={h.gender} empty="No Record Found!" /></Widget>
         <Widget title="Company Documents and Policies" action={<Link href={mine ? "/me/policies" : "/hr/policies"} className="text-xs text-navy-700 hover:underline">View all</Link>}>
@@ -282,6 +306,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
           ) : <Empty />}
         </Widget>
       </Grid>
+      </>)}
+      {show("support") && (<>
       <Grid>
         <Widget title="Support Email" icon={<Mail className="size-4 text-navy-700" />}>
           <ActionForm action={sendHrSupport} className="space-y-2">
@@ -292,6 +318,7 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
         </Widget>
         <Widget title="New Joiners By Gender" action={<span className="text-xs text-muted">Last 90 days</span>}>{h.joinersGender.length ? <BarList rows={h.joinersGender} /> : <Empty />}</Widget>
       </Grid>
+      </>)}
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { endOfMonth, getDaysInMonth, max as maxDate, min as minDate, parse, startOfDay, startOfMonth } from "date-fns";
+import { endOfMonth, format, getDaysInMonth, max as maxDate, min as minDate, parse, startOfDay, startOfMonth } from "date-fns";
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { loadAttendance, summarize } from "./attendance";
@@ -209,7 +209,11 @@ export async function approveRun(runId: string, userId: string) {
   await db.expense.updateMany({ where: { runId, status: "approved" }, data: { status: "paid" } });
   await db.leaveEncashment.updateMany({ where: { runId, status: "approved" }, data: { status: "paid" } });
   await db.payrollRun.update({ where: { id: runId }, data: { status: "approved", approvedById: userId, approvedAt: new Date() } });
-  for (const p of run.payslips) await notify(p.employee.userId, `Payslip for ${run.month} is ready`, { link: `/payslips/${p.id}`, email: true });
+  const { renderTemplate } = await import("./notify-templates");
+  for (const p of run.payslips) {
+    const msg = await renderTemplate("payslip_ready", { month: format(monthDate(run.month), "MMMM yyyy"), name: "" });
+    await notify(p.employee.userId, msg.title, { body: msg.body, link: `/payslips/${p.id}`, email: true });
+  }
 }
 
 /** Back to draft (only before it's paid): undoes loan repayments and expense payouts made by approval. */

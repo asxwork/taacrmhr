@@ -5,7 +5,7 @@ import { db } from "./db";
 import { balancesFor } from "./leave";
 import { policiesFor } from "./policies";
 import { defaultShift } from "./attendance";
-import { COMPLETION_KEYS, type OptionSource } from "./profile-fields";
+import { COMPLETION_KEYS, customSection, type OptionSource } from "./profile-fields";
 
 export async function loadProfile(id: string) {
   const emp = await db.employee.findUnique({
@@ -28,6 +28,9 @@ export async function loadProfile(id: string) {
 
   const [first, ...rest] = emp.fullName.trim().split(/\s+/);
   const parts = emp.firstName ? { firstName: emp.firstName, lastName: emp.lastName } : { firstName: first ?? "", lastName: rest.join(" ") || null };
+  const customFields = await db.customField.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } });
+  let custom: Record<string, string> = {};
+  try { custom = emp.customData ? JSON.parse(emp.customData) : {}; } catch {}
   const finalAuthority = emp.finalAuthorityId ? await db.employee.findUnique({ where: { id: emp.finalAuthorityId }, select: { id: true, fullName: true } }) : null;
 
   const d = (v: Date | null | undefined) => (v ? format(v, "yyyy-MM-dd") : "");
@@ -48,6 +51,7 @@ export async function loadProfile(id: string) {
     taxExempt: s?.taxExempt ? "on" : "", eobi: !s || s.eobi ? "on" : "", pfPct: s ? String(s.pfPct) : "0",
     address: emp.address ?? "", permanentAddress: emp.permanentAddress ?? "", city: emp.city ?? "",
     emergencyName: emp.emergencyName ?? "", emergencyRelation: emp.emergencyRelation ?? "", emergencyPhone: emp.emergencyPhone ?? "",
+    ...Object.fromEntries(customFields.map((f) => [`cf_${f.id}`, custom[f.id] ?? ""])),
   };
 
   // Completion
@@ -80,7 +84,7 @@ export async function loadProfile(id: string) {
   const components = s ? await db.payComponent.findMany({ orderBy: { sortOrder: "asc" } }) : [];
 
   const [balances, policies] = await Promise.all([balancesFor(emp.id).catch(() => []), policiesFor(emp.id)]);
-  return { emp, values, completion, ageText, experienceText, division, components, balances, policies, finalAuthority, shift };
+  return { emp, values, completion, ageText, experienceText, division, components, balances, policies, finalAuthority, shift, customDef: customSection(customFields) };
 }
 
 export type Profile = NonNullable<Awaited<ReturnType<typeof loadProfile>>>;

@@ -40,6 +40,8 @@ model User {
   phone             String?
   title             String?
   passwordHash      String
+  /// Set when the user clicks the link from System Settings → Email Verification.
+  emailVerifiedAt   DateTime?
   active            Boolean           @default(true)
   isSuperAdmin      Boolean           @default(false)
   branchId          String?
@@ -642,6 +644,8 @@ model Employee {
   bankName          String?
   accountTitle      String?
   accountNumber     String?
+  /// Values of HR-defined custom fields (System Settings → Custom Fields), JSON { fieldId: value }.
+  customData        String? // @text
   ntn               String?
   photo             String?
   grade             String?
@@ -818,6 +822,57 @@ model EmployeeLetter {
   issuedAt   DateTime        @default(now())
 
   @@index([employeeId])
+}
+
+/// Extra employee fields HR defines (System Settings → Custom Fields); shown on the profile's Employee Info tab.
+/// kind: text | number | date | select (options = comma-separated).
+model CustomField {
+  id        String   @id @default(cuid())
+  label     String
+  kind      String   @default("text")
+  options   String?
+  required  Boolean  @default(false)
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+/// One-time email verification links (sha256 of the token).
+model EmailToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Employee Engagement: pulse surveys. questions = JSON [{ text, kind: "rating" | "text" }]. status: open | closed.
+model EngagementSurvey {
+  id          String               @id @default(cuid())
+  title       String
+  description String? // @text
+  questions   String // @text
+  anonymous   Boolean              @default(true)
+  status      String               @default("open")
+  closesAt    DateTime?
+  createdById String?
+  createdAt   DateTime             @default(now())
+  responses   EngagementResponse[]
+}
+
+/// respondentKey = sha256(surveyId + employeeId), so one answer each even when anonymous (employeeId then null).
+model EngagementResponse {
+  id            String           @id @default(cuid())
+  surveyId      String
+  survey        EngagementSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  employeeId    String?
+  respondentKey String
+  answers       String // @text
+  createdAt     DateTime         @default(now())
+
+  @@unique([surveyId, respondentKey])
 }
 
 /// HR dashboard posts. kind: accolade | news | wisdom. employeeId: who an accolade is for.

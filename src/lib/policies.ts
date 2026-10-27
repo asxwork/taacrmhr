@@ -3,6 +3,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { notify } from "./notify";
+import { renderTemplate } from "./notify-templates";
 
 export const POLICY_CATEGORIES = ["General", "Code of conduct", "Leave", "Attendance", "IT & security", "Finance", "Health & safety", "Sales"] as const;
 
@@ -55,8 +56,9 @@ export async function publishPolicy(id: string, bumpVersion: boolean) {
     data: { status: "published", publishedAt: new Date(), ...(bumpVersion && { version: { increment: 1 } }) },
   });
   const people = await db.employee.findMany({ where: { ...audienceWhere(p), userId: { not: null } }, select: { userId: true } });
+  const msg = await renderTemplate("policy_published", { policy: p.title, version: p.version });
   for (const e of people) {
-    await notify(e.userId!, `${bumpVersion ? "Updated policy" : "New policy"}: ${p.title}`, { body: p.requireAck ? "Please read and acknowledge it." : undefined, link: `/me/policies?open=${p.id}` });
+    await notify(e.userId!, bumpVersion ? msg.title.replace(/^New policy/, "Updated policy") : msg.title, { body: p.requireAck ? msg.body : undefined, link: `/me/policies?open=${p.id}` });
   }
   return p;
 }

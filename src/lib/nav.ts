@@ -8,7 +8,6 @@ export type NavItem = {
   /** Sub-menu (e.g. Compliance ▸, Settings ▸). The parent's href is its first child's. */
   children?: NavItem[];
 };
-const SOON = 2;
 /** Shorthand for a sub-menu entry. */
 const sub = (label: string, children: NavItem[], icon = children[0]!.icon): NavItem => ({ href: children[0]!.href, label, icon, children });
 /** A group of items. In a "modules" app (HR) each group is a module: an icon on the rail and its pages in the panel. */
@@ -127,7 +126,7 @@ export const APPS: AppDef[] = [
             { href: "/settings/hr#departments", label: "Manage Employee", icon: "usercog", module: "hr.employees" },
             { href: "/hr/policies/manage", label: "Policy Management", icon: "filecheck", module: "hr.employees" },
             { href: "/settings/hr#designations", label: "Manage Employments", icon: "briefcase", module: "hr.employees" },
-            { href: "/hr/engagement", label: "Employee Engagement", icon: "heart", module: "hr.employees", phase: SOON },
+            { href: "/hr/engagement", label: "Employee Engagement", icon: "heart", module: "hr.employees" },
           ], "settings"),
         ],
       },
@@ -297,16 +296,16 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/settings/hr", label: "General", icon: "sliders", module: "hr.employees" },
           { href: "/settings/roles", label: "Access Controls", icon: "shield", module: "settings.roles" },
-          { href: "/hr/settings/email-verification", label: "Email Verification", icon: "mail", module: "settings.company", phase: SOON },
+          { href: "/hr/settings/email-verification", label: "Email Verification", icon: "mail", module: "settings.company" },
           { href: "/hr/attendance?import=1", label: "Machine", icon: "fingerprint", module: "hr.attendance" },
           { href: "/settings/integrations#email", label: "Mail Logs", icon: "mail", module: "settings.company" },
           { href: "/settings/integrations", label: "Integrations", icon: "plug", module: "settings.company" },
           sub("Customization", [
-            { href: "/hr/settings/custom-fields", label: "Custom Fields", icon: "list", module: "settings.company", phase: SOON },
-            { href: "/hr/settings/dashboard", label: "Dashboard", icon: "layout", module: "settings.company", phase: SOON },
+            { href: "/hr/settings/custom-fields", label: "Custom Fields", icon: "list", module: "settings.company" },
+            { href: "/hr/settings/dashboard", label: "Dashboard", icon: "layout", module: "settings.company" },
           ], "sliders"),
           sub("Templates", [
-            { href: "/hr/settings/notification-templates", label: "Notification", icon: "bell", module: "settings.company", phase: SOON },
+            { href: "/hr/settings/notification-templates", label: "Notification", icon: "bell", module: "settings.company" },
           ], "layout"),
         ],
       },
@@ -325,6 +324,7 @@ export const APPS: AppDef[] = [
           { href: "/me/expenses", label: "My Expenses & Loans", icon: "card" },
           { href: "/me/performance", label: "My Performance", icon: "award" },
           { href: "/me/policies", label: "My Policies", icon: "filecheck" },
+          { href: "/me/surveys", label: "Surveys", icon: "heart" },
           { href: "/hr/requests", label: "New request", icon: "chatplus" },
           { href: "/approvals?tab=mine", label: "My Requests", icon: "check" },
         ],

@@ -18,10 +18,14 @@ const d = (v: Date | null | undefined) => (v ? format(v, "yyyy-MM-dd") : "");
 export async function hrTable(type: HrReport, from: Date, to: Date, scope: Prisma.EmployeeWhereInput): Promise<{ head: string[]; rows: (string | number)[][] }> {
   switch (type) {
     case "employees": {
-      const rows = await db.employee.findMany({ where: { ...scope, status: { not: "left" } }, include: { department: true, designation: true, branch: true, manager: true }, orderBy: { code: "asc" } });
+      const [rows, custom] = await Promise.all([
+        db.employee.findMany({ where: { ...scope, status: { not: "left" } }, include: { department: true, designation: true, branch: true, manager: true }, orderBy: { code: "asc" } }),
+        db.customField.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+      ]);
+      const cf = (json: string | null) => { try { return json ? (JSON.parse(json) as Record<string, string>) : {}; } catch { return {}; } };
       return {
-        head: ["Code", "Name", "Department", "Designation", "Branch", "Line manager", "Joined", "Status", "Type", "Gender", "D.O.B", "CNIC", "Mobile", "Email", "Blood group"],
-        rows: rows.map((e) => [e.code, e.fullName, e.department?.name ?? "", e.designation?.name ?? "", e.branch?.name ?? "", e.manager?.fullName ?? "", d(e.joiningDate), e.status, e.employmentType, e.gender ?? "", d(e.dob), e.cnic ?? "", e.phone ?? "", e.officialEmail ?? e.personalEmail ?? "", e.bloodGroup ?? ""]),
+        head: ["Code", "Name", "Department", "Designation", "Branch", "Line manager", "Joined", "Status", "Type", "Gender", "D.O.B", "CNIC", "Mobile", "Email", "Blood group", ...custom.map((f) => f.label)],
+        rows: rows.map((e) => [e.code, e.fullName, e.department?.name ?? "", e.designation?.name ?? "", e.branch?.name ?? "", e.manager?.fullName ?? "", d(e.joiningDate), e.status, e.employmentType, e.gender ?? "", d(e.dob), e.cnic ?? "", e.phone ?? "", e.officialEmail ?? e.personalEmail ?? "", e.bloodGroup ?? "", ...custom.map((f) => cf(e.customData)[f.id] ?? "")]),
       };
     }
     case "probation": {

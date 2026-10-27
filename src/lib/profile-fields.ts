@@ -14,7 +14,7 @@ export type ProfileField = {
   /** Shown but never saved from this form (employee code). */
   readOnly?: boolean;
 };
-export type ProfileSectionKey = "personal" | "quick" | "cnic" | "passport" | "license" | "employment" | "salary" | "contact";
+export type ProfileSectionKey = "personal" | "quick" | "cnic" | "passport" | "license" | "employment" | "salary" | "contact" | "custom";
 export type ProfileSectionDef = { key: ProfileSectionKey; title: string; fields: ProfileField[] };
 
 const pairs = (xs: readonly string[]) => xs.map((x) => [x, x] as const);
@@ -137,3 +137,16 @@ export const COMPLETION_KEYS = [
   "phone", "personalEmail", "cnic", "cnicExpiry", "address", "city", "emergencyName", "emergencyPhone",
   "departmentId", "designationId", "branchId", "managerId", "bankName", "accountNumber", "cnicDoc", "relative", "qualification",
 ] as const;
+
+/** The "Additional Information" section built from HR's custom fields (System Settings → Custom Fields). */
+export function customSection(fields: { id: string; label: string; kind: string; options: string | null; required: boolean }[]): ProfileSectionDef | null {
+  if (!fields.length) return null;
+  return {
+    key: "custom", title: "Additional Information",
+    fields: fields.map((f) => ({
+      key: `cf_${f.id}`, label: f.label, required: f.required,
+      kind: (["text", "number", "date", "select"].includes(f.kind) ? f.kind : "text") as ProfileField["kind"],
+      options: f.kind === "select" ? (f.options ?? "").split(",").map((o) => [o, o] as const) : undefined,
+    })),
+  };
+}
