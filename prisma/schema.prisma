@@ -697,6 +697,8 @@ model Employee {
   encashments       LeaveEncashment[]
   policyAcks        PolicyAck[]
   letters           EmployeeLetter[]
+  payItems          PayItem[]
+  settlements       FinalSettlement[]
 
   @@index([branchId])
   @@index([departmentId])
@@ -1023,6 +1025,8 @@ model LeaveType {
   halfDay          Boolean        @default(true)
   gender           String?
   minServiceMonths Int            @default(0)
+  /// Unused days can be paid out (Leave Encashment, final settlement). Usually annual leave only.
+  encashable       Boolean        @default(false)
   active           Boolean        @default(true)
   sortOrder        Int            @default(0)
   balances         LeaveBalance[]
@@ -1218,6 +1222,56 @@ model PayrollAdjustment {
   taxable     Boolean    @default(true)
   createdById String?
   createdAt   DateTime   @default(now())
+}
+
+/// Custom pay items for a month, paid by that month's payroll. kind: reward | late_sitting | commission.
+/// amount = quantity × rate when both are set.
+model PayItem {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  month       String
+  kind        String
+  label       String
+  quantity    Float?
+  rate        Float?
+  amount      Float
+  taxable     Boolean  @default(true)
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([month, kind])
+  @@index([employeeId])
+}
+
+/// Company accounts salaries are paid from (Payroll → Settings → Disbursement Banks); the default one heads vouchers.
+model CompanyBank {
+  id            String   @id @default(cuid())
+  name          String
+  branch        String?
+  accountTitle  String
+  accountNumber String
+  isDefault     Boolean  @default(false)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+/// Final settlement for a leaver: a snapshot of the lines at approval. status: draft | approved | paid.
+model FinalSettlement {
+  id             String    @id @default(cuid())
+  employeeId     String
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  lastWorkingDay DateTime
+  lines          String // @text
+  net            Float
+  status         String    @default("approved")
+  note           String?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  paidAt         DateTime?
+
+  @@index([employeeId])
 }
 
 // ─── HR: loans & expenses ────────────────────────────────────

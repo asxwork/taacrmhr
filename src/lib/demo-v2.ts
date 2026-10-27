@@ -290,3 +290,21 @@ export async function demoPolicies(db: PrismaClient, u: { hr: { id: string; name
     await db.employeeLetter.create({ data: { employeeId: e.id, templateId: t.id, title: t.name, body, issuedById: u.hr.id, issuedAt: day(3) } });
   }
 }
+
+/** A company bank account, this month's reward and late sittings, and a manual commission. */
+export async function demoPayrollExtras(db: PrismaClient, u: { hr: { id: string } }, employees: { id: string }[]) {
+  if (!(await db.companyBank.count())) {
+    await db.companyBank.create({ data: { name: "Meezan Bank", branch: "Clifton Block 5, Karachi", accountTitle: "The Advisor Associates", accountNumber: "PK36MEZN0001090104567890", isDefault: true } });
+  }
+  if (await db.payItem.count({ where: { employeeId: { in: employees.map((e) => e.id) } } })) return;
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const e = (i: number) => employees[i]?.id;
+  const rows = [
+    e(3) && { employeeId: e(3)!, month, kind: "reward", label: "Reward: Top closer of the month", amount: 25_000, createdById: u.hr.id },
+    e(4) && { employeeId: e(4)!, month, kind: "commission", label: "Commission: Rental referral, Palm Residency", amount: 15_000, createdById: u.hr.id },
+    e(2) && { employeeId: e(2)!, month, kind: "late_sitting", label: "Late sittings (4 × PKR 1,000)", quantity: 4, rate: 1000, amount: 4000, createdById: u.hr.id },
+    e(3) && { employeeId: e(3)!, month, kind: "late_sitting", label: "Late sittings (2 × PKR 1,000)", quantity: 2, rate: 1000, amount: 2000, createdById: u.hr.id },
+  ].filter(Boolean) as { employeeId: string; month: string; kind: string; label: string; amount: number; createdById: string; quantity?: number; rate?: number }[];
+  await db.payItem.createMany({ data: rows });
+}

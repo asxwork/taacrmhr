@@ -117,6 +117,7 @@ export async function AttendanceSettings() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm sm:col-span-2">
                 <label className="flex items-center gap-1.5"><input type="checkbox" name="paid" defaultChecked={t?.paid ?? true} className="accent-navy-900" /> Paid</label>
                 <label className="flex items-center gap-1.5"><input type="checkbox" name="halfDay" defaultChecked={t?.halfDay ?? true} className="accent-navy-900" /> Half days</label>
+                <label className="flex items-center gap-1.5"><input type="checkbox" name="encashable" defaultChecked={t?.encashable ?? false} className="accent-navy-900" /> Encashable</label>
                 {t && <label className="flex items-center gap-1.5"><input type="checkbox" name="active" defaultChecked={t.active} className="accent-navy-900" /> Active</label>}
               </div>
               <div className="flex items-end justify-end"><SubmitButton variant={t ? "secondary" : "primary"}>{t ? "Save" : "Add"}</SubmitButton></div>

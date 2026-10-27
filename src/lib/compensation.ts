@@ -93,7 +93,7 @@ export async function encashableBalances(employeeId: string) {
     balancesFor(employeeId, year),
     db.leaveEncashment.findMany({ where: { employeeId, year, status: "pending" }, select: { typeId: true, days: true } }),
   ]);
-  return balances.filter((b) => b.type.paid && !b.unlimited).map((b) => {
+  return balances.filter((b) => b.type.paid && b.type.encashable && !b.unlimited).map((b) => {
     const held = pending.filter((p) => p.typeId === b.type.id).reduce((s, p) => s + p.days, 0);
     return { typeId: b.type.id, name: b.type.name, available: Math.max(0, b.available - held) };
   }).filter((b) => b.available > 0);

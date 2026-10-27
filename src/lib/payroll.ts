@@ -33,6 +33,8 @@ export async function payrollSettings() {
     latesPerDay: Number(get("latesPerDay", "3")) || 0,
     overtimeRate: Number(get("overtimeRate", "0")) || 0,
     commission: get("commission", "off") === "on",
+    /** PKR per late sitting (Custom Payitems → No. Of Late Sittings). */
+    lateSittingRate: Number(get("lateSittingRate", "1000")) || 0,
   };
 }
 
@@ -109,6 +111,10 @@ export async function computePayslip(employeeId: string, month: string, runId: s
   for (const a of adjustments) {
     lines.push({ kind: a.amount >= 0 ? "earning" : "deduction", label: a.label, amount: r0(Math.abs(a.amount)), source: a.taxable ? "adjustment" : "adjustment-nontax", refId: a.id });
   }
+
+  // Custom pay items for the month: rewards, late sittings, manual commission.
+  const payItems = await db.payItem.findMany({ where: { employeeId: emp.id, month } });
+  for (const it of payItems) lines.push({ kind: it.amount >= 0 ? "earning" : "deduction", label: it.label, amount: r0(Math.abs(it.amount)), source: it.taxable ? "payitem" : "adjustment-nontax", refId: it.id });
 
   // Approved leave encashments (HR → People → Leave Encashment): taxable, but a one-off, so not projected over the year.
   const encashments = await db.leaveEncashment.findMany({ where: { employeeId: emp.id, status: "approved", OR: [{ runId: null }, { runId }] } });

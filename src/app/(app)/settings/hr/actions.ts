@@ -159,6 +159,7 @@ export async function saveLeaveType(_: FormState, fd: FormData): Promise<FormSta
     name, code, color: str(fd, "color") || "blue", paid: fd.get("paid") === "on", quota: num("quota", 366),
     accrual: str(fd, "accrual") === "monthly" ? "monthly" : "annual", carryMax: num("carryMax", 366), halfDay: fd.get("halfDay") === "on",
     gender: ["male", "female"].includes(str(fd, "gender")) ? str(fd, "gender") : null, minServiceMonths: Math.round(num("minServiceMonths", 60)),
+    encashable: fd.get("encashable") === "on",
     active: id ? fd.get("active") === "on" : true,
   };
   if (id) await db.leaveType.update({ where: { id }, data });

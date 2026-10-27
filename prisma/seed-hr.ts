@@ -65,6 +65,11 @@ export async function seedAttendance(db: PrismaClient) {
   for (const [i, t] of types.entries()) {
     await db.leaveType.upsert({ where: { name: t.name }, update: {}, create: { ...t, gender: t.gender ?? null, halfDay: t.halfDay ?? true, sortOrder: i } });
   }
+  // Once: annual leave is encashable by default (HR can change it per leave type).
+  if (!(await db.setting.findUnique({ where: { key: "hr.encashable.v1" } }))) {
+    await db.leaveType.updateMany({ where: { name: { contains: "Annual" }, paid: true }, data: { encashable: true } });
+    await db.setting.create({ data: { key: "hr.encashable.v1", value: "done" } });
+  }
 
   await db.branch.updateMany({ where: { code: "DHA", lat: null }, data: { lat: 24.8008, lng: 67.0645, radiusM: 200 } });
   await db.branch.updateMany({ where: { code: "BHD", lat: null }, data: { lat: 24.8829, lng: 67.0687, radiusM: 200 } });
