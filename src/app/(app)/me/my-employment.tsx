@@ -1,31 +1,68 @@
 import Link from "next/link";
 import { Camera, FileText, IdCard } from "lucide-react";
 import { db } from "@/lib/db";
-import { BLOOD_GROUPS, EMPLOYMENT_TYPES, ID_DOCS, SELF_EDITABLE, empStatus } from "@/lib/hr-shared";
+import { BLOOD_GROUPS, ID_DOCS, SELF_EDITABLE } from "@/lib/hr-shared";
+import { loadProfile, profileOptions } from "@/lib/employee-profile";
+import { ProfileView } from "@/components/hr/profile-view";
 import { fileUrl } from "@/lib/files";
 import { fmtDate } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Avatar, Badge, Card, Field } from "@/components/ui";
-import { InfoList, StatusPill } from "@/components/crm/bits";
 import { DocumentForm } from "../hr/employees/forms";
 import { requestProfileUpdate, updateMyPhoto } from "./actions";
 import { uploadDocument } from "../hr/employees/actions";
 
 /** Self-service: the signed-in user's own employee record, documents and change requests. */
 export async function MyEmployment({ userId }: { userId: string }) {
-  const emp = await db.employee.findUnique({
-    where: { userId },
-    include: { department: true, designation: true, branch: true, manager: true, documents: { orderBy: { createdAt: "desc" } } },
-  });
-  if (!emp) return null;
-  const pending = await db.approvalRequest.findFirst({ where: { employeeId: emp.id, type: "profile_update", status: "pending" } });
-  const st = empStatus(emp.status);
+  const row = await db.employee.findUnique({ where: { userId }, select: { id: true } });
+  const p = row ? await loadProfile(row.id) : null;
+  if (!p) return null;
+  const { emp } = p;
+  const [pending, options] = await Promise.all([
+    db.approvalRequest.findFirst({ where: { employeeId: emp.id, type: "profile_update", status: "pending" } }),
+    profileOptions(),
+  ]);
 
   const latest = (type: string) => emp.documents.find((d) => d.type === type);
   const fileInput = "block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white";
 
   return (
-    <div className="mt-6 grid gap-6 lg:grid-cols-2">
+    <div className="mb-6">
+      <ProfileView
+        p={p} options={options} canEdit={false} canSalary={false} showSalary initialTab="info"
+        banner={
+          <div className="mb-5">
+      <Card className="p-4">
+        <h2 className="mb-1 font-medium">My details</h2>
+        <p className="mb-3 text-sm text-muted">Changes go to HR for approval before they’re saved.</p>
+        {pending ? (
+          <p className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            A change is waiting for HR. <Link href={`/approvals?tab=mine&open=${pending.id}`} className="font-medium underline">View request</Link>
+          </p>
+        ) : (
+          <details className="group">
+            <summary className="cursor-pointer text-sm font-medium text-navy-900">Request a change</summary>
+            <ActionForm action={requestProfileUpdate} className="mt-3 grid gap-3 sm:grid-cols-2">
+              {SELF_EDITABLE.map((f) => (
+                <Field key={f.key} label={f.label} className={f.key === "address" ? "sm:col-span-2" : undefined}>
+                  {f.key === "bloodGroup" ? (
+                    <select name="bloodGroup" defaultValue={emp.bloodGroup ?? ""} className="input">
+                      <option value="">—</option>
+                      {BLOOD_GROUPS.map((b) => <option key={b}>{b}</option>)}
+                    </select>
+                  ) : <input name={f.key} defaultValue={emp[f.key] ?? ""} className="input" placeholder={f.key === "cnic" ? "42101-1234567-1" : undefined} />}
+                </Field>
+              ))}
+              <div className="sm:col-span-2"><SubmitButton>Send to HR</SubmitButton></div>
+            </ActionForm>
+          </details>
+        )}
+      </Card>
+
+          </div>
+        }
+        docsTab={
+          <div className="space-y-6">
       <Card className="p-6 lg:col-span-2">
         <h2 className="mb-1 font-medium">Photo &amp; ID</h2>
         <p className="mb-5 text-sm text-muted">Your photo is saved straight away. ID pictures go to HR to verify; numbers and blood group change through “Request a change”.</p>
@@ -83,50 +120,6 @@ export async function MyEmployment({ userId }: { userId: string }) {
         </div>
       </Card>
 
-      <Card className="p-6">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="font-medium">My employment</h2>
-          <StatusPill name={st.label} colorName={st.color} />
-        </div>
-        <InfoList rows={[
-          ["Employee code", emp.code],
-          ["Designation", emp.designation?.name],
-          ["Department", emp.department?.name],
-          ["Branch", emp.branch?.name],
-          ["Reports to", emp.manager?.fullName],
-          ["Type", EMPLOYMENT_TYPES.find((t) => t.value === emp.employmentType)?.label],
-          ["Joined", fmtDate(emp.joiningDate)],
-          ...(emp.status === "probation" && emp.probationEnd ? [["Probation ends", fmtDate(emp.probationEnd)] as [string, string]] : []),
-        ]} />
-      </Card>
-
-      <Card className="p-6">
-        <h2 className="mb-1 font-medium">My details</h2>
-        <p className="mb-3 text-sm text-muted">Changes go to HR for approval before they’re saved.</p>
-        {pending ? (
-          <p className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            A change is waiting for HR. <Link href={`/approvals?tab=mine&open=${pending.id}`} className="font-medium underline">View request</Link>
-          </p>
-        ) : (
-          <details className="group">
-            <summary className="cursor-pointer text-sm font-medium text-navy-900">Request a change</summary>
-            <ActionForm action={requestProfileUpdate} className="mt-3 grid gap-3 sm:grid-cols-2">
-              {SELF_EDITABLE.map((f) => (
-                <Field key={f.key} label={f.label} className={f.key === "address" ? "sm:col-span-2" : undefined}>
-                  {f.key === "bloodGroup" ? (
-                    <select name="bloodGroup" defaultValue={emp.bloodGroup ?? ""} className="input">
-                      <option value="">—</option>
-                      {BLOOD_GROUPS.map((b) => <option key={b}>{b}</option>)}
-                    </select>
-                  ) : <input name={f.key} defaultValue={emp[f.key] ?? ""} className="input" placeholder={f.key === "cnic" ? "42101-1234567-1" : undefined} />}
-                </Field>
-              ))}
-              <div className="sm:col-span-2"><SubmitButton>Send to HR</SubmitButton></div>
-            </ActionForm>
-          </details>
-        )}
-      </Card>
-
       <Card className="p-6 lg:col-span-2">
         <h2 className="mb-3 font-medium">My documents</h2>
         {emp.documents.length === 0 ? <p className="mb-4 text-sm text-muted">No documents on file.</p> : (
@@ -147,6 +140,9 @@ export async function MyEmployment({ userId }: { userId: string }) {
           <div className="mt-3"><DocumentForm employeeId={emp.id} note="HR will verify it." /></div>
         </details>
       </Card>
+          </div>
+        }
+      />
     </div>
   );
 }

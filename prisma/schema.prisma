@@ -211,55 +211,55 @@ model Stage {
 // Every scoped record has ownerId + branchId so own/team/branch permissions apply.
 
 model Lead {
-  id             String      @id @default(cuid())
+  id              String      @id @default(cuid())
   /// Permanent, ever-increasing number shown as the lead ID. Never reused, even after deletes.
-  number         Int?
-  name           String
-  phone          String?
-  phoneKey       String?
-  phone2         String?
-  email          String?
-  sourceId       String?
-  source         LeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-  campaign       String?
+  number          Int?
+  name            String
+  phone           String?
+  phoneKey        String?
+  phone2          String?
+  email           String?
+  sourceId        String?
+  source          LeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  campaign        String?
   /// Where exactly the lead came from, e.g. the Zameen ad title or the Facebook form.
-  sourceInfo     String? // @text
-  projectId      String?
-  project        Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  sourceInfo      String? // @text
+  projectId       String?
+  project         Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
   /// The specific unit/listing the enquiry is about.
-  unitId         String?
-  unit           Unit?       @relation("LeadUnit", fields: [unitId], references: [id], onDelete: SetNull)
+  unitId          String?
+  unit            Unit?       @relation("LeadUnit", fields: [unitId], references: [id], onDelete: SetNull)
   /// All phone numbers / emails as JSON [{type, value}]; phone/phone2/email hold the first ones for search and duplicates.
-  phones         String? // @text
-  emails         String? // @text
+  phones          String? // @text
+  emails          String? // @text
   /// Set by the Reshuffle automation (fresh start with a new agent).
-  reshuffledAt   DateTime?
-  reshuffleCount Int         @default(0)
-  interest       String? // buy | rent | invest | sell
-  propertyType   String?
-  location       String?
-  budgetMin      Float?
-  budgetMax      Float?
-  notes          String? // @text
-  statusId       String
-  status         LeadStatus  @relation(fields: [statusId], references: [id])
-  ownerId        String?
-  owner          User?       @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  createdById    String?
-  createdBy      User?       @relation("LeadCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  branchId       String?
-  branch         Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  contactId      String?
-  contact        Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  convertedAt    DateTime?
+  reshuffledAt    DateTime?
+  reshuffleCount  Int         @default(0)
+  interest        String? // buy | rent | invest | sell
+  propertyType    String?
+  location        String?
+  budgetMin       Float?
+  budgetMax       Float?
+  notes           String? // @text
+  statusId        String
+  status          LeadStatus  @relation(fields: [statusId], references: [id])
+  ownerId         String?
+  owner           User?       @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById     String?
+  createdBy       User?       @relation("LeadCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  branchId        String?
+  branch          Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  contactId       String?
+  contact         Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  convertedAt     DateTime?
   /// When the current responsible person got the lead, and when its stage last changed (kept by db.ts).
   assignedAt      DateTime?
   statusChangedAt DateTime?
-  lastActivityAt DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  deals          Deal[]
-  activities     Activity[]
+  lastActivityAt  DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deals           Deal[]
+  activities      Activity[]
 
   @@index([ownerId])
   @@index([branchId])
@@ -392,22 +392,22 @@ model Activity {
 // ─── Inventory ───────────────────────────────────────────────
 
 model Project {
-  id                String   @id @default(cuid())
-  name              String   @unique
+  id                String         @id @default(cuid())
+  name              String         @unique
   code              String?
   developer         String?
   location          String?
-  city              String   @default("Karachi")
-  kind              String   @default("residential") // residential | commercial | mixed
-  status            String   @default("active") // upcoming | active | completed
+  city              String         @default("Karachi")
+  kind              String         @default("residential") // residential | commercial | mixed
+  status            String         @default("active") // upcoming | active | completed
   description       String? // @text
   /// Default payment plan offered for this project
   planDownPct       Float?
   planInstallments  Int?
   planFrequency     String? // monthly | quarterly | biannual
   planPossessionPct Float?
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now())
+  active            Boolean        @default(true)
+  createdAt         DateTime       @default(now())
   blocks            Block[]
   units             Unit[]
   leads             Lead[]
@@ -477,7 +477,8 @@ model Unit {
   images             UnitImage[]
   deals              DealUnit[]
 
-  leads              Lead[]      @relation("LeadUnit")
+  leads Lead[] @relation("LeadUnit")
+
   @@index([projectId])
   @@index([status])
   @@index([ownerId])
@@ -603,23 +604,37 @@ model Designation {
 
 /// status: probation | active | notice | left. Scope fields: userId (own/team), branchId (branch).
 model Employee {
-  id                String             @id @default(cuid())
-  code              String             @unique
-  userId            String?            @unique
-  user              User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id                String                  @id @default(cuid())
+  code              String                  @unique
+  userId            String?                 @unique
+  user              User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
   fullName          String
+  /// Name parts (profile); fullName stays the display name and is rebuilt from these when they are saved.
+  salutation        String?
+  firstName         String?
+  middleName        String?
+  lastName          String?
   fatherName        String?
+  motherName        String?
+  religion          String?
+  nationality       String?
   gender            String?
   dob               DateTime?
   cnic              String?
+  cnicIssued        DateTime?
   cnicExpiry        DateTime?
   passportNo        String?
   passportExpiry    DateTime?
+  licenseNo         String?
+  licenseExpiry     DateTime?
   maritalStatus     String?
   bloodGroup        String?
   phone             String?
+  landline          String?
   personalEmail     String?
+  officialEmail     String?
   address           String?
+  permanentAddress  String?
   city              String?
   emergencyName     String?
   emergencyRelation String?
@@ -627,10 +642,18 @@ model Employee {
   bankName          String?
   accountTitle      String?
   accountNumber     String?
+  ntn               String?
   photo             String?
+  grade             String?
+  jobTitle          String?
+  isHod             Boolean                 @default(false)
+  /// Never marked absent or late (directors, field staff on fixed duty).
+  attendanceExempt  Boolean                 @default(false)
+  /// Final approver for this employee's requests, when not the line manager.
+  finalAuthorityId  String?
   joiningDate       DateTime
-  employmentType    String             @default("permanent") // permanent | contract | intern | consultant
-  status            String             @default("probation")
+  employmentType    String                  @default("permanent") // permanent | contract | intern | consultant
+  status            String                  @default("probation")
   probationEnd      DateTime?
   confirmedAt       DateTime?
   noticeDate        DateTime?
@@ -639,19 +662,19 @@ model Employee {
   exitReason        String?
   leftAt            DateTime?
   departmentId      String?
-  department        Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  department        Department?             @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   designationId     String?
-  designation       Designation?       @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  designation       Designation?            @relation(fields: [designationId], references: [id], onDelete: SetNull)
   branchId          String?
-  branch            Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branch            Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
   shiftId           String?
-  shift             Shift?             @relation(fields: [shiftId], references: [id], onDelete: SetNull)
-  deviceUserId      String?            @unique
+  shift             Shift?                  @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  deviceUserId      String?                 @unique
   managerId         String?
-  manager           Employee?          @relation("EmployeeReports", fields: [managerId], references: [id], onDelete: SetNull)
-  reports           Employee[]         @relation("EmployeeReports")
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  manager           Employee?               @relation("EmployeeReports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports           Employee[]              @relation("EmployeeReports")
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
   events            EmployeeEvent[]
   documents         EmployeeDocument[]
   checklist         ChecklistItem[]
@@ -666,12 +689,64 @@ model Employee {
   loans             Loan[]
   expenses          Expense[]
   appraisals        Appraisal[]
-  assets            Asset[]            @relation("AssetHolder")
+  assets            Asset[]                 @relation("AssetHolder")
+  relatives         EmployeeRelative[]
+  qualifications    EmployeeQualification[]
+  banks             EmployeeBank[]
 
   @@index([branchId])
   @@index([departmentId])
   @@index([managerId])
   @@index([status])
+}
+
+model EmployeeRelative {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name       String
+  relation   String
+  dob        DateTime?
+  cnic       String?
+  phone      String?
+  dependent  Boolean   @default(false)
+  emergency  Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@index([employeeId])
+}
+
+/// kind: experience | education | certification
+model EmployeeQualification {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind        String
+  title       String
+  institution String?
+  from        DateTime?
+  to          DateTime?
+  grade       String?
+  notes       String? // @text
+  createdAt   DateTime  @default(now())
+
+  @@index([employeeId, kind])
+}
+
+/// Salary accounts over time; the latest effective one is copied to Employee.bankName/accountTitle/accountNumber for payroll.
+model EmployeeBank {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  bankName      String
+  branchName    String?
+  branchCode    String?
+  accountTitle  String?
+  accountNumber String
+  effectiveFrom DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([employeeId])
 }
 
 /// type: joined | confirmed | promoted | transferred | resigned | exited | rehired | note
@@ -915,15 +990,21 @@ model LeaveRequest {
 
 /// An employee's current monthly salary. Components split the gross by percentage.
 model SalaryProfile {
-  id            String   @id @default(cuid())
-  employeeId    String   @unique
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  gross         Float
-  eobi          Boolean  @default(true)
-  pfPct         Float    @default(0)
-  taxExempt     Boolean  @default(false)
-  effectiveFrom DateTime
-  updatedAt     DateTime @updatedAt
+  id              String    @id @default(cuid())
+  employeeId      String    @unique
+  employee        Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  gross           Float
+  eobi            Boolean   @default(true)
+  pfPct           Float     @default(0)
+  taxExempt       Boolean   @default(false)
+  effectiveFrom   DateTime
+  /// bank | cash | cheque
+  paymentMethod   String    @default("bank")
+  probationGross  Float?
+  /// Months between increments; nextIncrementAt is when the next one is due.
+  incrementMonths Int       @default(12)
+  nextIncrementAt DateTime?
+  updatedAt       DateTime  @updatedAt
 }
 
 /// Earning components as % of gross. exemptPctOfBasic: tax-free up to this % of basic (e.g. medical 10%).

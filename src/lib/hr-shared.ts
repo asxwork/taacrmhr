@@ -16,7 +16,7 @@ export const EMPLOYMENT_TYPES = [
   { value: "consultant", label: "Consultant" },
 ] as const;
 
-export const DOC_TYPES = ["CNIC (front)", "CNIC (back)", "Passport", "CNIC", "Offer letter", "Contract", "Degree / certificate", "Experience letter", "Resume / CV", "Photo", "Other"] as const;
+export const DOC_TYPES = ["CNIC (front)", "CNIC (back)", "Passport", "Driving license", "CNIC", "Offer letter", "Contract", "Degree / certificate", "Experience letter", "Resume / CV", "Photo", "Other"] as const;
 
 /** Fields an employee may ask HR to change through a profile-update request. */
 export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
@@ -37,6 +37,12 @@ export const SELF_EDITABLE = [
   { key: "address", label: "Address" },
   { key: "city", label: "City" },
   { key: "maritalStatus", label: "Marital status" },
+  { key: "motherName", label: "Mother's name" },
+  { key: "religion", label: "Religion" },
+  { key: "nationality", label: "Nationality" },
+  { key: "landline", label: "Landline" },
+  { key: "permanentAddress", label: "Permanent address" },
+  { key: "licenseNo", label: "Driving license number" },
   { key: "emergencyName", label: "Emergency contact" },
   { key: "emergencyRelation", label: "Emergency relation" },
   { key: "emergencyPhone", label: "Emergency phone" },

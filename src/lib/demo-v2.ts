@@ -149,3 +149,45 @@ export async function demoV2(db: PrismaClient, u: Users, employees: { id: string
 
   return { leadIds: leads.map((l) => l.id), apiIds: [api.id], logIds, v2OpeningIds };
 }
+
+/** Profile details for the sample staff: name parts, personal fields, relatives, qualifications and salary banks. */
+export async function demoProfiles(db: PrismaClient, employees: { id: string; fullName: string; gender: string | null; joiningDate: Date }[]) {
+  const banks = ["Meezan Bank", "HBL", "Bank Alfalah", "MCB", "UBL", "Dubai Islamic Bank"];
+  const fathers = ["Muhammad Irfan", "Abdul Rashid", "Tariq Mehmood", "Javed Iqbal", "Khalid Hussain", "Nasir Ahmed"];
+  const year = (y: number, m = 0) => new Date(y, m, 1);
+  for (const [i, e] of employees.entries()) {
+    if (await db.employeeRelative.findFirst({ where: { employeeId: e.id } })) continue;
+    const [first, ...rest] = e.fullName.split(" ");
+    const female = e.gender === "female";
+    const born = new Date(1985 + i * 2, (i * 3) % 12, 5 + i);
+    await db.employee.update({
+      where: { id: e.id },
+      data: {
+        salutation: female ? "Ms" : "Mr", firstName: first, lastName: rest.join(" ") || null, fatherName: fathers[i % fathers.length],
+        motherName: ["Shahida Begum", "Nasreen Akhtar", "Rukhsana Bibi"][i % 3], religion: "Islam", nationality: "Pakistani",
+        dob: born, maritalStatus: i % 2 ? "Single" : "Married", bloodGroup: ["B+", "O+", "A+", "AB+", "O-", "B-"][i % 6],
+        phone: `9230012345${String(10 + i)}`, cnicIssued: new Date(2019, i % 12, 10), cnicExpiry: new Date(2029, i % 12, 10),
+        officialEmail: null, permanentAddress: ["House 12, Gulshan-e-Iqbal Block 5, Karachi", "Flat 4B, Clifton Block 2, Karachi"][i % 2],
+        grade: ["Management", "G4", "G4", "G2", "G1", "G1"][i] ?? "G2", jobTitle: null,
+        isHod: i < 3, emergencyName: fathers[i % fathers.length], emergencyRelation: "Father", emergencyPhone: `9232198765${String(10 + i)}`,
+      },
+    });
+    await db.employeeRelative.createMany({
+      data: [
+        { employeeId: e.id, name: fathers[i % fathers.length]!, relation: "Father", phone: `9232198765${String(10 + i)}`, emergency: true },
+        ...(i % 2 ? [] : [{ employeeId: e.id, name: female ? "Imran Ali" : "Ayesha Khan", relation: "Spouse", dependent: true, dob: new Date(1990 + i, 4, 12) }]),
+      ],
+    });
+    await db.employeeQualification.createMany({
+      data: [
+        { employeeId: e.id, kind: "education", title: i < 3 ? "MBA (Marketing)" : "BBA", institution: i % 2 ? "University of Karachi" : "IBA Karachi", from: year(2005 + i * 2, 8), to: year(2009 + i * 2, 5), grade: "3.4 CGPA" },
+        { employeeId: e.id, kind: "experience", title: i < 3 ? "Senior Sales Executive" : "Sales Executive", institution: ["Zameen.com", "Agency21", "Graana.com"][i % 3], from: year(2015 + i, 1), to: new Date(e.joiningDate.getTime() - 30 * 86_400_000), notes: "Residential sales, DHA and Bahria" },
+        ...(i % 3 === 0 ? [{ employeeId: e.id, kind: "certification", title: "Certified Real Estate Agent", institution: "ABAD", from: year(2023, 2), to: year(2026, 2) }] : []),
+      ],
+    });
+    const bankName = banks[i % banks.length]!;
+    const accountNumber = `PK${String(36 + i).padStart(2, "0")}MEZN000${String(1234567890 + i * 1111)}`;
+    await db.employeeBank.create({ data: { employeeId: e.id, bankName, branchName: `${bankName} Clifton Branch`, branchCode: String(1200 + i * 7), accountTitle: e.fullName, accountNumber, effectiveFrom: e.joiningDate } });
+    await db.employee.update({ where: { id: e.id }, data: { bankName, accountTitle: e.fullName, accountNumber } });
+  }
+}

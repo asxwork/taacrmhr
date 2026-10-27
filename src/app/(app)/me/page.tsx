@@ -28,6 +28,7 @@ export default async function MePage() {
   return (
     <>
       <PageHeader title="My Profile" />
+      <MyEmployment userId={user.id} />
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <Card className="p-6">
           <div className="mb-6 flex items-center gap-4">
@@ -70,7 +71,6 @@ export default async function MePage() {
         </Card>
       </div>
 
-      <MyEmployment userId={user.id} />
 
       <Card className="mt-6 p-6">
         <h2 className="mb-1 font-medium">Appearance</h2>

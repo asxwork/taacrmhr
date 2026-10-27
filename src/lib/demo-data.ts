@@ -5,7 +5,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { nextNumber } from "./sequence";
 import { demoExtras } from "./demo-extras";
-import { demoV2 } from "./demo-v2";
+import { demoProfiles, demoV2 } from "./demo-v2";
 import { deleteUpload } from "./files";
 
 export type DemoOptions = {
@@ -63,7 +63,8 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
   const extra = await demoExtras(db, o.codePrefix, { head, hr, manager, agent1, agent2, staff }, employees);
   const empRows = await db.employee.findMany({ where: { id: { in: employees.map((e) => e.id) } }, orderBy: { code: "asc" } });
   const v2 = await demoV2(db, { head, hr, manager, agent1, agent2, staff }, empRows);
-  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true });
+  await demoProfiles(db, empRows);
+  const value = JSON.stringify({ domain: o.domain, projectIds, ...extra, ...v2, v2: true, v3: true });
   await db.setting.upsert({ where: { key: MARKER }, update: { value }, create: { key: MARKER, value } });
   return { users: 6, employees: employees.length, projects: projectIds.length };
 }
@@ -76,8 +77,8 @@ export async function loadDemo(db: PrismaClient, o: DemoOptions) {
 export async function upgradeDemo(db: PrismaClient) {
   const row = await db.setting.findUnique({ where: { key: MARKER } });
   if (!row) return;
-  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean };
-  if (marker.openingIds && marker.v2) return;
+  let marker = JSON.parse(row.value) as { domain: string; openingIds?: string[]; v2?: boolean; v3?: boolean };
+  if (marker.openingIds && marker.v2 && marker.v3) return;
   const users = await db.user.findMany({ where: { email: { endsWith: `@${marker.domain}` } } });
   const by = (local: string) => users.find((x) => x.email === `${local}@${marker.domain}`);
   const [head, hr, manager, agent1, agent2, staff] = ["admin", "hr", "manager", "agent1", "agent2", "staff"].map(by);
@@ -100,6 +101,12 @@ export async function upgradeDemo(db: PrismaClient) {
     marker = { ...marker, ...(await demoV2(db, { head, hr, manager, agent1, agent2, staff }, employees)), v2: true };
     await save();
     console.log("Sample data upgraded with photos, HR requests, attendance logs, On-hold leads and an API connection.");
+  }
+  if (!marker.v3) {
+    await demoProfiles(db, employees);
+    marker = { ...marker, v3: true };
+    await save();
+    console.log("Sample data upgraded with profile details, relatives, qualifications and banks.");
   }
 }
 

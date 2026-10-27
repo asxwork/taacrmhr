@@ -73,7 +73,7 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
   const start = startOfDay(from);
   const endExcl = addDays(startOfDay(to), 1);
   const [emps, punches, leaves, holidays, overrides, defShift] = await Promise.all([
-    db.employee.findMany({ where: { id: { in: employeeIds } }, select: { id: true, branchId: true, joiningDate: true, leftAt: true, shift: true } }),
+    db.employee.findMany({ where: { id: { in: employeeIds } }, select: { id: true, branchId: true, joiningDate: true, leftAt: true, shift: true, attendanceExempt: true } }),
     db.attendancePunch.findMany({ where: { employeeId: { in: employeeIds }, at: { gte: start, lt: endExcl } }, select: { employeeId: true, at: true } }),
     db.leaveRequest.findMany({ where: { employeeId: { in: employeeIds }, status: "approved", from: { lt: endExcl }, to: { gte: start } }, include: { type: { select: { name: true } } } }),
     db.holiday.findMany({ where: { date: { gte: start, lt: endExcl } } }),
@@ -96,7 +96,9 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
           holiday: holiday?.name ?? null, leave: leave ? { halfDay: leave.halfDay, type: leave.type.name } : null,
           override: override ? { status: override.status, note: override.note } : null,
         });
-      }));
+      })
+      // Attendance-exempt staff (Employment Info) are never absent, late or short on a work day.
+      .map((r) => (e.attendanceExempt && ["absent", "late", "half", "missing"].includes(r.status) ? { ...r, status: "present" as const, lateMin: 0, earlyMin: 0, note: r.note ?? "Attendance exempt" } : r)));
   }
   return out;
 }

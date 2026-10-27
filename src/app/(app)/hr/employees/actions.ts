@@ -12,6 +12,7 @@ import { deleteUpload, saveImage, saveUpload } from "@/lib/files";
 import { submitRequest } from "@/lib/approvals";
 import { DOC_TYPES, EMPLOYMENT_TYPES, addEvent, employeeAllows, ensureChecklist, getSetting, nextEmployeeCode, syncUserFromEmployee } from "@/lib/hr";
 import { str, type FormState } from "@/lib/utils";
+import { applyAssignment } from "@/lib/hr-assign";
 
 const date = (fd: FormData, k: string) => {
   const v = str(fd, k);
@@ -111,8 +112,12 @@ export async function changeAssignment(_: FormState, fd: FormData): Promise<Form
   };
   const shiftId = str(fd, "shiftId") || null;
   if (shiftId !== emp.shiftId) await db.employee.update({ where: { id: emp.id }, data: { shiftId } });
-  if (next.managerId === emp.id) return { error: "Someone can't report to themselves." };
-  const changed = (Object.keys(next) as (keyof typeof next)[]).filter((k) => next[k] !== emp[k]);
+  let changed: string[];
+  try {
+    changed = await applyAssignment(emp, next, { byId: user.id, effective: date(fd, "effective"), notes: str(fd, "notes") });
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
   if (!changed.length) {
     if (shiftId !== emp.shiftId) {
       revalidatePath(path(emp.id));
@@ -120,26 +125,6 @@ export async function changeAssignment(_: FormState, fd: FormData): Promise<Form
     }
     return { error: "Nothing changed." };
   }
-
-  const [desig, dept, branch, manager] = await Promise.all([
-    next.designationId ? db.designation.findUnique({ where: { id: next.designationId } }) : null,
-    next.departmentId ? db.department.findUnique({ where: { id: next.departmentId } }) : null,
-    next.branchId ? db.branch.findUnique({ where: { id: next.branchId } }) : null,
-    next.managerId ? db.employee.findUnique({ where: { id: next.managerId } }) : null,
-  ]);
-  const lines = [
-    changed.includes("designationId") && `Designation: ${emp.designation?.name ?? "—"} → ${desig?.name ?? "—"}`,
-    changed.includes("departmentId") && `Department: ${emp.department?.name ?? "—"} → ${dept?.name ?? "—"}`,
-    changed.includes("branchId") && `Branch: ${emp.branch?.name ?? "—"} → ${branch?.name ?? "—"}`,
-    changed.includes("managerId") && `Reports to: ${emp.manager?.fullName ?? "—"} → ${manager?.fullName ?? "—"}`,
-  ].filter(Boolean) as string[];
-  const type = changed.includes("designationId") ? "promoted" : "transferred";
-  const title = type === "promoted" ? `Now ${desig?.name ?? "—"}` : changed.includes("branchId") ? `Transferred to ${branch?.name ?? "—"}` : "Assignment changed";
-
-  await db.employee.update({ where: { id: emp.id }, data: next });
-  await addEvent(emp.id, type, title, { date: date(fd, "effective") ?? new Date(), details: [lines.join("\n"), str(fd, "notes")].filter(Boolean).join("\n\n"), byId: user.id });
-  await syncUserFromEmployee(emp.id);
-  await audit(user.id, "update", "employee", emp.id, `${emp.fullName}: ${lines.join("; ")}`);
   revalidatePath(path(emp.id));
   redirect(`${path(emp.id)}?tab=history`);
 }
