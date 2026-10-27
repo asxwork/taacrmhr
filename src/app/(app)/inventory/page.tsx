@@ -13,6 +13,7 @@ import { Badge, Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/compo
 import { Pagination, StatusPill, hrefWith } from "@/components/crm/bits";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ProjectForm, UnitForm } from "./forms";
+import { SafeImg } from "@/components/safe-img";
 
 export const metadata = { title: "Inventory" };
 
@@ -101,8 +102,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 <Link key={p.id} href={`/inventory/projects/${p.id}`}>
                   <Card className="h-full overflow-hidden transition hover:border-navy-900/20">
                     {p.images[0] && (
-                      // eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files
-                      <img src={fileUrl(p.images[0].path)} alt="" className="aspect-[16/7] w-full object-cover" loading="lazy" />
+                       
+                      <SafeImg src={fileUrl(p.images[0].path)} alt="" className="aspect-[16/7] w-full object-cover" loading="lazy" />
                     )}
                     <div className="p-5">
                     <div className="flex items-start justify-between gap-3">
@@ -203,8 +204,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 <Card className="group h-full overflow-hidden transition hover:border-navy-900/20">
                   <div className="relative aspect-[4/3] bg-canvas">
                     {u.images[0] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={fileUrl(u.images[0].path)} alt="" className="size-full object-cover" loading="lazy" />
+                       
+                      <SafeImg src={fileUrl(u.images[0].path)} alt="" className="size-full object-cover" loading="lazy" />
                     ) : (
                       <div className="flex size-full items-center justify-center text-muted/40">
                         {u.listingType === "project" ? <Building2 className="size-8" /> : <ImageOff className="size-8" />}

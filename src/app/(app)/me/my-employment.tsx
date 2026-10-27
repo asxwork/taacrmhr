@@ -11,6 +11,7 @@ import { Avatar, Badge, Card, Field } from "@/components/ui";
 import { DocumentForm } from "../hr/employees/forms";
 import { requestProfileUpdate, updateMyPhoto } from "./actions";
 import { uploadDocument } from "../hr/employees/actions";
+import { SafeImg } from "@/components/safe-img";
 
 /** Self-service: the signed-in user's own employee record, documents and change requests. */
 export async function MyEmployment({ userId }: { userId: string }) {
@@ -69,8 +70,8 @@ export async function MyEmployment({ userId }: { userId: string }) {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-[220px_1fr]">
           <div className="flex flex-col items-center gap-3 text-center">
             {emp.photo
-              // eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files
-              ? <img src={fileUrl(emp.photo)} alt={emp.fullName} className="size-28 rounded-full object-cover ring-4 ring-line" />
+               
+              ? <SafeImg src={fileUrl(emp.photo)} alt={emp.fullName} className="size-28 rounded-full object-cover ring-4 ring-line" />
               : <Avatar name={emp.fullName} className="size-28 text-2xl" />}
             <ActionForm action={updateMyPhoto} className="w-full space-y-2">
               <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-line px-3 py-2 text-sm hover:bg-canvas">
@@ -98,8 +99,8 @@ export async function MyEmployment({ userId }: { userId: string }) {
                     {doc ? (
                       <a href={fileUrl(doc.path)} target="_blank" rel="noreferrer" className="mb-2 block">
                         {/\.(jpe?g|png|webp)$/i.test(doc.path)
-                          // eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files
-                          ? <img src={fileUrl(doc.path)} alt={label} className="h-24 w-full rounded-md object-cover" />
+                           
+                          ? <SafeImg src={fileUrl(doc.path)} alt={label} className="h-24 w-full rounded-md object-cover" />
                           : <span className="flex h-24 items-center justify-center rounded-md bg-canvas text-xs text-muted"><FileText className="mr-1 size-4" /> PDF</span>}
                       </a>
                     ) : <p className="mb-2 flex h-24 items-center justify-center rounded-md bg-canvas text-xs text-muted">Not uploaded</p>}

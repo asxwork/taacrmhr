@@ -15,6 +15,7 @@ import { Composer } from "@/components/crm/composer";
 import { Timeline } from "@/components/crm/timeline";
 import { LeadForm } from "../lead-form";
 import { convertLead, deleteLead, setLeadStatus } from "../actions";
+import { SafeImg } from "@/components/safe-img";
 
 export const metadata = { title: "Lead" };
 
@@ -193,8 +194,8 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
               {matches.map((u) => (
                 <li key={u.id} className="flex items-center gap-3 px-5 py-3 text-sm">
                   <Link href={`/inventory/units/${u.id}`} className="size-12 shrink-0 overflow-hidden rounded-md bg-canvas" aria-hidden tabIndex={-1}>
-                    {/* eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files */}
-                    {u.images[0] && <img src={fileUrl(u.images[0].path)} alt="" className="size-full object-cover" loading="lazy" />}
+                    { }
+                    {u.images[0] && <SafeImg src={fileUrl(u.images[0].path)} alt="" className="size-full object-cover" loading="lazy" />}
                   </Link>
                   <span className="flex-1">
                     <Link href={`/inventory/units/${u.id}`} className="font-medium hover:underline">{unitLabel(u)}</Link>

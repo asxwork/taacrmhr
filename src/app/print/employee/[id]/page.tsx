@@ -6,6 +6,7 @@ import { employeeAllows } from "@/lib/hr";
 import { loadProfile } from "@/lib/employee-profile";
 import { fileUrl } from "@/lib/files";
 import { PrintButton } from "./print-button";
+import { SafeImg } from "@/components/safe-img";
 
 export const metadata = { title: "Profile card" };
 
@@ -44,8 +45,8 @@ export default async function ProfileCard({ params }: { params: Promise<{ id: st
             <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-9" />
           </div>
           {emp.photo ? (
-            // eslint-disable-next-line @next/next/no-img-element -- upload served from /api/files
-            <img src={fileUrl(emp.photo)} alt="" className="-mb-1 mt-4 size-24 rounded-full border-4 border-[#d4b26a] object-cover" />
+             
+            <SafeImg src={fileUrl(emp.photo)} alt="" className="-mb-1 mt-4 size-24 rounded-full border-4 border-[#d4b26a] object-cover" />
           ) : (
             <div className="mt-4 flex size-24 items-center justify-center rounded-full border-4 border-[#d4b26a] bg-slate-100 text-2xl font-semibold">{emp.fullName.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>
           )}

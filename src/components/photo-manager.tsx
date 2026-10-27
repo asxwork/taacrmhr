@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, EmptyState } from "@/components/ui";
 import type { FormState } from "@/lib/utils";
+import { SafeImg } from "@/components/safe-img";
 
 type Photo = { id: string; path: string };
 
@@ -31,14 +32,14 @@ export function PhotoManager({ photos, title, path, selectedId, canEdit, owner, 
       <Card className="overflow-hidden">
         {main ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files */}
-            <img src={fileUrl(main.path)} alt={title} className="aspect-[16/10] w-full bg-canvas object-cover" />
+            { }
+            <SafeImg src={fileUrl(main.path)} alt={title} className="aspect-[16/10] w-full bg-canvas object-cover" />
             {photos.length > 1 && (
               <div className="flex gap-2 overflow-x-auto p-2">
                 {photos.map((p, i) => (
                   <Link key={p.id} href={`${path}?photo=${p.id}`} scroll={false} className={cn("relative shrink-0 rounded-md", p.id === main.id && "ring-2 ring-navy-900")}>
-                    {/* eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files */}
-                    <img src={fileUrl(p.path)} alt="" className="size-16 rounded-md object-cover" loading="lazy" />
+                    { }
+                    <SafeImg src={fileUrl(p.path)} alt="" className="size-16 rounded-md object-cover" loading="lazy" />
                     {i === 0 && <span className="absolute bottom-0.5 left-0.5 rounded bg-black/60 px-1 text-[9px] font-medium text-white">Cover</span>}
                   </Link>
                 ))}
@@ -62,8 +63,8 @@ export function PhotoManager({ photos, title, path, selectedId, canEdit, owner, 
             <div className="mt-3 flex flex-wrap gap-3">
               {photos.map((p, i) => (
                 <div key={p.id} className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- user upload served from /api/files */}
-                  <img src={fileUrl(p.path)} alt="" className={cn("size-16 rounded-md object-cover", i === 0 && "ring-2 ring-gold-400")} loading="lazy" />
+                  { }
+                  <SafeImg src={fileUrl(p.path)} alt="" className={cn("size-16 rounded-md object-cover", i === 0 && "ring-2 ring-gold-400")} loading="lazy" />
                   <form action={remove} className="absolute -right-1.5 -top-1.5">
                     <input type="hidden" name="id" value={p.id} />
                     <button title="Remove photo" aria-label="Remove photo" className="rounded-full bg-surface p-0.5 text-muted shadow hover:text-red-600"><X className="size-3" /></button>

@@ -3,6 +3,7 @@ import { ArrowLeft, Mail, Phone } from "lucide-react";
 import { fileUrl } from "@/lib/files";
 import { fmtDate } from "@/lib/utils";
 import { Badge, Card } from "@/components/ui";
+import { SafeImg } from "@/components/safe-img";
 
 type Emp = {
   fullName: string; code: string; status: string; photo: string | null; phone: string | null; officialEmail: string | null; joiningDate: Date;
@@ -25,8 +26,8 @@ export function BasicProfile({ emp, back }: { emp: Emp; back: { href: string; la
       <Card className="max-w-2xl p-6">
         <div className="flex flex-wrap items-center gap-4">
           {emp.photo
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={fileUrl(emp.photo)} alt="" className="size-16 rounded-full object-cover" />
+             
+            ? <SafeImg src={fileUrl(emp.photo)} alt="" className="size-16 rounded-full object-cover" />
             : <span className="flex size-16 items-center justify-center rounded-full bg-navy-900 text-lg font-semibold text-white">{initials}</span>}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-semibold">{emp.fullName}</h1>
