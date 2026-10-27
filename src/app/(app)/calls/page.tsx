@@ -47,7 +47,7 @@ export default async function DialerPage() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
           <Card className="p-6">
-            <CallCard target={target} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} />
+            <CallCard key={target.id} target={target} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} />
           </Card>
           <div className="space-y-4">
             <Card className="p-5">

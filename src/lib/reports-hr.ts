@@ -10,7 +10,6 @@ export async function hrReport(user: SessionUser, f: { from: Date; to: Date; bra
   const scope = (await scopeWhere(user, "reports.hr", "view", { owner: "userId", branch: "branchId" })) as Prisma.EmployeeWhereInput | null;
   if (!scope) return null;
   const inScope: Prisma.EmployeeWhereInput = { AND: [scope, f.branchId ? { branchId: f.branchId } : {}] };
-  const current: Prisma.EmployeeWhereInput = { AND: [inScope, { status: { not: "left" } }] };
 
   const [employees, joiners, leavers, leaves, runs] = await Promise.all([
     db.employee.findMany({ where: inScope, select: { id: true, code: true, fullName: true, status: true, joiningDate: true, leftAt: true, gender: true, department: { select: { name: true } }, branch: { select: { name: true } } } }),

@@ -60,7 +60,7 @@ export async function saveCompanyAppearance(_: FormState, fd: FormData): Promise
 }
 
 /** Super Admin only. Sample staff get random passwords nobody knows, so they can't be signed into. */
-export async function loadSampleData(_: FormState): Promise<FormState> {
+export async function loadSampleData(): Promise<FormState> {
   const actor = await requireUser();
   if (!actor.isSuperAdmin) return { error: "Only a Super Admin can load sample data." };
   const res = await loadDemo(db, { passwordHash: await bcrypt.hash(randomBytes(24).toString("base64url"), 10), domain: "demo.local", withSuperAdmin: false, codePrefix: "DEMO-" });
@@ -70,7 +70,7 @@ export async function loadSampleData(_: FormState): Promise<FormState> {
   return { ok: true, message: `Loaded ${res.employees} sample employees with leads, deals, inventory, attendance and salaries.` };
 }
 
-export async function removeSampleData(_: FormState): Promise<FormState> {
+export async function removeSampleData(): Promise<FormState> {
   const actor = await requireUser();
   if (!actor.isSuperAdmin) return { error: "Only a Super Admin can remove sample data." };
   const res = await removeDemo(db);
