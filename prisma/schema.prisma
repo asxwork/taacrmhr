@@ -749,6 +749,19 @@ model EmployeeBank {
   @@index([employeeId])
 }
 
+/// HR dashboard posts. kind: accolade | news | wisdom. employeeId: who an accolade is for.
+model HrPost {
+  id          String   @id @default(cuid())
+  kind        String
+  title       String
+  body        String? // @text
+  employeeId  String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([kind, createdAt])
+}
+
 /// type: joined | confirmed | promoted | transferred | resigned | exited | rehired | note
 model EmployeeEvent {
   id         String   @id @default(cuid())

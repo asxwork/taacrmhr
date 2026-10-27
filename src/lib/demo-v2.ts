@@ -191,3 +191,20 @@ export async function demoProfiles(db: PrismaClient, employees: { id: string; fu
     await db.employee.update({ where: { id: e.id }, data: { bankName, accountTitle: e.fullName, accountNumber } });
   }
 }
+
+/** A few accolades, newsletter items and quotes for the HR dashboard. */
+export async function demoPosts(db: PrismaClient, u: { hr: { id: string } }, employees: { id: string; userId: string | null }[]) {
+  if (await db.hrPost.count()) return;
+  const day = (n: number) => new Date(Date.now() - n * 86_400_000);
+  const by = u.hr.id;
+  const e = (i: number) => employees[i]?.id ?? null;
+  await db.hrPost.createMany({
+    data: [
+      { kind: "accolade", title: "Top closer of the month", body: "Closed 3 Advisor Heights apartments in October.", employeeId: e(3), createdById: by, createdAt: day(2) },
+      { kind: "accolade", title: "Best customer feedback", body: "Five 5-star reviews from Palm Residency buyers.", employeeId: e(4), createdById: by, createdAt: day(9) },
+      { kind: "news", title: "Palm Residency Phase 2 launch", body: "Bookings open on the 1st. New payment plan: 25% down, 36 monthly installments.", createdById: by, createdAt: day(1) },
+      { kind: "news", title: "Office closed for Iqbal Day", body: "Both branches are closed on 9 November.", createdById: by, createdAt: day(6) },
+      { kind: "wisdom", title: "The best way to predict the future is to create it.", body: "Peter Drucker", createdById: by, createdAt: day(0) },
+    ],
+  });
+}

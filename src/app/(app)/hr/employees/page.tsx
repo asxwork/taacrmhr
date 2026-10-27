@@ -17,13 +17,13 @@ import { orgOptions } from "./org-data";
 
 export const metadata = { title: "Employees" };
 
-type SP = { tab?: string; q?: string; dept?: string; desig?: string; branch?: string; status?: string; new?: string; import?: string };
+type SP = { tab?: string; q?: string; dept?: string; desig?: string; branch?: string; status?: string; type?: string; gender?: string; new?: string; import?: string };
 
 export default async function EmployeesPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("hr.employees");
   const sp = await searchParams;
   const tab = sp.tab === "org" ? "org" : sp.tab === "documents" ? "documents" : "directory";
-  const keep = { tab: sp.tab, q: sp.q, dept: sp.dept, desig: sp.desig, branch: sp.branch, status: sp.status };
+  const keep = { tab: sp.tab, q: sp.q, dept: sp.dept, desig: sp.desig, branch: sp.branch, status: sp.status, type: sp.type, gender: sp.gender };
   const scope = (await employeeWhere(user))!;
   const canCreate = can(user, "hr.employees", "create");
   const closeHref = hrefWith("/hr/employees", keep, {});
@@ -35,6 +35,8 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
     ...(sp.dept && { departmentId: sp.dept }),
     ...(sp.desig && { designationId: sp.desig }),
     ...(sp.branch && { branchId: sp.branch }),
+    ...(sp.type && { employmentType: sp.type }),
+    ...(sp.gender && { gender: sp.gender }),
     ...(sp.status ? { status: sp.status } : { status: { not: "left" } }),
   };
 

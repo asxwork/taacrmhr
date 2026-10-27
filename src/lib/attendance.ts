@@ -26,6 +26,8 @@ export const isWorkDay = (shift: ShiftLike, day: Date) => shift.workDays.split("
 export type DayResult = {
   date: Date; status: DayStatus; checkIn: Date | null; checkOut: Date | null;
   workedMin: number; lateMin: number; earlyMin: number; overtimeMin: number; note: string | null; overridden: boolean;
+  /** Set by loadAttendance for attendance-exempt employees. */
+  exempt?: boolean;
 };
 
 /** The single source of truth for what a day counts as. */
@@ -98,7 +100,8 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
         });
       })
       // Attendance-exempt staff (Employment Info) are never absent, late or short on a work day.
-      .map((r) => (e.attendanceExempt && ["absent", "late", "half", "missing"].includes(r.status) ? { ...r, status: "present" as const, lateMin: 0, earlyMin: 0, note: r.note ?? "Attendance exempt" } : r)));
+      .map((r) => (!e.attendanceExempt ? r : ["absent", "late", "half", "missing"].includes(r.status)
+        ? { ...r, status: "present" as const, lateMin: 0, earlyMin: 0, note: r.note ?? "Attendance exempt", exempt: true } : { ...r, exempt: true })));
   }
   return out;
 }
@@ -108,16 +111,20 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
  * One definition, so a tile's count always matches the list it opens.
  */
 export const ATTENDANCE_DRILL = [
-  { key: "present", label: "Present", tone: "green", test: (d: DayResult) => ["present", "late", "half", "missing"].includes(d.status) },
-  { key: "absent", label: "Absent", tone: "red", test: (d: DayResult) => d.status === "absent" },
+  { key: "exempt", label: "Attendance exempt", tone: "gold", test: (d: DayResult) => !!d.exempt },
+  { key: "planned", label: "Planned shifts", tone: "navy", test: (d: DayResult) => !["weekend", "holiday"].includes(d.status) },
+  { key: "pending", label: "Upcoming shifts", tone: "sky", test: (d: DayResult) => d.status === "upcoming" },
+  { key: "present", label: "Presents", tone: "green", test: (d: DayResult) => ["present", "late", "half", "missing"].includes(d.status) },
+  { key: "absent", label: "Absents", tone: "red", test: (d: DayResult) => d.status === "absent" },
+  { key: "holiday", label: "Holiday", tone: "teal", test: (d: DayResult) => d.status === "holiday" },
+  { key: "leave", label: "Leaves", tone: "blue", test: (d: DayResult) => d.status === "leave" },
+  { key: "off", label: "Days off", tone: "slate", test: (d: DayResult) => d.status === "weekend" },
+  { key: "wfh", label: "WFH", tone: "violet", test: (d: DayResult) => !!d.note?.startsWith("Work from home") },
+  { key: "early", label: "Early left", tone: "orange", test: (d: DayResult) => d.earlyMin > 0 },
+  { key: "travel", label: "Travel", tone: "fuchsia", test: (d: DayResult) => !!d.note?.startsWith("Travel") || !!d.note?.startsWith("Official duty") },
   { key: "late", label: "Late arrivals", tone: "amber", test: (d: DayResult) => d.lateMin > 0 },
-  { key: "early", label: "Early left", tone: "violet", test: (d: DayResult) => d.earlyMin > 0 },
   { key: "missing", label: "No check-out", tone: "orange", test: (d: DayResult) => d.status === "missing" },
   { key: "half", label: "Half day", tone: "fuchsia", test: (d: DayResult) => d.status === "half" },
-  { key: "leave", label: "On leave", tone: "blue", test: (d: DayResult) => d.status === "leave" },
-  { key: "holiday", label: "Holiday", tone: "teal", test: (d: DayResult) => d.status === "holiday" },
-  { key: "off", label: "Days off", tone: "slate", test: (d: DayResult) => d.status === "weekend" },
-  { key: "pending", label: "Not in yet", tone: "sky", test: (d: DayResult) => d.status === "upcoming" },
 ] as const;
 export type DrillKey = (typeof ATTENDANCE_DRILL)[number]["key"];
 
