@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { db } from "./db";
+import { memo } from "./memo";
 import { requireUser, type SessionUser } from "./auth";
 import { scopeOf, type Action, type Scope } from "./rbac";
 
@@ -19,7 +20,12 @@ export async function requirePermission(module: string, action: Action = "view")
 }
 
 /** The user plus everyone reporting to them, directly or indirectly. */
-export async function teamUserIds(userId: string): Promise<string[]> {
+export function teamUserIds(userId: string): Promise<string[]> {
+  // Walked once a minute at most; any User write (e.g. a new manager) clears it via the "session:" prefix.
+  return memo(`session:team:${userId}`, 60_000, () => walkTeam(userId));
+}
+
+async function walkTeam(userId: string): Promise<string[]> {
   const ids = new Set([userId]);
   let frontier = [userId];
   while (frontier.length) {

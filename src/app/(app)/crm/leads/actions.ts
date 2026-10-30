@@ -24,9 +24,11 @@ async function editableLead(user: SessionUser, id: string) {
 async function findDuplicate(key: string | null, email: string | null, exceptLeadId?: string) {
   if (!key && !email) return null;
   const or = [...(key ? [{ phoneKey: key }] : []), ...(email ? [{ email }] : [])];
-  const lead = await db.lead.findFirst({ where: { OR: or, NOT: exceptLeadId ? { id: exceptLeadId } : undefined }, include: { owner: true, status: true } });
+  const [lead, contact] = await Promise.all([
+    db.lead.findFirst({ where: { OR: or, NOT: exceptLeadId ? { id: exceptLeadId } : undefined }, include: { owner: true, status: true } }),
+    db.contact.findFirst({ where: { OR: or }, include: { owner: true } }),
+  ]);
   if (lead) return `A lead “${lead.name}” (${lead.status.name}, owner ${lead.owner?.name ?? "unassigned"}) already has this phone or email.`;
-  const contact = await db.contact.findFirst({ where: { OR: or }, include: { owner: true } });
   if (contact) return `A contact “${contact.name}” (owner ${contact.owner?.name ?? "unassigned"}) already has this phone or email.`;
   return null;
 }
@@ -66,12 +68,15 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
     if (dup) return { confirm: `${dup} Tick to save anyway.` };
   }
 
-  const ownerId = await resolveOwner(user, "crm.leads", str(fd, "ownerId"), existing?.ownerId);
   const budgetMin = parseAmount(str(fd, "budgetMin"));
   const budgetMax = parseAmount(str(fd, "budgetMax"));
   // The unit/listing this enquiry is about; its project fills in the lead's project when none is chosen.
-  const unit = str(fd, "unitId") ? await db.unit.findUnique({ where: { id: str(fd, "unitId") }, select: { id: true, projectId: true } }) : null;
-  const projectId = (str(fd, "projectId") && (await db.project.findUnique({ where: { id: str(fd, "projectId") }, select: { id: true } }))?.id) || unit?.projectId || null;
+  const [ownerId, unit, project] = await Promise.all([
+    resolveOwner(user, "crm.leads", str(fd, "ownerId"), existing?.ownerId),
+    str(fd, "unitId") ? db.unit.findUnique({ where: { id: str(fd, "unitId") }, select: { id: true, projectId: true } }) : null,
+    str(fd, "projectId") ? db.project.findUnique({ where: { id: str(fd, "projectId") }, select: { id: true } }) : null,
+  ]);
+  const projectId = project?.id || unit?.projectId || null;
   const data = {
     name, phone: phone || null, phoneKey: key, email,
     phone2: phones ? phones[1]?.value ?? null : str(fd, "phone2") || null,
@@ -100,9 +105,11 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
       || (await db.leadStatus.findFirst({ where: { kind: "open", active: true }, orderBy: { sortOrder: "asc" } }));
     const lead = await db.lead.create({ data: { ...data, number: await nextNumber("lead"), statusId: status!.id, createdById: user.id } });
     leadId = lead.id;
-    await logSystem({ leadId }, "Lead created", user.id);
-    if (ownerId !== user.id) await notify(ownerId, `New lead assigned to you: ${name}`, { body: `By ${user.name}`, link: `/crm/leads/${leadId}`, email: true });
-    await audit(user.id, "create", "lead", leadId, `Created lead ${name}`);
+    await Promise.all([
+      logSystem({ leadId }, "Lead created", user.id),
+      ownerId !== user.id ? notify(ownerId, `New lead assigned to you: ${name}`, { body: `By ${user.name}`, link: `/crm/leads/${leadId}`, email: true }) : null,
+      audit(user.id, "create", "lead", leadId, `Created lead ${name}`),
+    ]);
   }
 
   revalidatePath("/crm/leads");

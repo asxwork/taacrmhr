@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { db } from "./db";
 import { sendMail, smtpConfigured } from "./mail";
 
@@ -11,11 +12,24 @@ export async function notify(userId: string | null | undefined, title: string, o
   if (!userId) return;
   await db.notification.create({ data: { userId, title, body: opts.body ?? null, link: opts.link ?? null } });
   if (opts.email && smtpConfigured()) {
-    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, active: true } });
-    if (user?.active && !user.email.endsWith(".local")) {
-      const lines = [opts.body, opts.link && `Open: ${APP_URL()}${opts.link}`].filter(Boolean).join("\n\n");
-      await sendMail(user.email, title, lines || title, { userId });
-    }
+    // The email goes out after the page has responded, so a slow mail server never slows down saving.
+    const send = async () => {
+      const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, active: true } });
+      if (user?.active && !user.email.endsWith(".local")) {
+        const lines = [opts.body, opts.link && `Open: ${APP_URL()}${opts.link}`].filter(Boolean).join("\n\n");
+        await sendMail(user.email, title, lines || title, { userId });
+      }
+    };
+    inBackground(send);
+  }
+}
+
+/** Runs work after the response when inside a request (Next.js after()), otherwise straight away (scripts, cron). */
+export function inBackground(work: () => Promise<unknown>) {
+  try {
+    after(() => work().catch(() => {}));
+  } catch {
+    void work().catch(() => {});
   }
 }
 

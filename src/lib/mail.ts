@@ -18,6 +18,9 @@ function getTransport() {
       port,
       secure: port === 465,
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      // Give up quickly on an unreachable mail server instead of nodemailer's 2-minute defaults.
+      connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 20_000,
+      pool: true, maxConnections: 2,
     });
   }
   return transporter;
