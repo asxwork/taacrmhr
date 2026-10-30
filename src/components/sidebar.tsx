@@ -10,10 +10,11 @@ import { cn, initials } from "@/lib/utils";
 import { logout } from "@/app/login/actions";
 import { openSearch } from "./command-palette";
 import { NAV_ICONS } from "./nav-icons";
+import { SafeImg } from "@/components/safe-img";
 
 const ICONS = NAV_ICONS;
 
-type Props = { apps: UserApp[]; initialApp: AppKey; user: { name: string; roles: string; branch: string | null }; unread: number; initiallyCollapsed: boolean };
+type Props = { apps: UserApp[]; initialApp: AppKey; user: { name: string; roles: string; branch: string | null; photo: string | null }; unread: number; initiallyCollapsed: boolean };
 
 const pathOf = (href: string) => href.split(/[?#]/)[0]!;
 const isActive = (pathname: string, href: string) => {
@@ -182,15 +183,19 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
   const footer = (rail: boolean) => (
     <div className="border-t border-white/10 p-3">
       <div className={cn("flex items-center", rail ? "flex-col gap-1" : "gap-1 px-1")}>
-        <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-gold-400/15 text-[11px] font-semibold text-gold-300", rail && "mb-1")} title={rail ? `${user.name} · ${user.roles}` : undefined} aria-hidden={!rail}>
-          {initials(user.name)}
-        </span>
-        {!rail && (
-          <div className="ml-1.5 min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-white">{user.name}</p>
-            <p className="truncate text-[11px] text-white/55">{user.roles}{user.branch && ` · ${user.branch}`}</p>
-          </div>
-        )}
+        {/* Name and photo open My profile — the same profile in every app. */}
+        <Link href="/profile" onClick={() => setOpen(false)} title={rail ? `${user.name} · ${user.roles} · My profile` : "My profile"} aria-label="My profile"
+          className={cn("flex min-w-0 items-center rounded-lg transition-colors hover:bg-white/10", rail ? "flex-col p-0.5" : "flex-1 gap-2.5 p-1")}>
+          {user.photo
+            ? <SafeImg src={user.photo} alt="" className="size-9 shrink-0 rounded-full object-cover ring-2 ring-gold-400/30" />
+            : <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gold-400/15 text-[11px] font-semibold text-gold-300">{initials(user.name)}</span>}
+          {!rail && (
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-medium text-white">{user.name}</span>
+              <span className="block truncate text-[11px] text-white/55">{user.roles}{user.branch && ` · ${user.branch}`}</span>
+            </span>
+          )}
+        </Link>
         <Link href="/notifications" onClick={() => setOpen(false)} className="relative flex size-10 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white" title="Notifications" aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}>
           <Bell className="size-[18px]" />
           {unread > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-semibold text-navy-950">{unread > 99 ? "99+" : unread}</span>}

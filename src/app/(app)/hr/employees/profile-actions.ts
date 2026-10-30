@@ -73,7 +73,7 @@ export async function saveProfileSection(_: FormState, fd: FormData): Promise<Fo
       await db.employee.update({ where: { id }, data: v as never });
       break;
     case "quick":
-    case "contact":
+    case "contacts":
       await db.employee.update({ where: { id }, data: v as never });
       if (emp.userId && v.phone !== undefined && v.phone !== emp.phone) await db.user.update({ where: { id: emp.userId }, data: { phone: (v.phone as string | null) ?? null } });
       break;
@@ -97,6 +97,8 @@ export async function saveProfileSection(_: FormState, fd: FormData): Promise<Fo
       const pfPct = Number(sal.pfPct ?? 0);
       if (pfPct > 20) return { error: "Provident fund must be 0–20%." };
       const data = {
+        excludeFromPayroll: !!sal.excludeFromPayroll, compensationType: (sal.compensationType as string | null) ?? null,
+        currency: (sal.currency as string | null) ?? "PKR", description: (sal.description as string | null) ?? null,
         gross: sal.gross as number, probationGross: (sal.probationGross as number | null) ?? null, effectiveFrom: sal.effectiveFrom as Date,
         paymentMethod: (sal.paymentMethod as string | null) ?? "bank", incrementMonths: Number(incrementMonths ?? 12) || 12,
         nextIncrementAt: (sal.nextIncrementAt as Date | null) ?? null, taxExempt: !!sal.taxExempt, eobi: !!sal.eobi, pfPct,
@@ -117,6 +119,10 @@ export async function saveProfileSection(_: FormState, fd: FormData): Promise<Fo
       await db.employee.update({ where: { id }, data: { customData: JSON.stringify(data) } });
       break;
     }
+    case "groups":
+      // Tidy the list: trimmed, de-duplicated, comma separated.
+      await db.employee.update({ where: { id }, data: { groups: [...new Set(String(v.groups ?? "").split(",").map((g) => g.trim()).filter(Boolean))].join(", ") || null } });
+      break;
     default:
       await db.employee.update({ where: { id }, data: v as never });
   }

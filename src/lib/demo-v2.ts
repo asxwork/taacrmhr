@@ -450,3 +450,23 @@ export async function demoSoftphone(db: PrismaClient, domain: string) {
     await db.callLog.update({ where: { id: l.id }, data: { recordingId: rec.id, recordingPath: rel, pbxCallId: `sample-${l.id}` } });
   }
 }
+
+/** Profile extras (company, location, employment type, groups) for the sample employees. */
+export async function demoProfileExtras(db: PrismaClient, domain: string) {
+  const company = (await db.setting.findUnique({ where: { key: "company.name" } }))?.value || "The Advisor Associates";
+  const emps = await db.employee.findMany({ where: { user: { email: { endsWith: `@${domain}` } }, company: null }, include: { branch: true, department: true } });
+  for (const e of emps) {
+    const sales = e.department?.name === "Sales";
+    await db.employee.update({
+      where: { id: e.id },
+      data: {
+        company, location: e.branch ? `${e.branch.name} office` : "Head office", employeeType: "Full Time",
+        groups: sales ? "Sales team, Weekly target review" : e.department?.name === "Management" ? "Management, Approvals board" : "Admin & support",
+        isLineManager: (await db.employee.count({ where: { managerId: e.id } })) > 0,
+        isFinalAuthority: e.department?.name === "Management",
+      },
+    });
+  }
+  await db.salaryProfile.updateMany({ where: { employee: { user: { email: { endsWith: `@${domain}` } } }, compensationType: null }, data: { compensationType: "fixed" } });
+  await db.salaryProfile.updateMany({ where: { employee: { user: { email: { endsWith: `@${domain}` } }, department: { name: "Sales" } } }, data: { compensationType: "fixed_commission" } });
+}

@@ -8,6 +8,8 @@ import { CommandPalette } from "@/components/command-palette";
 import { NavProgress } from "@/components/nav-progress";
 import { unreadCount } from "@/lib/notify";
 import { maybeRunHoldRules } from "@/lib/lead-hold";
+import { db } from "@/lib/db";
+import { fileUrl } from "@/lib/files";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -17,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Only the apps and pages this user's roles allow — this is what makes Admin and Agent see different apps.
   const apps = await appsForUser(user);
+  const myPhoto = (await db.employee.findUnique({ where: { userId: user.id }, select: { photo: true } }))?.photo ?? null;
   const last = apps.find((a) => a.key === jar.get("app")?.value);
   const current = appForPath(apps, h.get("x-pathname") ?? "") ?? last ?? apps[0]!;
   const pageItems = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]))).filter((item) => !item.phase);
@@ -28,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Sidebar
         apps={apps}
         initialApp={current.key as AppKey}
-        user={{ name: user.name, roles: user.roleNames.join(", ") || "No role", branch: user.branchName }}
+        user={{ name: user.name, roles: user.roleNames.join(", ") || "No role", branch: user.branchName, photo: myPhoto ? fileUrl(myPhoto) : null }}
         unread={await unreadCount(user.id)}
         initiallyCollapsed={collapsed}
       />

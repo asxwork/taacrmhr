@@ -174,6 +174,8 @@ export async function generateRun(runId: string, onlyEmployeeId?: string) {
       ...(onlyEmployeeId && { id: onlyEmployeeId }),
       joiningDate: { lte: end },
       OR: [{ leftAt: null }, { leftAt: { gte: start } }],
+      // "Do Not Use in Payroll" on the profile's salary tab.
+      NOT: { salary: { is: { excludeFromPayroll: true } } },
     },
     include: { salary: { select: { id: true } } },
     orderBy: { fullName: "asc" },

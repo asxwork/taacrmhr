@@ -4,7 +4,7 @@
 // HR editors get inline forms; everyone else (including the employee in My Space) sees values.
 import Link from "next/link";
 import { format } from "date-fns";
-import { Briefcase, CreditCard, Download, FileText, Hourglass, IdCard, Landmark, Mail, Phone, Plus, ShieldCheck, Trash2, User, Users } from "lucide-react";
+import { Briefcase, CreditCard, Download, FileText, Hourglass, IdCard, Landmark, Mail, MapPin, Phone, Plus, ShieldCheck, Trash2, User, Users } from "lucide-react";
 import { fileUrl } from "@/lib/files";
 import { fmtDate } from "@/lib/utils";
 import { PAYMENT_METHODS, RELATIONS, profileSection, type OptionSource } from "@/lib/profile-fields";
@@ -18,7 +18,7 @@ import { MiniTable, ProfileTabs, Row, SectionForm, SectionTitle, type ProfileTab
 import { addBank, addQualification, addRelative, deleteProfileRow, saveProfileSection } from "@/app/(app)/hr/employees/profile-actions";
 import { uploadDocument, uploadPhoto } from "@/app/(app)/hr/employees/actions";
 
-const money = (n: number) => `PKR ${Math.round(n).toLocaleString("en-PK")}`;
+const money = (n: number, currency?: string | null) => `${currency || "PKR"} ${Math.round(n).toLocaleString("en-PK")}`;
 const def = (k: string) => profileSection(k)!;
 
 export function ProfileView({ p, options, canEdit, canSalary, showSalary, actions, banner, extraTabs = [], initialTab, docsTab, userTab }: {
@@ -69,7 +69,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
                 <input type="hidden" name="id" value={id} />
                 <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required aria-label="Profile picture" className="flex-1 text-xs file:mr-2 file:rounded file:border-0 file:bg-navy-900 file:px-2 file:py-1 file:text-white" />
                 <SubmitButton variant="secondary" pendingText="Uploading…" className="h-8 px-3 text-xs">Upload</SubmitButton>
-                <span className="w-full text-xs text-muted">{emp.photo ? emp.photo.split("/").pop() : "No picture yet"} · JPG, PNG or WebP up to 4 MB.</span>
+                <span className="w-full text-xs text-muted">{emp.photo ? emp.photo.split("/").pop() : "No picture yet"} · Maximum allowed file size is 4MB.</span>
               </ActionForm>
             ) : emp.photo ? emp.photo.split("/").pop() : <span className="text-muted">—</span>}
           </Row>
@@ -94,10 +94,19 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
       <SectionForm employeeId={id} def={def("employment")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<Briefcase className="size-4" />}
         before={<div>
           <Row label="Status"><StatusPill name={st.label} colorName={st.color} /></Row>
-          <Row label="Is Line Manager?">{emp.reports.length ? `Yes · ${emp.reports.length} direct report${emp.reports.length === 1 ? "" : "s"}` : "No"}</Row>
           {emp.confirmedAt && <Row label="Confirmed on">{fmtDate(emp.confirmedAt)}</Row>}
         </div>} />
       {canEdit && <p className="px-3 pt-2 text-xs text-muted">Changing branch, department, designation or line manager is recorded on the employee’s history. Use “Role / transfer” at the top to add an effective date and notes.</p>}
+      {canEdit
+        ? <SectionForm employeeId={id} def={def("groups")} values={values} options={options} canEdit action={saveProfileSection} icon={<Users className="size-4" />} />
+        : (
+          <>
+            <SectionTitle icon={<Users className="size-4" />}>Groups</SectionTitle>
+            {emp.groups
+              ? <div className="flex flex-wrap gap-2 px-3 py-2">{emp.groups.split(",").map((g) => <span key={g} className="rounded-full bg-surface px-3 py-1 text-xs">{g.trim()}</span>)}</div>
+              : <p className="px-3 py-6 text-center text-sm text-muted">No Records Found!</p>}
+          </>
+        )}
       {emp.reports.length > 0 && (
         <>
           <SectionTitle icon={<Users className="size-4" />}>Team</SectionTitle>
@@ -120,12 +129,15 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
           <SectionTitle>Division</SectionTitle>
           {d ? (
             <>
-              <Row label="Gross Salary">{money(d.gross)}</Row>
-              <Row label="Per Day Salary">{money(d.perDay)}</Row>
-              <Row label="Per Hour Salary">{money(d.perHour)}</Row>
+              <Row label="Gross Salary">{money(d.gross, emp.salary?.currency)}</Row>
+              <Row label="Per Day Salary">{money(d.perDay, emp.salary?.currency)}</Row>
+              <Row label="Per Hour Salary">{money(d.perHour, emp.salary?.currency)}</Row>
               <Row label="Per Minute Salary">{d.perMinute.toFixed(2)}</Row>
               <Row label="Weekly Workable Hours">{d.weeklyHours}</Row>
-              <Row label="Monthly Payable Hours">{d.monthlyHours}</Row>
+              <Row label="Weekly Rest Days Worked Hours">{p.actual.weeklyRestWorked}</Row>
+              <Row label="Weekly Worked Hours">{p.actual.weeklyWorked}</Row>
+              <Row label="Monthly Workable Hours">{d.monthlyHours}</Row>
+              <Row label="Payable Hours (this month)">{p.actual.payable}</Row>
             </>
           ) : <p className="px-3 py-6 text-center text-sm text-muted">No salary set yet.</p>}
           <SectionTitle>Benefits</SectionTitle>
@@ -154,7 +166,8 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
 
   const contact = (
     <Card className="p-4">
-      <SectionForm employeeId={id} def={def("contact")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<Phone className="size-4" />} />
+      <SectionForm employeeId={id} def={def("addresses")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<MapPin className="size-4" />} />
+      <SectionForm employeeId={id} def={def("contacts")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<Phone className="size-4" />} />
     </Card>
   );
 
@@ -223,30 +236,49 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
     </Card>
   );
 
+  const ap = p.attPolicy;
+  const sh = p.shift;
   const policies = (
     <Card className="p-4">
       <SectionTitle>Default Time Slot</SectionTitle>
-      <Row label="Time Slot">{p.shift ? `${p.shift.name} (${p.shift.start}–${p.shift.end})${emp.shift ? "" : " · company default"}` : "—"}</Row>
+      <Row label="Time Slot">{sh ? `${sh.name} (${sh.start}–${sh.end})${emp.shift ? "" : " · company default"}` : "—"}</Row>
       <SectionTitle>Leave Types</SectionTitle>
-      <MiniTable head={["Name", "Entitled", "Carry forward", "Additional quota", "Availed", "Pending", "Available"]}
-        rows={p.balances.map((b) => [b.type.name, b.unlimited ? "Unlimited" : b.entitled, b.carried, b.adjusted, b.used, b.pending, b.unlimited ? "—" : <b key="a">{b.available}</b>])} />
+      <MiniTable head={["Code", "Name", "Accumulative Count", "Carry Forward Balance", "Additional Quota", "Balance", "Availed", "Pending", "Lapsed", "Available"]}
+        rows={p.balances.map((b) => {
+          const total = b.unlimited ? null : b.entitled + b.carried + b.adjusted;
+          return [b.type.code, b.type.name, b.unlimited ? "Unlimited" : b.entitled, b.carried, b.adjusted, total ?? "—", b.used, b.pending, 0, b.unlimited ? "—" : <b key="a">{b.available}</b>];
+        })} />
+      <SectionTitle>Attendance Policies <span className="font-normal text-muted">(Flexible Policy Planner)</span></SectionTitle>
+      {emp.attendanceExempt && <p className="mx-3 my-2 rounded-md bg-sky-50 px-3 py-2 text-xs text-sky-800">Attendance exempt: never marked absent, late or short.</p>}
+      <PolicyBlock title="Absent Policy Details" rows={[
+        ["No check-in on a work day", "Absent (unless on approved leave or a holiday)"],
+        ["Worked too little", ap.absentUnderMin ? `Under ${hm(ap.absentUnderMin)} counts as absent` : "Off"],
+      ]} />
+      <PolicyBlock title="Missing Policy Details" rows={[
+        ["Check-in without check-out", ap.missingAs === "present" ? "Counted as present" : ap.missingAs === "half" ? "Counted as half day" : "Counted as absent"],
+        ["Correction", "Employee can request a correction from My Attendance"],
+      ]} />
+      <PolicyBlock title="Short Duration Policy Details" rows={[
+        ["Late after", sh ? `${sh.graceMin} minutes past ${sh.start}` : "—"],
+        ["Half day below", sh ? `${hm(sh.halfDayMin)} worked` : "—"],
+        ["Working days", sh ? sh.workDays.split(",").map((n) => ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][Number(n)]).join(", ") : "—"],
+      ]} />
+      <PolicyBlock title="Overtime Policy Details" rows={[
+        ["Overtime starts", sh ? `${ap.overtimeAfterMin} minutes after ${sh.end}` : `${ap.overtimeAfterMin} minutes after shift end`],
+        ["Work on a rest day", "All hours count as overtime"],
+      ]} />
       <SectionTitle>Company Policies</SectionTitle>
       <MiniTable head={["Policy", "Version", "Acknowledged"]}
         rows={p.policies.map((x) => [x.title, `v${x.version}`, !x.requireAck ? "For information" : x.ackAt ? <Badge key="a" tone="green">{fmtDate(x.ackAt)}</Badge> : <Badge key="a" tone="amber">Pending</Badge>])} />
-      <SectionTitle>Attendance Policies</SectionTitle>
-      <Row label="Late after">{p.shift ? `${p.shift.graceMin} minutes past ${p.shift.start}` : "—"}</Row>
-      <Row label="Half day below">{p.shift ? `${Math.round(p.shift.halfDayMin / 6) / 10} hours worked` : "—"}</Row>
-      <Row label="Working days">{p.shift ? p.shift.workDays.split(",").map((n) => ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][Number(n)]).join(", ") : "—"}</Row>
-      <Row label="Attendance exempt">{emp.attendanceExempt ? "Yes — never marked absent or late" : "No"}</Row>
     </Card>
   );
 
   const banks = (
     <Card className="p-4">
       <SectionTitle icon={<Landmark className="size-4" />}>Banks</SectionTitle>
-      <MiniTable head={["Bank Name", "Branch Name", "Branch Code", "Account title", "Account / IBAN", "Effective Date", ""]}
-        rows={emp.banks.length ? emp.banks.map((b, i) => [<span key="n">{b.bankName}{i === 0 && <Badge tone="green">Current</Badge>}</span>, b.branchName ?? "—", b.branchCode ?? "—", b.accountTitle ?? "—", b.accountNumber, fmtDate(b.effectiveFrom), del("bank", b.id)])
-          : emp.bankName ? [[emp.bankName, "—", "—", emp.accountTitle ?? "—", emp.accountNumber ?? "—", "—", ""]] : []} />
+      <MiniTable head={["Id", "Bank Name", "Branch Name", "Branch Code", "Account title", "Account / IBAN", "Effective Date", "Actions"]}
+        rows={emp.banks.length ? emp.banks.map((b, i) => [emp.banks.length - i, <span key="n" className="inline-flex items-center gap-1.5">{b.bankName}{i === 0 && <Badge tone="green">Current</Badge>}</span>, b.branchName ?? "—", b.branchCode ?? "—", b.accountTitle ?? "—", b.accountNumber, fmtDate(b.effectiveFrom), del("bank", b.id) || "—"])
+          : emp.bankName ? [[1, emp.bankName, "—", "—", emp.accountTitle ?? "—", emp.accountNumber ?? "—", "—", "—"]] : []} />
       {canEdit && (
         <ActionForm action={addBank} className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-dashed border-line p-3 sm:grid-cols-3">
           <input type="hidden" name="id" value={id} />
@@ -320,6 +352,18 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
       {banner}
       <ProfileTabs tabs={tabs} initial={initialTab} />
     </>
+  );
+}
+
+const hm = (min: number) => (min % 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min / 60} hours`);
+
+/** One attendance policy block (label / rule rows) on the Policies tab. */
+function PolicyBlock({ title, rows }: { title: string; rows: [string, string][] }) {
+  return (
+    <div className="mx-3 my-3 overflow-hidden rounded-lg border border-line">
+      <p className="bg-surface px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink/70">{title}</p>
+      {rows.map(([k, v]) => <Row key={k} label={k}>{v}</Row>)}
+    </div>
   );
 }
 

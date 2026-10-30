@@ -1,10 +1,11 @@
 // Everything the employee profile (HR → People → employee, and My Space) shows: the record with its lists, form
 // values per field, completion %, age and total experience, and the salary division.
-import { differenceInMonths, format, intervalToDuration } from "date-fns";
+import { differenceInMonths, format, intervalToDuration, startOfMonth, startOfWeek } from "date-fns";
 import { db } from "./db";
 import { balancesFor } from "./leave";
 import { policiesFor } from "./policies";
-import { defaultShift } from "./attendance";
+import { defaultShift, loadAttendance, type DayResult } from "./attendance";
+import { attendancePolicy } from "./attendance-policy";
 import { COMPLETION_KEYS, customSection, type OptionSource } from "./profile-fields";
 
 export async function loadProfile(id: string) {
@@ -44,10 +45,13 @@ export async function loadProfile(id: string) {
     passportNo: emp.passportNo ?? "", passportExpiry: d(emp.passportExpiry), licenseNo: emp.licenseNo ?? "", licenseExpiry: d(emp.licenseExpiry),
     code: emp.code, joiningDate: d(emp.joiningDate), probationEnd: d(emp.probationEnd), employmentType: emp.employmentType, grade: emp.grade ?? "",
     isHod: emp.isHod ? "on" : "", attendanceExempt: emp.attendanceExempt ? "on" : "",
+    company: emp.company ?? "", location: emp.location ?? "", employeeType: emp.employeeType ?? "", groups: emp.groups ?? "",
+    areaBounded: emp.areaBounded ? "on" : "", isFinalAuthority: emp.isFinalAuthority ? "on" : "", isLineManager: emp.isLineManager || emp.reports.length ? "on" : "",
     branchId: emp.branchId ?? "", departmentId: emp.departmentId ?? "", designationId: emp.designationId ?? "", jobTitle: emp.jobTitle ?? "",
     managerId: emp.managerId ?? "", finalAuthorityId: emp.finalAuthorityId ?? "", shiftId: emp.shiftId ?? "", deviceUserId: emp.deviceUserId ?? "",
     gross: s ? String(s.gross) : "", probationGross: s?.probationGross ? String(s.probationGross) : "", effectiveFrom: d(s?.effectiveFrom) || d(new Date()),
     paymentMethod: s?.paymentMethod ?? "bank", ntn: emp.ntn ?? "", incrementMonths: String(s?.incrementMonths ?? 12), nextIncrementAt: d(s?.nextIncrementAt),
+    excludeFromPayroll: s?.excludeFromPayroll ? "on" : "", compensationType: s?.compensationType ?? "", currency: s?.currency ?? "PKR", description: s?.description ?? "",
     taxExempt: s?.taxExempt ? "on" : "", eobi: !s || s.eobi ? "on" : "", pfPct: s ? String(s.pfPct) : "0",
     address: emp.address ?? "", permanentAddress: emp.permanentAddress ?? "", city: emp.city ?? "",
     emergencyName: emp.emergencyName ?? "", emergencyRelation: emp.emergencyRelation ?? "", emergencyPhone: emp.emergencyPhone ?? "",
@@ -83,24 +87,42 @@ export async function loadProfile(id: string) {
   } : null;
   const components = s ? await db.payComponent.findMany({ orderBy: { sortOrder: "asc" } }) : [];
 
-  const [balances, policies] = await Promise.all([balancesFor(emp.id).catch(() => []), policiesFor(emp.id)]);
-  return { emp, values, completion, ageText, experienceText, division, components, balances, policies, finalAuthority, shift, customDef: customSection(customFields) };
+  // Actual hours from attendance: this week (worked on work days / on rest days) and payable hours this month
+  // (time worked, plus a full shift for paid leave and holidays).
+  const monthStart = startOfMonth(now), weekStart = startOfWeek(now, { weekStartsOn: 1 });
+  const days: DayResult[] = (await loadAttendance([emp.id], monthStart < weekStart ? monthStart : weekStart, now).catch(() => null))?.get(emp.id) ?? [];
+  const hrs = (min: number) => Math.round((min / 60) * 100) / 100;
+  const inWeek = days.filter((x) => x.date >= weekStart);
+  const restDay = (x: { status: string; note: string | null }) => x.status === "present" && (x.note ?? "").includes("off day");
+  const actual = {
+    weeklyWorked: hrs(inWeek.filter((x) => !restDay(x)).reduce((m, x) => m + x.workedMin, 0)),
+    weeklyRestWorked: hrs(inWeek.filter(restDay).reduce((m, x) => m + x.workedMin, 0)),
+    payable: hrs(days.filter((x) => x.date >= monthStart).reduce((m, x) => m + (x.status === "leave" || x.status === "holiday" ? dayMin : x.workedMin), 0)),
+  };
+
+  const [balances, policies, attPolicy] = await Promise.all([balancesFor(emp.id).catch(() => []), policiesFor(emp.id), attendancePolicy()]);
+  return { emp, values, completion, ageText, experienceText, division, actual, components, balances, policies, attPolicy, finalAuthority, shift, customDef: customSection(customFields) };
 }
 
 export type Profile = NonNullable<Awaited<ReturnType<typeof loadProfile>>>;
 
 /** id → name options for the profile selects that come from the database. */
 export async function profileOptions(): Promise<Record<OptionSource, [string, string][]>> {
-  const [departments, designations, branches, employees, shifts] = await Promise.all([
+  const [departments, designations, branches, employees, shifts, company, used] = await Promise.all([
     db.department.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     db.designation.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.branch.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }),
     db.shift.findMany({ select: { id: true, name: true, start: true, end: true }, orderBy: { name: "asc" } }),
+    db.setting.findUnique({ where: { key: "company.name" } }),
+    db.employee.findMany({ where: { company: { not: null } }, select: { company: true }, distinct: ["company"] }),
   ]);
+  // Companies: the main company (Settings → Company) plus any already used on employee records.
+  const companies = [...new Set([company?.value || "The Advisor Associates", ...used.map((u) => u.company!)])];
   const pair = (xs: { id: string; name: string }[]) => xs.map((x) => [x.id, x.name] as [string, string]);
   return {
     departments: pair(departments), designations: pair(designations), branches: pair(branches),
     employees: employees.map((e) => [e.id, e.fullName]), shifts: shifts.map((x) => [x.id, `${x.name} (${x.start}–${x.end})`]),
+    companies: companies.map((c) => [c, c]),
   };
 }

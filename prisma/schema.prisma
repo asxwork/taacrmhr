@@ -653,6 +653,15 @@ model Employee {
   isHod             Boolean                 @default(false)
   /// Never marked absent or late (directors, field staff on fixed duty).
   attendanceExempt  Boolean                 @default(false)
+  /// Employment extras shown on the profile (ResourceInn): company, work location, employee type, flags and groups.
+  company           String?
+  location          String?
+  employeeType      String?
+  areaBounded       Boolean                 @default(false)
+  isFinalAuthority  Boolean                 @default(false)
+  isLineManager     Boolean                 @default(false)
+  /// Comma-separated group names (e.g. "Sales team, Marketing").
+  groups            String? // @text
   /// Final approver for this employee's requests, when not the line manager.
   finalAuthorityId  String?
   joiningDate       DateTime
@@ -1298,6 +1307,12 @@ model SalaryProfile {
   /// Months between increments; nextIncrementAt is when the next one is due.
   incrementMonths Int       @default(12)
   nextIncrementAt DateTime?
+  /// "Do Not Use in Payroll": skipped by payroll runs (e.g. consultants paid outside payroll).
+  excludeFromPayroll Boolean @default(false)
+  /// fixed | commission | fixed_commission | hourly
+  compensationType String?
+  currency        String    @default("PKR")
+  description     String? // @text
   updatedAt       DateTime  @updatedAt
 }
 
