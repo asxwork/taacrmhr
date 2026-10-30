@@ -11,6 +11,8 @@ const CACHE_PREFIX: Record<string, string> = {
   LayoutProfile: "layout:",
   Pipeline: "pipelines", Stage: "pipelines",
   LeadStatus: "leadStatus:",
+  // Cached attendance summaries (HR dashboard month-wise absents) are rebuilt when any input changes.
+  AttendancePunch: "att:", AttendanceDay: "att:", LeaveRequest: "att:", Holiday: "att:", RosterDay: "att:", Employee: "att:", Shift: "att:",
 };
 const READS = new Set(["findUnique", "findUniqueOrThrow", "findFirst", "findFirstOrThrow", "findMany", "count", "aggregate", "groupBy"]);
 

@@ -90,13 +90,26 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
     attendancePolicy(),
   ]);
   const days = eachDayOfInterval({ start, end: startOfDay(to) });
+  // Index everything by employee and calendar day once, so each day is a lookup rather than a scan
+  // (with hundreds of staff over a year, scanning made the dashboard and month view take seconds).
+  const dk = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  const ek = (employeeId: string, d: Date) => `${employeeId}|${dk(d)}`;
+  const punchesBy = new Map<string, Date[]>();
+  for (const p of punches) { const k = ek(p.employeeId, p.at); const list = punchesBy.get(k); if (list) list.push(p.at); else punchesBy.set(k, [p.at]); }
+  const rosterBy = new Map(roster.map((r) => [ek(r.employeeId, r.date), r]));
+  const overrideBy = new Map(overrides.map((o) => [ek(o.employeeId, o.date), o]));
+  const holidaysBy = new Map<number, typeof holidays>();
+  for (const h of holidays) { const k = dk(h.date); holidaysBy.set(k, [...(holidaysBy.get(k) ?? []), h]); }
+  const leavesBy = new Map<string, typeof leaves>();
+  for (const l of leaves) leavesBy.set(l.employeeId, [...(leavesBy.get(l.employeeId) ?? []), l]);
+  const shiftsById = new Map(shifts.map((x) => [x.id, x]));
   /** The shift for one day: the roster (Scheduling) wins over the employee's usual shift. */
   const shiftOn = (employeeId: string, usual: ShiftLike | null, d: Date): ShiftLike | null => {
-    const r = roster.find((x) => x.employeeId === employeeId && isSameDay(x.date, d));
+    const r = rosterBy.get(ek(employeeId, d));
     if (!r) return usual;
     const base = usual ?? FALLBACK_SHIFT;
     if (r.off) return { ...base, workDays: "" };
-    const s = r.shiftId ? shifts.find((x) => x.id === r.shiftId) : null;
+    const s = r.shiftId ? shiftsById.get(r.shiftId) : null;
     if (s) return { ...s, workDays: "1,2,3,4,5,6,7" };
     if (r.start && r.end) return { ...base, start: r.start, end: r.end, workDays: "1,2,3,4,5,6,7" };
     return usual;
@@ -104,15 +117,15 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
   const now = new Date();
   const out = new Map<string, DayResult[]>();
   for (const e of emps) {
-    const mine = punches.filter((p) => p.employeeId === e.id);
+    const myLeaves = leavesBy.get(e.id) ?? [];
     out.set(e.id, days
       .filter((d) => d >= startOfDay(e.joiningDate) && (!e.leftAt || d <= startOfDay(e.leftAt)))
       .map((d) => {
-        const leave = leaves.find((l) => l.employeeId === e.id && startOfDay(l.from) <= d && startOfDay(l.to) >= d);
-        const holiday = holidays.find((h) => isSameDay(h.date, d) && (!h.branchId || h.branchId === e.branchId));
-        const override = overrides.find((o) => o.employeeId === e.id && isSameDay(o.date, d));
+        const leave = myLeaves.find((l) => startOfDay(l.from) <= d && startOfDay(l.to) >= d);
+        const holiday = holidaysBy.get(dk(d))?.find((h) => !h.branchId || h.branchId === e.branchId);
+        const override = overrideBy.get(ek(e.id, d));
         return evaluateDay({
-          date: d, shift: shiftOn(e.id, e.shift ?? defShift, d), now, punches: mine.filter((p) => isSameDay(p.at, d)).map((p) => p.at),
+          date: d, shift: shiftOn(e.id, e.shift ?? defShift, d), now, punches: punchesBy.get(ek(e.id, d)) ?? [],
           holiday: holiday?.name ?? null, leave: leave ? { halfDay: leave.halfDay, type: leave.type.name } : null,
           override: override ? { status: override.status, note: override.note } : null, policy,
         });

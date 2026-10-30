@@ -1,21 +1,24 @@
 import Link from "next/link";
-import { addDays, endOfMonth, format, isSameDay, isSameMonth, parse, startOfDay, startOfMonth, subDays, addMonths, subMonths } from "date-fns";
+import { addDays, endOfMonth, format, isSameMonth, parse, startOfDay, startOfMonth, subDays, addMonths, subMonths } from "date-fns";
 import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeFor } from "@/lib/permissions";
-import { ATTENDANCE_DRILL, DAY_STATUSES, attendanceEmployeeWhere, fmtMinutes, loadAttendance, summarize } from "@/lib/attendance";
+import { ATTENDANCE_DRILL, DAY_STATUSES, attendanceEmployeeWhere, fmtMinutes, loadAttendance, summarize, type DayResult } from "@/lib/attendance";
 import { color } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
-import { StatusPill, hrefWith } from "@/components/crm/bits";
+import { Pagination, StatusPill, hrefWith } from "@/components/crm/bits";
 import { PersonAvatar } from "@/components/person-avatar";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { importDeviceFile, saveDayOverride, saveDeviceIds } from "./actions";
 
 export const metadata = { title: "Attendance" };
 
-type SP = { view?: string; date?: string; month?: string; branch?: string; import?: string; edit?: string; status?: string };
+type SP = { view?: string; date?: string; month?: string; branch?: string; import?: string; edit?: string; status?: string; page?: string };
+
+/** Monthly register rows per page: a full company on one page made a multi-megabyte page. */
+const REGISTER_PAGE = 50;
 
 export default async function AttendancePage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("hr.attendance");
@@ -38,7 +41,9 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
     }),
     scopeFor(user, "hr.attendance") === "all" ? db.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }) : [],
   ]);
-  const ids = employees.map((e) => e.id);
+  const page = Math.max(1, Number(sp.page) || 1);
+  const registerRows = view === "month" ? employees.slice((page - 1) * REGISTER_PAGE, page * REGISTER_PAGE) : employees;
+  const ids = registerRows.map((e) => e.id);
   const from = view === "day" ? date : startOfMonth(month);
   const to = view === "day" ? date : isSameMonth(month, now) ? now : endOfMonth(month);
   const att = ids.length ? await loadAttendance(ids, from, to) : new Map();
@@ -147,14 +152,15 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {employees.map((e) => {
-                const list = att.get(e.id) ?? [];
+              {registerRows.map((e) => {
+                const list: DayResult[] = att.get(e.id) ?? [];
+                const byDay = new Map(list.map((x) => [x.date.getDate(), x]));
                 const s = summarize(list);
                 return (
                   <tr key={e.id}>
                     <td className="sticky left-0 z-[1] whitespace-nowrap bg-surface px-4 py-2 text-sm font-medium"><Link href={`/hr/employees/${e.id}`} className="hover:underline">{e.fullName}</Link></td>
                     {days.map((d) => {
-                      const r = list.find((x: { date: Date }) => isSameDay(x.date, d));
+                      const r = byDay.get(d.getDate());
                       const st = r ? DAY_STATUSES[r.status as keyof typeof DAY_STATUSES] : null;
                       return (
                         <td key={d.getDate()} className="px-0.5 py-1.5 text-center">
@@ -179,6 +185,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
             </tbody>
           </table>
         </div>
+        <Pagination base="/hr/attendance" sp={keep} page={page} pageSize={REGISTER_PAGE} total={employees.length} />
         <p className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-3 text-xs text-muted">
           {Object.values(DAY_STATUSES).filter((s) => s.short && s.short !== "–").map((s) => <span key={s.short}><b className="font-semibold text-ink">{s.short}</b> {s.label}</span>)}
         </p>

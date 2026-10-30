@@ -271,6 +271,7 @@ model Lead {
   @@index([statusId])
   @@index([phoneKey])
   @@index([createdAt])
+  @@index([email])
 }
 
 model Company {
@@ -320,6 +321,7 @@ model Contact {
 
   @@index([ownerId])
   @@index([phoneKey])
+  @@index([email])
 }
 
 model Deal {
