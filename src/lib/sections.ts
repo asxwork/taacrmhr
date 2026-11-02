@@ -1,0 +1,73 @@
+// Section tabs: a few big menu entries per app, and the screens inside each section as tabs across the top of the
+// page (so moving between, say, leads, follow-ups and tasks never leaves the Leads section). Client-safe.
+import type { Action } from "./rbac";
+
+export type SectionTab = {
+  href: string; label: string;
+  module?: string; action?: Action; superAdmin?: boolean;
+  /** Query values this tab requires (null = must be absent); tabs on the same path are told apart by these. */
+  params?: Record<string, string | null>;
+};
+export type Section = { key: string; tabs: SectionTab[] };
+
+export const SECTIONS: Section[] = [
+  {
+    key: "leads",
+    tabs: [
+      { href: "/crm/leads", label: "All leads", module: "crm.leads", params: { owner: null, group: null } },
+      { href: "/crm/leads?owner=me", label: "My leads", module: "crm.leads", params: { owner: "me", group: null } },
+      { href: "/crm/follow-ups", label: "Follow-ups", module: "crm.leads" },
+      { href: "/crm/tasks", label: "Tasks & calendar", module: "crm.activities" },
+      { href: "/crm/leads?group=converted", label: "Converted", module: "crm.leads", params: { group: "converted" } },
+      { href: "/crm/leads?group=junk", label: "Closed", module: "crm.leads", params: { group: "junk" } },
+    ],
+  },
+  {
+    key: "deals",
+    tabs: [
+      { href: "/crm/deals", label: "Pipeline", module: "crm.deals", params: { view: null } },
+      { href: "/crm/deals?view=list", label: "Deal list", module: "crm.deals", params: { view: "list" } },
+    ],
+  },
+  {
+    key: "calls",
+    tabs: [
+      { href: "/calls", label: "Dialer", module: "calls", action: "edit" },
+      { href: "/calls/callbacks", label: "Callbacks", module: "calls" },
+      { href: "/calls/history", label: "History", module: "calls" },
+      { href: "/calls/campaigns", label: "Campaigns", module: "calls", action: "create" },
+      { href: "/calls/dnc", label: "Do-not-call", module: "calls", action: "create" },
+      { href: "/calls/wallboard", label: "Wallboard", module: "calls", action: "create" },
+      { href: "/calls/reports", label: "Reports", module: "calls", action: "create" },
+      { href: "/calls/recordings", label: "Recordings", module: "calls", action: "listen" },
+      { href: "/calls/phone-system", label: "Phone system", superAdmin: true },
+    ],
+  },
+  {
+    key: "contacts",
+    tabs: [
+      { href: "/crm/contacts", label: "Contacts", module: "crm.contacts", params: { tab: null } },
+      { href: "/crm/contacts?tab=companies", label: "Companies", module: "crm.contacts", params: { tab: "companies" } },
+      { href: "/inventory", label: "Units", module: "inventory.units", params: { tab: null, status: null } },
+      { href: "/inventory?status=available", label: "Available units", module: "inventory.units", params: { tab: null, status: "available" } },
+      { href: "/inventory?tab=projects", label: "Projects", module: "inventory.projects", params: { tab: "projects" } },
+    ],
+  },
+  {
+    key: "reports",
+    tabs: [
+      { href: "/reports/crm", label: "CRM reports", module: "reports.crm" },
+      { href: "/reports/agents", label: "Agent performance", superAdmin: true },
+    ],
+  },
+];
+
+const pathOf = (href: string) => href.split("?")[0]!;
+
+/** The section whose tabs include this exact page path (detail pages such as a single lead show no tabs). */
+export const sectionForPath = (path: string) => SECTIONS.find((s) => s.tabs.some((t) => pathOf(t.href) === path));
+
+/** Which tab is active for a path and query: same path, and every required query value matches. */
+export function activeTab(tabs: SectionTab[], path: string, params: URLSearchParams) {
+  return tabs.find((t) => pathOf(t.href) === path && Object.entries(t.params ?? {}).every(([k, v]) => (v === null ? !params.get(k) : params.get(k) === v)));
+}

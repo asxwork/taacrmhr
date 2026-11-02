@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { format } from "date-fns";
 import {
-  AlertTriangle, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, KanbanSquare,
-  List, ListTodo, Loader2, MessageCircle, Pencil, Phone, Play, Plus, Trash2, Upload, X,
+  AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, KanbanSquare,
+  List, Loader2, MessageCircle, Pencil, Phone, Play, Plus, Trash2, Upload, X,
 } from "lucide-react";
 import { ACTIVITY_TYPES, color, fmtPhone } from "@/lib/crm-shared";
 import { LEAD_FILTER_KEYS, type LeadFilters } from "@/lib/lead-filters-shared";
@@ -146,11 +146,6 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
       <Icon className="size-4" /><span className="hidden sm:inline">{label}</span>
     </button>
   );
-  const linkTab = (href: string, Icon: typeof List, label: string) => (
-    <Link href={href} className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted hover:text-ink">
-      <Icon className="size-4" /><span className="hidden sm:inline">{label}</span>
-    </Link>
-  );
   const exportHref = (path: string, extra?: Record<string, string>) => {
     const p = queryOf(filters);
     for (const [k, v] of Object.entries(extra ?? {})) p.set(k, v);
@@ -202,8 +197,6 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
         <div className="flex rounded-lg bg-black/5 p-0.5">
           {viewTab("board", KanbanSquare, "Kanban")}
           {viewTab("list", List, "List")}
-          {linkTab("/crm/tasks", ListTodo, "Activities")}
-          {linkTab("/crm/tasks?view=calendar", CalendarDays, "Calendar")}
         </div>
         <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5">
           {counter("Overdue", data.counters.overdue, "overdue", "bg-red-500 text-white")}
@@ -213,13 +206,9 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
         {loading && <Loader2 className="size-4 animate-spin text-muted" aria-label="Loading" />}
 
         {/* Top right: automation rules + quick run on the selection */}
-        {perms.canEdit && (perms.isSuperAdmin || automations.length > 0) && (
+        {/* Automations act on many leads at once: only for people with Bulk actions (rules live in Settings). */}
+        {perms.canEdit && perms.canBulk && automations.length > 0 && (
           <div className="ml-auto flex items-center gap-2">
-            {perms.isSuperAdmin && (
-              <Link href="/crm/automations" className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm shadow-xs hover:bg-canvas">
-                <Bot className="size-4" /> <span className="hidden sm:inline">Automation rules</span>
-              </Link>
-            )}
             {auto && (
               <div className="relative flex">
                 <button

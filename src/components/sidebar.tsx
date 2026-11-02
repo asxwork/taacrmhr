@@ -50,7 +50,9 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
     const [, q = ""] = href.split("#")[0]!.split("?");
     return pathOf(href).length * 4 + (q && query.includes(q) ? 2 : 0) + (q || href.includes("#") ? 0 : 1) - (q && !query.includes(q) ? 4 : 0);
   };
-  const activeHref = allItems.filter((i) => isActive(pathname, i.href)).sort((a, b) => score(b.href) - score(a.href))[0]?.href;
+  // A section entry (e.g. Leads) also lights up on the other screens of its section (`also`, e.g. /crm/follow-ups).
+  const matchScore = (i: NavItem) => (isActive(pathname, i.href) ? score(i.href) : Math.max(-1, ...(i.also ?? []).filter((p) => isActive(pathname, p)).map((p) => p.length * 4)));
+  const activeHref = allItems.filter((i) => matchScore(i) >= 0).sort((a, b) => matchScore(b) - matchScore(a))[0]?.href;
   const isCurrent = (href: string) => href === activeHref;
   const [openSubs, setOpenSubs] = useState<Record<string, boolean>>({});
   const quick = allItems.filter((i) => !i.phase).slice(0, 4);

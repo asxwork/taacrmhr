@@ -1,9 +1,11 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { fmtPhone } from "@/lib/crm-shared";
 import type { Prisma } from "@prisma/client";
 import { Plus, Search } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeWhere } from "@/lib/permissions";
+import { requireUser } from "@/lib/auth";
 import { assignableUsers } from "@/lib/crm";
 import { cn, fmtAgo } from "@/lib/utils";
 import { Avatar, Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/ui";
@@ -16,6 +18,9 @@ const PAGE_SIZE = 50;
 type SP = { tab?: string; q?: string; page?: string; new?: string };
 
 export default async function ContactsPage({ searchParams }: { searchParams: Promise<SP> }) {
+  // Contacts & Property section: people with property access but no contacts start on Units.
+  const me = await requireUser();
+  if (!can(me, "crm.contacts") && (can(me, "inventory.units") || can(me, "inventory.projects"))) redirect(can(me, "inventory.units") ? "/inventory" : "/inventory?tab=projects");
   const user = await requirePermission("crm.contacts");
   const sp = await searchParams;
   const tab = sp.tab === "companies" ? "companies" : "contacts";

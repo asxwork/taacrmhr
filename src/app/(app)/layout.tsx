@@ -10,6 +10,8 @@ import { NavProgress } from "@/components/nav-progress";
 import { unreadCount } from "@/lib/notify";
 import { maybeRunHoldRules } from "@/lib/lead-hold";
 import { db } from "@/lib/db";
+import { SECTIONS, sectionForPath, type SectionTab } from "@/lib/sections";
+import { SectionTabs } from "@/components/section-tabs";
 import { redirect } from "next/navigation";
 import { securitySettings } from "@/lib/security";
 import { IdleSignOut } from "@/components/idle-sign-out";
@@ -36,8 +38,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const security = await securitySettings();
   const needs2fa = !user.viewAs && !user.totpEnabled && (security.require2fa === "all" || (security.require2fa === "superadmin" && user.isSuperAdmin));
   if (needs2fa && (h.get("x-pathname") ?? "") !== "/profile/security") redirect("/profile/security");
+  // Section tabs for this page (CRM: Leads / Deals / Calls / Contacts & Property / Reports), filtered by permission and features.
+  const off = await disabledFeatures();
+  const path = h.get("x-pathname") ?? "";
+  const tabAllowed = (t: SectionTab) => (!t.module || can(user, t.module, t.action ?? "view")) && (!t.superAdmin || user.isSuperAdmin) && !featureForPath(t.href, off);
+  const section = sectionForPath(path);
+  const tabs = section ? section.tabs.filter(tabAllowed) : [];
   const pageItems = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]))).filter((item) => !item.phase);
-  const pages = [...new Map(pageItems.map((item) => [item.href, { href: item.href, label: item.label, icon: item.icon }])).values()];
+  const sectionPages = SECTIONS.flatMap((sec) => sec.tabs.filter(tabAllowed).map((t) => ({ href: t.href, label: t.label, icon: "list" })));
+  const pages = [...new Map([...pageItems.map((item) => ({ href: item.href, label: item.label, icon: item.icon })), ...sectionPages].map((p) => [p.href, p])).values()];
 
   return (
     <div className="app-wallpaper min-h-screen" data-sidebar={sidebarMode(current.layout, collapsed)}>
@@ -63,6 +72,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <PageTransition>
             {/* View as is read-only: every input and button on the page is disabled (the server refuses writes too). */}
             <fieldset disabled={!!user.viewAs} className="m-0 min-w-0 border-0 p-0">
+              {!offFeature && tabs.length > 1 && <SectionTabs tabs={tabs} />}
               {offFeature ? <FeatureOff label={offFeature.label} canManage={user.isSuperAdmin || can(user, "settings.company", "edit")} /> : children}
             </fieldset>
           </PageTransition>

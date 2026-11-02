@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { format, startOfDay } from "date-fns";
-import { requirePermission } from "@/lib/permissions";
+import { redirect } from "next/navigation";
+import { can, requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { OUTCOMES, nextTarget, outcome, queueWhere } from "@/lib/calls";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
@@ -12,7 +13,10 @@ export const metadata = { title: "Dialer" };
 
 /** Calls → Dialer: the agent's next number, the campaign script, and one-click outcomes. */
 export default async function DialerPage() {
-  const user = await requirePermission("calls", "edit");
+  const viewer = await requirePermission("calls");
+  // Calls section landing: supervisors who don't make calls themselves start on Callbacks.
+  if (!can(viewer, "calls", "edit")) redirect("/calls/callbacks");
+  const user = viewer;
   const today = startOfDay(new Date());
   const [target, queued, callbacks, logs, lastLog] = await Promise.all([
     nextTarget(user.id),

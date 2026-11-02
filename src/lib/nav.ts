@@ -7,6 +7,10 @@ export type NavItem = {
   /** Permission action needed on `module` (default "view"), e.g. "create" for supervisor-only pages. */
   action?: import("@/lib/rbac").Action;
   /** Boss (and Super Admin) only. */ boss?: boolean;
+  /** Other paths that belong to this entry's section (it stays highlighted there), e.g. Leads → /crm/follow-ups. */
+  also?: string[];
+  /** Also shown when the user can view any of these modules (a section spanning several modules). */
+  anyModule?: string[];
   /** Sub-menu (e.g. Compliance ▸, Settings ▸). The parent's href is its first child's. */
   children?: NavItem[];
 };
@@ -34,79 +38,18 @@ export type AppDef = {
 export const APPS: AppDef[] = [
   {
     key: "crm", name: "CRM", description: "Leads, deals, contacts, calls, inventory", icon: "target", tile: "from-sky-500 to-blue-700",
-    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents", "/settings/crm"], layout: "modules",
+    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents"], layout: "list",
+    // Six sections; the screens inside each are tabs across the top of the page (lib/sections.ts).
     groups: [
-      { label: "Dashboard", icon: "home", items: [{ href: "/dashboard", label: "Dashboard", icon: "home" }] },
       {
-        label: "Leads", icon: "target",
+        label: "CRM",
         items: [
-          { href: "/crm/leads", label: "All leads", icon: "target", module: "crm.leads" },
-          { href: "/crm/leads?owner=me", label: "My leads", icon: "user", module: "crm.leads" },
-          { href: "/crm/leads?view=board", label: "Kanban board", icon: "layout", module: "crm.leads" },
-          { href: "/crm/leads?activity=overdue", label: "Overdue follow-ups", icon: "alarm", module: "crm.leads" },
-          { href: "/crm/leads?created=today", label: "New today", icon: "sparkles", module: "crm.leads" },
-          { href: "/crm/leads?group=converted", label: "Converted", icon: "check", module: "crm.leads" },
-          { href: "/crm/leads?group=junk", label: "Closed / junk", icon: "archive", module: "crm.leads" },
-          { href: "/crm/leads/new", label: "Add lead", icon: "plus", module: "crm.leads" },
-        ],
-      },
-      {
-        label: "Deals", icon: "handshake",
-        items: [
-          { href: "/crm/deals", label: "Pipeline", icon: "handshake", module: "crm.deals" },
-          { href: "/crm/deals?view=list", label: "Deal list", icon: "list", module: "crm.deals" },
-        ],
-      },
-      {
-        label: "Contacts", icon: "contact",
-        items: [
-          { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts" },
-          { href: "/crm/contacts?tab=companies", label: "Companies", icon: "landmark", module: "crm.contacts" },
-        ],
-      },
-      {
-        label: "Activities", icon: "calendar",
-        items: [
-          { href: "/crm/follow-ups", label: "My follow-ups", icon: "phonecall", module: "crm.leads" },
-          { href: "/crm/tasks", label: "Tasks & Calendar", icon: "calendar", module: "crm.activities" },
-        ],
-      },
-      {
-        // Calling team (formerly its own app): number batches, dialer, callbacks, WhatsApp, softphone and recordings.
-        label: "Calls", icon: "phonecall",
-        items: [
-          { href: "/calls", label: "Dialer", icon: "phonecall", module: "calls", action: "edit" },
-          { href: "/calls/callbacks", label: "Callbacks", icon: "alarm", module: "calls" },
-          { href: "/calls/history", label: "Call history", icon: "history", module: "calls" },
-          { href: "/calls/campaigns", label: "Campaigns & batches", icon: "target", module: "calls", action: "create" },
-          { href: "/calls/dnc", label: "Do-not-call list", icon: "ban", module: "calls", action: "create" },
-          { href: "/calls/wallboard", label: "Wallboard", icon: "gauge", module: "calls", action: "create" },
-          { href: "/calls/reports", label: "Call reports", icon: "chart", module: "calls", action: "create" },
-          { href: "/calls/phone-system", label: "Phone system (Issabel)", icon: "settings", superAdmin: true },
-          { href: "/calls/recordings", label: "Recordings", icon: "lock", module: "calls", action: "listen" },
-        ],
-      },
-      {
-        label: "Property", icon: "building",
-        items: [
-          { href: "/inventory", label: "Units", icon: "building", module: "inventory.units" },
-          { href: "/inventory?status=available", label: "Available units", icon: "check", module: "inventory.units" },
-          { href: "/inventory?tab=projects", label: "Projects", icon: "landmark", module: "inventory.projects" },
-        ],
-      },
-      {
-        label: "Insights", icon: "chart",
-        items: [
-          { href: "/reports/crm", label: "CRM Reports", icon: "chart", module: "reports.crm" },
-          { href: "/reports/agents", label: "Agent performance", icon: "gauge", superAdmin: true },
-          { href: "/crm/automations", label: "Automations", icon: "workflow", superAdmin: true },
-        ],
-      },
-      {
-        label: "Settings", icon: "settings",
-        items: [
-          { href: "/settings/crm", label: "CRM Settings", icon: "sliders", module: "settings.company" },
-          { href: "/settings/integrations", label: "Lead integrations", icon: "plug", module: "settings.company" },
+          { href: "/dashboard", label: "Home", icon: "home" },
+          { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads", also: ["/crm/follow-ups", "/crm/tasks"] },
+          { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals" },
+          { href: "/calls", label: "Calls", icon: "phonecall", module: "calls" },
+          { href: "/crm/contacts", label: "Contacts & Property", icon: "contact", module: "crm.contacts", anyModule: ["inventory.units", "inventory.projects"], also: ["/crm/companies", "/inventory"] },
+          { href: "/reports/crm", label: "Reports", icon: "chart", module: "reports.crm", also: ["/reports/agents"] },
         ],
       },
     ],
@@ -368,6 +311,7 @@ export const APPS: AppDef[] = [
           { href: "/settings/security", label: "Security", icon: "shield", superAdmin: true },
           { href: "/settings/company", label: "Company & Branches", icon: "landmark", module: "settings.company" },
           { href: "/settings/crm", label: "CRM Settings", icon: "sliders", module: "settings.company" },
+          { href: "/crm/automations", label: "Lead automations", icon: "workflow", superAdmin: true },
           { href: "/settings/hr", label: "HR Settings", icon: "clipboard", module: "hr.employees" },
           { href: "/settings/integrations", label: "Integrations", icon: "plug", module: "settings.company" },
           { href: "/settings/audit", label: "Audit Log", icon: "history", module: "settings.audit" },
