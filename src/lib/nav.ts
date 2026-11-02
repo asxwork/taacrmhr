@@ -15,7 +15,7 @@ const sub = (label: string, children: NavItem[], icon = children[0]!.icon): NavI
 /** A group of items. In a "modules" app (HR) each group is a module: an icon on the rail and its pages in the panel. */
 export type NavGroup = { label?: string; icon?: string; items: NavItem[] };
 
-export type AppKey = "crm" | "hr" | "calls" | "me" | "boss" | "settings";
+export type AppKey = "crm" | "hr" | "me" | "boss" | "settings";
 export type AppDef = {
   key: AppKey;
   name: string;
@@ -33,8 +33,8 @@ export type AppDef = {
 
 export const APPS: AppDef[] = [
   {
-    key: "crm", name: "CRM", description: "Leads, deals, contacts, inventory", icon: "target", tile: "from-sky-500 to-blue-700",
-    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/inventory", "/reports/crm", "/reports/agents", "/settings/crm"], layout: "modules",
+    key: "crm", name: "CRM", description: "Leads, deals, contacts, calls, inventory", icon: "target", tile: "from-sky-500 to-blue-700",
+    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents", "/settings/crm"], layout: "modules",
     groups: [
       { label: "Dashboard", icon: "home", items: [{ href: "/dashboard", label: "Dashboard", icon: "home" }] },
       {
@@ -72,6 +72,21 @@ export const APPS: AppDef[] = [
         ],
       },
       {
+        // Calling team (formerly its own app): number batches, dialer, callbacks, WhatsApp, softphone and recordings.
+        label: "Calls", icon: "phonecall",
+        items: [
+          { href: "/calls", label: "Dialer", icon: "phonecall", module: "calls", action: "edit" },
+          { href: "/calls/callbacks", label: "Callbacks", icon: "alarm", module: "calls" },
+          { href: "/calls/history", label: "Call history", icon: "history", module: "calls" },
+          { href: "/calls/campaigns", label: "Campaigns & batches", icon: "target", module: "calls", action: "create" },
+          { href: "/calls/dnc", label: "Do-not-call list", icon: "ban", module: "calls", action: "create" },
+          { href: "/calls/wallboard", label: "Wallboard", icon: "gauge", module: "calls", action: "create" },
+          { href: "/calls/reports", label: "Call reports", icon: "chart", module: "calls", action: "create" },
+          { href: "/calls/phone-system", label: "Phone system (Issabel)", icon: "settings", superAdmin: true },
+          { href: "/calls/recordings", label: "Recordings", icon: "lock", superAdmin: true },
+        ],
+      },
+      {
         label: "Property", icon: "building",
         items: [
           { href: "/inventory", label: "Units", icon: "building", module: "inventory.units" },
@@ -94,35 +109,6 @@ export const APPS: AppDef[] = [
           { href: "/settings/integrations", label: "Lead integrations", icon: "plug", module: "settings.company" },
         ],
       },
-    ],
-  },
-  {
-    key: "calls", name: "Calls", description: "Calling team: number batches, dialer, callbacks, WhatsApp", icon: "phonecall", tile: "from-emerald-500 to-cyan-700",
-    home: "/calls", prefixes: ["/calls"], layout: "modules",
-    groups: [
-      {
-        label: "Dialer", icon: "phonecall",
-        items: [
-          { href: "/calls", label: "Dialer", icon: "phonecall", module: "calls", action: "edit" },
-          { href: "/calls/callbacks", label: "Callbacks", icon: "alarm", module: "calls" },
-          { href: "/calls/history", label: "Call history", icon: "history", module: "calls" },
-        ],
-      },
-      {
-        label: "Campaigns", icon: "target",
-        items: [
-          { href: "/calls/campaigns", label: "Campaigns & batches", icon: "target", module: "calls", action: "create" },
-          { href: "/calls/dnc", label: "Do-not-call list", icon: "ban", module: "calls", action: "create" },
-        ],
-      },
-      {
-        label: "Monitor", icon: "gauge",
-        items: [
-          { href: "/calls/wallboard", label: "Wallboard", icon: "gauge", module: "calls", action: "create" },
-          { href: "/calls/reports", label: "Reports", icon: "chart", module: "calls", action: "create" },
-        ],
-      },
-      { label: "Phone system", icon: "settings", items: [{ href: "/calls/phone-system", label: "Phone system (Issabel)", icon: "settings", superAdmin: true }, { href: "/calls/recordings", label: "Recordings", icon: "lock", superAdmin: true }] },
     ],
   },
   {
