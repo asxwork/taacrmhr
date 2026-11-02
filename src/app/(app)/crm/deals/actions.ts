@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { attachUnitToDeal, unitWhere } from "@/lib/inventory";
 import { can, requirePermission, scopeWhere } from "@/lib/permissions";
+import { fieldAccess } from "@/lib/field-rules";
 import { audit } from "@/lib/audit";
 import { editableDealFor, logSystem, ownerBranch, parseAmount, phoneKey, resolveOwner } from "@/lib/crm";
 import { str, type FormState } from "@/lib/utils";
@@ -39,10 +40,11 @@ export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
 
   const close = str(fd, "expectedClose");
   const commission = parseFloat(str(fd, "commissionPct"));
+  const lockValue = (await fieldAccess(user))["deal.value"] === "hidden" && !fd.has("value");
   const data = {
     title, contactId, ownerId, branchId,
-    value: parseAmount(str(fd, "value")),
-    commissionPct: Number.isFinite(commission) ? commission : null,
+    // Field rules: someone who can't see deal values can't change them (inputs absent): keep the stored ones.
+    ...(lockValue ? {} : { value: parseAmount(str(fd, "value")), commissionPct: Number.isFinite(commission) ? commission : null }),
     expectedClose: close ? new Date(close) : null,
     sourceId: str(fd, "sourceId") || null,
     notes: str(fd, "notes") || null,

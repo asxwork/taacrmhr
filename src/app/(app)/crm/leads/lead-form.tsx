@@ -23,8 +23,11 @@ export function LeadForm({
   stages,
   currentUserId,
   cancelHref,
+  locked = {},
 }: {
   lead?: LeadValues | null;
+  /** Field rules: these fields are shown (masked or plain) but can't be changed here; the server keeps the stored values. */
+  locked?: { phone?: boolean; email?: boolean; budget?: boolean };
   sources: Opt[];
   projects: Opt[];
   units: UnitOption[];
@@ -51,11 +54,11 @@ export function LeadForm({
         </Field>
         <div>
           <p className="mb-1.5 text-xs font-medium text-ink/80">Phone</p>
-          <PhoneList name="phones" initial={entries(lead?.phones, [lead?.phone, lead?.phone2], "Mobile")} />
+          {locked.phone ? <p className="input flex items-center bg-canvas/60 text-muted">{lead?.phone ?? "Hidden"}</p> : <PhoneList name="phones" initial={entries(lead?.phones, [lead?.phone, lead?.phone2], "Mobile")} />}
         </div>
         <div>
           <p className="mb-1.5 text-xs font-medium text-ink/80">E-mail</p>
-          <EmailList name="emails" initial={entries(lead?.emails, [lead?.email], "Work")} />
+          {locked.email ? <p className="input flex items-center bg-canvas/60 text-muted">{lead?.email ?? "Hidden"}</p> : <EmailList name="emails" initial={entries(lead?.emails, [lead?.email], "Work")} />}
         </div>
       </Group>
 
@@ -100,14 +103,14 @@ export function LeadForm({
         <Field label="Preferred location">
           <input name="location" defaultValue={lead?.location ?? ""} className="input" placeholder="e.g. DHA Phase 8" />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        {!locked.budget && <div className="grid grid-cols-2 gap-3">
           <Field label="Budget from" hint="e.g. 1.5 cr, 45 lac">
             <input name="budgetMin" defaultValue={lead?.budgetMin ?? ""} className="input" />
           </Field>
           <Field label="Budget to">
             <input name="budgetMax" defaultValue={lead?.budgetMax ?? ""} className="input" />
           </Field>
-        </div>
+        </div>}
       </Group>
 
       <Group title="More">

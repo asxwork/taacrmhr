@@ -11,8 +11,10 @@ type DealValues = {
 type Opt = { id: string; name: string };
 
 export function DealForm({
-  deal, pipelines, contacts, sources, owners, currentUserId, cancelHref, defaultPipelineId, defaultContactId, unit,
+  deal, pipelines, contacts, sources, owners, currentUserId, cancelHref, defaultPipelineId, defaultContactId, unit, hideValue = false,
 }: {
+  /** Field rules hide deal values: no value/commission inputs (the server keeps the stored ones). */
+  hideValue?: boolean;
   deal?: DealValues | null;
   pipelines: Opt[];
   contacts: (Opt & { phone: string | null })[];
@@ -47,9 +49,9 @@ export function DealForm({
         </Field>
       )}
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Value (PKR)" hint="e.g. 2.5 cr, 80 lac">
+        {!hideValue && <Field label="Value (PKR)" hint="e.g. 2.5 cr, 80 lac">
           <input name="value" defaultValue={deal?.value ?? unit?.price ?? ""} className="input" />
-        </Field>
+        </Field>}
         <Field label="Expected close">
           <input name="expectedClose" type="date" defaultValue={deal?.expectedClose ? format(deal.expectedClose, "yyyy-MM-dd") : ""} className="input" />
         </Field>
@@ -78,9 +80,9 @@ export function DealForm({
             ))}
           </select>
         </Field>
-        <Field label="Commission %">
+        {!hideValue && <Field label="Commission %">
           <input name="commissionPct" type="number" step="0.01" min="0" max="100" defaultValue={deal?.commissionPct ?? ""} className="input" />
-        </Field>
+        </Field>}
       </div>
       {owners.length > 1 && (
         <Field label="Responsible">

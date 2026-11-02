@@ -11,11 +11,13 @@ import { Composer } from "@/components/crm/composer";
 import { Timeline } from "@/components/crm/timeline";
 import { CompanyForm } from "../../contacts/forms";
 import { deleteCompany } from "../../contacts/actions";
+import { fieldAccess } from "@/lib/field-rules";
 
 export const metadata = { title: "Company" };
 
 export default async function CompanyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ edit?: string }> }) {
   const user = await requirePermission("crm.contacts");
+  const showValue = (await fieldAccess(user))["deal.value"] !== "hidden";
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const scope = (await scopeWhere(user, "crm.contacts"))!;
   const company = await db.company.findFirst({ where: { id, ...scope }, include: { owner: true } });
@@ -72,7 +74,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
                 {deals.map((d) => (
                   <li key={d.id} className="flex items-center justify-between gap-2 text-sm">
                     <Link href={`/crm/deals/${d.id}`} className="min-w-0 flex-1 truncate font-medium hover:underline">{d.title}</Link>
-                    <span className="text-xs text-muted">{fmtPKR(d.value, { prefix: false })}</span>
+                    {showValue && <span className="text-xs text-muted">{fmtPKR(d.value, { prefix: false })}</span>}
                     <StatusPill name={d.stage.name} colorName={d.stage.color} />
                   </li>
                 ))}

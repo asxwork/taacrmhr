@@ -13,6 +13,7 @@ import { cn, fmtDate } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Button, Card, Drawer, EmptyState, LinkButton } from "@/components/ui";
 import { ProfileView } from "@/components/hr/profile-view";
+import { fieldAccess } from "@/lib/field-rules";
 import { BasicProfile } from "@/components/hr/basic-profile";
 import { Row, SectionTitle } from "@/components/hr/profile-parts";
 import { AssignmentForm, DocumentForm, ResignForm } from "../forms";
@@ -199,6 +200,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
       </Link>
 
       <ProfileView
+        fields={emp.userId === user.id ? undefined : await fieldAccess(user)}
         p={p} options={options} canEdit={canEdit} canSalary={canSalary} showSalary={can(user, "hr.payroll")}
         actions={actions || undefined} banner={banner} initialTab={sp.tab ?? "info"} docsTab={documents} userTab={userTab}
         extraTabs={[

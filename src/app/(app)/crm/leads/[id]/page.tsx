@@ -13,6 +13,8 @@ import { Badge, Card, Drawer, EmptyState, Field, LinkButton } from "@/components
 import { CHEVRON_LAST, StageBar, hrefWith } from "@/components/crm/bits";
 import { Composer } from "@/components/crm/composer";
 import { Timeline } from "@/components/crm/timeline";
+import { fieldAccess } from "@/lib/field-rules";
+import { maskEmail, maskPhone, shown } from "@/lib/field-defs";
 import { LeadForm } from "../lead-form";
 import { convertLead, deleteLead, setLeadStatus } from "../actions";
 import { SafeImg } from "@/components/safe-img";
@@ -49,13 +51,28 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
     editableActivityIds(user, activities.map((a) => a.id)),
     lead.convertedAt || lead.status.kind === "junk" ? [] : matchUnitsForLead(user, lead),
   ]);
-  const phoneList = list(lead.phones, [lead.phone, lead.phone2], "Mobile");
-  const emailList = list(lead.emails, [lead.email], "Work");
+  // Field rules: masked/hidden phone, email and budget never reach the page (calls go through the dial link).
+  const fields = await fieldAccess(user);
+  const pm = fields["lead.phone"], em = fields["lead.email"], bm = fields["lead.budget"];
+  const phoneList = pm === "hidden" ? [] : list(lead.phones, [lead.phone, lead.phone2], "Mobile");
+  const emailList = em === "hidden" ? [] : list(lead.emails, [lead.email], "Work");
+  const phoneItems = phoneList.map((p, i) => pm === "mask"
+    ? { type: p.type, href: `/api/leads/${id}/dial?via=tel&i=${i}`, text: maskPhone(p.value) ?? "" }
+    : { type: p.type, href: telHref(p.value), text: fmtPhone(p.value) });
+  const emailItems = emailList.map((e) => (em === "mask" ? { type: e.type, href: "#", text: maskEmail(e.value) ?? "" } : { type: e.type, href: `mailto:${e.value}`, text: e.value }));
+  const callHref = !lead.phone || pm === "hidden" ? null : pm === "mask" ? `/api/leads/${id}/dial?via=tel` : telHref(lead.phone);
+  const waLink = !lead.phoneKey || pm === "hidden" ? null : pm === "mask" ? `/api/leads/${id}/dial?via=wa` : `https://wa.me/${lead.phoneKey.replace(/^0/, "92")}`;
+  /** What the edit form may see: masked or hidden values are replaced so they can't leak into the page. */
+  const formLead = {
+    ...lead,
+    ...(pm !== "full" && { phone: shown(lead.phone, pm, maskPhone), phone2: null, phones: null }),
+    ...(em !== "full" && { email: shown(lead.email, em, maskEmail), emails: null }),
+    ...(bm === "hidden" && { budgetMin: null, budgetMax: null }),
+  };
   const closedStages = await db.leadStatus.findMany({ where: { kind: "junk", active: true }, orderBy: { sortOrder: "asc" } });
-  const waNumber = lead.phoneKey?.replace(/^0/, "92");
   const closed = !!lead.convertedAt || lead.status.kind === "converted";
   const isJunk = lead.status.kind === "junk";
-  const budget = lead.budgetMin && lead.budgetMax && lead.budgetMin !== lead.budgetMax
+  const budget = bm === "hidden" ? null : lead.budgetMin && lead.budgetMax && lead.budgetMin !== lead.budgetMax
     ? `${fmtPKR(lead.budgetMin)} – ${fmtPKR(lead.budgetMax, { prefix: false })}`
     : lead.budgetMax ?? lead.budgetMin ? fmtPKR(lead.budgetMax ?? lead.budgetMin) : null;
 
@@ -81,9 +98,9 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
           <Link href={`${path}?edit=1`} scroll={false} className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink" title="Edit lead" aria-label="Edit lead"><Pencil className="size-4" /></Link>
         )}
         <div className="ml-auto flex items-center gap-2">
-          {lead.phone && <a href={telHref(lead.phone)} className={iconBtn} title={`Call ${fmtPhone(lead.phone)}`} aria-label="Call"><Phone className="size-4" /></a>}
-          {waNumber && <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className={cn(iconBtn, "hover:text-emerald-600")} title="WhatsApp" aria-label="WhatsApp"><MessageCircle className="size-4" /></a>}
-          {lead.email && <a href={`mailto:${lead.email}`} className={iconBtn} title={lead.email} aria-label="Email"><Mail className="size-4" /></a>}
+          {callHref && <a href={callHref} className={iconBtn} title={pm === "mask" ? "Call" : `Call ${fmtPhone(lead.phone)}`} aria-label="Call"><Phone className="size-4" /></a>}
+          {waLink && <a href={waLink} target="_blank" rel="noreferrer" className={cn(iconBtn, "hover:text-emerald-600")} title="WhatsApp" aria-label="WhatsApp"><MessageCircle className="size-4" /></a>}
+          {lead.email && em === "full" && <a href={`mailto:${lead.email}`} className={iconBtn} title={lead.email} aria-label="Email"><Mail className="size-4" /></a>}
           {canConvert && (
             <LinkButton href={`${path}?convert=1`} scroll={false}><ArrowRightLeft className="size-4" /> Convert to deal</LinkButton>
           )}
@@ -150,13 +167,13 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
                 : <Link href={`${path}?edit=1`} scroll={false} className="text-sm text-muted hover:text-ink">edit</Link>)}
             </div>
             {editing ? (
-              <LeadForm lead={lead} sources={sources} projects={projects} units={editing ? await unitOptions(user) : []} owners={owners} currentUserId={user.id} cancelHref={path} />
+              <LeadForm lead={formLead} locked={{ phone: pm !== "full", email: em !== "full", budget: bm !== "full" }} sources={sources} projects={projects} units={editing ? await unitOptions(user) : []} owners={owners} currentUserId={user.id} cancelHref={path} />
             ) : (
               <dl className="space-y-3.5">
                 <Row label="Stage">{lead.status.name}</Row>
                 <Row label="Client name">{lead.name}</Row>
-                <Row label="Phone">{phoneList.length > 0 && <ContactValues items={phoneList.map((p) => ({ ...p, href: telHref(p.value), text: fmtPhone(p.value) }))} />}</Row>
-                <Row label="E-mail">{emailList.length > 0 && <ContactValues items={emailList.map((e) => ({ ...e, href: `mailto:${e.value}`, text: e.value }))} />}</Row>
+                <Row label="Phone">{phoneItems.length > 0 && <ContactValues items={phoneItems} />}</Row>
+                <Row label="E-mail">{emailItems.length > 0 && <ContactValues items={emailItems} />}</Row>
                 <Row label="Source">{lead.source?.name}</Row>
                 <Row label="Source information">{lead.sourceInfo}</Row>
                 {lead.campaign && <Row label="Campaign">{lead.campaign}</Row>}
@@ -181,7 +198,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
           </Card>
 
           <div className="min-w-0 space-y-2">
-            {can(user, "crm.activities", "create") && <Composer entity={{ leadId: id }} emailTo={lead.email} path={path} users={actOwners} currentUserId={user.id} />}
+            {can(user, "crm.activities", "create") && <Composer entity={{ leadId: id }} emailTo={em === "full" ? lead.email : null} path={path} users={actOwners} currentUserId={user.id} />}
             <Timeline items={activities} path={path} editableIds={editableIds} canDelete={can(user, "crm.activities", "delete")} canPlan={can(user, "crm.activities", "create")} />
           </div>
         </div>

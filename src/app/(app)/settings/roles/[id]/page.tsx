@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { ACTIONS, ACTION_LABELS, MODULES, SCOPE_LABELS, permKey, scopesFor, type Action } from "@/lib/rbac";
 import { ActionForm, SubmitButton } from "@/components/action-form";
+import { FIELD_DEFS, FIELD_MODE_LABELS } from "@/lib/field-defs";
 import { Badge, Button, Card, Field, PageHeader } from "@/components/ui";
 import { ScopeSelect } from "./scope-select";
 import { deleteRole, saveRolePermissions } from "../actions";
@@ -18,7 +19,7 @@ export default async function RoleEditPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const role = await db.role.findUnique({
     where: { id },
-    include: { permissions: true, users: { include: { user: { select: { name: true } } } } },
+    include: { permissions: true, fieldRules: true, users: { include: { user: { select: { name: true } } } } },
   });
   if (!role) notFound();
 
@@ -91,6 +92,26 @@ export default async function RoleEditPage({ params }: { params: Promise<{ id: s
               </div>
             </Card>
           ))}
+
+          <Card className="overflow-hidden">
+            <div className="border-b border-line bg-canvas/60 px-5 py-3">
+              <p className="text-sm font-semibold">Field rules</p>
+              <p className="text-xs text-muted">Hide or mask sensitive fields for this role, even on records they can open. Someone with several roles gets the most open rule.</p>
+            </div>
+            <div className="divide-y divide-line">
+              {FIELD_DEFS.map((f) => (
+                <div key={f.key} className="grid grid-cols-1 items-center gap-2 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_240px]">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{f.label} <span className="ml-1 text-xs font-normal text-muted">{f.group}</span></p>
+                    {f.about && <p className="text-xs text-muted">{f.about}</p>}
+                  </div>
+                  <select name={`f:${f.key}`} defaultValue={role.fieldRules.find((r) => r.field === f.key)?.mode ?? "full"} className="input h-9" aria-label={`${f.label} access`}>
+                    {f.modes.map((m) => <option key={m} value={m}>{FIELD_MODE_LABELS[m]}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </Card>
 
           {editable && (
             <div className="sticky bottom-4 flex justify-end">

@@ -6,7 +6,7 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 // Writes to these models drop the matching in-process caches (lib/memo.ts).
 const CACHE_PREFIX: Record<string, string> = {
-  User: "session:", UserRole: "session:", Role: "session:", Permission: "session:", UserPermission: "session:", Session: "session:", Branch: "session:",
+  User: "session:", UserRole: "session:", Role: "session:", Permission: "session:", UserPermission: "session:", FieldRule: "session:", Session: "session:", Branch: "session:",
   Setting: "setting:",
   LayoutProfile: "layout:",
   Pipeline: "pipelines", Stage: "pipelines",

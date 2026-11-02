@@ -5,6 +5,7 @@ import { followUpLists } from "@/lib/agent-reports";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/ui";
 import { FollowUpLists } from "@/components/crm/follow-up-lists";
+import { fieldAccess } from "@/lib/field-rules";
 
 export const metadata = { title: "My follow-ups" };
 
@@ -36,7 +37,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           </Link>
         ))}
       </div>
-      <FollowUpLists lists={lists} showOwner={!own} only={sp.show} />
+      <FollowUpLists lists={lists} showOwner={!own} only={sp.show} phoneMode={(await fieldAccess(user))["lead.phone"]} />
     </>
   );
 }

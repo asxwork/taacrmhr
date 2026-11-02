@@ -1,6 +1,8 @@
 import { format } from "date-fns";
 import type { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
+import { fieldAccess } from "@/lib/field-rules";
+import { maskEmail, maskPhone, shown } from "@/lib/field-defs";
 import { db } from "@/lib/db";
 import { can, scopeFor, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
@@ -27,6 +29,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
   const q = sp.get("q")?.trim();
   let rows: (string | number | null)[][] = [];
 
+  const f = await fieldAccess(user);
   if (kind === "leads") {
     // Same filters as the list page (and its saved presets), so the file matches the screen.
     const filters = Object.fromEntries(LEAD_FILTER_KEYS.filter((k) => sp.get(k)).map((k) => [k, sp.get(k)!])) as LeadFilters;
@@ -34,7 +37,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
     const leads = await db.lead.findMany({ where, include: { status: true, source: true, owner: true, branch: true, project: true }, orderBy: { createdAt: "desc" }, take: 20000 });
     rows = [
       ["ID", "Name", "Phone", "Email", "Status", "Source", "Campaign", "Interest", "Property type", "Location", "Budget from", "Budget to", "Responsible", "Branch", "Created", "Project", "Source information"],
-      ...leads.map((l) => [l.number, l.name, l.phone, l.email, l.status.name, l.source?.name ?? "", l.campaign, l.interest, l.propertyType, l.location, l.budgetMin, l.budgetMax, l.owner?.name ?? "", l.branch?.name ?? "", format(l.createdAt, "yyyy-MM-dd HH:mm"), l.project?.name ?? "", l.sourceInfo]),
+      ...leads.map((l) => [l.number, l.name, shown(l.phone, f["lead.phone"], maskPhone), shown(l.email, f["lead.email"], maskEmail), l.status.name, l.source?.name ?? "", l.campaign, l.interest, l.propertyType, l.location, f["lead.budget"] === "hidden" ? "" : l.budgetMin, f["lead.budget"] === "hidden" ? "" : l.budgetMax, l.owner?.name ?? "", l.branch?.name ?? "", format(l.createdAt, "yyyy-MM-dd HH:mm"), l.project?.name ?? "", l.sourceInfo]),
     ];
   } else if (kind === "deals") {
     const scope = (await scopeWhere(user, mod, "export"))!;
@@ -48,7 +51,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
     const deals = await db.deal.findMany({ where, include: { stage: true, pipeline: true, contact: true, owner: true, branch: true, source: true }, orderBy: { createdAt: "desc" }, take: 20000 });
     rows = [
       ["Title", "Pipeline", "Stage", "Value", "Commission %", "Client", "Client phone", "Source", "Responsible", "Branch", "Expected close", "Closed", "Lost reason", "Created"],
-      ...deals.map((d) => [d.title, d.pipeline.name, d.stage.name, d.value, d.commissionPct, d.contact?.name ?? "", d.contact?.phone ?? "", d.source?.name ?? "", d.owner?.name ?? "", d.branch?.name ?? "",
+      ...deals.map((d) => [d.title, d.pipeline.name, d.stage.name, f["deal.value"] === "hidden" ? "" : d.value, f["deal.value"] === "hidden" ? "" : d.commissionPct, d.contact?.name ?? "", shown(d.contact?.phone ?? "", f["lead.phone"], maskPhone), d.source?.name ?? "", d.owner?.name ?? "", d.branch?.name ?? "",
         d.expectedClose ? format(d.expectedClose, "yyyy-MM-dd") : "", d.closedAt ? format(d.closedAt, "yyyy-MM-dd") : "", d.lostReason, format(d.createdAt, "yyyy-MM-dd")]),
     ];
   } else if (kind === "hr") {

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { MODULES, scopesFor, type Scope } from "@/lib/rbac";
+import { FIELD_DEFS, type FieldMode } from "@/lib/field-defs";
 import { str, type FormState } from "@/lib/utils";
 
 export async function createRole(_: FormState, fd: FormData): Promise<FormState> {
@@ -49,12 +50,20 @@ export async function saveRolePermissions(_: FormState, fd: FormData): Promise<F
     }
   }
 
+  // Field rules: only non-full modes are stored (no row = full access).
+  const fieldRows = FIELD_DEFS.flatMap((f) => {
+    const mode = str(fd, `f:${f.key}`) as FieldMode;
+    return mode && mode !== "full" && (f.modes as readonly string[]).includes(mode) ? [{ roleId, field: f.key, mode }] : [];
+  });
+
   await db.$transaction([
     db.role.update({ where: { id: roleId }, data: { name, description: str(fd, "description") || null } }),
     db.permission.deleteMany({ where: { roleId } }),
     db.permission.createMany({ data: rows }),
+    db.fieldRule.deleteMany({ where: { roleId } }),
+    db.fieldRule.createMany({ data: fieldRows }),
   ]);
-  await audit(actor.id, "update", "role", roleId, `Updated permissions for role ${name} (${rows.length} grants)`);
+  await audit(actor.id, "update", "role", roleId, `Updated permissions for role ${name} (${rows.length} grants${fieldRows.length ? `; field rules: ${fieldRows.map((r) => `${r.field}=${r.mode}`).join(", ")}` : ""})`);
   revalidatePath("/", "layout");
   return { ok: true };
 }

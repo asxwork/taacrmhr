@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { getCurrentUser } from "@/lib/auth";
+import { fieldAccess } from "@/lib/field-rules";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
@@ -12,6 +13,9 @@ export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
   if (!can(user, "crm.leads", "export")) return new Response("Forbidden", { status: 403 });
+  // A full backup can't be masked: only people who see lead phones and emails in full may download it.
+  const f = await fieldAccess(user);
+  if (f["lead.phone"] !== "full" || f["lead.email"] !== "full") return new Response("Your role sees lead contact details masked, so it can't download a full backup.", { status: 403 });
   const sp = new URL(req.url).searchParams;
   const filters = Object.fromEntries(LEAD_FILTER_KEYS.filter((k) => sp.get(k)).map((k) => [k, sp.get(k)!])) as LeadFilters;
   const where = await leadWhere(user, sp.get("everything") ? { ...filters, group: "all" } : filters, await db.leadStatus.findMany());

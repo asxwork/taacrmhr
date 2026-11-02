@@ -89,6 +89,7 @@ model Role {
   permissions Permission[]
   users       UserRole[]
   createdAt   DateTime     @default(now())
+  fieldRules  FieldRule[]
 }
 
 /// One row per (role, module, action). scope: none | own | team | branch | all
@@ -1807,4 +1808,15 @@ model UserPermission {
 
   @@unique([userId, module, action])
   @@index([userId])
+}
+
+/** Field rules per role (Roles & Permissions → Field rules). Missing row = full access. mode: readonly | mask | hidden. */
+model FieldRule {
+  id     String @id @default(cuid())
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  field  String
+  mode   String
+
+  @@unique([roleId, field])
 }

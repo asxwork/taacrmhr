@@ -5,6 +5,9 @@ import { db } from "./db";
 import { scopeMatcher, scopeWhere } from "./permissions";
 import { LEAD_FILTER_KEYS, leadWhere, type LeadFilters } from "./lead-filters";
 import type { SessionUser } from "./auth";
+import { fieldAccess } from "./field-rules";
+import { maskPhone, shown } from "./field-defs";
+import { telHref, waHref } from "./crm-shared";
 
 export const LEAD_PAGE_SIZE = 50;
 
@@ -13,6 +16,9 @@ export type LeadRow = {
   number: number | null;
   name: string;
   phone: string | null;
+  /** Call / WhatsApp links: direct, or through /api/leads/<id>/dial when the number is masked for this user. */
+  phoneTel: string | null;
+  phoneWa: string | null;
   source: string | null;
   project: string | null;
   subtitle: string | null;
@@ -46,7 +52,8 @@ export function filtersFrom(sp: Record<string, string | undefined>): LeadFilters
 
 export async function loadLeadList(user: SessionUser, filters: LeadFilters, view: "list" | "board", page: number): Promise<LeadListData> {
   const statuses = await db.leadStatus.findMany({ where: { active: true }, select: { id: true, kind: true } });
-  const [where, scope, canEditRow] = await Promise.all([leadWhere(user, filters, statuses), scopeWhere(user, "crm.leads"), scopeMatcher(user, "crm.leads", "edit")]);
+  const [where, scope, canEditRow, fields] = await Promise.all([leadWhere(user, filters, statuses), scopeWhere(user, "crm.leads"), scopeMatcher(user, "crm.leads", "edit"), fieldAccess(user)]);
+  const phoneMode = fields["lead.phone"];
   const openWhere = { ...scope, statusId: { in: statuses.filter((s) => s.kind === "open").map((s) => s.id) } };
   const today = startOfDay(new Date());
   const [leads, total, overdue, dueToday, none] = await Promise.all([
@@ -79,7 +86,9 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
       id: l.id,
       number: l.number,
       name: l.name,
-      phone: l.phone,
+      phone: shown(l.phone, phoneMode, maskPhone),
+      phoneTel: !l.phone || phoneMode === "hidden" ? null : phoneMode === "mask" ? `/api/leads/${l.id}/dial?via=tel` : telHref(l.phone),
+      phoneWa: !l.phone || phoneMode === "hidden" ? null : phoneMode === "mask" ? `/api/leads/${l.id}/dial?via=wa` : waHref(l.phone),
       source: l.source?.name ?? null,
       project: l.project?.name ?? null,
       subtitle: [l.project?.name ?? l.propertyType, l.location].filter(Boolean).join(" · ") || null,

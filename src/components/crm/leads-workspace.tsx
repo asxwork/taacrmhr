@@ -7,7 +7,7 @@ import {
   AlertTriangle, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, KanbanSquare,
   List, ListTodo, Loader2, MessageCircle, Pencil, Phone, Play, Plus, Trash2, Upload, X,
 } from "lucide-react";
-import { ACTIVITY_TYPES, color, fmtPhone, telHref, waHref } from "@/lib/crm-shared";
+import { ACTIVITY_TYPES, color, fmtPhone } from "@/lib/crm-shared";
 import { LEAD_FILTER_KEYS, type LeadFilters } from "@/lib/lead-filters-shared";
 import type { LeadListData, LeadRow } from "@/lib/lead-list";
 import { cn } from "@/lib/utils";
@@ -257,7 +257,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
               columnId: l.statusId,
               title: l.name,
               href: `/crm/leads/${l.id}`,
-              subtitle: l.subtitle || fmtPhone(l.phone) || undefined,
+              subtitle: l.subtitle || (l.phone?.includes("•") ? l.phone : fmtPhone(l.phone)) || undefined,
               meta: [l.number && `#${l.number}`, l.source].filter(Boolean).join(" · "),
               amount: l.budget ?? undefined,
               owner: l.owner ?? undefined,
@@ -325,8 +325,8 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                           <td className="td whitespace-nowrap">
                             {l.phone ? (
                               <span className="inline-flex items-center gap-2">
-                                <a href={telHref(l.phone)} className="inline-flex items-center gap-1.5 hover:text-navy-900 hover:underline"><Phone className="size-3.5 text-muted" />{fmtPhone(l.phone)}</a>
-                                <a href={waHref(l.phone)} target="_blank" rel="noopener noreferrer" className="rounded p-0.5 text-[#25D366] hover:bg-[#25D366]/10" title="Message on WhatsApp" aria-label={`WhatsApp ${l.name}`}>
+                                <a href={l.phoneTel ?? "#"} className="inline-flex items-center gap-1.5 hover:text-navy-900 hover:underline"><Phone className="size-3.5 text-muted" />{l.phone.includes("•") ? l.phone : fmtPhone(l.phone)}</a>
+                                <a href={l.phoneWa ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded p-0.5 text-[#25D366] hover:bg-[#25D366]/10" title="Message on WhatsApp" aria-label={`WhatsApp ${l.name}`}>
                                   <MessageCircle className="size-4" />
                                 </a>
                               </span>

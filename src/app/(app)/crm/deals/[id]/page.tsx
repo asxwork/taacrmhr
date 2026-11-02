@@ -16,6 +16,7 @@ import { Composer } from "@/components/crm/composer";
 import { Timeline } from "@/components/crm/timeline";
 import { DealForm } from "../deal-form";
 import { deleteDeal, setDealStage } from "../actions";
+import { fieldAccess } from "@/lib/field-rules";
 
 export const metadata = { title: "Deal" };
 
@@ -77,7 +78,8 @@ export default async function DealPage({ params, searchParams }: { params: Promi
         take: 400,
       })
     : [];
-  const commission = deal.value && deal.commissionPct ? (deal.value * deal.commissionPct) / 100 : null;
+  const showValue = (await fieldAccess(user))["deal.value"] !== "hidden";
+  const commission = showValue && deal.value && deal.commissionPct ? (deal.value * deal.commissionPct) / 100 : null;
   const wa = deal.contact?.phoneKey?.replace(/^0/, "92");
 
   return (
@@ -92,7 +94,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
             <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{deal.title}</h1>
             <StatusPill name={deal.stage.name} colorName={deal.stage.color} />
           </div>
-          <p className="mt-1 text-2xl font-semibold text-navy-900">{fmtPKR(deal.value)}</p>
+          {showValue && <p className="mt-1 text-2xl font-semibold text-navy-900">{fmtPKR(deal.value)}</p>}
         </div>
         <div className="flex gap-2">
           {canEdit && (
@@ -173,7 +175,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
                 ["Branch", deal.branch?.name],
                 ["Expected close", fmtDate(deal.expectedClose)],
                 ["Probability", `${deal.stage.probability}%`],
-                ["Commission", deal.commissionPct ? `${deal.commissionPct}%${commission ? ` · ${fmtPKR(commission)}` : ""}` : null],
+                ["Commission", showValue && deal.commissionPct ? `${deal.commissionPct}%${commission ? ` · ${fmtPKR(commission)}` : ""}` : null],
                 ["Source", deal.source?.name],
                 ["From lead", deal.lead ? <Link key="l" href={`/crm/leads/${deal.lead.id}`} className="hover:underline">{deal.lead.name}</Link> : null],
                 ["Created", fmtDate(deal.createdAt)],
@@ -206,7 +208,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
 
       {editData && (
         <Drawer title="Edit deal" closeHref={path}>
-          <DealForm deal={deal} pipelines={[]} contacts={editData[0]} sources={editData[1]} owners={editData[2]} currentUserId={user.id} cancelHref={path} />
+          <DealForm hideValue={!showValue} deal={showValue ? deal : { ...deal, value: null, commissionPct: null }} pipelines={[]} contacts={editData[0]} sources={editData[1]} owners={editData[2]} currentUserId={user.id} cancelHref={path} />
         </Drawer>
       )}
 

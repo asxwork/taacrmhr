@@ -13,6 +13,7 @@ import { DealForm } from "./deal-form";
 import { unitLabel, unitWhere } from "@/lib/inventory";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { moveDeal } from "./actions";
+import { fieldAccess } from "@/lib/field-rules";
 
 export const metadata = { title: "Deals" };
 
@@ -21,6 +22,7 @@ type SP = { pipeline?: string; q?: string; owner?: string; stage?: string; view?
 
 export default async function DealsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("crm.deals");
+  const showValue = (await fieldAccess(user))["deal.value"] !== "hidden";
   const sp = await searchParams;
   const view = sp.view === "list" ? "list" : "board";
   const page = Math.max(1, Number(sp.page) || 1);
@@ -111,8 +113,8 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
           </div>
         )}
         <div className="flex gap-6 text-sm">
-          <span><span className="text-muted">Open </span><b className="font-semibold">{summary._count}</b> · {fmtPKR(summary._sum.value ?? 0)}</span>
-          <span><span className="text-muted">Won this month </span><b className="font-semibold">{wonMonth._count}</b> · {fmtPKR(wonMonth._sum.value ?? 0)}</span>
+          <span><span className="text-muted">Open </span><b className="font-semibold">{summary._count}</b>{showValue && <> · {fmtPKR(summary._sum.value ?? 0)}</>}</span>
+          <span><span className="text-muted">Won this month </span><b className="font-semibold">{wonMonth._count}</b>{showValue && <> · {fmtPKR(wonMonth._sum.value ?? 0)}</>}</span>
         </div>
       </div>
 
@@ -151,7 +153,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
             title: d.title,
             href: `/crm/deals/${d.id}`,
             subtitle: [d.contact?.name, d.units[0] && unitLabel(d.units[0].unit)].filter(Boolean).join(" · ") || undefined,
-            amount: d.value ?? undefined,
+            amount: showValue ? d.value ?? undefined : undefined,
             owner: d.owner?.name,
             draggable: canEdit && canEditRow(d),
           }))}
@@ -182,7 +184,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
                           <p className="text-xs text-muted">{d.contact?.name ?? "—"}</p>
                         </td>
                         <td className="td"><StatusPill name={d.stage.name} colorName={d.stage.color} /></td>
-                        <td className="td whitespace-nowrap">{fmtPKR(d.value)}</td>
+                        <td className="td whitespace-nowrap">{showValue ? fmtPKR(d.value) : "—"}</td>
                         <td className="td whitespace-nowrap text-muted">{fmtDate(d.expectedClose)}</td>
                         <td className="td text-muted">{d.owner?.name ?? "—"}</td>
                       </tr>
@@ -198,7 +200,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
 
       {newDrawer && (
         <Drawer title="New deal" closeHref={closeHref}>
-          <DealForm
+          <DealForm hideValue={!showValue}
             pipelines={pipelines}
             contacts={newDrawer[0]}
             sources={newDrawer[1]}

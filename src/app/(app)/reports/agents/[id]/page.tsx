@@ -11,6 +11,7 @@ import { Card, PageHeader } from "@/components/ui";
 import { ColumnChart } from "@/components/charts";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { FollowUpLists } from "@/components/crm/follow-up-lists";
+import { fieldAccess } from "@/lib/field-rules";
 
 export const metadata = { title: "Agent detail" };
 const ICON: Record<string, React.ComponentType<{ className?: string }>> = { note: StickyNote, call: Phone, meeting: Users, visit: MapPin, task: CalendarCheck, email: MessageSquare, system: CircleDot };
@@ -70,7 +71,7 @@ export default async function AgentDetailPage({ params, searchParams }: { params
             <h2 className="mb-4 text-sm font-medium">Calls logged per day</h2>
             <ColumnChart data={perDay} unit="calls" />
           </Card>
-          <FollowUpLists lists={lists} showOwner={false} />
+          <FollowUpLists lists={lists} showOwner={false} phoneMode={(await fieldAccess(user))["lead.phone"]} />
         </div>
         <Card className="overflow-hidden xl:sticky xl:top-6">
           <h2 className="border-b border-line px-5 py-3 text-sm font-medium">Recent activity</h2>

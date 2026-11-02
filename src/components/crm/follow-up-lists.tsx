@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { maskPhone, type FieldMode } from "@/lib/field-defs";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { AlertTriangle, CalendarClock, CalendarX, Clock, PhoneOff, XCircle } from "lucide-react";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
@@ -11,31 +12,31 @@ type Lists = Awaited<ReturnType<typeof followUpLists>>;
 type LeadRow = Lists["neverContacted"][number];
 
 /** The lead lists behind follow-up numbers: what to call, what is overdue, what has nothing planned. */
-export function FollowUpLists({ lists, showOwner, only }: { lists: Lists; showOwner: boolean; only?: string }) {
+export function FollowUpLists({ lists, showOwner, only, phoneMode = "full" }: { lists: Lists; showOwner: boolean; only?: string; phoneMode?: FieldMode }) {
   const sections: { key: string; title: string; hint: string; icon: typeof Clock; tone: string; rows: React.ReactNode[] }[] = [
     {
       key: "overdue", title: "Overdue follow-ups", hint: "Planned calls and tasks whose time has passed.", icon: AlertTriangle, tone: "text-red-600 bg-red-50",
-      rows: lists.overdue.map((a) => a.lead && <Row key={a.id} lead={a.lead} showOwner={showOwner} detail={<span className="text-red-600">{a.subject} · due {formatDistanceToNowStrict(a.dueAt!, { addSuffix: true })}</span>} />),
+      rows: lists.overdue.map((a) => a.lead && <Row key={a.id} phoneMode={phoneMode} lead={a.lead} showOwner={showOwner} detail={<span className="text-red-600">{a.subject} · due {formatDistanceToNowStrict(a.dueAt!, { addSuffix: true })}</span>} />),
     },
     {
       key: "today", title: "Due today", hint: "Planned for today.", icon: CalendarClock, tone: "text-gold-700 bg-gold-100",
-      rows: lists.dueToday.map((a) => a.lead && <Row key={a.id} lead={a.lead} showOwner={showOwner} detail={<span>{a.subject} · {format(a.dueAt!, "h:mm a")}</span>} />),
+      rows: lists.dueToday.map((a) => a.lead && <Row key={a.id} phoneMode={phoneMode} lead={a.lead} showOwner={showOwner} detail={<span>{a.subject} · {format(a.dueAt!, "h:mm a")}</span>} />),
     },
     {
       key: "never", title: "Not contacted yet", hint: "Open leads with no call, meeting, visit or email logged.", icon: PhoneOff, tone: "text-red-600 bg-red-50",
-      rows: lists.neverContacted.map((l) => <Row key={l.id} lead={l} showOwner={showOwner} detail={<span>Came in {formatDistanceToNowStrict(l.createdAt, { addSuffix: true })}</span>} />),
+      rows: lists.neverContacted.map((l) => <Row key={l.id} phoneMode={phoneMode} lead={l} showOwner={showOwner} detail={<span>Came in {formatDistanceToNowStrict(l.createdAt, { addSuffix: true })}</span>} />),
     },
     {
       key: "noplan", title: "No follow-up planned", hint: "Open leads with nothing scheduled. Plan the next step.", icon: CalendarX, tone: "text-amber-700 bg-amber-50",
-      rows: lists.noNextStep.map((l) => <Row key={l.id} lead={l} showOwner={showOwner} detail={<span>Last activity {l.lastActivityAt ? formatDistanceToNowStrict(l.lastActivityAt, { addSuffix: true }) : "never"}</span>} />),
+      rows: lists.noNextStep.map((l) => <Row key={l.id} phoneMode={phoneMode} lead={l} showOwner={showOwner} detail={<span>Last activity {l.lastActivityAt ? formatDistanceToNowStrict(l.lastActivityAt, { addSuffix: true }) : "never"}</span>} />),
     },
     {
       key: "stale", title: "Not contacted for 7+ days", hint: "Open leads going cold.", icon: Clock, tone: "text-amber-700 bg-amber-50",
-      rows: lists.stale.map((l) => <Row key={l.id} lead={l} showOwner={showOwner} detail={<span>Last activity {formatDistanceToNowStrict(l.lastActivityAt ?? l.createdAt, { addSuffix: true })}</span>} />),
+      rows: lists.stale.map((l) => <Row key={l.id} phoneMode={phoneMode} lead={l} showOwner={showOwner} detail={<span>Last activity {formatDistanceToNowStrict(l.lastActivityAt ?? l.createdAt, { addSuffix: true })}</span>} />),
     },
     ...(lists.closedNoContact.length ? [{
       key: "closed", title: "Closed without any contact", hint: "Marked Not Interested / Not Valid without a single call, meeting or email logged.", icon: XCircle, tone: "text-red-600 bg-red-50",
-      rows: lists.closedNoContact.map((l) => <Row key={l.id} lead={l} showOwner={showOwner} detail={<span>Closed {format(l.updatedAt, "d MMM")}</span>} />),
+      rows: lists.closedNoContact.map((l) => <Row key={l.id} phoneMode={phoneMode} lead={l} showOwner={showOwner} detail={<span>Closed {format(l.updatedAt, "d MMM")}</span>} />),
     }] : []),
   ];
 
@@ -57,7 +58,7 @@ export function FollowUpLists({ lists, showOwner, only }: { lists: Lists; showOw
   );
 }
 
-function Row({ lead, detail, showOwner }: { lead: LeadRow; detail: React.ReactNode; showOwner: boolean }) {
+function Row({ lead, detail, showOwner, phoneMode }: { lead: LeadRow; detail: React.ReactNode; showOwner: boolean; phoneMode: FieldMode }) {
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 text-sm">
       <span className="min-w-0 flex-1">
@@ -66,7 +67,9 @@ function Row({ lead, detail, showOwner }: { lead: LeadRow; detail: React.ReactNo
         <span className="block truncate text-xs text-muted">{detail}{lead.source ? ` · ${lead.source.name}` : ""}{showOwner && lead.owner ? ` · ${lead.owner.name}` : ""}</span>
       </span>
       <StatusPill name={lead.status.name} colorName={lead.status.color} />
-      {lead.phone && <a href={telHref(lead.phone)} className="whitespace-nowrap text-muted hover:text-navy-900 hover:underline">{fmtPhone(lead.phone)}</a>}
+      {lead.phone && phoneMode !== "hidden" && (
+        <a href={phoneMode === "mask" ? `/api/leads/${lead.id}/dial?via=tel` : telHref(lead.phone)} className="whitespace-nowrap text-muted hover:text-navy-900 hover:underline">{phoneMode === "mask" ? maskPhone(lead.phone) : fmtPhone(lead.phone)}</a>
+      )}
       <Link href={`/crm/leads/${lead.id}#composer`} className="text-xs font-medium text-navy-900 hover:underline">Plan next step</Link>
     </li>
   );

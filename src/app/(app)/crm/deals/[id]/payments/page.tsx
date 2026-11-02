@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { format, isPast, startOfDay } from "date-fns";
 import { ArrowLeft, Undo2 } from "lucide-react";
 import { db } from "@/lib/db";
@@ -10,11 +10,14 @@ import { cn, fmtDate } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field, PageHeader } from "@/components/ui";
 import { recordPayment, savePaymentPlan, undoPayment } from "../../payment-actions";
+import { fieldAccess } from "@/lib/field-rules";
 
 export const metadata = { title: "Payment plan" };
 
 export default async function PaymentsPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePermission("crm.deals");
+  // Payments are all amounts: roles that can't see deal values (Field rules) don't get this page.
+  if ((await fieldAccess(user))["deal.value"] === "hidden") redirect("/no-access");
   const { id } = await params;
   const scope = (await scopeWhere(user, "crm.deals"))!;
   const deal = await db.deal.findFirst({

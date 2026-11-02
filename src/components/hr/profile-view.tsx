@@ -9,6 +9,7 @@ import { fileUrl } from "@/lib/files";
 import { fmtDate } from "@/lib/utils";
 import { PAYMENT_METHODS, RELATIONS, profileSection, type OptionSource } from "@/lib/profile-fields";
 import type { Profile } from "@/lib/employee-profile";
+import { FULL_ACCESS, maskId, type FieldAccess } from "@/lib/field-defs";
 import { empStatus } from "@/lib/hr-shared";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field } from "@/components/ui";
@@ -21,7 +22,9 @@ import { uploadDocument, uploadPhoto } from "@/app/(app)/hr/employees/actions";
 const money = (n: number, currency?: string | null) => `${currency || "PKR"} ${Math.round(n).toLocaleString("en-PK")}`;
 const def = (k: string) => profileSection(k)!;
 
-export function ProfileView({ p, options, canEdit, canSalary, showSalary, actions, banner, extraTabs = [], initialTab, docsTab, userTab }: {
+export function ProfileView({ p, options, canEdit, canSalary, showSalary, actions, banner, extraTabs = [], initialTab, docsTab, userTab, fields = FULL_ACCESS }: {
+  /** Field rules for whoever is looking (their own profile is always full). */
+  fields?: FieldAccess;
   p: Profile; options: Record<OptionSource, [string, string][]>; canEdit: boolean;
   /** May edit salary (payroll admins). */
   canSalary: boolean;
@@ -31,8 +34,15 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
   /** Overrides for tabs whose content differs between HR and My Space. */
   docsTab?: React.ReactNode; userTab?: React.ReactNode;
 }) {
-  const { emp, values } = p;
+  const { emp } = p;
   const id = emp.id;
+  // Field rules: hidden sections disappear, masked ones show the last digits; neither can be edited from here.
+  const f = { cnic: fields["employee.cnic"], salary: fields["employee.salary"], bank: fields["employee.bank"], docs: fields["employee.documents"], personal: fields["employee.personal"] };
+  const PERSONAL_KEYS = ["dob", "fatherName", "motherName", "maritalStatus", "religion", "nationality", "address", "permanentAddress", "city"];
+  const values: Record<string, string> = { ...p.values };
+  if (f.cnic !== "full") for (const k of ["cnic", "passportNo", "licenseNo"]) values[k] = f.cnic === "mask" ? maskId(values[k]) ?? "" : "";
+  if (f.personal === "hidden") for (const k of PERSONAL_KEYS) values[k] = "";
+  const personalDef = f.personal === "hidden" ? { ...def("personal"), fields: def("personal").fields.filter((x) => !PERSONAL_KEYS.includes(x.key)) } : def("personal");
   const st = empStatus(emp.status);
   const docs = (prefix: string) => emp.documents.filter((d) => d.type.toLowerCase().startsWith(prefix.toLowerCase()));
 
@@ -61,7 +71,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
   // ── Tabs
   const employeeInfo = (
     <Card className="p-4">
-      <SectionForm employeeId={id} def={def("personal")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<User className="size-4" />}
+      <SectionForm employeeId={id} def={personalDef} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<User className="size-4" />}
         before={
           <Row label="Profile Pic">
             {canEdit ? (
@@ -76,16 +86,20 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
         } />
       {p.customDef && <SectionForm employeeId={id} def={p.customDef} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<User className="size-4" />} />}
       <SectionForm employeeId={id} def={def("quick")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<Phone className="size-4" />} />
-      <SectionForm employeeId={id} def={def("cnic")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<IdCard className="size-4" />}
-        after={attachment("CNIC Attachment", "CNIC")} />
-      {attachForm("CNIC (front)", "CNIC front")}
-      {attachForm("CNIC (back)", "CNIC back")}
-      <SectionForm employeeId={id} def={def("passport")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} title="PASSPORT" icon={<IdCard className="size-4" />}
-        after={attachment("Passport Attachment", "Passport")} />
-      {attachForm("Passport", "passport")}
-      <SectionForm employeeId={id} def={def("license")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} title="DRIVING LICENSE" icon={<IdCard className="size-4" />}
-        after={attachment("Driving License Attachment", "Driving license")} />
-      {attachForm("Driving license", "driving license")}
+      {f.cnic !== "hidden" && (
+        <>
+          <SectionForm employeeId={id} def={def("cnic")} values={values} options={options} canEdit={canEdit && f.cnic === "full"} action={saveProfileSection} icon={<IdCard className="size-4" />}
+            after={f.cnic === "full" && f.docs === "full" ? attachment("CNIC Attachment", "CNIC") : undefined} />
+          {f.cnic === "full" && attachForm("CNIC (front)", "CNIC front")}
+          {f.cnic === "full" && attachForm("CNIC (back)", "CNIC back")}
+          <SectionForm employeeId={id} def={def("passport")} values={values} options={options} canEdit={canEdit && f.cnic === "full"} action={saveProfileSection} title="PASSPORT" icon={<IdCard className="size-4" />}
+            after={f.cnic === "full" && f.docs === "full" ? attachment("Passport Attachment", "Passport") : undefined} />
+          {f.cnic === "full" && attachForm("Passport", "passport")}
+          <SectionForm employeeId={id} def={def("license")} values={values} options={options} canEdit={canEdit && f.cnic === "full"} action={saveProfileSection} title="DRIVING LICENSE" icon={<IdCard className="size-4" />}
+            after={f.cnic === "full" && f.docs === "full" ? attachment("Driving License Attachment", "Driving license") : undefined} />
+          {f.cnic === "full" && attachForm("Driving license", "driving license")}
+        </>
+      )}
     </Card>
   );
 
@@ -121,11 +135,11 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
   const d = p.division;
   const salary = (
     <Card className="p-4">
-      {showSalary ? (
+      {showSalary && f.salary !== "hidden" ? (
         <>
           <SectionForm employeeId={id} def={def("salary")} values={values} options={options} canEdit={canSalary} action={saveProfileSection} icon={<CreditCard className="size-4" />}
             before={<Row label="Payroll Type">Monthly</Row>}
-            after={<Row label="Bank">{emp.bankName ? `${emp.bankName}${emp.accountNumber ? ` · ${emp.accountNumber}` : ""}` : <span className="text-muted">Add one in the Banks tab</span>}</Row>} />
+            after={f.bank === "hidden" ? undefined : <Row label="Bank">{emp.bankName ? `${emp.bankName}${emp.accountNumber ? ` · ${emp.accountNumber}` : ""}` : <span className="text-muted">Add one in the Banks tab</span>}</Row>} />
           <SectionTitle>Division</SectionTitle>
           {d ? (
             <>
@@ -166,7 +180,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
 
   const contact = (
     <Card className="p-4">
-      <SectionForm employeeId={id} def={def("addresses")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<MapPin className="size-4" />} />
+      {f.personal !== "hidden" && <SectionForm employeeId={id} def={def("addresses")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<MapPin className="size-4" />} />}
       <SectionForm employeeId={id} def={def("contacts")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<Phone className="size-4" />} />
     </Card>
   );
@@ -302,9 +316,9 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
     { key: "user", label: "User Information", content: user },
     { key: "contact", label: "Contact Info", content: contact },
     { key: "assets", label: "Assets", count: emp.assets.length, content: assets },
-    { key: "relatives", label: "Relatives", count: emp.relatives.length, content: relatives },
+    ...(f.personal === "hidden" ? [] : [{ key: "relatives", label: "Relatives", count: emp.relatives.length, content: relatives }]),
     { key: "qualifications", label: "Qualifications & Experiences", count: emp.qualifications.length, content: qualifications },
-    {
+    ...(f.docs === "hidden" ? [] : [{
       key: "documents", label: "My Documents", count: emp.documents.length + emp.letters.length, content: (
         <div className="space-y-4">
           {docsTab}
@@ -315,9 +329,9 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
           </Card>
         </div>
       ),
-    },
+    }]),
     { key: "policies", label: "Policies", content: policies },
-    { key: "banks", label: "Banks", content: banks },
+    ...(f.bank === "hidden" ? [] : [{ key: "banks", label: "Banks", content: banks }]),
     ...extraTabs,
   ];
 
@@ -336,7 +350,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
             <div className="mt-2 flex justify-center md:justify-start"><StatusPill name={st.label} colorName={st.color} /></div>
           </div>
           <ul className="space-y-1.5 text-xs text-white/80">
-            <HeaderLine icon={<Hourglass className="size-3" />}>{p.ageText ?? "Date of birth not set"}</HeaderLine>
+            {f.personal !== "hidden" && <HeaderLine icon={<Hourglass className="size-3" />}>{p.ageText ?? "Date of birth not set"}</HeaderLine>}
             <HeaderLine icon={<Mail className="size-3" />}>{emp.officialEmail ?? emp.user?.email ?? emp.personalEmail ?? "No email"}</HeaderLine>
             <HeaderLine icon={<Phone className="size-3" />}>{emp.phone ? <>{emp.phone} <i className="text-white/50">(Mobile No)</i></> : "No mobile number"}</HeaderLine>
             <HeaderLine icon={<Briefcase className="size-3" />}>Total Experience {p.experienceText}</HeaderLine>

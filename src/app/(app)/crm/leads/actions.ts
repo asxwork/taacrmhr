@@ -12,6 +12,7 @@ import { notify } from "@/lib/notify";
 import { nextNumber } from "@/lib/sequence";
 import type { SessionUser } from "@/lib/auth";
 import { manualHoldError } from "@/lib/lead-hold";
+import { fieldAccess } from "@/lib/field-rules";
 import { applyLeadStatus, runBulkLeads } from "@/lib/lead-ops";
 import { attachUnitToDeal, unitWhere } from "@/lib/inventory";
 
@@ -54,11 +55,17 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
   if (id && !existing) return { error: "Lead not found or you can't edit it." };
 
   const name = str(fd, "name");
+  // Field rules: someone who can't fully see a lead's phone/email/budget can't change them on an existing lead,
+  // so the stored values are kept (a masked value must never overwrite the real one).
+  const fields = await fieldAccess(user);
+  const lockPhone = !!existing && fields["lead.phone"] !== "full";
+  const lockEmail = !!existing && fields["lead.email"] !== "full";
+  const lockBudget = !!existing && fields["lead.budget"] !== "full";
   // The form posts every phone/email as a JSON list; the first ones double as the primary fields (search, duplicates).
-  const phones = fd.has("phones") ? contactList(str(fd, "phones")) : null;
-  const emails = fd.has("emails") ? contactList(str(fd, "emails")) : null;
-  const phone = phones ? phones[0]?.value ?? "" : str(fd, "phone");
-  const email = (emails ? emails[0]?.value ?? "" : str(fd, "email")).toLowerCase() || null;
+  const phones = !lockPhone && fd.has("phones") ? contactList(str(fd, "phones")) : null;
+  const emails = !lockEmail && fd.has("emails") ? contactList(str(fd, "emails")) : null;
+  const phone = lockPhone ? existing!.phone ?? "" : phones ? phones[0]?.value ?? "" : str(fd, "phone");
+  const email = lockEmail ? existing!.email : (emails ? emails[0]?.value ?? "" : str(fd, "email")).toLowerCase() || null;
   if (name.length < 2) return { error: "Name is required." };
   if (!phone && !email) return { error: "Add a phone number or email." };
 
@@ -68,8 +75,8 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
     if (dup) return { confirm: `${dup} Tick to save anyway.` };
   }
 
-  const budgetMin = parseAmount(str(fd, "budgetMin"));
-  const budgetMax = parseAmount(str(fd, "budgetMax"));
+  const budgetMin = lockBudget ? existing!.budgetMin : parseAmount(str(fd, "budgetMin"));
+  const budgetMax = lockBudget ? existing!.budgetMax : parseAmount(str(fd, "budgetMax"));
   // The unit/listing this enquiry is about; its project fills in the lead's project when none is chosen.
   const [ownerId, unit, project] = await Promise.all([
     resolveOwner(user, "crm.leads", str(fd, "ownerId"), existing?.ownerId),
@@ -78,8 +85,8 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
   ]);
   const projectId = project?.id || unit?.projectId || null;
   const data = {
-    name, phone: phone || null, phoneKey: key, email,
-    phone2: phones ? phones[1]?.value ?? null : str(fd, "phone2") || null,
+    name, email,
+    ...(!lockPhone && { phone: phone || null, phoneKey: key, phone2: phones ? phones[1]?.value ?? null : str(fd, "phone2") || null }),
     ...(phones && { phones: phones.length ? JSON.stringify(phones) : null }),
     ...(emails && { emails: emails.length ? JSON.stringify(emails) : null }),
     sourceId: str(fd, "sourceId") || null, campaign: str(fd, "campaign") || null, sourceInfo: str(fd, "sourceInfo") || null,

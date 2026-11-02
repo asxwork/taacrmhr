@@ -3,6 +3,8 @@ import { format } from "date-fns";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { employeeAllows } from "@/lib/hr";
+import { fieldAccess } from "@/lib/field-rules";
+import { maskId, shown } from "@/lib/field-defs";
 import { loadProfile } from "@/lib/employee-profile";
 import { fileUrl } from "@/lib/files";
 import { PrintButton } from "./print-button";
@@ -19,12 +21,16 @@ export default async function ProfileCard({ params }: { params: Promise<{ id: st
   const { emp } = p;
   const self = emp.userId === user.id;
   if (!self && !(can(user, "hr.employees") && (await employeeAllows(user, emp, "view")))) notFound();
+  // Field rules (not for your own card): CNIC masked/hidden, personal details hidden.
+  const fa = self ? null : await fieldAccess(user);
+  const cnic = fa ? shown(emp.cnic, fa["employee.cnic"], maskId) : emp.cnic;
+  const hidePersonal = fa?.["employee.personal"] === "hidden";
 
   const d = (v: Date | null) => (v ? format(v, "d MMM yyyy") : "—");
   const rows: [string, string | null | undefined][] = [
     ["Employee code", emp.code], ["Designation", emp.jobTitle ?? emp.designation?.name], ["Department", emp.department?.name], ["Branch", emp.branch?.name],
-    ["Line manager", emp.manager?.fullName], ["Joining date", d(emp.joiningDate)], ["Father / husband", emp.fatherName], ["Date of birth", d(emp.dob)],
-    ["Age", p.ageText], ["CNIC", emp.cnic], ["Blood group", emp.bloodGroup], ["Mobile", emp.phone], ["Email", emp.officialEmail ?? emp.user?.email ?? emp.personalEmail],
+    ["Line manager", emp.manager?.fullName], ["Joining date", d(emp.joiningDate)], ["Father / husband", hidePersonal ? null : emp.fatherName], ["Date of birth", hidePersonal ? null : d(emp.dob)],
+    ["Age", hidePersonal ? null : p.ageText], ["CNIC", cnic], ["Blood group", emp.bloodGroup], ["Mobile", emp.phone], ["Email", emp.officialEmail ?? emp.user?.email ?? emp.personalEmail],
     ["Address", [emp.address, emp.city].filter(Boolean).join(", ") || null], ["Emergency contact", emp.emergencyName ? `${emp.emergencyName}${emp.emergencyRelation ? ` (${emp.emergencyRelation})` : ""} · ${emp.emergencyPhone ?? ""}` : null],
     ["Total experience", p.experienceText],
   ];
@@ -62,7 +68,7 @@ export default async function ProfileCard({ params }: { params: Promise<{ id: st
         <div className="flex h-[340px] w-[215px] flex-col overflow-hidden rounded-2xl border border-slate-200 text-[10px] shadow-sm print:shadow-none">
           <div className="bg-[#0a223c] py-2 text-center text-[11px] font-semibold uppercase tracking-widest text-[#d4b26a]">Employee card</div>
           <div className="space-y-1.5 p-4">
-            <p><b>CNIC:</b> {emp.cnic ?? "—"}</p>
+            <p><b>CNIC:</b> {cnic ?? "—"}</p>
             <p><b>Joined:</b> {d(emp.joiningDate)}</p>
             <p><b>Mobile:</b> {emp.phone ?? "—"}</p>
             <p><b>Emergency:</b> {emp.emergencyName ? `${emp.emergencyName} · ${emp.emergencyPhone ?? ""}` : "—"}</p>
