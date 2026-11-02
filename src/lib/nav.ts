@@ -364,6 +364,7 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/settings/users", label: "Users", icon: "usercog", module: "settings.users" },
           { href: "/settings/roles", label: "Roles & Permissions", icon: "shield", module: "settings.roles" },
+          { href: "/settings/features", label: "Features", icon: "sliders", module: "settings.company" },
           { href: "/settings/company", label: "Company & Branches", icon: "landmark", module: "settings.company" },
           { href: "/settings/crm", label: "CRM Settings", icon: "sliders", module: "settings.company" },
           { href: "/settings/hr", label: "HR Settings", icon: "clipboard", module: "hr.employees" },

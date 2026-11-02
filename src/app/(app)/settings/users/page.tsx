@@ -163,6 +163,12 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
               ))}
             </fieldset>
 
+            {editing && actor.isSuperAdmin && !actor.viewAs && editing.id !== actor.id && editing.active && (
+              <a href={`/api/view-as?user=${editing.id}`} className="flex items-center justify-between rounded-md border border-line px-3 py-2.5 text-sm hover:bg-canvas/60">
+                <span><span className="block font-medium">View as {editing.name}</span><span className="block text-xs text-muted">See exactly their menus and data (read-only), to check their access</span></span>
+                <span aria-hidden>→</span>
+              </a>
+            )}
             {editing && can(actor, "settings.roles") && (
               <Link href={`/settings/users/${editing.id}/access`} className="flex items-center justify-between rounded-md border border-line px-3 py-2.5 text-sm hover:bg-canvas/60">
                 <span><span className="block font-medium">Access exceptions</span><span className="block text-xs text-muted">Give this person more or less than their roles, permission by permission</span></span>

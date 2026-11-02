@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { Eye } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { appsForUser } from "@/lib/apps";
 import { appForPath, sidebarMode, type AppKey } from "@/lib/nav";
@@ -9,6 +10,9 @@ import { NavProgress } from "@/components/nav-progress";
 import { unreadCount } from "@/lib/notify";
 import { maybeRunHoldRules } from "@/lib/lead-hold";
 import { db } from "@/lib/db";
+import { disabledFeatures, featureForPath } from "@/lib/features";
+import { can } from "@/lib/permissions";
+import { FeatureOff } from "@/components/feature-off";
 import { fileUrl } from "@/lib/files";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -22,6 +26,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const myPhoto = (await db.employee.findUnique({ where: { userId: user.id }, select: { photo: true } }))?.photo ?? null;
   const last = apps.find((a) => a.key === jar.get("app")?.value);
   const current = appForPath(apps, h.get("x-pathname") ?? "") ?? last ?? apps[0]!;
+  // Pages of a feature switched off in Settings → Features show a notice instead.
+  const offFeature = featureForPath(h.get("x-pathname") ?? "", await disabledFeatures());
   const pageItems = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]))).filter((item) => !item.phase);
   const pages = [...new Map(pageItems.map((item) => [item.href, { href: item.href, label: item.label, icon: item.icon }])).values()];
 
@@ -36,8 +42,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         initiallyCollapsed={collapsed}
       />
       <main className="app-main">
+        {user.viewAs && (
+          <div className="sticky top-0 z-30 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-amber-400 px-4 py-2 text-center text-sm font-medium text-navy-950 print:hidden">
+            <Eye className="size-4" aria-hidden />
+            Viewing as <b>{user.name}</b> ({user.roleNames.join(", ") || "no role"}) · read-only, changes are blocked
+            {/* A full page load: the route clears the cookie and redirects. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a href="/api/view-as?exit=1" className="rounded-md bg-navy-950 px-3 py-1 text-xs font-semibold text-white hover:bg-navy-800">Exit, back to {user.viewAs.realName}</a>
+          </div>
+        )}
         <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-8 sm:pt-8 lg:pb-10">
-          <PageTransition>{children}</PageTransition>
+          <PageTransition>
+            {/* View as is read-only: every input and button on the page is disabled (the server refuses writes too). */}
+            <fieldset disabled={!!user.viewAs} className="m-0 min-w-0 border-0 p-0">
+              {offFeature ? <FeatureOff label={offFeature.label} canManage={user.isSuperAdmin || can(user, "settings.company", "edit")} /> : children}
+            </fieldset>
+          </PageTransition>
         </div>
       </main>
       <CommandPalette pages={pages} />

@@ -24,6 +24,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-navy-950 px-5 pb-16 pt-6 text-white sm:px-10">
+      {user.viewAs && (
+        <div className="relative z-10 -mx-5 -mt-6 mb-6 flex flex-wrap items-center justify-center gap-3 bg-amber-400 px-4 py-2 text-sm font-medium text-navy-950 sm:-mx-10">
+          Viewing as <b>{user.name}</b> · read-only
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/api/view-as?exit=1" className="rounded-md bg-navy-950 px-3 py-1 text-xs font-semibold text-white">Exit, back to {user.viewAs.realName}</a>
+        </div>
+      )}
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(255,255,255,.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.6)_1px,transparent_1px)] [background-size:40px_40px]" />
       <div aria-hidden className="pointer-events-none absolute -right-32 -top-32 size-[28rem] rounded-full bg-gold-400/10 blur-3xl" />
 

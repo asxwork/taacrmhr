@@ -3,6 +3,7 @@ import { APPS, type AppDef, type NavItem } from "./nav";
 import { can } from "./permissions";
 import type { SessionUser } from "./auth";
 import { layoutsFor, type ResolvedLayout } from "./layouts";
+import { disabledFeatures, featureForPath } from "./features";
 
 export type UserApp = AppDef & { /** Where the app opens: its home if the user may see it, else its first page. */ start: string };
 
@@ -29,10 +30,10 @@ function hide(items: NavItem[], hidden: Set<string>): NavItem[] {
 }
 
 /** Apps with at least one page the user's permissions open (My Space is everyone's), arranged by their layouts. */
-export function appsFor(user: SessionUser, layouts: Map<string, ResolvedLayout> = new Map()): UserApp[] {
+export function appsFor(user: SessionUser, layouts: Map<string, ResolvedLayout> = new Map(), off: Set<string> = new Set()): UserApp[] {
   const apps = APPS.map((app) => {
     const l = layouts.get(app.key);
-    let groups = app.groups.map((g) => ({ ...g, items: hide(trim(user, g.items), l?.hidden ?? new Set()) })).filter((g) => g.items.length);
+    let groups = app.groups.map((g) => ({ ...g, items: hide(trim(user, g.items), l?.hidden ?? new Set()).filter((i) => !featureForPath(i.href, off)) })).filter((g) => g.items.length);
     if (l?.order.length) groups = [...groups].sort((a, b) => (l.order.indexOf(a.label ?? "") + 1 || 999) - (l.order.indexOf(b.label ?? "") + 1 || 999));
     const items = groups.flatMap((g) => g.items.flatMap((i) => i.children ?? [i]));
     const home = l?.landing && items.some((i) => i.href === l.landing) ? l.landing : app.home;
@@ -46,5 +47,6 @@ export function appsFor(user: SessionUser, layouts: Map<string, ResolvedLayout> 
 
 /** appsFor with the user's layouts loaded. */
 export async function appsForUser(user: SessionUser) {
-  return appsFor(user, await layoutsFor(user));
+  const [layouts, off] = await Promise.all([layoutsFor(user), disabledFeatures()]);
+  return appsFor(user, layouts, off);
 }

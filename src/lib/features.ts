@@ -1,0 +1,34 @@
+// Company-wide feature switches (Settings → Features). A switched-off feature disappears from every menu and its
+// pages show a notice instead; its data is kept, so switching it back on restores everything.
+import { db } from "./db";
+import { memo } from "./memo";
+
+export const FEATURES = [
+  { key: "calls", label: "Calls (calling centre)", group: "CRM", paths: ["/calls"], about: "Dialer, campaigns, callbacks, wallboard, softphone" },
+  { key: "inventory", label: "Property inventory", group: "CRM", paths: ["/inventory"], about: "Projects, units and listings" },
+  { key: "automations", label: "Lead automations", group: "CRM", paths: ["/crm/automations"], about: "Rules that act on leads in bulk" },
+  { key: "payroll", label: "Payroll", group: "HR", paths: ["/hr/payroll", "/payslips", "/hr/salary-revisions", "/hr/leave-encashment", "/me/payslips"], about: "Payroll runs, payslips, salary revisions, encashment" },
+  { key: "expenses", label: "Expenses & loans", group: "HR", paths: ["/hr/expenses", "/me/expenses"], about: "Expense claims, advances and loans" },
+  { key: "recruitment", label: "Recruitment", group: "HR", paths: ["/hr/recruitment"], about: "Job openings and candidates" },
+  { key: "performance", label: "Performance & probation", group: "HR", paths: ["/hr/performance", "/hr/probation", "/me/performance"], about: "Appraisals, KPIs, probation reviews" },
+  { key: "assets", label: "Assets", group: "HR", paths: ["/hr/assets"], about: "Company assets given to staff" },
+  { key: "policies", label: "Policies", group: "HR", paths: ["/hr/policies", "/me/policies"], about: "Policy documents and acknowledgements" },
+  { key: "letters", label: "Letters", group: "HR", paths: ["/hr/letters"], about: "Offer, experience and other letters" },
+  { key: "engagement", label: "Engagement surveys", group: "HR", paths: ["/hr/engagement", "/me/surveys"], about: "Staff surveys" },
+] as const;
+export type FeatureKey = (typeof FEATURES)[number]["key"];
+
+export const FEATURES_SETTING = "features.off";
+
+export function disabledFeatures(): Promise<Set<string>> {
+  return memo("setting:featuresOff", 60_000, async () => {
+    const row = await db.setting.findUnique({ where: { key: FEATURES_SETTING } });
+    try { return new Set<string>(row ? JSON.parse(row.value) : []); } catch { return new Set<string>(); }
+  });
+}
+
+/** The switched-off feature a path belongs to, if any. */
+export function featureForPath(path: string, off: Set<string>) {
+  const clean = path.split("?")[0]!.split("#")[0]!;
+  return FEATURES.find((f) => off.has(f.key) && f.paths.some((p) => clean === p || clean.startsWith(`${p}/`)));
+}
