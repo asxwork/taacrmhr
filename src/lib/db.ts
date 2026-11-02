@@ -16,8 +16,22 @@ const CACHE_PREFIX: Record<string, string> = {
 };
 const READS = new Set(["findUnique", "findUniqueOrThrow", "findFirst", "findFirstOrThrow", "findMany", "count", "aggregate", "groupBy"]);
 
+/**
+ * MySQL on shared hosting (Hostinger) caps connections per database user. Keep each server process to a small
+ * pool, and give up waiting after a while instead of hanging the page when the pool is busy.
+ */
+function datasourceUrl() {
+  const url = process.env.DATABASE_URL ?? "";
+  if (!url.startsWith("mysql://")) return undefined;
+  const u = new URL(url);
+  if (!u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", process.env.DB_CONNECTION_LIMIT ?? "5");
+  if (!u.searchParams.has("pool_timeout")) u.searchParams.set("pool_timeout", "20");
+  if (!u.searchParams.has("connect_timeout")) u.searchParams.set("connect_timeout", "10");
+  return u.toString();
+}
+
 function createClient() {
-  const base = new PrismaClient();
+  const base = new PrismaClient({ datasourceUrl: datasourceUrl() });
   const client = base.$extends({
     query: {
       $allModels: {
@@ -35,6 +49,6 @@ function createClient() {
   return client as unknown as PrismaClient;
 }
 
-export const db = globalForPrisma.prisma ?? createClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+// One client (one connection pool) per server process, in production too: separate copies each opened their own
+// pool and could use up the database's connection limit, making every page wait forever.
+export const db = (globalForPrisma.prisma ??= createClient());

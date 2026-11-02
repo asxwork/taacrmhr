@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, ChevronRight, House, LayoutGrid, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
+import { CircleHelp, Bell, ChevronDown, ChevronRight, House, LayoutGrid, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { appForPath, sidebarMode, type AppKey, type NavGroup, type NavItem } from "@/lib/nav";
 import type { UserApp } from "@/lib/apps";
 import { cn, initials } from "@/lib/utils";
@@ -197,6 +197,9 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
               <span className="block truncate text-[11px] text-white/55">{user.roles}{user.branch && ` · ${user.branch}`}</span>
             </span>
           )}
+        </Link>
+        <Link href="/help" onClick={() => setOpen(false)} className="flex size-10 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white" title="Tutorials" aria-label="Tutorials">
+          <CircleHelp className="size-[18px]" />
         </Link>
         <Link href="/notifications" onClick={() => setOpen(false)} className="relative flex size-10 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white" title="Notifications" aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}>
           <Bell className="size-[18px]" />
