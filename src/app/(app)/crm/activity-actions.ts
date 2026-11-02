@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requirePermission, scopeWhere } from "@/lib/permissions";
+import { can, requirePermission, scopeWhere } from "@/lib/permissions";
 import { canAccessEntity, type EntityRef } from "@/lib/crm";
 import { str, type FormState } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
@@ -40,10 +40,10 @@ export async function toggleActivity(fd: FormData) {
   revalidatePath(str(fd, "path") || "/crm/tasks");
 }
 
-/** Activities are the record of what agents did, so only a Super Admin can delete one. */
+/** Activities are the record of what agents did: deleting needs the Activities → Delete permission (off by default). */
 export async function deleteActivity(fd: FormData) {
   const user = await requireUser();
-  if (!user.isSuperAdmin) return;
+  if (!can(user, "crm.activities", "delete")) return;
   const act = await db.activity.findFirst({ where: { id: str(fd, "id"), type: { not: "system" } } });
   if (!act) return;
   await db.activity.delete({ where: { id: act.id } });

@@ -12,11 +12,12 @@ export const SCOPE_LABELS: Record<Scope, string> = {
   all: "All",
 };
 
-export const ACTIONS = ["view", "create", "edit", "delete", "export", "approve", "assign"] as const;
+export const ACTIONS = ["view", "create", "edit", "delete", "export", "approve", "assign", "import", "bulk", "reopen", "listen"] as const;
 export type Action = (typeof ACTIONS)[number];
 
 export const ACTION_LABELS: Record<Action, string> = {
   view: "Read", create: "Add", edit: "Edit", delete: "Delete", export: "Export", approve: "Approve", assign: "Reassign to others",
+  import: "Import files", bulk: "Bulk actions", reopen: "Move back / reopen", listen: "Listen to recordings",
 };
 
 export type ModuleDef = {
@@ -31,13 +32,13 @@ export type ModuleDef = {
 const CRUD = ["view", "create", "edit", "delete", "export"] as const;
 
 export const MODULES: readonly ModuleDef[] = [
-  { key: "crm.leads", label: "Leads", group: "CRM", actions: [...CRUD, "assign"], scoped: true },
-  { key: "crm.deals", label: "Deals", group: "CRM", actions: [...CRUD, "assign"], scoped: true },
+  { key: "crm.leads", label: "Leads", group: "CRM", actions: [...CRUD, "assign", "import", "bulk", "reopen"], scoped: true },
+  { key: "crm.deals", label: "Deals", group: "CRM", actions: [...CRUD, "assign", "reopen"], scoped: true },
   { key: "crm.contacts", label: "Contacts & Companies", group: "CRM", actions: CRUD, scoped: true },
-  { key: "crm.activities", label: "Activities & Tasks", group: "CRM", actions: ["view", "create", "edit", "export"], scoped: true }, // delete: Super Admin only
+  { key: "crm.activities", label: "Activities & Tasks", group: "CRM", actions: ["view", "create", "edit", "delete", "export"], scoped: true },
   { key: "inventory.projects", label: "Projects & Blocks", group: "Inventory", actions: CRUD, scoped: false },
   { key: "inventory.units", label: "Units / Listings", group: "Inventory", actions: [...CRUD, "assign"], scoped: true },
-  { key: "hr.employees", label: "Employees", group: "HR", actions: CRUD, scoped: true },
+  { key: "hr.employees", label: "Employees", group: "HR", actions: [...CRUD, "import"], scoped: true },
   { key: "hr.attendance", label: "Attendance", group: "HR", actions: [...CRUD, "approve"], scoped: true },
   { key: "hr.leave", label: "Leave", group: "HR", actions: [...CRUD, "approve"], scoped: true },
   { key: "hr.payroll", label: "Payroll", group: "HR", actions: [...CRUD, "approve"], scoped: true },
@@ -45,7 +46,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "hr.performance", label: "Performance", group: "HR", actions: [...CRUD, "approve"], scoped: true },
   { key: "hr.expenses", label: "Expenses & Loans", group: "HR", actions: [...CRUD, "approve"], scoped: true },
   { key: "hr.assets", label: "Assets", group: "HR", actions: CRUD, scoped: false },
-  { key: "calls", label: "Calling centre", group: "Calls", actions: [...CRUD, "assign"], scoped: true },
+  { key: "calls", label: "Calling centre", group: "Calls", actions: [...CRUD, "assign", "listen"], scoped: true },
   { key: "reports.crm", label: "CRM Reports", group: "Reports", actions: ["view", "export"], scoped: true },
   { key: "reports.hr", label: "HR Reports", group: "Reports", actions: ["view", "export"], scoped: true },
   { key: "settings.users", label: "Users", group: "Settings", actions: ["view", "create", "edit", "delete"], scoped: false },

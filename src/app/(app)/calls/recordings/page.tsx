@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { format, startOfDay, subDays } from "date-fns";
 import { Download, Lock, PhoneIncoming, PhoneOutgoing, Trash2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { callAgents, outcome } from "@/lib/calls";
 import { fmtPhone, phoneKey } from "@/lib/crm-shared";
@@ -17,7 +18,7 @@ const dur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "
 /** Calls → Recordings: Super Admin only. Agents and supervisors never see this page or its menu item. */
 export default async function RecordingsPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; agent?: string; phone?: string }> }) {
   const user = await requireUser();
-  if (!user.isSuperAdmin) redirect("/no-access");
+  if (!user.isSuperAdmin && !can(user, "calls", "listen")) redirect("/no-access");
   const sp = await searchParams;
   const to = sp.to ? startOfDay(new Date(`${sp.to}T00:00:00`)) : startOfDay(new Date());
   const from = sp.from ? startOfDay(new Date(`${sp.from}T00:00:00`)) : subDays(to, 6);
@@ -35,7 +36,7 @@ export default async function RecordingsPage({ searchParams }: { searchParams: P
   const logs = new Map((await db.callLog.findMany({ where: { id: { in: recs.flatMap((r) => (r.logId ? [r.logId] : [])) } }, include: { target: { select: { name: true } } } })).map((l) => [l.id, l]));
   return (
     <>
-      <PageHeader eyebrow="Super Admin only" title="Call recordings"
+      <PageHeader eyebrow="Restricted" title="Call recordings"
         description={`${stored._count} recording(s) stored · ${((stored._sum.size ?? 0) / 1e6).toFixed(1)} MB · kept ${retentionDays(cfg)} days${cfg.record === "off" ? " · recording is OFF" : ""}. Every play and download is logged.`}
         actions={
           <AutoFilterForm>

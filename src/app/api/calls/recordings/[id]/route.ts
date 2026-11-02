@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { getCurrentUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { resolveUpload } from "@/lib/files";
@@ -7,7 +8,7 @@ import { resolveUpload } from "@/lib/files";
 /** Plays or downloads a recording: Super Admins only, and every access is written to the audit log. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
-  if (!user?.isSuperAdmin) return new Response("Not found", { status: 404 });
+  if (!user || !(user.isSuperAdmin || can(user, "calls", "listen"))) return new Response("Not found", { status: 404 });
   const rec = await db.callRecording.findUnique({ where: { id: (await params).id } });
   const abs = rec?.path ? resolveUpload(rec.path) : null;
   if (!rec || !abs) return new Response("Not found", { status: 404 });

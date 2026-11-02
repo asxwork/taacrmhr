@@ -1,7 +1,7 @@
 // Lead changes shared by the page actions (leads/actions.ts) and the in-place list (leads/list-actions.ts).
 // Callers check the module permission; these check the record scope.
 import { db } from "./db";
-import { scopeWhere } from "./permissions";
+import { can, scopeWhere } from "./permissions";
 import { assignableUsers, logSystem } from "./crm";
 import { leadWhere, type LeadFilters } from "./lead-filters";
 import { manualHoldError } from "./lead-hold";
@@ -22,6 +22,9 @@ export async function applyLeadStatus(user: SessionUser, id: string, statusId: s
   if (!status) return { error: "Unknown status." };
   if (status.kind === "converted") return { error: "Use “Convert” on the lead to create a deal." };
   if (lead.statusId === statusId) return {};
+  // Moving backwards in the pipeline, or reopening a closed lead, is its own permission.
+  const back = lead.status.kind !== "open" || status.sortOrder < lead.status.sortOrder;
+  if (back && !can(user, "crm.leads", "reopen")) return { error: "Your role can't move leads back or reopen them." };
   const holdError = await manualHoldError(statusId);
   if (holdError) return { error: holdError };
   await db.lead.update({ where: { id }, data: { statusId } });
@@ -39,6 +42,7 @@ async function bulkIds(user: SessionUser, fd: FormData) {
 }
 
 export async function runBulkLeads(user: SessionUser, fd: FormData): Promise<FormState> {
+  if (!can(user, "crm.leads", "bulk")) return { error: "Your role can't use bulk actions (Roles & Permissions → Leads → Bulk actions)." };
   const ids = await bulkIds(user, fd);
   const op = str(fd, "op");
   if (!ids.length) return { error: "Select at least one lead." };

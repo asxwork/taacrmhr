@@ -5,7 +5,7 @@
 export type NavItem = {
   href: string; label: string; icon: string; module?: string; phase?: number; superAdmin?: boolean;
   /** Permission action needed on `module` (default "view"), e.g. "create" for supervisor-only pages. */
-  action?: "view" | "create" | "edit" | "delete" | "export" | "assign" | "approve";
+  action?: import("@/lib/rbac").Action;
   /** Boss (and Super Admin) only. */ boss?: boolean;
   /** Sub-menu (e.g. Compliance ▸, Settings ▸). The parent's href is its first child's. */
   children?: NavItem[];
@@ -83,7 +83,7 @@ export const APPS: AppDef[] = [
           { href: "/calls/wallboard", label: "Wallboard", icon: "gauge", module: "calls", action: "create" },
           { href: "/calls/reports", label: "Call reports", icon: "chart", module: "calls", action: "create" },
           { href: "/calls/phone-system", label: "Phone system (Issabel)", icon: "settings", superAdmin: true },
-          { href: "/calls/recordings", label: "Recordings", icon: "lock", superAdmin: true },
+          { href: "/calls/recordings", label: "Recordings", icon: "lock", module: "calls", action: "listen" },
         ],
       },
       {

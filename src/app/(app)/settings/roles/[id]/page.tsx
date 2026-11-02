@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
-import { ACTIONS, MODULES, SCOPE_LABELS, permKey, scopesFor, type Action } from "@/lib/rbac";
+import { ACTIONS, ACTION_LABELS, MODULES, SCOPE_LABELS, permKey, scopesFor, type Action } from "@/lib/rbac";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Button, Card, Field, PageHeader } from "@/components/ui";
 import { ScopeSelect } from "./scope-select";
@@ -11,7 +11,7 @@ import { deleteRole, saveRolePermissions } from "../actions";
 
 export const metadata = { title: "Edit role" };
 
-const GROUPS = ["CRM", "Inventory", "HR", "Reports", "Settings"] as const;
+const GROUPS = ["CRM", "Inventory", "Calls", "HR", "Reports", "Settings"] as const;
 
 export default async function RoleEditPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePermission("settings.roles");
@@ -55,12 +55,12 @@ export default async function RoleEditPage({ params }: { params: Promise<{ id: s
           {GROUPS.map((group) => (
             <Card key={group} className="overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] table-fixed">
+                <table className="w-full min-w-[1180px] table-fixed">
                   <thead className="border-b border-line bg-canvas/60">
                     <tr>
                       <th className="th w-60">{group}</th>
                       {ACTIONS.map((a) => (
-                        <th key={a} className="th text-center capitalize">{a}</th>
+                        <th key={a} className="th text-center" title={ACTION_LABELS[a]}>{ACTION_LABELS[a]}</th>
                       ))}
                     </tr>
                   </thead>

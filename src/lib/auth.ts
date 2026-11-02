@@ -85,6 +85,9 @@ async function loadSessionUser(tokenHash: string): Promise<{ user: SessionUser; 
     }
   }
 
+  // Per-user exceptions replace whatever the roles gave (they can widen or narrow).
+  for (const o of await db.userPermission.findMany({ where: { userId: user.id } })) perms[permKey(o.module, o.action as Action)] = o.scope as Scope;
+
   const sessionUser: SessionUser = {
     id: user.id,
     name: user.name,

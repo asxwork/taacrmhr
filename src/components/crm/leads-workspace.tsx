@@ -49,7 +49,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
   stages: LeadStage[];
   assignees: Opt[];
   automations: AutomationOption[];
-  perms: { canCreate: boolean; canEdit: boolean; canDelete: boolean; canExport: boolean; canAssign: boolean; canAddActivity: boolean; isSuperAdmin: boolean };
+  perms: { canCreate: boolean; canEdit: boolean; canDelete: boolean; canExport: boolean; canAssign: boolean; canAddActivity: boolean; canBulk: boolean; canImport: boolean; isSuperAdmin: boolean };
 }) {
   const [filters, setFilters] = useState<LeadFilters>(initialFilters);
   const [view, setView] = useState<View>(initialView);
@@ -168,8 +168,8 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
         <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">Leads</h1>
         {perms.canCreate && (
           <div className="flex">
-            <LinkButton href="/crm/leads/new" className="rounded-r-none" prefetch><Plus className="size-4" /> Create</LinkButton>
-            <LinkButton href={exportHref("/crm/leads", { import: "1" })} scroll={false} className="rounded-l-none border-l border-white/15 px-2.5" title="Import" aria-label="Import"><Upload className="size-4" /></LinkButton>
+            <LinkButton href="/crm/leads/new" className={perms.canImport ? "rounded-r-none" : undefined} prefetch><Plus className="size-4" /> Create</LinkButton>
+            {perms.canImport && <LinkButton href={exportHref("/crm/leads", { import: "1" })} scroll={false} className="rounded-l-none border-l border-white/15 px-2.5" title="Import" aria-label="Import"><Upload className="size-4" /></LinkButton>}
           </div>
         )}
         <div className="order-last w-full sm:order-none sm:w-auto sm:min-w-80 sm:flex-1">
@@ -281,7 +281,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                 <table className="w-full">
                   <thead className="border-b border-line bg-canvas/60">
                     <tr>
-                      {perms.canEdit && (
+                      {perms.canEdit && perms.canBulk && (
                         <th className="th w-10">
                           <input type="checkbox" aria-label="Select all on this page" className="accent-navy-900" checked={allOnPage}
                             onChange={(e) => { setForAll(false); setSelected(e.target.checked ? new Set(pageIds) : new Set()); }} />
@@ -302,7 +302,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                       const canChange = perms.canEdit && l.editable;
                       return (
                         <tr key={l.id} className={cn("align-top transition-colors hover:bg-canvas/60", (forAll || selected.has(l.id)) && "bg-navy-900/[0.03]")}>
-                          {perms.canEdit && (
+                          {perms.canEdit && perms.canBulk && (
                             <td className="td">{l.editable && <input type="checkbox" checked={forAll || selected.has(l.id)} disabled={forAll} onChange={() => toggle(l.id)} className="accent-navy-900" aria-label={`Select ${l.name}`} />}</td>
                           )}
                           <td className="td text-xs tabular-nums text-muted">
@@ -400,7 +400,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
       )}
 
       {/* Bottom selection bar (Bitrix-style) */}
-      {perms.canEdit && count > 0 && (
+      {perms.canEdit && perms.canBulk && count > 0 && (
         <SelectionBar
           count={count}
           total={data.total}

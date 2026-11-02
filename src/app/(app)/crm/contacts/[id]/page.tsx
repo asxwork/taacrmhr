@@ -153,7 +153,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
         </div>
         <div className="space-y-6">
           {can(user, "crm.activities", "create") && <Composer entity={{ contactId: id }} emailTo={contact.email} path={path} users={actOwners} currentUserId={user.id} />}
-          <Timeline items={items} path={path} editableIds={editableIds} canDelete={user.isSuperAdmin} />
+          <Timeline items={items} path={path} editableIds={editableIds} canDelete={can(user, "crm.activities", "delete")} />
         </div>
       </div>
 

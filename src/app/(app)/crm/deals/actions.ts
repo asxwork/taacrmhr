@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { attachUnitToDeal, unitWhere } from "@/lib/inventory";
-import { requirePermission, scopeWhere } from "@/lib/permissions";
+import { can, requirePermission, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { editableDealFor, logSystem, ownerBranch, parseAmount, phoneKey, resolveOwner } from "@/lib/crm";
 import { str, type FormState } from "@/lib/utils";
@@ -86,6 +86,8 @@ async function applyStage(user: SessionUser, id: string, stageId: string, reason
   const stage = await db.stage.findUnique({ where: { id: stageId } });
   if (!stage || stage.pipelineId !== deal.pipelineId) return { error: "Unknown stage." };
   if (deal.stageId === stageId) return {};
+  // Reopening a won/lost deal or moving it backwards is its own permission (Deals → Move back / reopen).
+  if ((deal.stage.kind !== "open" || stage.sortOrder < deal.stage.sortOrder) && !can(user, "crm.deals", "reopen")) return { error: "Your role can't move deals back or reopen them." };
   if (stage.kind === "lost" && !reason) return { error: "A reason is required to mark a deal lost." };
 
   await db.deal.update({

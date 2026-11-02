@@ -23,7 +23,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
         ...(q && { OR: [{ name: { contains: q } }, { email: { contains: q } }, { phone: { contains: q } }] }),
         ...(sp.branch && { branchId: sp.branch }),
       },
-      include: { branch: true, manager: true, roles: { include: { role: true } } },
+      include: { branch: true, manager: true, roles: { include: { role: true } }, _count: { select: { permissionOverrides: true } } },
       orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
     db.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -97,6 +97,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                           <Badge key={r.roleId} tone="navy">{r.role.name}</Badge>
                         ))}
                         {!u.active && <Badge tone="red">Inactive</Badge>}
+                        {u._count.permissionOverrides > 0 && <Badge tone="amber">+{u._count.permissionOverrides} exception{u._count.permissionOverrides === 1 ? "" : "s"}</Badge>}
                       </div>
                     </td>
                     <td className="td text-muted">{u.branch?.name ?? "—"}</td>
@@ -161,6 +162,13 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                 </label>
               ))}
             </fieldset>
+
+            {editing && can(actor, "settings.roles") && (
+              <Link href={`/settings/users/${editing.id}/access`} className="flex items-center justify-between rounded-md border border-line px-3 py-2.5 text-sm hover:bg-canvas/60">
+                <span><span className="block font-medium">Access exceptions</span><span className="block text-xs text-muted">Give this person more or less than their roles, permission by permission</span></span>
+                <span aria-hidden>→</span>
+              </Link>
+            )}
 
             <Field label={editing ? "Reset password" : "Initial password"} hint={editing ? "Leave blank to keep the current password." : "At least 8 characters. They can change it later."}>
               <input name="password" type="password" autoComplete="new-password" required={!editing} className="input" />

@@ -60,7 +60,7 @@ function parseDate(v: string) {
 /** Bulk-creates employees from a CSV. Existing people (same code or CNIC) are skipped, never overwritten. */
 export async function importEmployees(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
-  if (!user.isSuperAdmin && scopeFor(user, "hr.employees", "create") !== "all") return { error: "Only HR with company-wide access can import employees." };
+  if (!user.isSuperAdmin && (scopeFor(user, "hr.employees", "create") !== "all" || scopeFor(user, "hr.employees", "import") === "none")) return { error: "Only HR with company-wide access and the Employees → Import permission can import employees." };
   const file = fd.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose a CSV file." };
   if (file.size > 5_000_000) return { error: "File is larger than 5 MB." };

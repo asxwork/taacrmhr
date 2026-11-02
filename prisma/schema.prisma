@@ -74,6 +74,7 @@ model User {
 
   @@index([branchId])
   @@index([managerId])
+  permissionOverrides UserPermission[]
 }
 
 model Role {
@@ -1790,4 +1791,20 @@ model AttendanceMachine {
   lastSeenAt  DateTime?
   lastPunchAt DateTime?
   createdAt   DateTime  @default(now())
+}
+
+/**
+ * Per-user access exceptions on top of their roles (Settings → Users → Access): the scope here replaces what the
+ * roles give for that module/action, so it can grant more or take away ("none").
+ */
+model UserPermission {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module String
+  action String
+  scope  String
+
+  @@unique([userId, module, action])
+  @@index([userId])
 }

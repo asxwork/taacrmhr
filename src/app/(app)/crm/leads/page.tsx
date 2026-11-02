@@ -80,11 +80,13 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           canExport: can(user, "crm.leads", "export"),
           canAssign,
           canAddActivity: can(user, "crm.activities", "create"),
+          canBulk: can(user, "crm.leads", "bulk"),
+          canImport: canCreate && can(user, "crm.leads", "import"),
           isSuperAdmin: user.isSuperAdmin,
         }}
       />
 
-      {sp.import && canCreate && (
+      {sp.import && canCreate && can(user, "crm.leads", "import") && (
         <Drawer title="Import leads" closeHref={closeHref}>
           <ActionForm action={importLeads} className="space-y-4">
             <p className="text-sm text-muted">

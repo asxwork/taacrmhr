@@ -205,6 +205,23 @@ async function seedCrm() {
     });
   }
 
+  // New permission switches (import, bulk, reopen, listen, activity delete): every role keeps exactly what it
+  // could do before — import follows Add, bulk and reopen follow Edit; activity delete and recordings start off.
+  if (!(await db.setting.findUnique({ where: { key: "rbac.powers.v1" } }))) {
+    const copies: [string, string, string, string][] = [
+      ["crm.leads", "create", "crm.leads", "import"], ["crm.leads", "edit", "crm.leads", "bulk"], ["crm.leads", "edit", "crm.leads", "reopen"],
+      ["crm.deals", "edit", "crm.deals", "reopen"], ["hr.employees", "create", "hr.employees", "import"],
+    ];
+    for (const role of await db.role.findMany({ include: { permissions: true } })) {
+      for (const [fromM, fromA, toM, toA] of copies) {
+        const src = role.permissions.find((p) => p.module === fromM && p.action === fromA);
+        if (src && !role.permissions.some((p) => p.module === toM && p.action === toA)) {
+          await db.permission.create({ data: { roleId: role.id, module: toM, action: toA, scope: src.scope } });
+        }
+      }
+    }
+    await db.setting.create({ data: { key: "rbac.powers.v1", value: "done" } });
+  }
 }
 
 main()

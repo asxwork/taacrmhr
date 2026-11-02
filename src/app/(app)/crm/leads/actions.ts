@@ -213,6 +213,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
 
 export async function importLeads(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requirePermission("crm.leads", "create");
+  if (!can(user, "crm.leads", "import")) return { error: "Your role can't import leads (Roles & Permissions → Leads → Import files)." };
   const file = fd.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose a CSV file." };
   if (file.size > 5_000_000) return { error: "File is larger than 5 MB." };
@@ -279,6 +280,7 @@ export async function importLeads(_: FormState, fd: FormData): Promise<FormState
 /** Imports a full Excel export (leads + activities). Company-wide lead access or Super Admin only, since it can update any lead. */
 export async function importLeadsFull(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requirePermission("crm.leads", "create");
+  if (!can(user, "crm.leads", "import")) return { error: "Your role can't import leads (Roles & Permissions → Leads → Import files)." };
   const { scopeFor } = await import("@/lib/permissions");
   if (!user.isSuperAdmin && scopeFor(user, "crm.leads", "edit") !== "all") return { error: "Only a Super Admin or someone with company-wide lead access can import a full backup." };
   const file = fd.get("file");
