@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { memo } from "./memo";
+import { insideWindow, windowFromRoles, type LoginWindow } from "./security";
 import { maxScope, permKey, type Action, type PermissionMap, type Scope } from "./rbac";
 
 export const SESSION_COOKIE = "tad_session";
@@ -27,6 +28,9 @@ export type SessionUser = {
   prefs: { theme: string | null; accent: string | null; wallpaper: string | null };
   /** Set while a Super Admin is using "View as" (read-only): who is really signed in. */
   viewAs?: { realId: string; realName: string };
+  /** Hours this user may use the app (from their roles); null = any time. */
+  loginWindow: LoginWindow | null;
+  totpEnabled: boolean;
 };
 
 /** Cookie holding the user a Super Admin is viewing the app as (Settings → Users → View as). */
@@ -117,6 +121,8 @@ async function buildSessionUser(user: UserWithRoles): Promise<SessionUser> {
     roleNames: user.isSuperAdmin ? ["Super Admin"] : user.roles.map((r) => r.role.name),
     perms,
     prefs: { theme: user.theme, accent: user.accent, wallpaper: user.wallpaper },
+    loginWindow: user.isSuperAdmin ? null : windowFromRoles(user.roles.map((r) => r.role)),
+    totpEnabled: user.totpEnabled,
   };
   return sessionUser;
 }
@@ -124,5 +130,7 @@ async function buildSessionUser(user: UserWithRoles): Promise<SessionUser> {
 export async function requireUser() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  // Role sign-in hours (Roles & Permissions → Sign-in hours): outside them the app is closed for this user.
+  if (!user.viewAs && user.loginWindow && !insideWindow(user.loginWindow)) redirect("/outside-hours");
   return user;
 }

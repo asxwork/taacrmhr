@@ -50,6 +50,14 @@ export async function saveRolePermissions(_: FormState, fd: FormData): Promise<F
     }
   }
 
+  // Sign-in hours: both times or neither.
+  const from = str(fd, "loginFrom"), to = str(fd, "loginTo");
+  if (!!from !== !!to) return { error: "Sign-in hours need both a start and an end time (or leave both empty)." };
+  if (from && from === to) return { error: "Sign-in hours: start and end can't be the same." };
+  const days = fd.getAll("loginDays").map(String).filter((d) => /^[1-7]$/.test(d));
+  if (from && !days.length) return { error: "Sign-in hours: tick at least one day." };
+  const hours = { loginFrom: from || null, loginTo: to || null, loginDays: from ? days.join(",") : null };
+
   // Field rules: only non-full modes are stored (no row = full access).
   const fieldRows = FIELD_DEFS.flatMap((f) => {
     const mode = str(fd, `f:${f.key}`) as FieldMode;
@@ -57,7 +65,7 @@ export async function saveRolePermissions(_: FormState, fd: FormData): Promise<F
   });
 
   await db.$transaction([
-    db.role.update({ where: { id: roleId }, data: { name, description: str(fd, "description") || null } }),
+    db.role.update({ where: { id: roleId }, data: { name, description: str(fd, "description") || null, ...hours } }),
     db.permission.deleteMany({ where: { roleId } }),
     db.permission.createMany({ data: rows }),
     db.fieldRule.deleteMany({ where: { roleId } }),

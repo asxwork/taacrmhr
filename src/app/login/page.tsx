@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Field } from "@/components/ui";
 import { login } from "./actions";
+import { LoginForm } from "./login-form";
 
 export const metadata = { title: "Sign in" };
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ idle?: string }> }) {
   if (await getCurrentUser()) redirect("/home");
+  const reason = (await searchParams).idle ? "You were signed out after a period of inactivity." : null;
 
   return (
     <main className="grid grid-cols-1 min-h-screen bg-surface lg:grid-cols-[1.1fr_1fr]">
@@ -33,15 +33,8 @@ export default async function LoginPage() {
           <img src="/brand/logo-gold.svg" alt="" className="only-dark mx-auto mb-10 h-16 w-auto lg:hidden" />
           <h1 className="font-display text-3xl font-semibold tracking-tight">Welcome back</h1>
           <p className="mb-8 mt-1.5 text-sm text-muted">Sign in with your work email.</p>
-          <ActionForm action={login} className="space-y-4">
-            <Field label="Email">
-              <input name="email" type="email" autoComplete="email" required autoFocus className="input" />
-            </Field>
-            <Field label="Password">
-              <input name="password" type="password" autoComplete="current-password" required className="input" />
-            </Field>
-            <SubmitButton className="h-11 w-full" pendingText="Signing in…">Sign in</SubmitButton>
-          </ActionForm>
+          {reason && <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{reason}</p>}
+          <LoginForm action={login} />
           <p className="mt-10 text-center text-xs text-muted">Forgot your password? Ask your administrator to reset it.</p>
         </div>
       </section>

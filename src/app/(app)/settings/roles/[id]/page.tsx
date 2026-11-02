@@ -6,6 +6,7 @@ import { can, requirePermission } from "@/lib/permissions";
 import { ACTIONS, ACTION_LABELS, MODULES, SCOPE_LABELS, permKey, scopesFor, type Action } from "@/lib/rbac";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { FIELD_DEFS, FIELD_MODE_LABELS } from "@/lib/field-defs";
+import { DAY_NAMES } from "@/lib/security";
 import { Badge, Button, Card, Field, PageHeader } from "@/components/ui";
 import { ScopeSelect } from "./scope-select";
 import { deleteRole, saveRolePermissions } from "../actions";
@@ -92,6 +93,26 @@ export default async function RoleEditPage({ params }: { params: Promise<{ id: s
               </div>
             </Card>
           ))}
+
+          <Card className="p-5">
+            <p className="text-sm font-semibold">Sign-in hours</p>
+            <p className="mb-3 text-xs text-muted">Leave empty for any time. Outside these hours people with only this role can’t sign in or keep working (Super Admins are never limited). Someone with several roles gets the most generous hours.</p>
+            <div className="flex flex-wrap items-end gap-4">
+              <Field label="From"><input name="loginFrom" type="time" defaultValue={role.loginFrom ?? ""} className="input h-9 w-32" /></Field>
+              <Field label="To"><input name="loginTo" type="time" defaultValue={role.loginTo ?? ""} className="input h-9 w-32" /></Field>
+              <fieldset className="min-w-0">
+                <legend className="mb-1.5 text-[13px] font-medium text-ink/85">Days</legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {DAY_NAMES.slice(1).map((d, i) => (
+                    <label key={d} className="cursor-pointer">
+                      <input type="checkbox" name="loginDays" value={i + 1} defaultChecked={(role.loginDays ?? "1,2,3,4,5,6,7").split(",").includes(String(i + 1))} className="peer sr-only" />
+                      <span className="flex h-9 w-11 items-center justify-center rounded-md border border-line text-xs font-medium peer-checked:border-navy-900 peer-checked:bg-navy-900 peer-checked:text-white">{d}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+          </Card>
 
           <Card className="overflow-hidden">
             <div className="border-b border-line bg-canvas/60 px-5 py-3">

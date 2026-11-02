@@ -21,7 +21,7 @@ export const fmtAgo = (d: Date | null | undefined) => (d ? formatDistanceToNow(d
 
 /** Shared shape returned by form server actions. */
 /** `confirm`: a warning the user must tick to proceed (e.g. possible duplicate); resubmits with confirm=on. */
-export type FormState = { error?: string; ok?: boolean; message?: string; confirm?: string } | undefined;
+export type FormState = { error?: string; ok?: boolean; message?: string; confirm?: string; needCode?: boolean } | undefined;
 
 export function str(fd: FormData, key: string) {
   const v = fd.get(key);

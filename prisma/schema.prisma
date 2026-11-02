@@ -75,6 +75,9 @@ model User {
   @@index([branchId])
   @@index([managerId])
   permissionOverrides UserPermission[]
+  /// Two-step login: authenticator key (encrypted) and whether it's switched on.
+  totpSecret  String? // @text
+  totpEnabled Boolean @default(false)
 }
 
 model Role {
@@ -90,6 +93,10 @@ model Role {
   users       UserRole[]
   createdAt   DateTime     @default(now())
   fieldRules  FieldRule[]
+  /// Sign-in hours for this role (company time), e.g. 09:00–19:00 on days "1,2,3,4,5,6". Null = any time.
+  loginFrom   String?
+  loginTo     String?
+  loginDays   String?
 }
 
 /// One row per (role, module, action). scope: none | own | team | branch | all

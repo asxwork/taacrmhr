@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ShieldCheck } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { MyEmployment } from "../me/my-employment";
@@ -13,11 +15,12 @@ export const metadata = { title: "My profile" };
 export default async function ProfilePage() {
   const user = await requireUser();
   const emp = await db.employee.findUnique({ where: { userId: user.id }, select: { id: true } });
-  if (emp) return <MyEmployment userId={user.id} />;
+  if (emp) return <><TwoStepLink on={user.totpEnabled} /><MyEmployment userId={user.id} /></>;
   // Logins without an HR record (e.g. an outside sales partner) still get a basic profile.
   return (
     <>
       <PageHeader title="My profile" />
+      <TwoStepLink on={user.totpEnabled} />
       <Card className="max-w-xl p-6">
         <div className="flex items-center gap-4">
           <PersonAvatar name={user.name} photo={null} className="size-16 text-lg" />
@@ -30,5 +33,13 @@ export default async function ProfilePage() {
         <p className="mt-5 text-sm text-muted">HR hasn’t created an employee record for your login yet, so your full profile (personal, employment, salary and documents) isn’t available. Ask HR to link your login to your employee record.</p>
       </Card>
     </>
+  );
+}
+
+function TwoStepLink({ on }: { on: boolean }) {
+  return (
+    <Link href="/profile/security" className="mb-4 flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm hover:bg-canvas/60">
+      <ShieldCheck className="size-4 text-navy-900" /> <span className="flex-1">Two-step login</span> {on ? <Badge tone="green">On</Badge> : <Badge>Off · set up</Badge>}
+    </Link>
   );
 }

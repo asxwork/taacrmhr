@@ -7,6 +7,9 @@ import { createSession, destroySession, getCurrentUser, verifyPassword } from "@
 import { audit } from "@/lib/audit";
 import { str, type FormState } from "@/lib/utils";
 import { clearLoginFailures, loginBlockedFor, recordLoginFailure } from "@/lib/rate-limit";
+import { openSecret } from "@/lib/softphone";
+import { verifyTotp } from "@/lib/totp";
+import { describeWindow, insideWindow, windowFromRoles } from "@/lib/security";
 
 export async function login(_: FormState, fd: FormData): Promise<FormState> {
   const email = str(fd, "email").toLowerCase();
@@ -23,6 +26,23 @@ export async function login(_: FormState, fd: FormData): Promise<FormState> {
     recordLoginFailure(email, ip);
     if (user) await audit(user.id, "login_failed", "user", user.id, `Failed sign-in for ${email} from ${ip}`);
     return { error: "Incorrect email or password." };
+  }
+  // Two-step login: a 6-digit authenticator code after the password.
+  if (user.totpEnabled) {
+    const code = str(fd, "code");
+    if (!code) return { needCode: true, message: "Enter the 6-digit code from your authenticator app." };
+    const secret = openSecret(user.totpSecret);
+    if (!secret || !verifyTotp(secret, code)) {
+      recordLoginFailure(email, ip);
+      await audit(user.id, "login_failed", "user", user.id, `Wrong two-step code for ${email} from ${ip}`);
+      return { needCode: true, error: "That code didn't work. Check the time on your phone and try the newest code." };
+    }
+  }
+  // Role sign-in hours.
+  if (!user.isSuperAdmin) {
+    const roles = await db.role.findMany({ where: { users: { some: { userId: user.id } } }, select: { loginFrom: true, loginTo: true, loginDays: true } });
+    const w = windowFromRoles(roles);
+    if (w && !insideWindow(w)) return { error: `Sign-in is allowed ${describeWindow(w)} for your role.` };
   }
   clearLoginFailures(email);
 

@@ -10,6 +10,10 @@ import { NavProgress } from "@/components/nav-progress";
 import { unreadCount } from "@/lib/notify";
 import { maybeRunHoldRules } from "@/lib/lead-hold";
 import { db } from "@/lib/db";
+import { redirect } from "next/navigation";
+import { securitySettings } from "@/lib/security";
+import { IdleSignOut } from "@/components/idle-sign-out";
+import { logout } from "@/app/login/actions";
 import { disabledFeatures, featureForPath } from "@/lib/features";
 import { can } from "@/lib/permissions";
 import { FeatureOff } from "@/components/feature-off";
@@ -28,6 +32,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const current = appForPath(apps, h.get("x-pathname") ?? "") ?? last ?? apps[0]!;
   // Pages of a feature switched off in Settings → Features show a notice instead.
   const offFeature = featureForPath(h.get("x-pathname") ?? "", await disabledFeatures());
+  // Two-step login required by policy (Settings → Security) and not set up yet: set it up first.
+  const security = await securitySettings();
+  const needs2fa = !user.viewAs && !user.totpEnabled && (security.require2fa === "all" || (security.require2fa === "superadmin" && user.isSuperAdmin));
+  if (needs2fa && (h.get("x-pathname") ?? "") !== "/profile/security") redirect("/profile/security");
   const pageItems = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]))).filter((item) => !item.phase);
   const pages = [...new Map(pageItems.map((item) => [item.href, { href: item.href, label: item.label, icon: item.icon }])).values()];
 
@@ -61,6 +69,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </main>
       <CommandPalette pages={pages} />
+      {!user.viewAs && <IdleSignOut minutes={security.idleMinutes} signOut={logout} />}
     </div>
   );
 }
