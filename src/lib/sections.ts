@@ -53,6 +53,46 @@ export const SECTIONS: Section[] = [
       { href: "/inventory?tab=projects", label: "Projects", module: "inventory.projects", params: { tab: "projects" } },
     ],
   },
+  // HR
+  {
+    key: "people",
+    tabs: [
+      { href: "/hr/employees", label: "Employees", module: "hr.employees" },
+      { href: "/hr/organization", label: "Organization", module: "hr.employees" },
+      { href: "/hr/exits", label: "Exits", module: "hr.employees" },
+    ],
+  },
+  {
+    key: "attendance",
+    tabs: [
+      { href: "/hr/attendance", label: "Daily & monthly", module: "hr.attendance" },
+      { href: "/hr/attendance/schedule", label: "Scheduling", module: "hr.attendance" },
+      { href: "/hr/attendance/logs", label: "Logs", module: "hr.attendance" },
+      { href: "/hr/attendance/machines", label: "Machines", module: "hr.attendance" },
+      { href: "/hr/attendance/device-changes", label: "Device approvals", module: "hr.attendance" },
+      { href: "/hr/attendance/reports/time", label: "Reports", module: "hr.attendance" },
+    ],
+  },
+  {
+    key: "leave",
+    tabs: [
+      { href: "/hr/leave", label: "Leave", module: "hr.leave" },
+      { href: "/hr/leave-encashment", label: "Encashment", module: "hr.leave" },
+    ],
+  },
+  {
+    key: "payroll",
+    tabs: [
+      { href: "/hr/payroll", label: "Payroll", module: "hr.payroll" },
+      { href: "/hr/payroll/payslips", label: "Payslips", module: "hr.payroll" },
+      { href: "/hr/salary-revisions", label: "Salary revisions", module: "hr.payroll" },
+      { href: "/hr/expenses", label: "Loans & expenses", module: "hr.expenses" },
+      { href: "/hr/payroll/settlements", label: "Final settlement", module: "hr.payroll" },
+      { href: "/hr/payroll/items/commission", label: "Commission", module: "hr.payroll" },
+      { href: "/hr/payroll/rewards", label: "Rewards", module: "hr.payroll" },
+      { href: "/hr/payroll/reports", label: "Reports", module: "hr.payroll" },
+    ],
+  },
   {
     key: "reports",
     tabs: [

@@ -47,7 +47,7 @@ export const TUTORIALS: Tutorial[] = [
     summary: "Your personal, employment, salary, documents and leave details — the same profile in every app.",
     steps: [
       "Click your name or photo at the bottom of the menu.",
-      "Use the tabs: Employee Info, Employment Info, Salary & Benefits, Contact Info, Documents, Policies, Banks…",
+      "Use the five tabs: Overview, Job & Pay, Documents, Time off & Attendance (and History for HR).",
       "To change something, open “Request a change” — HR approves it before it's saved.",
       "Download profile card gives a printable one-page summary.",
     ],
@@ -180,9 +180,9 @@ export const TUTORIALS: Tutorial[] = [
     key: "employees", group: "HR", title: "Employees and profiles", who: "HR", href: "/hr/employees", chapter: "hr",
     summary: "Add employees, keep their full profile, documents and history up to date.",
     steps: [
-      "HR → People → Employees → New employee: name, joining date, department, designation, branch and salary.",
-      "Open an employee to edit each section of the profile (personal, CNIC, employment, salary, contacts, banks).",
-      "Upload documents (CNIC, contract…) under Documents; expiring documents are flagged.",
+      "HR → People → New employee: name, joining date, department, designation, branch and salary.",
+      "Open an employee: the profile has five tabs — Overview, Job & Pay, Documents, Time off & Attendance, History.",
+      "Upload documents (CNIC, contract…) on the Documents tab; expiring documents are flagged.",
       "Role / transfer records promotions and moves with an effective date; Exit starts the leaving process.",
       "Create a login for the employee so they can check in, apply for leave and see payslips.",
     ],
@@ -193,7 +193,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       "HR → Attendance shows today: present, late, absent, on leave. Switch to Monthly register for the whole month (50 people per page).",
       "Click a day in the register to correct it; every change is logged in Attendance logs.",
-      "Attendance Machines: connect a ZKTeco machine by IP (port 4370) or Cloud Server, or import the USB file.",
+      "Attendance → Machines: connect a ZKTeco machine by IP (port 4370) or Cloud Server, or import the USB file.",
       "Set each employee's device user ID so machine punches match the right person.",
     ],
   },
@@ -203,8 +203,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       "Employees apply from My Space → My Leave; the request goes to their line manager, then HR.",
       "Approve or reject from Approvals. Approved leave shows on attendance automatically.",
-      "Balances show entitlement, carry forward, used and available per leave type.",
-      "Leave Encashment pays out unused annual leave in payroll.",
+      "Balances show entitlement, carry forward, used and available per leave type; the Encashment tab pays out unused annual leave.",
     ],
   },
   {
@@ -220,10 +219,10 @@ export const TUTORIALS: Tutorial[] = [
     key: "payroll", group: "HR", title: "Running payroll", who: "Payroll / accounts", href: "/hr/payroll", chapter: "payroll",
     summary: "Monthly salaries with attendance, leave, tax, loans, expenses and commission worked out for you.",
     steps: [
-      "HR → Payroll → Payrolls → generate the month.",
+      "HR → Payroll → pick the month and press Create & calculate.",
       "Check the salary sheet: unpaid leave, absents, tax, loans, expenses, rewards and commission are already applied.",
       "Approve the run; payslips appear in each employee's My Space.",
-      "Salary Revisions handles increments (with approval and an effective date); Final Settlement calculates dues when someone leaves.",
+      "The Payroll tabs also hold Payslips, Salary revisions (increments with approval), Loans & expenses and Final settlement.",
     ],
     tips: ["“Do Not Use in Payroll” on an employee's salary tab leaves them out of runs."],
   },

@@ -14,8 +14,6 @@ export type NavItem = {
   /** Sub-menu (e.g. Compliance ▸, Settings ▸). The parent's href is its first child's. */
   children?: NavItem[];
 };
-/** Shorthand for a sub-menu entry. */
-const sub = (label: string, children: NavItem[], icon = children[0]!.icon): NavItem => ({ href: children[0]!.href, label, icon, children });
 /** A group of items. In a "modules" app (HR) each group is a module: an icon on the rail and its pages in the panel. */
 export type NavGroup = { label?: string; icon?: string; items: NavItem[] };
 
@@ -56,218 +54,19 @@ export const APPS: AppDef[] = [
   },
   {
     key: "hr", name: "HR", description: "People, attendance, payroll, requests", icon: "users", tile: "from-violet-500 to-fuchsia-700",
-    home: "/hr", prefixes: ["/hr", "/reports/hr", "/settings/hr", "/approvals"], layout: "modules",
+    home: "/hr", prefixes: ["/hr", "/reports/hr", "/settings/hr", "/approvals"], layout: "list",
+    // Seven entries; the screens inside each are tabs across the top (lib/sections.ts), the rest are tiles on More.
     groups: [
-      { label: "Dashboard", icon: "layout", items: [{ href: "/hr", label: "Attendance overview", icon: "layout", module: "hr.attendance" }] },
       {
-        label: "People", icon: "users",
+        label: "HR",
         items: [
-          { href: "/me", label: "Profile", icon: "user" },
-          { href: "/hr/employees?tab=org", label: "Hierarchy", icon: "hierarchy", module: "hr.employees" },
-          { href: "/hr/employees", label: "Employee", icon: "users", module: "hr.employees" },
-          { href: "/hr/organization", label: "Organization", icon: "landmark", module: "hr.employees" },
-          { href: "/hr/assets", label: "Asset", icon: "laptop", module: "hr.assets" },
-          { href: "/hr/salary-revisions", label: "Salary Revisions", icon: "trending", module: "hr.payroll" },
-          { href: "/hr/leave-encashment", label: "Leave Encashment", icon: "banknote", module: "hr.leave" },
-          sub("Compliance", [
-            { href: "/hr/policies", label: "Policy Documents", icon: "filecheck", module: "hr.employees" },
-            { href: "/hr/policies/planner", label: "Policy Planner", icon: "calendar", module: "hr.employees" },
-            { href: "/settings/hr#shifts", label: "Attendance Policy", icon: "clock", module: "hr.employees" },
-            { href: "/settings/hr#approvals", label: "Request Policy", icon: "check", module: "hr.employees" },
-            { href: "/hr/employees?tab=documents", label: "Renewals", icon: "refresh", module: "hr.employees" },
-          ], "clipboard"),
-          { href: "/hr/exits", label: "End Of Employment", icon: "doorout", module: "hr.employees" },
-          { href: "/reports/hr", label: "Reports", icon: "pie", module: "reports.hr" },
-          sub("Settings", [
-            { href: "/settings/hr", label: "General", icon: "sliders", module: "hr.employees" },
-            { href: "/settings/roles", label: "Privileges", icon: "shield", module: "settings.roles" },
-            { href: "/settings/hr#checklists", label: "Checklist", icon: "clipboard", module: "hr.employees" },
-            { href: "/hr/letters", label: "Letter Management", icon: "mail", module: "hr.employees" },
-            { href: "/settings/hr#departments", label: "Manage Employee", icon: "usercog", module: "hr.employees" },
-            { href: "/hr/policies/manage", label: "Policy Management", icon: "filecheck", module: "hr.employees" },
-            { href: "/settings/hr#designations", label: "Manage Employments", icon: "briefcase", module: "hr.employees" },
-            { href: "/hr/engagement", label: "Employee Engagement", icon: "heart", module: "hr.employees" },
-          ], "settings"),
-        ],
-      },
-      {
-        label: "Payroll", icon: "wallet",
-        items: [
-          { href: "/hr/payroll/dashboard", label: "Dashboard", icon: "layout", module: "hr.payroll" },
-          { href: "/hr/payroll", label: "Payrolls", icon: "wallet", module: "hr.payroll" },
-          { href: "/hr/payroll?tab=salaries", label: "Salary Sheet", icon: "sheet", module: "hr.payroll" },
-          { href: "/hr/payroll/payslips", label: "Payslips", icon: "receipt", module: "hr.payroll" },
-          { href: "/hr/payroll/vouchers", label: "Vouchers", icon: "ticket", module: "hr.payroll" },
-          { href: "/hr/payroll/settlements", label: "Final Settlement", icon: "handshake", module: "hr.payroll" },
-          sub("Custom Payitems", [
-            { href: "/hr/payroll/items/commission", label: "Commission", icon: "plus", module: "hr.payroll" },
-            { href: "/hr/payroll/items/late-sittings", label: "No. Of Late Sittings", icon: "plus", module: "hr.payroll" },
-          ], "sliders"),
-          { href: "/hr/expenses", label: "Balances", icon: "scale", module: "hr.expenses" },
-          { href: "/hr/payroll/reports", label: "Reports", icon: "pie", module: "hr.payroll" },
-          sub("Settings", [
-            { href: "/hr/payroll?tab=settings", label: "General", icon: "sliders", module: "hr.payroll" },
-            { href: "/hr/payroll?tab=settings#tax", label: "Tax", icon: "percent", module: "hr.payroll" },
-            { href: "/hr/payroll/rewards", label: "Rewards", icon: "award", module: "hr.payroll" },
-            { href: "/hr/payroll?tab=settings#components", label: "Pay Component", icon: "puzzle", module: "hr.payroll" },
-            { href: "/hr/payroll/account-types", label: "Account Type", icon: "user", module: "hr.payroll" },
-            { href: "/hr/payroll/banks", label: "Disbursement Banks", icon: "landmark", module: "hr.payroll" },
-          ], "settings"),
-        ],
-      },
-      {
-        label: "Attendance", icon: "clock",
-        items: [
-          { href: "/hr/attendance", label: "Daily attendance", icon: "clock", module: "hr.attendance" },
-          { href: "/hr/attendance/schedule", label: "Scheduling", icon: "calendar", module: "hr.attendance" },
-          { href: "/hr/attendance?view=month", label: "Time Sheet", icon: "sheet", module: "hr.attendance" },
-          { href: "/hr/attendance/logs", label: "Attendance Logs", icon: "history", module: "hr.attendance" },
-          { href: "/hr/attendance/device-changes", label: "Device Change Approvals", icon: "filecheck", module: "hr.attendance" },
-          { href: "/hr/attendance/machines", label: "Attendance Machines", icon: "fingerprint", module: "hr.attendance" },
-          { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave" },
-          sub("Reports", [
-            { href: "/hr/attendance/reports/time", label: "Time", icon: "clock", module: "hr.attendance" },
-            { href: "/hr/attendance/reports/scheduling", label: "Scheduling", icon: "calendar", module: "hr.attendance" },
-            { href: "/hr/leave?tab=balances", label: "Leave", icon: "plane", module: "hr.leave" },
-            { href: "/hr/attendance/reports/travel", label: "Travel", icon: "plane", module: "hr.attendance" },
-          ], "pie"),
-          sub("Settings", [
-            { href: "/settings/hr#shifts", label: "General", icon: "sliders", module: "hr.employees" },
-            { href: "/settings/hr#leave-types", label: "Types", icon: "list", module: "hr.employees" },
-            { href: "/settings/hr#geofence", label: "Restrictions", icon: "ban", module: "hr.employees" },
-            { href: "/settings/hr#holidays", label: "Holidays", icon: "calendar", module: "hr.employees" },
-          ], "settings"),
-        ],
-      },
-      {
-        label: "Requests", icon: "check",
-        items: [
-          { href: "/approvals", label: "All requests", icon: "check" },
-          sub("General Tickets", [
-            { href: "/hr/requests/tickets/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=ticket", label: "Assigned", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
-          ], "ticket"),
-          sub("Punch", [
-            { href: "/me/attendance", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=attendance_correction", label: "Approvals", icon: "filecheck" },
-          ], "fingerprint"),
-          sub("Expense", [
-            { href: "/me/expenses", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=expense", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
-          ], "receipt"),
-          sub("Leave", [
-            { href: "/me/leave", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=leave", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#leave-types", label: "Settings", icon: "settings", module: "hr.employees" },
-          ], "plane"),
-          sub("Loans & Advances", [
-            { href: "/me/expenses#loans", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=loan", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
-          ], "banknote"),
-          sub("WFH", [
-            { href: "/hr/requests/wfh/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=wfh", label: "Approvals", icon: "filecheck" },
-          ], "sofa"),
-          sub("Official Duty", [
-            { href: "/hr/requests/official-duty/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=official_duty", label: "Approvals", icon: "filecheck" },
-          ], "briefcase"),
-          sub("Overtime", [
-            { href: "/hr/requests/overtime/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=overtime", label: "Approvals", icon: "filecheck" },
-          ], "timer"),
-          sub("Promotions", [
-            { href: "/hr/requests/promotions/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=promotion", label: "Approvals", icon: "filecheck" },
-          ], "trending"),
-          sub("Relaxation", [
-            { href: "/hr/requests/relaxation/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=relaxation", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
-          ], "coffee"),
-          sub("Transfer", [
-            { href: "/hr/requests/transfer/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=transfer", label: "Approvals", icon: "filecheck" },
-          ], "refresh"),
-          sub("Travel", [
-            { href: "/hr/requests/travel/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=travel", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
-          ], "plane"),
-          sub("Requisition", [
-            { href: "/hr/requests/requisition/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=requisition", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
-          ], "users"),
-          sub("Resignation", [
-            { href: "/hr/requests/resignation/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=resignation", label: "Approvals", icon: "filecheck" },
-          ], "doorout"),
-          sub("Shift Adjustment", [
-            { href: "/hr/requests/shift-adjustment/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=shift_adjustment", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
-          ], "clock"),
-          sub("CPL", [
-            { href: "/hr/requests/cpl/new", label: "Request", icon: "chatplus" },
-            { href: "/approvals?type=cpl", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
-          ], "calendar"),
-          sub("Settings", [{ href: "/settings/hr#approvals", label: "General", icon: "sliders", module: "hr.employees" }], "settings"),
-        ],
-      },
-      {
-        label: "Assessment", icon: "trending",
-        items: [
-          { href: "/hr/performance", label: "Performance", icon: "trending", module: "hr.performance" },
-          sub("Probations", [
-            { href: "/hr/employees?status=probation", label: "Probationers", icon: "briefcase", module: "hr.employees" },
-            { href: "/hr/probation", label: "Probation Evaluation", icon: "filecheck", module: "hr.performance" },
-          ], "briefcase"),
-          { href: "/hr/performance/reports", label: "Reports", icon: "pie", module: "hr.performance" },
-          sub("Settings", [
-            { href: "/hr/performance/general", label: "General", icon: "sliders", module: "hr.performance" },
-            { href: "/settings/hr#checklists", label: "Probation", icon: "chatplus", module: "hr.employees" },
-            { href: "/hr/performance/settings", label: "Performance", icon: "gauge", module: "hr.performance" },
-          ], "settings"),
-        ],
-      },
-      { label: "Recruitment", icon: "briefcase", items: [{ href: "/hr/recruitment", label: "Recruitment", icon: "briefcase", module: "hr.recruitment" }] },
-      {
-        label: "Reports", icon: "pie",
-        items: [
-          { href: "/reports/hr", label: "All Reports", icon: "pie", module: "reports.hr" },
-          sub("Generate Reports", [
-            { href: "/reports/hr/employees", label: "Employee Reports", icon: "file", module: "reports.hr" },
-            { href: "/reports/hr/probation", label: "Employee Probation Reports", icon: "file", module: "reports.hr" },
-            { href: "/hr/leave?tab=balances", label: "Leave Reports", icon: "file", module: "hr.leave" },
-            { href: "/reports/hr/travel", label: "Travel Reports", icon: "file", module: "reports.hr" },
-            { href: "/reports/hr/expenses", label: "Expense Reports", icon: "file", module: "reports.hr" },
-            { href: "/reports/hr/loans", label: "Loan & Advances Reports", icon: "file", module: "reports.hr" },
-            { href: "/hr/attendance?view=month", label: "Attendance Reports", icon: "file", module: "hr.attendance" },
-            { href: "/reports/hr/payroll", label: "Payroll Reports", icon: "file", module: "reports.hr" },
-          ], "fileplus"),
-        ],
-      },
-      {
-        label: "System Settings", icon: "settings",
-        items: [
-          { href: "/settings/hr", label: "General", icon: "sliders", module: "hr.employees" },
-          { href: "/settings/roles", label: "Access Controls", icon: "shield", module: "settings.roles" },
-          { href: "/hr/settings/email-verification", label: "Email Verification", icon: "mail", module: "settings.company" },
-          { href: "/hr/attendance/machines", label: "Machine", icon: "fingerprint", module: "hr.attendance" },
-          { href: "/settings/integrations#email", label: "Mail Logs", icon: "mail", module: "settings.company" },
-          { href: "/settings/integrations", label: "Integrations", icon: "plug", module: "settings.company" },
-          sub("Customization", [
-            { href: "/hr/settings/custom-fields", label: "Custom Fields", icon: "list", module: "settings.company" },
-            { href: "/hr/settings/dashboard", label: "Dashboard", icon: "layout", module: "settings.company" },
-          ], "sliders"),
-          sub("Templates", [
-            { href: "/hr/settings/notification-templates", label: "Notification", icon: "bell", module: "settings.company" },
-          ], "layout"),
+          { href: "/hr", label: "Home", icon: "layout", module: "hr.attendance", anyModule: ["hr.employees"] },
+          { href: "/hr/employees", label: "People", icon: "users", module: "hr.employees", also: ["/hr/organization", "/hr/exits"] },
+          { href: "/hr/attendance", label: "Attendance", icon: "clock", module: "hr.attendance" },
+          { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave", also: ["/hr/leave-encashment"] },
+          { href: "/hr/payroll", label: "Payroll", icon: "wallet", module: "hr.payroll", anyModule: ["hr.expenses"], also: ["/hr/salary-revisions", "/hr/expenses"] },
+          { href: "/approvals", label: "Approvals", icon: "filecheck" },
+          { href: "/hr/more", label: "More", icon: "layout", also: ["/hr/recruitment", "/hr/performance", "/hr/probation", "/hr/assets", "/hr/policies", "/hr/letters", "/hr/engagement", "/hr/requests", "/hr/settings", "/reports/hr", "/settings/hr"] },
         ],
       },
     ],

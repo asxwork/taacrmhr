@@ -309,31 +309,28 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
     </Card>
   );
 
+  const documents = f.docs === "hidden" ? null : (
+    <div className="space-y-4">
+      {docsTab}
+      <Card className="p-4">
+        <SectionTitle icon={<FileText className="size-4" />}>Generate Documents</SectionTitle>
+        <MiniTable head={["Letter", "Issued", ""]} empty="No letters issued yet."
+          rows={emp.letters.map((l) => [l.title, fmtDate(l.issuedAt), <a key="p" href={`/print/letter/${l.id}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-navy-700 hover:underline">Open / print</a>])} />
+      </Card>
+    </div>
+  );
+  const stack = (...parts: React.ReactNode[]) => <div className="space-y-4">{parts.filter(Boolean)}</div>;
+  // Five tabs (the old eleven grouped by what people look for); extra page tabs (history, checklists) form History.
   const tabs: ProfileTab[] = [
-    { key: "info", label: "Employee Info", content: employeeInfo },
-    { key: "employment", label: "Employment Info", content: employment },
-    { key: "salary", label: "Salary & Benefits Info", content: salary },
-    { key: "user", label: "User Information", content: user },
-    { key: "contact", label: "Contact Info", content: contact },
-    { key: "assets", label: "Assets", count: emp.assets.length, content: assets },
-    ...(f.personal === "hidden" ? [] : [{ key: "relatives", label: "Relatives", count: emp.relatives.length, content: relatives }]),
-    { key: "qualifications", label: "Qualifications & Experiences", count: emp.qualifications.length, content: qualifications },
-    ...(f.docs === "hidden" ? [] : [{
-      key: "documents", label: "My Documents", count: emp.documents.length + emp.letters.length, content: (
-        <div className="space-y-4">
-          {docsTab}
-          <Card className="p-4">
-            <SectionTitle icon={<FileText className="size-4" />}>Generate Documents</SectionTitle>
-            <MiniTable head={["Letter", "Issued", ""]} empty="No letters issued yet."
-              rows={emp.letters.map((l) => [l.title, fmtDate(l.issuedAt), <a key="p" href={`/print/letter/${l.id}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-navy-700 hover:underline">Open / print</a>])} />
-          </Card>
-        </div>
-      ),
-    }]),
-    { key: "policies", label: "Policies", content: policies },
-    ...(f.bank === "hidden" ? [] : [{ key: "banks", label: "Banks", content: banks }]),
-    ...extraTabs,
+    { key: "info", label: "Overview", content: stack(employeeInfo, contact, f.personal === "hidden" ? null : relatives, user) },
+    { key: "job", label: "Job & Pay", content: stack(employment, salary, f.bank === "hidden" ? null : banks, assets) },
+    { key: "documents", label: "Documents", count: (f.docs === "hidden" ? 0 : emp.documents.length + emp.letters.length) + emp.qualifications.length || undefined, content: stack(documents, qualifications) },
+    { key: "time", label: "Time off & Attendance", content: policies },
+    ...(extraTabs.length ? [{ key: "history", label: "History", count: extraTabs.reduce((n, t) => n + (t.count ?? 0), 0) || undefined, content: stack(...extraTabs.map((t) => t.content)) }] : []),
   ];
+  // Links to the old tab names still open the right tab.
+  const OLD: Record<string, string> = { employment: "job", salary: "job", banks: "job", assets: "job", contact: "info", user: "info", relatives: "info", qualifications: "documents", policies: "time", checklist: "history" };
+  const openTab = OLD[initialTab] ?? initialTab;
 
   return (
     <>
@@ -364,7 +361,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
         {actions && <div className="flex flex-wrap justify-end gap-2 border-t border-white/10 bg-black/10 px-5 py-2.5">{actions}</div>}
       </div>
       {banner}
-      <ProfileTabs tabs={tabs} initial={initialTab} />
+      <ProfileTabs tabs={tabs} initial={openTab} />
     </>
   );
 }
