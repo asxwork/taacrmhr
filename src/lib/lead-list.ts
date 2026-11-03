@@ -6,6 +6,7 @@ import { scopeMatcher, scopeWhere } from "./permissions";
 import { LEAD_FILTER_KEYS, leadWhere, type LeadFilters } from "./lead-filters";
 import type { SessionUser } from "./auth";
 import { fieldAccess } from "./field-rules";
+import { leadScore } from "./lead-score";
 import { maskPhone, shown } from "./field-defs";
 import { telHref, waHref } from "./crm-shared";
 
@@ -31,6 +32,8 @@ export type LeadRow = {
   reshuffleCount: number | null;
   editable: boolean;
   next: NextActivity | null;
+  /** Lead score 0–100 (lib/lead-score.ts). */
+  score: number;
 };
 
 export type NextActivity = { subject: string; due: string; late: boolean; owner: string | null };
@@ -51,7 +54,8 @@ export function filtersFrom(sp: Record<string, string | undefined>): LeadFilters
 }
 
 export async function loadLeadList(user: SessionUser, filters: LeadFilters, view: "list" | "board", page: number): Promise<LeadListData> {
-  const statuses = await db.leadStatus.findMany({ where: { active: true }, select: { id: true, kind: true } });
+  const statuses = await db.leadStatus.findMany({ where: { active: true }, select: { id: true, kind: true, sortOrder: true }, orderBy: { sortOrder: "asc" } });
+  const openIds = statuses.filter((s) => s.kind === "open").map((s) => s.id);
   const [where, scope, canEditRow, fields] = await Promise.all([leadWhere(user, filters, statuses), scopeWhere(user, "crm.leads"), scopeMatcher(user, "crm.leads", "edit"), fieldAccess(user)]);
   const phoneMode = fields["lead.phone"];
   const openWhere = { ...scope, statusId: { in: statuses.filter((s) => s.kind === "open").map((s) => s.id) } };
@@ -72,11 +76,12 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
 
   // Next planned activity per lead (the Bitrix "Activity" column).
   const next = new Map<string, LeadRow["next"]>();
+  const nextDue = new Map<string, Date>();
   for (const a of await db.activity.findMany({
     where: { leadId: { in: leads.map((l) => l.id) }, doneAt: null, dueAt: { not: null } },
     select: { leadId: true, subject: true, dueAt: true, owner: { select: { name: true } } },
     orderBy: { dueAt: "asc" },
-  })) if (a.leadId && !next.has(a.leadId)) next.set(a.leadId, nextActivity(a));
+  })) if (a.leadId && !next.has(a.leadId)) { next.set(a.leadId, nextActivity(a)); nextDue.set(a.leadId, a.dueAt!); }
 
   return {
     total,
@@ -100,6 +105,11 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
       reshuffleCount: l.reshuffledAt ? l.reshuffleCount : null,
       editable: canEditRow(l),
       next: next.get(l.id) ?? null,
+      score: leadScore({
+        kind: statuses.find((s) => s.id === l.statusId)?.kind ?? "open", stageIndex: Math.max(0, openIds.indexOf(l.statusId)), stageCount: openIds.length,
+        createdAt: l.createdAt, lastActivityAt: l.lastActivityAt, hasBudget: !!(l.budgetMin || l.budgetMax), hasProperty: !!(l.projectId || l.unitId),
+        nextDue: nextDue.get(l.id) ?? null,
+      }),
     })),
   };
 }

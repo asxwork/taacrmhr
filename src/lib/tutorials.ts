@@ -13,6 +13,8 @@ export type Tutorial = {
   href?: string;
   /** Video chapter key, if the full tour covers it. */
   chapter?: string;
+  /** Who sees this tutorial: people who can view `module` (with `action`), or Super Admins only. None = everyone. */
+  module?: string; action?: import("./rbac").Action; superAdmin?: boolean;
 };
 
 export const TUTORIAL_GROUPS = ["Getting started", "CRM", "Calls", "HR", "My Space", "Admin"] as const;
@@ -55,7 +57,7 @@ export const TUTORIALS: Tutorial[] = [
 
   // ── CRM
   {
-    key: "add-lead", group: "CRM", title: "Adding a lead", who: "Agents, managers", href: "/crm/leads/new", chapter: "leads",
+    key: "add-lead", group: "CRM", module: "crm.leads", title: "Adding a lead", who: "Agents, managers", href: "/crm/leads/new", chapter: "leads",
     summary: "Create a lead with the client's name and at least one phone number or email.",
     steps: [
       "Go to Leads and press Create (or use the + on the phone bar).",
@@ -67,7 +69,7 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Leads from Facebook, Zameen and your website arrive automatically and are shared out by rotation."],
   },
   {
-    key: "leads-list", group: "CRM", title: "Working the leads list", who: "Agents, managers", href: "/crm/leads", chapter: "leads",
+    key: "leads-list", group: "CRM", module: "crm.leads", title: "Working the leads list", who: "Agents, managers", href: "/crm/leads", chapter: "leads",
     summary: "Filter, sort and move leads through stages; switch between list and Kanban board.",
     steps: [
       "Use the tabs: All leads, My leads, Follow-ups, Tasks & calendar, Converted, Closed.",
@@ -79,7 +81,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "lead-page", group: "CRM", title: "Inside a lead: calls, notes and follow-ups", who: "Agents, managers", chapter: "lead-page",
+    key: "lead-page", group: "CRM", module: "crm.leads", title: "Inside a lead: calls, notes and follow-ups", who: "Agents, managers", chapter: "lead-page",
     summary: "Everything about one client: details on the left, the timeline and next steps on the right.",
     steps: [
       "Open a lead from the list. The call and WhatsApp buttons at the top dial straight away.",
@@ -91,7 +93,7 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Leads not worked in time can go On-hold and come back for reassignment (CRM Settings → On-hold rules)."],
   },
   {
-    key: "follow-ups", group: "CRM", title: "Follow-ups and tasks", who: "Agents, managers", href: "/crm/follow-ups", chapter: "follow-ups",
+    key: "follow-ups", group: "CRM", module: "crm.leads", title: "Follow-ups and tasks", who: "Agents, managers", href: "/crm/follow-ups", chapter: "follow-ups",
     summary: "Your to-do list: overdue calls, today's tasks, leads never contacted and leads with no next step.",
     steps: [
       "Open Leads → Follow-ups. Start with Overdue, then Due today.",
@@ -101,7 +103,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "deals", group: "CRM", title: "Deals and payments", who: "Agents, managers, accounts", href: "/crm/deals", chapter: "deals",
+    key: "deals", group: "CRM", module: "crm.deals", title: "Deals and payments", who: "Agents, managers, accounts", href: "/crm/deals", chapter: "deals",
     summary: "Track sales from offer to closing, then installments and payments.",
     steps: [
       "Deals → Pipeline shows deals by stage; drag a card to move it. Deal list shows the same as a table.",
@@ -111,7 +113,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "contacts-property", group: "CRM", title: "Contacts, companies and property", who: "Agents, managers", href: "/crm/contacts", chapter: "property",
+    key: "contacts-property", group: "CRM", module: "crm.contacts", title: "Contacts, companies and property", who: "Agents, managers", href: "/crm/contacts", chapter: "property",
     summary: "Clients and companies, plus your projects and units with photos and prices.",
     steps: [
       "Contacts & Property → Contacts / Companies lists your clients; each has their deals and history.",
@@ -121,7 +123,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "crm-reports", group: "CRM", title: "CRM reports", who: "Managers, Boss", href: "/reports/crm", chapter: "reports",
+    key: "crm-reports", group: "CRM", module: "reports.crm", title: "CRM reports", who: "Managers, Boss", href: "/reports/crm", chapter: "reports",
     summary: "Leads by source and stage, conversion, agent leaderboard and won value.",
     steps: [
       "Open Reports. Pick the date range and branch at the top.",
@@ -133,7 +135,7 @@ export const TUTORIALS: Tutorial[] = [
 
   // ── Calls
   {
-    key: "dialer", group: "Calls", title: "Calling from the dialer (CSR)", who: "Calling team", href: "/calls", chapter: "calls",
+    key: "dialer", group: "Calls", module: "calls", title: "Calling from the dialer (CSR)", who: "Calling team", href: "/calls", chapter: "calls",
     summary: "Your numbers come one by one: call, pick what happened, and the next number loads.",
     steps: [
       "Open Calls → Dialer. Numbers come in order: due callbacks, new numbers, then unanswered ones after a few hours.",
@@ -145,7 +147,7 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Callbacks and History tabs show your planned callbacks and every call you made."],
   },
   {
-    key: "campaigns", group: "Calls", title: "Campaigns, batches and the wallboard", who: "Calling supervisors", href: "/calls/campaigns", chapter: "calls",
+    key: "campaigns", group: "Calls", module: "calls", action: "create", title: "Campaigns, batches and the wallboard", who: "Calling supervisors", href: "/calls/campaigns", chapter: "calls",
     summary: "Upload numbers, split them into batches for agents, and watch the team live.",
     steps: [
       "Calls → Campaigns → New campaign: name, script and WhatsApp message.",
@@ -156,7 +158,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "softphone", group: "Calls", title: "Phone system and recordings", who: "Super Admin", href: "/calls/phone-system", chapter: "calls",
+    key: "softphone", group: "Calls", superAdmin: true, title: "Phone system and recordings", who: "Super Admin", href: "/calls/phone-system", chapter: "calls",
     summary: "Connect agents' Issabel extensions so they call from AMS, with recordings for permitted people only.",
     steps: [
       "Calls → Phone system: enter the WebRTC (WSS) address of your Issabel PBX.",
@@ -168,7 +170,7 @@ export const TUTORIALS: Tutorial[] = [
 
   // ── HR
   {
-    key: "hr-dashboard", group: "HR", title: "HR dashboard", who: "HR, managers", href: "/hr", chapter: "hr",
+    key: "hr-dashboard", group: "HR", module: "hr.attendance", title: "HR dashboard", who: "HR, managers", href: "/hr", chapter: "hr",
     summary: "Today's attendance, pending approvals, birthdays, headcount and month-wise absents at a glance.",
     steps: [
       "Open HR. The tiles show who is present, late, absent or on leave today — click a tile to see the people.",
@@ -177,7 +179,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "employees", group: "HR", title: "Employees and profiles", who: "HR", href: "/hr/employees", chapter: "hr",
+    key: "employees", group: "HR", module: "hr.employees", title: "Employees and profiles", who: "HR", href: "/hr/employees", chapter: "hr",
     summary: "Add employees, keep their full profile, documents and history up to date.",
     steps: [
       "HR → People → New employee: name, joining date, department, designation, branch and salary.",
@@ -188,7 +190,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "attendance", group: "HR", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
+    key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [
       "HR → Attendance shows today: present, late, absent, on leave. Switch to Monthly register for the whole month (50 people per page).",
@@ -198,7 +200,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "leave", group: "HR", title: "Leave", who: "HR, managers", href: "/hr/leave", chapter: "leave",
+    key: "leave", group: "HR", module: "hr.leave", title: "Leave", who: "HR, managers", href: "/hr/leave", chapter: "leave",
     summary: "Leave requests, approvals, balances and encashment.",
     steps: [
       "Employees apply from My Space → Requests → Leave; the request goes to their line manager, then HR.",
@@ -216,7 +218,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "payroll", group: "HR", title: "Running payroll", who: "Payroll / accounts", href: "/hr/payroll", chapter: "payroll",
+    key: "payroll", group: "HR", module: "hr.payroll", title: "Running payroll", who: "Payroll / accounts", href: "/hr/payroll", chapter: "payroll",
     summary: "Monthly salaries with attendance, leave, tax, loans, expenses and commission worked out for you.",
     steps: [
       "HR → Payroll → pick the month and press Create & calculate.",
@@ -250,7 +252,7 @@ export const TUTORIALS: Tutorial[] = [
 
   // ── Admin
   {
-    key: "users-roles", group: "Admin", title: "Users and roles", who: "Super Admin, admins", href: "/settings/users", chapter: "admin",
+    key: "users-roles", group: "Admin", module: "settings.users", title: "Users and roles", who: "Super Admin, admins", href: "/settings/users", chapter: "admin",
     summary: "Who can sign in, and what each role can see and do.",
     steps: [
       "Settings → Users → New user: name, email, branch, who they report to, roles and a starting password.",
@@ -260,7 +262,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "access-exceptions", group: "Admin", title: "Access exceptions for one person", who: "Super Admin, admins", chapter: "admin",
+    key: "access-exceptions", group: "Admin", module: "settings.roles", title: "Access exceptions for one person", who: "Super Admin, admins", chapter: "admin",
     summary: "Give someone a bit more or less than their role without making a new role.",
     steps: [
       "Settings → Users → open the person → Access exceptions.",
@@ -269,7 +271,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "field-rules", group: "Admin", title: "Field rules: hide or mask sensitive data", who: "Super Admin, admins", chapter: "admin",
+    key: "field-rules", group: "Admin", module: "settings.roles", title: "Field rules: hide or mask sensitive data", who: "Super Admin, admins", chapter: "admin",
     summary: "Hide or mask fields such as lead phone numbers, deal values, salary, CNIC and bank details per role.",
     steps: [
       "Settings → Roles & Permissions → open a role → Field rules.",
@@ -279,7 +281,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "sign-in-hours", group: "Admin", title: "Sign-in hours, two-step login and auto sign-out", who: "Super Admin", href: "/settings/security", chapter: "admin",
+    key: "sign-in-hours", group: "Admin", superAdmin: true, title: "Sign-in hours, two-step login and auto sign-out", who: "Super Admin", href: "/settings/security", chapter: "admin",
     summary: "Control when people can use AMS and how they sign in.",
     steps: [
       "Roles & Permissions → a role → Sign-in hours: set the days and times that role may use AMS.",
@@ -288,7 +290,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "view-as", group: "Admin", title: "View as another user", who: "Super Admin", chapter: "admin",
+    key: "view-as", group: "Admin", superAdmin: true, title: "View as another user", who: "Super Admin", chapter: "admin",
     summary: "See AMS exactly as someone else does to check their access — read-only.",
     steps: [
       "Settings → Users → open the person → View as.",
@@ -297,7 +299,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "features", group: "Admin", title: "Turning features on and off", who: "Super Admin, admins", href: "/settings/features", chapter: "admin",
+    key: "features", group: "Admin", module: "settings.company", title: "Turning features on and off", who: "Super Admin, admins", href: "/settings/features", chapter: "admin",
     summary: "Hide whole features your company doesn't use (calls, inventory, payroll, recruitment…).",
     steps: [
       "Settings → Features and switch off what you don't use.",
@@ -305,7 +307,7 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "layouts", group: "Admin", title: "Layouts, company settings and the audit log", who: "Super Admin", href: "/settings/layouts", chapter: "admin",
+    key: "layouts", group: "Admin", superAdmin: true, title: "Layouts, company settings and the audit log", who: "Super Admin", href: "/settings/layouts", chapter: "admin",
     summary: "Arrange menus per role, set company details, and see who changed what.",
     steps: [
       "Settings → Layouts: per app and role, hide menu items, reorder sections and set the start page.",

@@ -17,7 +17,7 @@ export type NavItem = {
 /** A group of items. In a "modules" app (HR) each group is a module: an icon on the rail and its pages in the panel. */
 export type NavGroup = { label?: string; icon?: string; items: NavItem[] };
 
-export type AppKey = "crm" | "hr" | "me" | "boss" | "settings";
+export type AppKey = "crm" | "hr" | "me" | "boss" | "settings" | "learn";
 export type AppDef = {
   key: AppKey;
   name: string;
@@ -43,7 +43,7 @@ export const APPS: AppDef[] = [
         label: "CRM",
         items: [
           { href: "/dashboard", label: "Home", icon: "home" },
-          { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads", also: ["/crm/follow-ups", "/crm/tasks"] },
+          { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads", also: ["/crm/follow-ups", "/crm/tasks", "/crm/focus"] },
           { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals" },
           { href: "/calls", label: "Calls", icon: "phonecall", module: "calls" },
           { href: "/crm/contacts", label: "Contacts & Property", icon: "contact", module: "crm.contacts", anyModule: ["inventory.units", "inventory.projects"], also: ["/crm/companies", "/inventory"] },
@@ -91,6 +91,25 @@ export const APPS: AppDef[] = [
     key: "boss", name: "Boss dashboard", description: "The whole business at a glance", icon: "crown", tile: "from-amber-400 to-orange-600",
     home: "/boss", prefixes: ["/boss"], layout: "list",
     groups: [{ items: [{ href: "/boss", label: "Boss dashboard", icon: "crown", boss: true }] }],
+  },
+  {
+    // Tutorials app: everyone sees the tutorials for what their role can use; Super Admins see all of it.
+    key: "learn", name: "Tutorials", description: "Learn AMS: video tour and step-by-step guides", icon: "sparkles", tile: "from-amber-500 to-orange-700",
+    home: "/help", prefixes: ["/help"], layout: "list",
+    groups: [
+      {
+        label: "Tutorials",
+        items: [
+          { href: "/help", label: "All tutorials", icon: "sparkles" },
+          { href: "/help?g=start", label: "Getting started", icon: "home" },
+          { href: "/help?g=crm", label: "CRM", icon: "target", module: "crm.leads", anyModule: ["crm.deals", "crm.contacts"] },
+          { href: "/help?g=calls", label: "Calls", icon: "phonecall", module: "calls" },
+          { href: "/help?g=hr", label: "HR", icon: "users", module: "hr.employees", anyModule: ["hr.attendance", "hr.leave", "hr.payroll"] },
+          { href: "/help?g=me", label: "My Space", icon: "user" },
+          { href: "/help?g=admin", label: "Admin", icon: "usercog", module: "settings.users", anyModule: ["settings.roles", "settings.company"] },
+        ],
+      },
+    ],
   },
   {
     key: "settings", name: "Settings", description: "Users, roles, company, integrations", icon: "usercog", tile: "from-slate-500 to-slate-800",

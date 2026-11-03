@@ -8,6 +8,7 @@ import {
   List, Loader2, MessageCircle, Pencil, Phone, Play, Plus, Trash2, Upload, X,
 } from "lucide-react";
 import { ACTIVITY_TYPES, color, fmtPhone } from "@/lib/crm-shared";
+import { scoreLabel } from "@/lib/lead-score";
 import { LEAD_FILTER_KEYS, type LeadFilters } from "@/lib/lead-filters-shared";
 import type { LeadListData, LeadRow } from "@/lib/lead-list";
 import { cn } from "@/lib/utils";
@@ -300,6 +301,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                           </td>
                           <td className="td max-w-64">
                             <Link href={`/crm/leads/${l.id}`} className="font-medium text-navy-900 hover:underline">{l.name}</Link>
+                            {l.score >= 35 && <span title={`Lead score ${l.score}/100`} className={cn("ml-1.5 rounded-full px-1.5 py-px align-middle text-[10px] font-semibold", l.score >= 60 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700")}>{scoreLabel(l.score)}</span>}
                             <p className="truncate text-xs text-muted">{[l.source, l.project].filter(Boolean).join(" · ") || "—"}</p>
                           </td>
                           <td className="td">

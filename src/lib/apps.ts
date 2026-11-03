@@ -38,11 +38,11 @@ export function appsFor(user: SessionUser, layouts: Map<string, ResolvedLayout> 
     const items = groups.flatMap((g) => g.items.flatMap((i) => i.children ?? [i]));
     const home = l?.landing && items.some((i) => i.href === l.landing) ? l.landing : app.home;
     return { ...app, layout: l?.style ?? app.layout, groups, start: items.some((i) => i.href === home) ? home : items[0]?.href ?? app.home };
-  }).filter((app) => app.groups.length && (app.key === "me" || app.groups.some((g) => g.items.some(gated))));
+  }).filter((app) => app.groups.length && (app.key === "me" || app.key === "learn" || app.groups.some((g) => g.items.some(gated))));
   // "home" layout: which app tiles show, in what order (My Space always stays available).
   const tiles = layouts.get("home")?.apps;
   if (!tiles?.length) return apps;
-  return apps.filter((a) => tiles.includes(a.key) || a.key === "me").sort((a, b) => (tiles.indexOf(a.key) + 1 || 999) - (tiles.indexOf(b.key) + 1 || 999));
+  return apps.filter((a) => tiles.includes(a.key) || a.key === "me" || a.key === "learn").sort((a, b) => (tiles.indexOf(a.key) + 1 || 999) - (tiles.indexOf(b.key) + 1 || 999));
 }
 
 /** appsFor with the user's layouts loaded. */

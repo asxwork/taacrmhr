@@ -16,6 +16,7 @@ export const SECTIONS: Section[] = [
     key: "leads",
     tabs: [
       { href: "/crm/leads", label: "All leads", module: "crm.leads", params: { owner: null, group: null } },
+      { href: "/crm/focus", label: "Focus", module: "crm.leads" },
       { href: "/crm/leads?owner=me", label: "My leads", module: "crm.leads", params: { owner: "me", group: null } },
       { href: "/crm/follow-ups", label: "Follow-ups", module: "crm.leads" },
       { href: "/crm/tasks", label: "Tasks & calendar", module: "crm.activities" },
