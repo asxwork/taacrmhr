@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, PlayCircle, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).p
 /** Help page body: the full video tour with chapters, then searchable step-by-step tutorials. */
 export function TutorialsView({ tutorials, chapters, video }: { tutorials: Tutorial[]; chapters: Chapter[]; video: string | null }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const top = useRef<HTMLElement>(null);
   const [q, setQ] = useState("");
   const [now, setNow] = useState(0);
   const play = (start: number) => {
@@ -20,9 +21,19 @@ export function TutorialsView({ tutorials, chapters, video }: { tutorials: Tutor
     if (!v) return;
     v.currentTime = start;
     void v.play();
-    v.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Bring the whole player into view (below the sticky header) only if it is off screen.
+    const r = top.current?.getBoundingClientRect();
+    if (r && (r.top < 64 || r.top > window.innerHeight * 0.5)) top.current!.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const chapterAt = [...chapters].reverse().find((c) => c.start <= now);
+  // Keep the playing chapter's chip visible in the swipe row (and the side list).
+  useEffect(() => {
+    if (!chapterAt) return;
+    const el = top.current?.querySelector<HTMLElement>(`[data-ch="${chapterAt.key}"]`);
+    const box = el?.parentElement;
+    if (!el || !box) return; // scroll only the chapter strip, never the page
+    box.scrollTo({ left: el.offsetLeft - box.clientWidth / 2 + el.clientWidth / 2, top: el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2, behavior: "smooth" });
+  }, [chapterAt?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t) return tutorials;
@@ -31,23 +42,32 @@ export function TutorialsView({ tutorials, chapters, video }: { tutorials: Tutor
 
   return (
     <div className="space-y-8">
-      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="bg-navy-950">
+      <section ref={top} className="scroll-mt-20 overflow-hidden rounded-2xl border border-line bg-surface">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="flex items-center justify-center bg-navy-950">
             {video ? (
-              <video ref={ref} src={video} controls preload="metadata" playsInline className="aspect-video w-full" onTimeUpdate={(e) => setNow(e.currentTarget.currentTime)} />
+              <video ref={ref} src={video} controls preload="metadata" playsInline className="aspect-video max-h-[75svh] w-full" onTimeUpdate={(e) => setNow(e.currentTarget.currentTime)} />
             ) : (
-              <div className="flex aspect-video items-center justify-center p-6 text-center text-sm text-white/70">The full video tour is being prepared. Meanwhile, every step is written out below.</div>
+              <div className="flex aspect-video w-full items-center justify-center p-6 text-center text-sm text-white/70">The full video tour is being prepared. Meanwhile, every step is written out below.</div>
             )}
           </div>
-          <div className="max-h-[420px] overflow-y-auto border-t border-line p-3 lg:border-l lg:border-t-0">
-            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-muted">Full tour · chapters</p>
-            {chapters.map((c) => (
-              <button key={c.key} type="button" onClick={() => play(c.start)} disabled={!video}
-                className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-canvas disabled:opacity-50", chapterAt?.key === c.key && "bg-navy-900/5 font-medium")}>
-                <PlayCircle className="size-4 shrink-0 text-gold-600" /><span className="flex-1">{c.title}</span><span className="text-xs tabular-nums text-muted">{fmt(c.start)}</span>
-              </button>
-            ))}
+          {/* Phones/tablets: one swipeable row of chapter chips. Wide screens: a side list as tall as the video. */}
+          <div className="relative border-t border-line xl:border-l xl:border-t-0">
+            <div className="xl:absolute xl:inset-0 xl:flex xl:flex-col">
+              <p className="flex items-baseline justify-between gap-2 px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-muted">
+                <span>Chapters</span>
+                {chapterAt && <span className="truncate normal-case tracking-normal text-ink">Now: {chapterAt.title}</span>}
+              </p>
+              <div className="relative flex gap-2 overflow-x-auto px-4 py-3 [scrollbar-width:none] xl:block xl:flex-1 xl:space-y-0.5 xl:overflow-y-auto xl:px-2">
+                {chapters.map((c) => (
+                  <button key={c.key} type="button" data-ch={c.key} onClick={() => play(c.start)} disabled={!video}
+                    className={cn("flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-3 py-1.5 text-sm hover:bg-canvas disabled:opacity-50 xl:w-full xl:gap-2 xl:rounded-lg xl:border-0 xl:px-2 xl:text-left",
+                      chapterAt?.key === c.key && "border-gold-600 bg-gold-600/10 font-medium")}>
+                    <PlayCircle className="size-4 shrink-0 text-gold-600" /><span className="xl:flex-1 xl:truncate">{c.title}</span><span className="text-xs tabular-nums text-muted">{fmt(c.start)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
