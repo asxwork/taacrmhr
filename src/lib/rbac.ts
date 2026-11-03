@@ -35,6 +35,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "crm.leads", label: "Leads", group: "CRM", actions: [...CRUD, "assign", "import", "bulk", "reopen"], scoped: true },
   { key: "crm.deals", label: "Deals", group: "CRM", actions: [...CRUD, "assign", "reopen"], scoped: true },
   { key: "crm.contacts", label: "Contacts & Companies", group: "CRM", actions: CRUD, scoped: true },
+  { key: "crm.targets", label: "Targets & leaderboard", group: "CRM", actions: ["view", "edit"], scoped: true },
   { key: "crm.activities", label: "Activities & Tasks", group: "CRM", actions: ["view", "create", "edit", "delete", "export"], scoped: true },
   { key: "inventory.projects", label: "Projects & Blocks", group: "Inventory", actions: CRUD, scoped: false },
   { key: "inventory.units", label: "Units / Listings", group: "Inventory", actions: [...CRUD, "assign"], scoped: true },
@@ -83,7 +84,7 @@ export function scopeOf(perms: PermissionMap, module: string, action: Action): S
 
 type RoleTemplate = { name: string; description: string; grants: Record<string, Partial<Record<Action, Scope>> | Scope> };
 
-const crmGroup = ["crm.leads", "crm.deals", "crm.contacts", "crm.activities"];
+const crmGroup = ["crm.leads", "crm.deals", "crm.contacts", "crm.activities", "crm.targets"];
 const hrGroup = MODULES.filter((m) => m.group === "HR").map((m) => m.key);
 
 function all(scope: Scope, keys: string[]) {
@@ -137,6 +138,7 @@ export const DEFAULT_ROLES: RoleTemplate[] = [
     description: "Works only their own leads, deals and listings.",
     grants: {
       "crm.leads": { view: "own", create: "own", edit: "own" },
+      "crm.targets": { view: "own" },
       "crm.deals": { view: "own", create: "own", edit: "own" },
       "crm.contacts": { view: "own", create: "own", edit: "own" },
       "crm.activities": { view: "own", create: "own", edit: "own", delete: "own" },

@@ -5,6 +5,8 @@ import { requireUser } from "@/lib/auth";
 import { can, scopeFor } from "@/lib/permissions";
 import { CrmOverview } from "./crm-overview";
 import { TodayAttendance } from "./today-attendance";
+import { MyTargets } from "./my-targets";
+import { disabledFeatures } from "@/lib/features";
 import { NAV } from "@/lib/nav";
 import { MODULE_MAP, SCOPE_LABELS } from "@/lib/rbac";
 import { db } from "@/lib/db";
@@ -16,6 +18,7 @@ export default async function DashboardPage() {
   const user = await requireUser();
   if (user.isBoss) redirect("/boss"); // the owner lands on their own overview
   const firstName = user.name.split(" ")[0];
+  const featureOff = (await disabledFeatures()).has("targets");
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
@@ -48,6 +51,7 @@ export default async function DashboardPage() {
       )}
 
       <TodayAttendance userId={user.id} />
+      {can(user, "crm.targets") && !featureOff && <MyTargets userId={user.id} />}
       {can(user, "crm.leads") && <CrmOverview user={user} />}
 
       <h2 className="mb-3 text-sm font-medium text-muted">Your workspace</h2>

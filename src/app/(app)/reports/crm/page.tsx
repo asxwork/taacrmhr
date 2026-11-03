@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth";
 import { format } from "date-fns";
 import { Download } from "lucide-react";
 import { db } from "@/lib/db";
@@ -14,6 +16,9 @@ export const metadata = { title: "CRM Reports" };
 type SP = { period?: string; from?: string; to?: string; branch?: string; owner?: string };
 
 export default async function CrmReportsPage({ searchParams }: { searchParams: Promise<SP> }) {
+  // Reports section: people with Targets but not CRM reports start on Targets.
+  const me = await requireUser();
+  if (!can(me, "reports.crm") && can(me, "crm.targets")) redirect("/reports/targets");
   const user = await requirePermission("reports.crm");
   const sp = await searchParams;
   const { from, to } = resolvePeriod(sp.period, sp.from, sp.to);

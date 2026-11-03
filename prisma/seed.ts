@@ -27,7 +27,7 @@ async function main() {
   ]);
 
   // Modules added after a role was first created: give the built-in role its default grants for them (once per module).
-  for (const mod of ["calls"]) {
+  for (const mod of ["calls", "crm.targets"]) {
     const flag = `rbac.added.${mod}`;
     if (await db.setting.findUnique({ where: { key: flag } })) continue;
     for (const tpl of DEFAULT_ROLES) {

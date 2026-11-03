@@ -18,7 +18,7 @@ export async function assignableUsers(user: SessionUser, module: string) {
 }
 
 /** Active users whose records fall inside the user's scope for module/action (owner filters, assignees). */
-export async function usersInScope(user: SessionUser, module: string, action: "view" | "assign") {
+export async function usersInScope(user: SessionUser, module: string, action: "view" | "assign" | "edit") {
   const scope = scopeFor(user, module, action);
   if (scope === "none") return [];
   const where =

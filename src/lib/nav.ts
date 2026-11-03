@@ -36,7 +36,7 @@ export type AppDef = {
 export const APPS: AppDef[] = [
   {
     key: "crm", name: "CRM", description: "Leads, deals, contacts, calls, inventory", icon: "target", tile: "from-sky-500 to-blue-700",
-    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents"], layout: "list",
+    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents", "/reports/targets"], layout: "list",
     // Six sections; the screens inside each are tabs across the top of the page (lib/sections.ts).
     groups: [
       {
@@ -47,7 +47,7 @@ export const APPS: AppDef[] = [
           { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals" },
           { href: "/calls", label: "Calls", icon: "phonecall", module: "calls" },
           { href: "/crm/contacts", label: "Contacts & Property", icon: "contact", module: "crm.contacts", anyModule: ["inventory.units", "inventory.projects"], also: ["/crm/companies", "/inventory"] },
-          { href: "/reports/crm", label: "Reports", icon: "chart", module: "reports.crm", also: ["/reports/agents"] },
+          { href: "/reports/crm", label: "Reports", icon: "chart", module: "reports.crm", anyModule: ["crm.targets"], also: ["/reports/agents", "/reports/targets"] },
         ],
       },
     ],

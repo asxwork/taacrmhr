@@ -6,6 +6,7 @@ import { memo } from "./memo";
 export const FEATURES = [
   { key: "calls", label: "Calls (calling centre)", group: "CRM", paths: ["/calls"], about: "Dialer, campaigns, callbacks, wallboard, softphone" },
   { key: "inventory", label: "Property inventory", group: "CRM", paths: ["/inventory"], about: "Projects, units and listings" },
+  { key: "targets", label: "Targets & leaderboard", group: "CRM", paths: ["/reports/targets"], about: "Monthly calls, visits and deals goals per agent" },
   { key: "automations", label: "Lead automations", group: "CRM", paths: ["/crm/automations"], about: "Rules that act on leads in bulk" },
   { key: "payroll", label: "Payroll", group: "HR", paths: ["/hr/payroll", "/payslips", "/hr/salary-revisions", "/hr/leave-encashment", "/me/payslips"], about: "Payroll runs, payslips, salary revisions, encashment" },
   { key: "expenses", label: "Expenses & loans", group: "HR", paths: ["/hr/expenses", "/me/expenses"], about: "Expense claims, advances and loans" },
