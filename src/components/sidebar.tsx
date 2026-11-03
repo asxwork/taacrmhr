@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CircleHelp, Bell, ChevronDown, ChevronRight, House, LayoutGrid, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
-import { appForPath, sidebarMode, type AppKey, type NavGroup, type NavItem } from "@/lib/nav";
+import { appForPathFrom, sidebarMode, type AppKey, type NavGroup, type NavItem } from "@/lib/nav";
 import type { UserApp } from "@/lib/apps";
 import { cn, initials } from "@/lib/utils";
 import { logout } from "@/app/login/actions";
@@ -32,8 +32,8 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // The app follows the page; shared pages (notifications…) keep the last app.
-  const pathApp = appForPath(apps, pathname);
   const [lastKey, setLastKey] = useState<AppKey>(initialApp);
+  const pathApp = appForPathFrom(apps, pathname, lastKey);
   useEffect(() => {
     if (!pathApp) return;
     setLastKey(pathApp.key);

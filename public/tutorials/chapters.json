@@ -12,12 +12,12 @@
  {
   "key": "lead-page",
   "title": "Inside a lead",
-  "start": 74
+  "start": 75
  },
  {
   "key": "follow-ups",
   "title": "Follow-ups & tasks",
-  "start": 96
+  "start": 97
  },
  {
   "key": "deals",
@@ -37,41 +37,41 @@
  {
   "key": "calls",
   "title": "Calls",
-  "start": 140
+  "start": 141
  },
  {
   "key": "hr",
   "title": "HR & employees",
-  "start": 168
+  "start": 169
  },
  {
   "key": "attendance",
   "title": "Attendance",
-  "start": 188
+  "start": 189
  },
  {
   "key": "leave",
   "title": "Leave & approvals",
-  "start": 206
+  "start": 207
  },
  {
   "key": "payroll",
   "title": "Payroll",
-  "start": 218
+  "start": 225
  },
  {
   "key": "myspace",
   "title": "My Space",
-  "start": 226
+  "start": 233
  },
  {
   "key": "profile",
   "title": "My profile",
-  "start": 237
+  "start": 244
  },
  {
   "key": "admin",
   "title": "Admin: users, access & security",
-  "start": 245
+  "start": 251
  }
 ]

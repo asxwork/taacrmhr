@@ -8,7 +8,8 @@ export type SectionTab = {
   /** Query values this tab requires (null = must be absent); tabs on the same path are told apart by these. */
   params?: Record<string, string | null>;
 };
-export type Section = { key: string; tabs: SectionTab[] };
+/** `app`: only in that app (e.g. My Space tabs don't show on HR's Approvals page). */
+export type Section = { key: string; app?: string; tabs: SectionTab[] };
 
 export const SECTIONS: Section[] = [
   {
@@ -51,6 +52,25 @@ export const SECTIONS: Section[] = [
       { href: "/inventory", label: "Units", module: "inventory.units", params: { tab: null, status: null } },
       { href: "/inventory?status=available", label: "Available units", module: "inventory.units", params: { tab: null, status: "available" } },
       { href: "/inventory?tab=projects", label: "Projects", module: "inventory.projects", params: { tab: "projects" } },
+    ],
+  },
+  // My Space
+  {
+    key: "my-requests", app: "me",
+    tabs: [
+      { href: "/me/leave", label: "Leave" },
+      { href: "/me/expenses", label: "Expenses & loans" },
+      { href: "/hr/requests", label: "New request" },
+      { href: "/approvals?tab=mine", label: "My requests", params: { tab: "mine" } },
+    ],
+  },
+  {
+    key: "my-profile", app: "me",
+    tabs: [
+      { href: "/me", label: "Profile" },
+      { href: "/me/performance", label: "Performance" },
+      { href: "/me/policies", label: "Policies" },
+      { href: "/me/surveys", label: "Surveys" },
     ],
   },
   // HR
@@ -105,7 +125,7 @@ export const SECTIONS: Section[] = [
 const pathOf = (href: string) => href.split("?")[0]!;
 
 /** The section whose tabs include this exact page path (detail pages such as a single lead show no tabs). */
-export const sectionForPath = (path: string) => SECTIONS.find((s) => s.tabs.some((t) => pathOf(t.href) === path));
+export const sectionForPath = (path: string, app?: string) => SECTIONS.find((s) => (!s.app || s.app === app) && s.tabs.some((t) => pathOf(t.href) === path));
 
 /** Which tab is active for a path and query: same path, and every required query value matches. */
 export function activeTab(tabs: SectionTab[], path: string, params: URLSearchParams) {

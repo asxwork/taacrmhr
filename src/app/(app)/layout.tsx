@@ -2,7 +2,7 @@ import { cookies, headers } from "next/headers";
 import { Eye } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { appsForUser } from "@/lib/apps";
-import { appForPath, sidebarMode, type AppKey } from "@/lib/nav";
+import { appForPathFrom, sidebarMode, type AppKey } from "@/lib/nav";
 import { Sidebar } from "@/components/sidebar";
 import { PageTransition } from "@/components/page-transition";
 import { CommandPalette } from "@/components/command-palette";
@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const collapsed = jar.get("sidebar")?.value === "collapsed";
   const myPhoto = me?.photo ?? null;
   const last = apps.find((a) => a.key === jar.get("app")?.value);
-  const current = appForPath(apps, h.get("x-pathname") ?? "") ?? last ?? apps[0]!;
+  const current = appForPathFrom(apps, h.get("x-pathname") ?? "", last?.key) ?? last ?? apps[0]!;
   // Pages of a feature switched off in Settings → Features show a notice instead.
   const offFeature = featureForPath(h.get("x-pathname") ?? "", off);
   // Two-step login required by policy (Settings → Security) and not set up yet: set it up first.
@@ -43,7 +43,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Section tabs for this page (CRM: Leads / Deals / Calls / Contacts & Property / Reports), filtered by permission and features.
   const path = h.get("x-pathname") ?? "";
   const tabAllowed = (t: SectionTab) => (!t.module || can(user, t.module, t.action ?? "view")) && (!t.superAdmin || user.isSuperAdmin) && !featureForPath(t.href, off);
-  const section = sectionForPath(path);
+  const section = sectionForPath(path, current.key);
   const tabs = section ? section.tabs.filter(tabAllowed) : [];
   const pageItems = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]))).filter((item) => !item.phase);
   const sectionPages = SECTIONS.flatMap((sec) => sec.tabs.filter(tabAllowed).map((t) => ({ href: t.href, label: t.label, icon: "list" })));

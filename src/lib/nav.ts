@@ -76,18 +76,13 @@ export const APPS: AppDef[] = [
     home: "/me/home", prefixes: ["/me"], layout: "list",
     groups: [
       {
+        // Five entries; requests and profile pages are tabs (lib/sections.ts).
         items: [
           { href: "/me/home", label: "Home", icon: "home" },
-          { href: "/me", label: "My Profile", icon: "user" },
-          { href: "/me/attendance", label: "My Attendance", icon: "fingerprint" },
-          { href: "/me/leave", label: "My Leave", icon: "palm" },
-          { href: "/me/payslips", label: "My Payslips", icon: "banknote" },
-          { href: "/me/expenses", label: "My Expenses & Loans", icon: "card" },
-          { href: "/me/performance", label: "My Performance", icon: "award" },
-          { href: "/me/policies", label: "My Policies", icon: "filecheck" },
-          { href: "/me/surveys", label: "Surveys", icon: "heart" },
-          { href: "/hr/requests", label: "New request", icon: "chatplus" },
-          { href: "/approvals?tab=mine", label: "My Requests", icon: "check" },
+          { href: "/me/attendance", label: "Attendance", icon: "fingerprint" },
+          { href: "/me/leave", label: "Requests", icon: "palm", also: ["/me/expenses", "/hr/requests", "/approvals"] },
+          { href: "/me/payslips", label: "Payslips", icon: "banknote" },
+          { href: "/me", label: "My profile", icon: "user", also: ["/me/performance", "/me/policies", "/me/surveys"] },
         ],
       },
     ],
@@ -134,6 +129,17 @@ export function appForPath<T extends Pick<AppDef, "key" | "prefixes">>(apps: T[]
     }
   }
   return best?.app ?? null;
+}
+
+/**
+ * appForPath, but a page the last-used app also links to (e.g. My Space → New request under /hr) stays in that app,
+ * so the menu doesn't jump to another app.
+ */
+export function appForPathFrom<T extends Pick<AppDef, "key" | "prefixes" | "groups">>(apps: T[], pathname: string, lastKey?: string): T | null {
+  const last = apps.find((a) => a.key === lastKey);
+  const pathOf = (h: string) => h.split(/[?#]/)[0];
+  if (last?.groups.some((g) => g.items.some((i) => pathOf(i.href) === pathname || i.also?.includes(pathname)))) return last;
+  return appForPath(apps, pathname);
 }
 
 /** data-sidebar value on the page shell; globals.css turns it into the sidebar width (--sb-w). */

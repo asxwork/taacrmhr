@@ -201,7 +201,7 @@ export const TUTORIALS: Tutorial[] = [
     key: "leave", group: "HR", title: "Leave", who: "HR, managers", href: "/hr/leave", chapter: "leave",
     summary: "Leave requests, approvals, balances and encashment.",
     steps: [
-      "Employees apply from My Space → My Leave; the request goes to their line manager, then HR.",
+      "Employees apply from My Space → Requests → Leave; the request goes to their line manager, then HR.",
       "Approve or reject from Approvals. Approved leave shows on attendance automatically.",
       "Balances show entitlement, carry forward, used and available per leave type; the Encashment tab pays out unused annual leave.",
     ],
@@ -232,7 +232,7 @@ export const TUTORIALS: Tutorial[] = [
     key: "check-in", group: "My Space", title: "Checking in and out", who: "Every employee", href: "/me/attendance", chapter: "myspace",
     summary: "Mark your attendance from your phone or computer, and fix mistakes.",
     steps: [
-      "Open My Space → My Attendance and press Check in when you arrive and Check out when you leave.",
+      "Open My Space → Attendance and press Check in when you arrive and Check out when you leave.",
       "Allow location if asked — it shows whether you were at the office.",
       "Forgot to punch? Request a correction for that day; your manager approves it.",
     ],
@@ -241,10 +241,10 @@ export const TUTORIALS: Tutorial[] = [
     key: "my-leave", group: "My Space", title: "Leave, requests and payslips", who: "Every employee", href: "/me/leave", chapter: "myspace",
     summary: "Apply for leave, raise requests (WFH, overtime, expenses…) and download payslips.",
     steps: [
-      "My Leave: choose the type and dates and submit; you'll be notified when it's approved.",
-      "New request: work from home, official duty, overtime, travel, general tickets and more.",
-      "My Payslips: open or print each month's payslip.",
-      "My Requests shows everything you've asked for and its status.",
+      "My Space → Requests → Leave: choose the type and dates and submit; you'll be notified when it's approved.",
+      "Requests → New request: work from home, official duty, overtime, travel, general tickets and more. Expenses & loans is a tab too.",
+      "Payslips: open or print each month's payslip.",
+      "Requests → My requests shows everything you've asked for and its status.",
     ],
   },
 
