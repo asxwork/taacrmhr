@@ -31,6 +31,10 @@ So **a redeploy is all it takes** to ship code and database changes. There is no
    ```
    curl -s "https://ams.theadvisorassociates.com/api/cron/daily?key=<CRON_SECRET>" > /dev/null
    ```
+   **Keep-awake job** (stops the slow first click after the app has been idle), every 5 minutes (`*/5 * * * *`):
+   ```
+   curl -s "https://ams.theadvisorassociates.com/api/cron/ping" > /dev/null
+   ```
    Cron runs in UTC, so `0 2 * * *` means 07:00 in Karachi. The job sends "forgot to check out" reminders and HR heads-ups (probation ending, CNIC or documents expiring).
 
 ---

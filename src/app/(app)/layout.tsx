@@ -24,22 +24,23 @@ import { fileUrl } from "@/lib/files";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   maybeRunHoldRules(); // background, at most every 5 minutes
-  const [jar, h] = await Promise.all([cookies(), headers()]);
+  // Everything the frame needs, fetched side by side (each is a database round trip on the live server).
+  // apps = only the apps and pages this user's roles allow — this is what makes Admin and Agent see different apps.
+  const [jar, h, apps, me, off, security, unread] = await Promise.all([
+    cookies(), headers(), appsForUser(user),
+    db.employee.findUnique({ where: { userId: user.id }, select: { photo: true } }),
+    disabledFeatures(), securitySettings(), unreadCount(user.id),
+  ]);
   const collapsed = jar.get("sidebar")?.value === "collapsed";
-
-  // Only the apps and pages this user's roles allow — this is what makes Admin and Agent see different apps.
-  const apps = await appsForUser(user);
-  const myPhoto = (await db.employee.findUnique({ where: { userId: user.id }, select: { photo: true } }))?.photo ?? null;
+  const myPhoto = me?.photo ?? null;
   const last = apps.find((a) => a.key === jar.get("app")?.value);
   const current = appForPath(apps, h.get("x-pathname") ?? "") ?? last ?? apps[0]!;
   // Pages of a feature switched off in Settings → Features show a notice instead.
-  const offFeature = featureForPath(h.get("x-pathname") ?? "", await disabledFeatures());
+  const offFeature = featureForPath(h.get("x-pathname") ?? "", off);
   // Two-step login required by policy (Settings → Security) and not set up yet: set it up first.
-  const security = await securitySettings();
   const needs2fa = !user.viewAs && !user.totpEnabled && (security.require2fa === "all" || (security.require2fa === "superadmin" && user.isSuperAdmin));
   if (needs2fa && (h.get("x-pathname") ?? "") !== "/profile/security") redirect("/profile/security");
   // Section tabs for this page (CRM: Leads / Deals / Calls / Contacts & Property / Reports), filtered by permission and features.
-  const off = await disabledFeatures();
   const path = h.get("x-pathname") ?? "";
   const tabAllowed = (t: SectionTab) => (!t.module || can(user, t.module, t.action ?? "view")) && (!t.superAdmin || user.isSuperAdmin) && !featureForPath(t.href, off);
   const section = sectionForPath(path);
@@ -55,7 +56,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         apps={apps}
         initialApp={current.key as AppKey}
         user={{ name: user.name, roles: user.roleNames.join(", ") || "No role", branch: user.branchName, photo: myPhoto ? fileUrl(myPhoto) : null }}
-        unread={await unreadCount(user.id)}
+        unread={unread}
         initiallyCollapsed={collapsed}
       />
       <main className="app-main">
