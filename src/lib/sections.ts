@@ -80,6 +80,7 @@ export const SECTIONS: Section[] = [
     tabs: [
       { href: "/me", label: "Profile" },
       { href: "/me/performance", label: "Performance" },
+      { href: "/me/check-ins", label: "Check-ins" },
       { href: "/me/policies", label: "Policies" },
       { href: "/me/surveys", label: "Surveys" },
     ],

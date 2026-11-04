@@ -308,6 +308,17 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Payroll checklist: Read shows it, Edit lets someone tick steps."],
   },
   {
+    key: "check-ins", group: "HR", title: "Monthly check-ins (1:1)", who: "Everyone, managers", href: "/me/check-ins",
+    summary: "Once a month: how it went, what's blocking you, and goals for next month.",
+    steps: [
+      "Employees: open My Space → My profile → Check-ins, pick how the month felt and write wins, blockers and goals. Your manager is notified.",
+      "Managers: open HR → More → Monthly check-ins, choose the month, and open a person to read theirs.",
+      "Add your notes and the agreed goals and Save — the employee is notified and sees them in My Space.",
+      "Past months stay on file for appraisals.",
+    ],
+    tips: ["Roles → Monthly check-ins: Read shows their team's check-ins, Edit lets them add notes."],
+  },
+  {
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [
