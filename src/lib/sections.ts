@@ -108,6 +108,7 @@ export const SECTIONS: Section[] = [
     key: "leave",
     tabs: [
       { href: "/hr/leave", label: "Leave", module: "hr.leave" },
+      { href: "/hr/leave/planner", label: "Planner", module: "hr.leaveplanner" },
       { href: "/hr/leave-encashment", label: "Encashment", module: "hr.leave" },
     ],
   },

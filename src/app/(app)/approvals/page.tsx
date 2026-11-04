@@ -1,4 +1,5 @@
 import { profileSection } from "@/lib/profile-fields";
+import { CLASH_MIN, CLASH_SHARE, leaveClashes } from "@/lib/leave-planner";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { Check, Circle, X } from "lucide-react";
@@ -9,7 +10,7 @@ import { canAct, flowSteps, pendingForUser } from "@/lib/approvals";
 import { APPROVAL_TYPES, SELF_EDITABLE } from "@/lib/hr-shared";
 import { requestTypeByType } from "@/lib/request-types";
 import { fileUrl } from "@/lib/files";
-import { cn, fmtAgo, fmtDateTime } from "@/lib/utils";
+import { cn, fmtAgo, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ActionForm } from "@/components/action-form";
 import { Badge, Button, Card, Drawer, EmptyState, Field, PageHeader } from "@/components/ui";
 import { cancelMyRequest, decideRequest } from "./actions";
@@ -167,6 +168,15 @@ async function RequestDetails({ type, payload, employee }: { type: string; paylo
         </tbody>
       </table>
     );
+  }
+  if (type === "leave" && typeof data.leaveRequestId === "string") {
+    const c = await leaveClashes(data.leaveRequestId);
+    return c && c.others.length ? (
+      <div className={`rounded-lg px-3 py-2 text-sm ${c.others.length + 1 >= CLASH_MIN && (c.others.length + 1) / c.size >= CLASH_SHARE ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-800"}`}>
+        <p className="font-medium">Also off from {c.department} ({c.size} people) on some of these days:</p>
+        <ul className="mt-1 list-disc pl-5">{c.others.map((o) => <li key={o.id}>{o.employee.fullName} — {o.type.name}, {fmtDate(o.from)}{+o.to !== +o.from ? ` – ${fmtDate(o.to)}` : ""}{o.status === "pending" ? " (waiting)" : ""}</li>)}</ul>
+      </div>
+    ) : null;
   }
   if (type === "document" && typeof data.documentId === "string") {
     const doc = await db.employeeDocument.findUnique({ where: { id: data.documentId } });

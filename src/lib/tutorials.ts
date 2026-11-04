@@ -275,6 +275,17 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Onboarding links: Read shows the list, Add creates links."],
   },
   {
+    key: "leave-planner", group: "HR", module: "hr.leaveplanner", title: "Leave planner and clash warnings", who: "HR, managers", href: "/hr/leave/planner",
+    summary: "See who is off each day of the month and spot days a department is short-staffed.",
+    steps: [
+      "Open Leave → Planner. Each row is a person, each column a day; solid = approved leave, striped = waiting.",
+      "Days are flagged red when 2+ people and 30%+ of one department are off; the list above the grid names them.",
+      "Filter by department, or move between months with the arrows.",
+      "When approving a leave request, Approvals shows who else from that department is off on the same days.",
+    ],
+    tips: ["Roles → Leave planner sets who sees it (own team, branch or all)."],
+  },
+  {
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [

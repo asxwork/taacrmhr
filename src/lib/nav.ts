@@ -64,7 +64,7 @@ export const APPS: AppDef[] = [
           { href: "/hr", label: "Home", icon: "layout", module: "hr.attendance", anyModule: ["hr.employees"] },
           { href: "/hr/employees", label: "People", icon: "users", module: "hr.employees", anyModule: ["hr.onboarding"], also: ["/hr/organization", "/hr/exits", "/hr/onboarding"] },
           { href: "/hr/attendance", label: "Attendance", icon: "clock", module: "hr.attendance" },
-          { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave", also: ["/hr/leave-encashment"] },
+          { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave", anyModule: ["hr.leaveplanner"], also: ["/hr/leave-encashment", "/hr/leave/planner"] },
           { href: "/hr/payroll", label: "Payroll", icon: "wallet", module: "hr.payroll", anyModule: ["hr.expenses"], also: ["/hr/salary-revisions", "/hr/expenses"] },
           { href: "/approvals", label: "Approvals", icon: "filecheck" },
           { href: "/hr/more", label: "More", icon: "layout", also: ["/hr/recruitment", "/hr/performance", "/hr/probation", "/hr/assets", "/hr/policies", "/hr/letters", "/hr/engagement", "/hr/requests", "/hr/settings", "/reports/hr", "/settings/hr"] },
