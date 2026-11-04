@@ -13,7 +13,7 @@ import { uploadDocument } from "../hr/employees/actions";
 import { SafeImg } from "@/components/safe-img";
 
 /** Self-service: the signed-in user's own employee record, documents and change requests. */
-export async function MyEmployment({ userId }: { userId: string }) {
+export async function MyEmployment({ userId, tab }: { userId: string; tab?: string }) {
   const row = await db.employee.findUnique({ where: { userId }, select: { id: true } });
   const p = row ? await loadProfile(row.id) : null;
   if (!p) return null;
@@ -29,7 +29,7 @@ export async function MyEmployment({ userId }: { userId: string }) {
   return (
     <div className="mb-6">
       <ProfileView
-        p={p} options={options} canEdit={false} canSalary={false} showSalary initialTab="info"
+        p={p} options={options} canEdit={false} canSalary={false} showSalary initialTab={tab ?? "info"}
         self
         banner={
           <p className="mb-4 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm text-muted">

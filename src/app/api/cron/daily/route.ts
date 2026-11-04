@@ -10,6 +10,7 @@ import { perfSettings } from "@/lib/performance-settings";
 import { purgeOldRecordings } from "@/lib/softphone";
 import { syncAllPullMachines } from "@/lib/attendance-machine";
 import { sendMorningSummaries } from "@/lib/morning";
+import { sendDocumentReminders } from "@/lib/doc-reminders";
 
 // Hostinger cron (once a day, e.g. 07:00): GET https://<domain>/api/cron/daily?key=<CRON_SECRET>
 // Attendance and leave balances are computed live, so this job only sends reminders.
@@ -67,5 +68,8 @@ export async function GET(req: Request) {
   // 6. CRM morning summary for everyone with the permission (Settings → Features → Morning summary).
   const summaries = await sendMorningSummaries().catch(() => 0);
 
-  return Response.json({ ok: true, summaries, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
+  // 7. Remind employees before their own CNIC / passport / licence / documents expire.
+  const docReminders = await sendDocumentReminders().catch(() => 0);
+
+  return Response.json({ ok: true, summaries, docReminders, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
 }

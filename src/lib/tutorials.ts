@@ -341,6 +341,17 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Org chart decides who can open it (on by default for everyone)."],
   },
   {
+    key: "doc-reminders", group: "HR", title: "Document expiry reminders", who: "Everyone", href: "/me",
+    summary: "AMS reminds you before your CNIC, passport, licence or other documents expire.",
+    steps: [
+      "Keep the expiry dates on your profile up to date (CNIC, Passport and Driving License sections, and the expiry on uploaded documents).",
+      "You get a notification — and an email when email is set up — 30 days, 7 days and 1 day before, and on the day.",
+      "Renew the document and upload the new copy in My Space → My profile → Documents; HR verifies it.",
+      "HR still sees everything expiring soon under People → Employees → Documents.",
+    ],
+    tips: ["Admins switch this on/off in Settings → Features → Document expiry reminders."],
+  },
+  {
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [

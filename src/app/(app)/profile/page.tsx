@@ -12,10 +12,10 @@ export const metadata = { title: "My profile" };
  * My profile — the same ResourceInn-style profile in every app (CRM, HR, Calls, My Space): opened from the name
  * at the bottom of the sidebar, and it keeps the menu of the app you came from.
  */
-export default async function ProfilePage() {
+export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const user = await requireUser();
   const emp = await db.employee.findUnique({ where: { userId: user.id }, select: { id: true } });
-  if (emp) return <><TwoStepLink on={user.totpEnabled} /><MyEmployment userId={user.id} /></>;
+  if (emp) return <><TwoStepLink on={user.totpEnabled} /><MyEmployment userId={user.id} tab={(await searchParams).tab} /></>;
   // Logins without an HR record (e.g. an outside sales partner) still get a basic profile.
   return (
     <>

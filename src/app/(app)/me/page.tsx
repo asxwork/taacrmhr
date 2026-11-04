@@ -10,7 +10,7 @@ import { MyEmployment } from "./my-employment";
 
 export const metadata = { title: "My Profile" };
 
-export default async function MePage() {
+export default async function MePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const session = await requireUser();
   const [user, company] = await Promise.all([
     db.user.findUniqueOrThrow({ where: { id: session.id }, include: { branch: true, manager: true } }),
@@ -28,7 +28,7 @@ export default async function MePage() {
   return (
     <>
       <PageHeader title="My Profile" />
-      <MyEmployment userId={user.id} />
+      <MyEmployment userId={user.id} tab={(await searchParams).tab} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
         <Card className="p-6">
           <div className="mb-6 flex items-center gap-4">
