@@ -142,6 +142,17 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Leads match best when their project, property type and budget are filled in.", "Admins switch this on/off in Settings → Features and control who sees it under Roles → Property-match alerts."],
   },
   {
+    key: "morning", group: "CRM", module: "crm.summary", title: "Morning summary", who: "Agents, managers", href: "/crm/focus",
+    summary: "Every morning AMS sends you your day: follow-ups due, overdue, new leads and target progress.",
+    steps: [
+      "Each morning (when the daily job runs) you get a notification — and an email if email is set up — called “your day”.",
+      "It lists follow-ups due today and overdue, new leads since yesterday, leads never contacted and how much of your monthly target is done.",
+      "Managers also get their team's totals: new leads yesterday and overdue follow-ups.",
+      "Tap it to open Focus and start working through the list.",
+    ],
+    tips: ["Who receives it is set under Roles → Morning summary (own = just their own numbers; team/branch/all adds the team totals)."],
+  },
+  {
     key: "crm-reports", group: "CRM", module: "reports.crm", title: "CRM reports", who: "Managers, Boss", href: "/reports/crm", chapter: "reports",
     summary: "Leads by source and stage, conversion, agent leaderboard and won value.",
     steps: [

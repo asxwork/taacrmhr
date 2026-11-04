@@ -9,6 +9,7 @@ import { renderTemplate } from "@/lib/notify-templates";
 import { perfSettings } from "@/lib/performance-settings";
 import { purgeOldRecordings } from "@/lib/softphone";
 import { syncAllPullMachines } from "@/lib/attendance-machine";
+import { sendMorningSummaries } from "@/lib/morning";
 
 // Hostinger cron (once a day, e.g. 07:00): GET https://<domain>/api/cron/daily?key=<CRON_SECRET>
 // Attendance and leave balances are computed live, so this job only sends reminders.
@@ -63,5 +64,8 @@ export async function GET(req: Request) {
   // 5. Attendance machines AMS connects to directly (also synced more often by /api/cron/machines).
   await syncAllPullMachines().catch(() => []);
 
-  return Response.json({ ok: true, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
+  // 6. CRM morning summary for everyone with the permission (Settings → Features → Morning summary).
+  const summaries = await sendMorningSummaries().catch(() => 0);
+
+  return Response.json({ ok: true, summaries, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
 }
