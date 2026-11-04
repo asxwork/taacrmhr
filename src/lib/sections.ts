@@ -70,6 +70,7 @@ export const SECTIONS: Section[] = [
     tabs: [
       { href: "/me/leave", label: "Leave" },
       { href: "/me/expenses", label: "Expenses & loans" },
+      { href: "/me/swaps", label: "Shift swaps" },
       { href: "/hr/requests", label: "New request" },
       { href: "/approvals?tab=mine", label: "My requests", params: { tab: "mine" } },
     ],
@@ -101,6 +102,7 @@ export const SECTIONS: Section[] = [
       { href: "/hr/attendance/logs", label: "Logs", module: "hr.attendance" },
       { href: "/hr/attendance/machines", label: "Machines", module: "hr.attendance" },
       { href: "/hr/attendance/device-changes", label: "Device approvals", module: "hr.attendance" },
+      { href: "/hr/attendance/swaps", label: "Shift swaps", module: "hr.shiftswap" },
       { href: "/hr/attendance/reports/time", label: "Reports", module: "hr.attendance" },
     ],
   },

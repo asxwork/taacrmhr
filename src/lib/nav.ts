@@ -63,7 +63,7 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/hr", label: "Home", icon: "layout", module: "hr.attendance", anyModule: ["hr.employees"] },
           { href: "/hr/employees", label: "People", icon: "users", module: "hr.employees", anyModule: ["hr.onboarding"], also: ["/hr/organization", "/hr/exits", "/hr/onboarding"] },
-          { href: "/hr/attendance", label: "Attendance", icon: "clock", module: "hr.attendance" },
+          { href: "/hr/attendance", label: "Attendance", icon: "clock", module: "hr.attendance", anyModule: ["hr.shiftswap"] },
           { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave", anyModule: ["hr.leaveplanner"], also: ["/hr/leave-encashment", "/hr/leave/planner"] },
           { href: "/hr/payroll", label: "Payroll", icon: "wallet", module: "hr.payroll", anyModule: ["hr.expenses"], also: ["/hr/salary-revisions", "/hr/expenses"] },
           { href: "/approvals", label: "Approvals", icon: "filecheck" },
@@ -81,7 +81,7 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/me/home", label: "Home", icon: "home" },
           { href: "/me/attendance", label: "Attendance", icon: "fingerprint" },
-          { href: "/me/leave", label: "Requests", icon: "palm", also: ["/me/expenses", "/hr/requests", "/approvals"] },
+          { href: "/me/leave", label: "Requests", icon: "palm", also: ["/me/expenses", "/me/swaps", "/hr/requests", "/approvals"] },
           { href: "/me/payslips", label: "Payslips", icon: "banknote" },
           { href: "/me", label: "My profile", icon: "user", also: ["/me/performance", "/me/policies", "/me/surveys"] },
         ],

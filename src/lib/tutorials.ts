@@ -286,6 +286,17 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Leave planner sets who sees it (own team, branch or all)."],
   },
   {
+    key: "shift-swaps", group: "HR", title: "Shift swaps", who: "Everyone, managers", href: "/me/swaps",
+    summary: "Swap a day's shift with a colleague from your phone; your manager approves.",
+    steps: [
+      "Open My Space → Requests → Shift swaps, pick a colleague and the day, and press Ask.",
+      "Your colleague gets a notification and taps Accept or Decline.",
+      "Once accepted, your line manager (or HR) approves it in Attendance → Shift swaps.",
+      "On approval the roster for that day changes for both of you, so attendance is judged on the new shift.",
+    ],
+    tips: ["Roles → Shift swaps: Read shows the list for their team/branch, Approve lets them decide."],
+  },
+  {
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [
