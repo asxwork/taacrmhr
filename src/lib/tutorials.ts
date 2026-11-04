@@ -164,6 +164,17 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Message templates: Read lets agents use templates; Add / Edit / Delete lets someone manage them."],
   },
   {
+    key: "visits", group: "CRM", module: "crm.visits", title: "Site-visit GPS check-in", who: "Agents, managers", href: "/crm/visits",
+    summary: "Prove a site visit happened: check in with your phone's location when you arrive.",
+    steps: [
+      "Plan the visit on the lead (Site visit tab in the activity box) with a date and time.",
+      "At the site, open Leads → Site visits on your phone and tap “Check in here”. Allow location when the phone asks.",
+      "AMS saves where and when you checked in and marks the visit done.",
+      "Managers see every check-in with an Open map link; very rough locations are flagged.",
+    ],
+    tips: ["Roles → Site-visit check-ins: Read shows the log (own/team/branch/all); Add lets someone check in."],
+  },
+  {
     key: "crm-reports", group: "CRM", module: "reports.crm", title: "CRM reports", who: "Managers, Boss", href: "/reports/crm", chapter: "reports",
     summary: "Leads by source and stage, conversion, agent leaderboard and won value.",
     steps: [
