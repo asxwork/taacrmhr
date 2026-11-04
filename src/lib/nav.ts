@@ -43,7 +43,7 @@ export const APPS: AppDef[] = [
         label: "CRM",
         items: [
           { href: "/dashboard", label: "Home", icon: "home" },
-          { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads", also: ["/crm/follow-ups", "/crm/tasks", "/crm/focus", "/crm/matches"] },
+          { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads", also: ["/crm/follow-ups", "/crm/tasks", "/crm/focus", "/crm/matches", "/crm/templates"] },
           { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals" },
           { href: "/calls", label: "Calls", icon: "phonecall", module: "calls" },
           { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts", also: ["/crm/companies"] },

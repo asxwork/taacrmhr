@@ -6,6 +6,7 @@ export function phoneKey(phone: string | null | undefined) {
   let d = phone.replace(/\D/g, "");
   if (d.startsWith("0092")) d = d.slice(4);
   if (d.startsWith("92") && d.length === 12) d = d.slice(2);
+  if (d.startsWith("920") && d.length === 13) d = d.slice(2); // "+92 0300 1234567" (country code plus the leading 0)
   if (d.length === 10 && d.startsWith("3")) d = "0" + d;
   return d || null;
 }

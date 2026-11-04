@@ -153,6 +153,17 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Who receives it is set under Roles → Morning summary (own = just their own numbers; team/branch/all adds the team totals)."],
   },
   {
+    key: "templates", group: "CRM", module: "crm.templates", title: "WhatsApp & email templates", who: "Agents, managers", href: "/crm/templates",
+    summary: "Send a ready-made message from a lead in one tap, with their name and project filled in.",
+    steps: [
+      "On a lead's page, tap the document icon next to Call / WhatsApp and pick a template.",
+      "WhatsApp (or your mail app) opens with the message already written — just press send.",
+      "AMS notes “WhatsApp sent: <template>” on the lead's timeline.",
+      "Admins add and edit templates under Leads → Templates, using placeholders like {first_name}, {project} and {agent}.",
+    ],
+    tips: ["Roles → Message templates: Read lets agents use templates; Add / Edit / Delete lets someone manage them."],
+  },
+  {
     key: "crm-reports", group: "CRM", module: "reports.crm", title: "CRM reports", who: "Managers, Boss", href: "/reports/crm", chapter: "reports",
     summary: "Leads by source and stage, conversion, agent leaderboard and won value.",
     steps: [

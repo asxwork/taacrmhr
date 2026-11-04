@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRightLeft, Mail, MessageCircle, Pencil, Phone, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, FileText, Mail, MessageCircle, Pencil, Phone, Trash2 } from "lucide-react";
+import { disabledFeatures } from "@/lib/features";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
 import { TIMELINE_INCLUDE, assignableUsers, editableActivityIds, fmtPKR, INTERESTS } from "@/lib/crm";
@@ -47,9 +48,10 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
     assignableUsers(user, "crm.activities"),
     db.pipeline.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
-  const [editableIds, matches] = await Promise.all([
+  const [editableIds, matches, templates] = await Promise.all([
     editableActivityIds(user, activities.map((a) => a.id)),
     lead.convertedAt || lead.status.kind === "junk" ? [] : matchUnitsForLead(user, lead),
+    can(user, "crm.templates") ? disabledFeatures().then((off) => (off.has("templates") ? [] : db.messageTemplate.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, channel: true } }))) : [],
   ]);
   // Field rules: masked/hidden phone, email and budget never reach the page (calls go through the dial link).
   const fields = await fieldAccess(user);
@@ -100,6 +102,19 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
         <div className="ml-auto flex items-center gap-2">
           {callHref && <a href={callHref} className={iconBtn} title={pm === "mask" ? "Call" : `Call ${fmtPhone(lead.phone)}`} aria-label="Call"><Phone className="size-4" /></a>}
           {waLink && <a href={waLink} target="_blank" rel="noreferrer" className={cn(iconBtn, "hover:text-emerald-600")} title="WhatsApp" aria-label="WhatsApp"><MessageCircle className="size-4" /></a>}
+          {templates.length > 0 && (
+            <details className="relative">
+              <summary className={cn(iconBtn, "list-none [&::-webkit-details-marker]:hidden")} title="Send a template" aria-label="Send a template"><FileText className="size-4" /></summary>
+              <div className="absolute right-0 z-20 mt-1 w-64 rounded-xl border border-line bg-surface p-1 shadow-lg">
+                <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted">Send a template</p>
+                {templates.filter((t) => (t.channel === "email" ? lead.email && em !== "hidden" : lead.phone && pm !== "hidden")).map((t) => (
+                  <a key={t.id} href={`/api/leads/${id}/template?t=${t.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-canvas">
+                    {t.channel === "email" ? <Mail className="size-4 text-sky-600" /> : <MessageCircle className="size-4 text-emerald-600" />} {t.name}
+                  </a>
+                ))}
+              </div>
+            </details>
+          )}
           {lead.email && em === "full" && <a href={`mailto:${lead.email}`} className={iconBtn} title={lead.email} aria-label="Email"><Mail className="size-4" /></a>}
           {canConvert && (
             <LinkButton href={`${path}?convert=1`} scroll={false}><ArrowRightLeft className="size-4" /> Convert to deal</LinkButton>

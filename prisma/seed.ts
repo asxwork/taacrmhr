@@ -39,6 +39,26 @@ async function main() {
     }
     await db.setting.create({ data: { key: flag, value: "done" } });
   }
+  // Phone keys saved before "+92 0300…" was understood (country code plus the leading 0): fix them once.
+  if (!(await db.setting.findUnique({ where: { key: "fix.phonekey920" } }))) {
+    for (const l of await db.lead.findMany({ where: { phoneKey: { startsWith: "920" } }, select: { id: true, phoneKey: true } })) {
+      if (l.phoneKey!.length === 13) await db.lead.update({ where: { id: l.id }, data: { phoneKey: l.phoneKey!.slice(2) } });
+    }
+    for (const c of await db.contact.findMany({ where: { phoneKey: { startsWith: "920" } }, select: { id: true, phoneKey: true } })) {
+      if (c.phoneKey!.length === 13) await db.contact.update({ where: { id: c.id }, data: { phoneKey: c.phoneKey!.slice(2) } });
+    }
+    await db.setting.create({ data: { key: "fix.phonekey920", value: "done" } });
+  }
+  // A few starter message templates (Leads → Templates), only on a fresh install.
+  if ((await db.messageTemplate.count()) === 0 && !(await db.setting.findUnique({ where: { key: "seed.templates" } }))) {
+    await db.messageTemplate.createMany({ data: [
+      { name: "First contact", sortOrder: 1, body: "Hi {first_name}, this is {agent} from {company}. Thanks for your enquiry! When is a good time to talk?" },
+      { name: "Site visit invite", sortOrder: 2, body: "Hi {first_name}, would you like to visit {project} this week? I can arrange a site visit at a time that suits you. — {agent}, {company}" },
+      { name: "Follow-up after visit", sortOrder: 3, body: "Hi {first_name}, thank you for visiting today. Any questions about {project} or the payment plan? Happy to help. — {agent}" },
+      { name: "Details by email", channel: "email", subject: "{project} — details from {company}", sortOrder: 4, body: "Dear {name},\n\nThank you for your interest. Please find the details below. Feel free to call me any time.\n\nRegards,\n{agent}\n{agent_phone}\n{company}" },
+    ] });
+    await db.setting.create({ data: { key: "seed.templates", value: "done" } });
+  }
   for (const tpl of DEFAULT_ROLES) {
     await db.role.upsert({
       where: { name: tpl.name },
