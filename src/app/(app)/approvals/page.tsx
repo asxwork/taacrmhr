@@ -1,3 +1,4 @@
+import { profileSection } from "@/lib/profile-fields";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { Check, Circle, X } from "lucide-react";
@@ -158,8 +159,8 @@ async function RequestDetails({ type, payload, employee }: { type: string; paylo
         <tbody className="divide-y divide-line">
           {Object.entries(changes).map(([k, v]) => (
             <tr key={k}>
-              <td className="py-1.5 pr-2 text-muted">{SELF_EDITABLE.find((f) => f.key === k)?.label ?? k}</td>
-              <td className="py-1.5 pr-2 text-muted line-through">{String(employee[k] ?? "—")}</td>
+              <td className="py-1.5 pr-2 text-muted">{SELF_EDITABLE.find((f) => f.key === k)?.label ?? ["cnic", "passport", "license"].flatMap((s) => profileSection(s)?.fields ?? []).find((f) => f.key === k)?.label ?? k}</td>
+              <td className="py-1.5 pr-2 text-muted line-through">{employee[k] instanceof Date ? (employee[k] as Date).toISOString().slice(0, 10) : String(employee[k] ?? "—")}</td>
               <td className="py-1.5 font-medium">{v || "—"}</td>
             </tr>
           ))}

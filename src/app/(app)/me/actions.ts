@@ -76,5 +76,6 @@ export async function updateMyPhoto(_: FormState, fd: FormData): Promise<FormSta
   if (emp.photo) await deleteUpload(emp.photo);
   await db.employee.update({ where: { id: emp.id }, data: { photo: res.path } });
   revalidatePath("/me");
+  revalidatePath("/profile");
   return { ok: true, message: "Photo updated." };
 }

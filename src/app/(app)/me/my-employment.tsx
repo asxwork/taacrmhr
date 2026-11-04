@@ -1,15 +1,14 @@
 import Link from "next/link";
-import { Camera, FileText, IdCard } from "lucide-react";
+import { FileText, IdCard } from "lucide-react";
 import { db } from "@/lib/db";
-import { BLOOD_GROUPS, ID_DOCS, SELF_EDITABLE } from "@/lib/hr-shared";
+import { ID_DOCS } from "@/lib/hr-shared";
 import { loadProfile, profileOptions } from "@/lib/employee-profile";
 import { ProfileView } from "@/components/hr/profile-view";
 import { fileUrl } from "@/lib/files";
 import { fmtDate } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Avatar, Badge, Card, Field } from "@/components/ui";
+import { Badge, Card } from "@/components/ui";
 import { DocumentForm } from "../hr/employees/forms";
-import { requestProfileUpdate, updateMyPhoto } from "./actions";
 import { uploadDocument } from "../hr/employees/actions";
 import { SafeImg } from "@/components/safe-img";
 
@@ -31,56 +30,19 @@ export async function MyEmployment({ userId }: { userId: string }) {
     <div className="mb-6">
       <ProfileView
         p={p} options={options} canEdit={false} canSalary={false} showSalary initialTab="info"
+        self
         banner={
-          <div className="mb-5">
-      <Card className="p-4">
-        <h2 className="mb-1 font-medium">My details</h2>
-        <p className="mb-3 text-sm text-muted">Changes go to HR for approval before they’re saved.</p>
-        {pending ? (
-          <p className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            A change is waiting for HR. <Link href={`/approvals?tab=mine&open=${pending.id}`} className="font-medium underline">View request</Link>
+          <p className="mb-4 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm text-muted">
+            Edit your picture and details right here. Personal, contact and address changes save straight away; CNIC, passport and licence changes go to HR for approval.
+            {pending && <> A change is waiting for HR — <Link href={`/approvals?tab=mine&open=${pending.id}`} className="font-medium text-navy-900 underline">view request</Link>.</>}
           </p>
-        ) : (
-          <details className="group">
-            <summary className="cursor-pointer text-sm font-medium text-navy-900">Request a change</summary>
-            <ActionForm action={requestProfileUpdate} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {SELF_EDITABLE.map((f) => (
-                <Field key={f.key} label={f.label} className={f.key === "address" ? "sm:col-span-2" : undefined}>
-                  {f.key === "bloodGroup" ? (
-                    <select name="bloodGroup" defaultValue={emp.bloodGroup ?? ""} className="input">
-                      <option value="">—</option>
-                      {BLOOD_GROUPS.map((b) => <option key={b}>{b}</option>)}
-                    </select>
-                  ) : <input name={f.key} defaultValue={emp[f.key] ?? ""} className="input" placeholder={f.key === "cnic" ? "42101-1234567-1" : undefined} />}
-                </Field>
-              ))}
-              <div className="sm:col-span-2"><SubmitButton>Send to HR</SubmitButton></div>
-            </ActionForm>
-          </details>
-        )}
-      </Card>
-
-          </div>
         }
         docsTab={
           <div className="space-y-6">
       <Card className="p-6 lg:col-span-2">
-        <h2 className="mb-1 font-medium">Photo &amp; ID</h2>
-        <p className="mb-5 text-sm text-muted">Your photo is saved straight away. ID pictures go to HR to verify; numbers and blood group change through “Request a change”.</p>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-[220px_1fr]">
-          <div className="flex flex-col items-center gap-3 text-center">
-            {emp.photo
-               
-              ? <SafeImg src={fileUrl(emp.photo)} alt={emp.fullName} className="size-28 rounded-full object-cover ring-4 ring-line" />
-              : <Avatar name={emp.fullName} className="size-28 text-2xl" />}
-            <ActionForm action={updateMyPhoto} className="w-full space-y-2">
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-line px-3 py-2 text-sm hover:bg-canvas">
-                <Camera className="size-4" /> Choose photo
-                <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required capture="user" className="sr-only" />
-              </label>
-              <SubmitButton className="w-full" pendingText="Uploading…">Save photo</SubmitButton>
-            </ActionForm>
-          </div>
+        <h2 className="mb-1 font-medium">ID pictures</h2>
+        <p className="mb-5 text-sm text-muted">Pictures of your ID cards go to HR to verify. Change the numbers on the Overview tab.</p>
+        <div>
           <div className="space-y-4">
             <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
               {([["Blood group", emp.bloodGroup], ["CNIC number", emp.cnic], ["Passport number", emp.passportNo]] as const).map(([k, v]) => (

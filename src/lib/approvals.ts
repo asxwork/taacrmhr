@@ -111,6 +111,8 @@ export async function cancelRequest(user: SessionUser, requestId: string) {
 
 // ─── Type handlers ───────────────────────────────────────────
 
+const ID_KEYS = ["cnic", "cnicIssued", "cnicExpiry", "passportNo", "passportExpiry", "licenseNo", "licenseExpiry"];
+
 type Req = { id: string; type: string; employeeId: string; payload: string; title: string; requesterId?: string | null };
 const parse = <T,>(s: string) => { try { return JSON.parse(s) as T; } catch { return {} as T; } };
 
@@ -118,8 +120,10 @@ async function onApproved(req: Req, actorId: string) {
   switch (req.type) {
     case "profile_update": {
       const { changes } = parse<{ changes: Record<string, string | null> }>(req.payload);
-      const allowed = new Set<string>(SELF_EDITABLE.map((f) => f.key));
-      const data = Object.fromEntries(Object.entries(changes ?? {}).filter(([k]) => allowed.has(k)));
+      // Older requests carry SELF_EDITABLE keys; My profile also sends CNIC / passport / licence numbers and dates.
+      const allowed = new Set<string>([...SELF_EDITABLE.map((f) => f.key), ...ID_KEYS]);
+      const data = Object.fromEntries(Object.entries(changes ?? {}).filter(([k]) => allowed.has(k))
+        .map(([k, v]) => [k, v && /Issued|Expiry$/.test(k) ? new Date(`${v}T00:00:00`) : v]));
       if (Object.keys(data).length) {
         await db.employee.update({ where: { id: req.employeeId }, data });
         await addEvent(req.employeeId, "note", "Profile updated (approved request)", { details: Object.keys(data).join(", "), byId: actorId });

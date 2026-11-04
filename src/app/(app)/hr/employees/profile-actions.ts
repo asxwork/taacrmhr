@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireUser, type SessionUser } from "@/lib/auth";
 import { can, scopeFor } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
+import { submitRequest } from "@/lib/approvals";
 import { addEvent, employeeAllows, syncUserFromEmployee } from "@/lib/hr";
 import { applyAssignment } from "@/lib/hr-assign";
 import { recordRevision } from "@/lib/compensation";
@@ -17,6 +18,12 @@ async function editable(user: SessionUser, id: string) {
   if (!can(user, "hr.employees", "edit")) return null;
   const emp = await db.employee.findUnique({ where: { id }, include: { designation: true, department: true, branch: true, manager: true, salary: true } });
   return emp && (await employeeAllows(user, emp, "edit")) ? emp : null;
+}
+
+/** HR editors, or the employee themselves (own relatives and qualifications only). */
+async function editableOrSelf(user: SessionUser, id: string) {
+  const own = await db.employee.findFirst({ where: { id, userId: user.id }, select: { id: true } });
+  return own ?? (await editable(user, id));
 }
 
 const canPayroll = (user: SessionUser) => user.isSuperAdmin || scopeFor(user, "hr.payroll", "edit") === "all";
@@ -140,7 +147,7 @@ const dateOrNull = (fd: FormData, k: string) => {
 export async function addRelative(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
   const id = str(fd, "id");
-  if (!(await editable(user, id))) return { error: "You can't edit this employee." };
+  if (!(await editableOrSelf(user, id))) return { error: "You can't edit this employee." };
   const name = str(fd, "name");
   const relation = str(fd, "relation");
   if (!name || !relation) return { error: "Name and relation are required." };
@@ -151,13 +158,14 @@ export async function addRelative(_: FormState, fd: FormData): Promise<FormState
   // The emergency relative becomes the profile's emergency contact.
   if (emergency) await db.employee.update({ where: { id }, data: { emergencyName: name, emergencyRelation: relation, emergencyPhone: str(fd, "phone") || null } });
   revalidatePath(path(id));
+  revalidatePath("/profile");
   return { ok: true, message: "Relative added." };
 }
 
 export async function addQualification(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
   const id = str(fd, "id");
-  if (!(await editable(user, id))) return { error: "You can't edit this employee." };
+  if (!(await editableOrSelf(user, id))) return { error: "You can't edit this employee." };
   const kind = str(fd, "kind");
   if (!["experience", "education", "certification"].includes(kind)) return { error: "Choose a type." };
   const title = str(fd, "title");
@@ -169,6 +177,7 @@ export async function addQualification(_: FormState, fd: FormData): Promise<Form
     data: { employeeId: id, kind, title, institution: str(fd, "institution") || null, from, to, grade: str(fd, "grade") || null, notes: str(fd, "notes") || null },
   });
   revalidatePath(path(id));
+  revalidatePath("/profile");
   return { ok: true, message: "Added." };
 }
 
@@ -204,7 +213,7 @@ export async function deleteProfileRow(fd: FormData) {
   const row = kind === "relative" ? await db.employeeRelative.findUnique({ where: { id: rowId } })
     : kind === "qualification" ? await db.employeeQualification.findUnique({ where: { id: rowId } })
     : kind === "bank" ? await db.employeeBank.findUnique({ where: { id: rowId } }) : null;
-  if (!row || !(await editable(user, row.employeeId))) return;
+  if (!row || !(await (kind === "bank" ? editable(user, row.employeeId) : editableOrSelf(user, row.employeeId)))) return;
   if (kind === "relative") await db.employeeRelative.delete({ where: { id: rowId } });
   if (kind === "qualification") await db.employeeQualification.delete({ where: { id: rowId } });
   if (kind === "bank") {
@@ -212,4 +221,53 @@ export async function deleteProfileRow(fd: FormData) {
     await syncPrimaryBank(row.employeeId);
   }
   revalidatePath(path(row.employeeId));
+  revalidatePath("/profile");
+}
+
+/**
+ * The employee editing their own profile (My profile): personal, contact and address sections save straight away;
+ * CNIC, passport and driving licence go to HR as a "Profile update" request. Job, salary and banks stay with HR.
+ */
+const SELF_DIRECT = ["personal", "quick", "addresses", "contacts"] as const;
+const SELF_VIA_HR = ["cnic", "passport", "license"] as const;
+
+export async function saveMyProfileSection(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const emp = await db.employee.findUnique({ where: { userId: user.id } });
+  if (!emp) return { error: "Your login isn't linked to an employee record yet. Ask HR." };
+  const key = str(fd, "section");
+  const section = profileSection(key);
+  if (!section || ![...SELF_DIRECT, ...SELF_VIA_HR].includes(key as never)) return { error: "HR looks after this section." };
+  // Official email belongs to HR even though it is shown under Contacts.
+  const fields = section.fields.filter((f) => f.key !== "officialEmail");
+  const read = readFields(fields, fd);
+  if ("error" in read) return read;
+  const v = read.data;
+
+  if ((SELF_VIA_HR as readonly string[]).includes(key)) {
+    if (v.cnic && !/^\d{5}-?\d{7}-?\d$/.test(String(v.cnic))) return { error: "CNIC should look like 42101-1234567-1." };
+    const cur = emp as unknown as Record<string, unknown>;
+    const asText = (x: unknown) => (x instanceof Date ? x.toISOString().slice(0, 10) : x == null ? null : String(x));
+    const changes = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, asText(x)]).filter(([k, x]) => x !== asText(cur[k as string])));
+    if (!Object.keys(changes).length) return { error: "Nothing has changed." };
+    if (await db.approvalRequest.findFirst({ where: { employeeId: emp.id, type: "profile_update", status: "pending" } })) {
+      return { error: "You already have a change waiting for HR. Once it's approved you can send another." };
+    }
+    await submitRequest({ type: "profile_update", employeeId: emp.id, requesterId: user.id, title: `Profile update — ${emp.fullName}`, summary: `${section.title}: ${Object.keys(changes).length} field(s) changed`, payload: { changes } });
+    revalidatePath("/profile");
+    return { ok: true, message: "Sent to HR for approval." };
+  }
+
+  if (key === "personal") {
+    const fullName = [v.firstName, v.middleName, v.lastName].filter(Boolean).join(" ");
+    await db.employee.update({ where: { id: emp.id }, data: { ...v, fullName } as never });
+    if (fullName !== emp.fullName) await db.user.update({ where: { id: user.id }, data: { name: fullName } });
+  } else {
+    await db.employee.update({ where: { id: emp.id }, data: v as never });
+    if (v.phone !== undefined && v.phone !== emp.phone) await db.user.update({ where: { id: user.id }, data: { phone: (v.phone as string | null) ?? null } });
+  }
+  await addEvent(emp.id, "note", `${section.title} updated by the employee`, { byId: user.id });
+  await audit(user.id, "update", "employee", emp.id, `${emp.fullName}: ${section.title} updated (self)`);
+  revalidatePath("/profile");
+  return { ok: true, message: `${section.title} saved.` };
 }

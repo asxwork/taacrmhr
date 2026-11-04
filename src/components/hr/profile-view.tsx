@@ -16,13 +16,16 @@ import { Badge, Card, Field } from "@/components/ui";
 import { StatusPill } from "@/components/crm/bits";
 import { PersonAvatar } from "@/components/person-avatar";
 import { MiniTable, ProfileTabs, Row, SectionForm, SectionTitle, type ProfileTab } from "./profile-parts";
-import { addBank, addQualification, addRelative, deleteProfileRow, saveProfileSection } from "@/app/(app)/hr/employees/profile-actions";
+import { addBank, addQualification, addRelative, deleteProfileRow, saveMyProfileSection, saveProfileSection } from "@/app/(app)/hr/employees/profile-actions";
 import { uploadDocument, uploadPhoto } from "@/app/(app)/hr/employees/actions";
+import { updateMyPhoto } from "@/app/(app)/me/actions";
 
 const money = (n: number, currency?: string | null) => `${currency || "PKR"} ${Math.round(n).toLocaleString("en-PK")}`;
 const def = (k: string) => profileSection(k)!;
 
-export function ProfileView({ p, options, canEdit, canSalary, showSalary, actions, banner, extraTabs = [], initialTab, docsTab, userTab, fields = FULL_ACCESS }: {
+export function ProfileView({ p, options, canEdit, canSalary, showSalary, actions, banner, extraTabs = [], initialTab, docsTab, userTab, fields = FULL_ACCESS, self = false }: {
+  /** The employee's own profile: personal, contact and ID sections are editable in place (ID changes go to HR). */
+  self?: boolean;
   /** Field rules for whoever is looking (their own profile is always full). */
   fields?: FieldAccess;
   p: Profile; options: Record<OptionSource, [string, string][]>; canEdit: boolean;
@@ -44,6 +47,9 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
   if (f.personal === "hidden") for (const k of PERSONAL_KEYS) values[k] = "";
   const personalDef = f.personal === "hidden" ? { ...def("personal"), fields: def("personal").fields.filter((x) => !PERSONAL_KEYS.includes(x.key)) } : def("personal");
   const st = empStatus(emp.status);
+  // Who can edit what: HR editors everything; the employee their personal side (and relatives / qualifications).
+  const mine = canEdit || self;
+  const secAction = canEdit ? saveProfileSection : saveMyProfileSection;
   const docs = (prefix: string) => emp.documents.filter((d) => d.type.toLowerCase().startsWith(prefix.toLowerCase()));
 
   const attachment = (label: string, type: string) => (
@@ -58,7 +64,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
       </div>
     </Row>
   );
-  const attachForm = (type: string, label: string) => canEdit && (
+  const attachForm = (type: string, label: string) => mine && (
     <ActionForm action={uploadDocument} className="flex flex-wrap items-center gap-2 px-3 py-2">
       <input type="hidden" name="employeeId" value={id} />
       <input type="hidden" name="type" value={type} />
@@ -71,31 +77,32 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
   // ── Tabs
   const employeeInfo = (
     <Card className="p-4">
-      <SectionForm employeeId={id} def={personalDef} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<User className="size-4" />}
+      <SectionForm employeeId={id} def={personalDef} values={values} options={options} canEdit={mine} action={secAction} icon={<User className="size-4" />}
         before={
           <Row label="Profile Pic">
-            {canEdit ? (
-              <ActionForm action={uploadPhoto} className="flex flex-wrap items-center gap-2">
+            {mine ? (
+              <ActionForm action={canEdit ? uploadPhoto : updateMyPhoto} className="flex flex-wrap items-center gap-3">
                 <input type="hidden" name="id" value={id} />
-                <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required aria-label="Profile picture" className="flex-1 text-xs file:mr-2 file:rounded file:border-0 file:bg-navy-900 file:px-2 file:py-1 file:text-white" />
+                <PersonAvatar name={emp.fullName} photo={emp.photo} className="size-14 text-base" />
+                <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required aria-label="Profile picture" className="min-w-0 flex-1 text-xs file:mr-2 file:rounded file:border-0 file:bg-navy-900 file:px-2 file:py-1 file:text-white" />
                 <SubmitButton variant="secondary" pendingText="Uploading…" className="h-8 px-3 text-xs">Upload</SubmitButton>
-                <span className="w-full text-xs text-muted">{emp.photo ? emp.photo.split("/").pop() : "No picture yet"} · Maximum allowed file size is 4MB.</span>
+                <span className="w-full text-xs text-muted">{emp.photo ? emp.photo.split("/").pop() : "No picture yet"} · JPG, PNG or WebP · max 4MB.</span>
               </ActionForm>
             ) : emp.photo ? emp.photo.split("/").pop() : <span className="text-muted">—</span>}
           </Row>
         } />
       {p.customDef && <SectionForm employeeId={id} def={p.customDef} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<User className="size-4" />} />}
-      <SectionForm employeeId={id} def={def("quick")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<Phone className="size-4" />} />
+      <SectionForm employeeId={id} def={def("quick")} values={values} options={options} canEdit={mine} action={secAction} icon={<Phone className="size-4" />} />
       {f.cnic !== "hidden" && (
         <>
-          <SectionForm employeeId={id} def={def("cnic")} values={values} options={options} canEdit={canEdit && f.cnic === "full"} action={saveProfileSection} icon={<IdCard className="size-4" />}
+          <SectionForm employeeId={id} def={def("cnic")} values={values} options={options} canEdit={mine && f.cnic === "full"} action={secAction} icon={<IdCard className="size-4" />}
             after={f.cnic === "full" && f.docs === "full" ? attachment("CNIC Attachment", "CNIC") : undefined} />
           {f.cnic === "full" && attachForm("CNIC (front)", "CNIC front")}
           {f.cnic === "full" && attachForm("CNIC (back)", "CNIC back")}
-          <SectionForm employeeId={id} def={def("passport")} values={values} options={options} canEdit={canEdit && f.cnic === "full"} action={saveProfileSection} title="PASSPORT" icon={<IdCard className="size-4" />}
+          <SectionForm employeeId={id} def={def("passport")} values={values} options={options} canEdit={mine && f.cnic === "full"} action={secAction} title="PASSPORT" icon={<IdCard className="size-4" />}
             after={f.cnic === "full" && f.docs === "full" ? attachment("Passport Attachment", "Passport") : undefined} />
           {f.cnic === "full" && attachForm("Passport", "passport")}
-          <SectionForm employeeId={id} def={def("license")} values={values} options={options} canEdit={canEdit && f.cnic === "full"} action={saveProfileSection} title="DRIVING LICENSE" icon={<IdCard className="size-4" />}
+          <SectionForm employeeId={id} def={def("license")} values={values} options={options} canEdit={mine && f.cnic === "full"} action={secAction} title="DRIVING LICENSE" icon={<IdCard className="size-4" />}
             after={f.cnic === "full" && f.docs === "full" ? attachment("Driving License Attachment", "Driving license") : undefined} />
           {f.cnic === "full" && attachForm("Driving license", "driving license")}
         </>
@@ -180,8 +187,8 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
 
   const contact = (
     <Card className="p-4">
-      {f.personal !== "hidden" && <SectionForm employeeId={id} def={def("addresses")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<MapPin className="size-4" />} />}
-      <SectionForm employeeId={id} def={def("contacts")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<Phone className="size-4" />} />
+      {f.personal !== "hidden" && <SectionForm employeeId={id} def={def("addresses")} values={values} options={options} canEdit={mine} action={secAction} icon={<MapPin className="size-4" />} />}
+      <SectionForm employeeId={id} def={canEdit ? def("contacts") : { ...def("contacts"), fields: def("contacts").fields.map((x) => (x.key === "officialEmail" ? { ...x, readOnly: true } : x)) }} values={values} options={options} canEdit={mine} action={secAction} icon={<Phone className="size-4" />} />
     </Card>
   );
 
@@ -193,7 +200,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
     </Card>
   );
 
-  const del = (kind: string, rowId: string) => canEdit && (
+  const del = (kind: string, rowId: string) => (kind === "bank" ? canEdit : mine) && (
     <form action={deleteProfileRow}>
       <input type="hidden" name="kind" value={kind} /><input type="hidden" name="rowId" value={rowId} />
       <button title="Remove" aria-label="Remove" className="rounded p-1 text-muted hover:text-red-600"><Trash2 className="size-3.5" /></button>
@@ -206,7 +213,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
       <MiniTable head={["Name", "Relation", "D.O.B", "CNIC", "Phone", "", ""]}
         rows={emp.relatives.map((r) => [r.name, r.relation, r.dob ? fmtDate(r.dob) : "—", r.cnic ?? "—", r.phone ?? "—",
           <span key="f" className="flex gap-1">{r.emergency && <Badge tone="red">Emergency</Badge>}{r.dependent && <Badge tone="navy">Dependent</Badge>}</span>, del("relative", r.id)])} />
-      {canEdit && (
+      {mine && (
         <ActionForm action={addRelative} className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-dashed border-line p-3 sm:grid-cols-3">
           <input type="hidden" name="id" value={id} />
           <Field label="Name"><input name="name" required className="input h-9" /></Field>
@@ -234,7 +241,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
       <MiniTable head={["Degree", "Institute", "Period", "Grade", ""]} rows={q("education").map((x) => [x.title, x.institution ?? "—", period(x.from, x.to), x.grade ?? "—", del("qualification", x.id)])} />
       <SectionTitle>Certifications</SectionTitle>
       <MiniTable head={["Certification", "Issued by", "Issued", "Expires", ""]} rows={q("certification").map((x) => [x.title, x.institution ?? "—", x.from ? fmtDate(x.from) : "—", x.to ? fmtDate(x.to) : "—", del("qualification", x.id)])} />
-      {canEdit && (
+      {mine && (
         <ActionForm action={addQualification} className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-dashed border-line p-3 sm:grid-cols-3">
           <input type="hidden" name="id" value={id} />
           <Field label="Type"><select name="kind" className="input h-9"><option value="experience">Experience</option><option value="education">Education</option><option value="certification">Certification</option></select></Field>
