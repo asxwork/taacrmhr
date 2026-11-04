@@ -1,5 +1,6 @@
 "use server";
 
+import { askForExitInterview } from "@/lib/exit-interview-server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { addMonths, format } from "date-fns";
@@ -154,6 +155,7 @@ export async function recordResignation(_: FormState, fd: FormData): Promise<For
     date: noticeDate, details: `Last working day ${format(lastWorkingDay, "d MMM yyyy")}${str(fd, "reason") ? `\n${str(fd, "reason")}` : ""}`, byId: user.id,
   });
   await ensureChecklist(emp.id, "offboarding");
+  await askForExitInterview(emp.id);
   if (emp.manager?.userId) await notify(emp.manager.userId, `${emp.fullName} is leaving`, { body: `Last working day ${format(lastWorkingDay, "d MMM yyyy")}`, link: path(emp.id) });
   await audit(user.id, "update", "employee", emp.id, `Recorded exit notice for ${emp.fullName}`);
   revalidatePath(path(emp.id));

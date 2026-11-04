@@ -182,6 +182,7 @@ export async function applyTypedRequest(req: { id: string; type: string; employe
       await db.employee.update({ where: { id: emp.id }, data: { status: "notice", exitType: "resigned", noticeDate: new Date(), lastWorkingDay: lastDay, exitReason: p.reason ?? null } });
       await event("resigned", "Resigned", `Last working day ${format(lastDay, "d MMM yyyy")}${p.reason ? `\n${p.reason}` : ""}`);
       await ensureChecklist(emp.id, "offboarding");
+      await (await import("./exit-interview-server")).askForExitInterview(emp.id);
       break;
     }
     case "requisition":

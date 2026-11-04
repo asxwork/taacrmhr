@@ -352,6 +352,17 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Admins switch this on/off in Settings → Features → Document expiry reminders."],
   },
   {
+    key: "exit-interviews", group: "HR", module: "hr.exit", title: "Exit interviews", who: "HR, leavers", href: "/hr/exits/interviews",
+    summary: "Find out why people leave: a short survey for everyone serving notice.",
+    steps: [
+      "When a resignation or termination notice is recorded, the employee gets a notification to fill in the exit interview (My Space).",
+      "They pick their reasons, rate their manager, team, pay, growth and work-life balance, and say what to improve.",
+      "HR sees answers under People → Exit interviews: top reasons, average ratings and the would-rejoin rate.",
+      "HR can also fill it in on someone's behalf (e.g. after a face-to-face exit meeting).",
+    ],
+    tips: ["Roles → Exit interviews: Read shows the answers, Edit lets HR fill them in."],
+  },
+  {
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [
