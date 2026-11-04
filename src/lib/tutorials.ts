@@ -297,6 +297,17 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Shift swaps: Read shows the list for their team/branch, Approve lets them decide."],
   },
   {
+    key: "payroll-checklist", group: "HR", module: "hr.payrollchecklist", title: "Payroll run checklist", who: "HR, payroll", href: "/hr/payroll/checklist",
+    summary: "Ten steps for every month's payroll, so nothing is missed.",
+    steps: [
+      "Open Payroll → Checklist; it opens on the current month (use the arrows for others).",
+      "Each step shows a live hint — e.g. how many leave requests are still waiting — and an Open button to go there.",
+      "Tick a step when it's done; AMS records who ticked it and when.",
+      "Run, approve and paid tick themselves when they happen.",
+    ],
+    tips: ["Roles → Payroll checklist: Read shows it, Edit lets someone tick steps."],
+  },
+  {
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [

@@ -118,6 +118,7 @@ export const SECTIONS: Section[] = [
     key: "payroll",
     tabs: [
       { href: "/hr/payroll", label: "Payroll", module: "hr.payroll" },
+      { href: "/hr/payroll/checklist", label: "Checklist", module: "hr.payrollchecklist" },
       { href: "/hr/payroll/payslips", label: "Payslips", module: "hr.payroll" },
       { href: "/hr/salary-revisions", label: "Salary revisions", module: "hr.payroll" },
       { href: "/hr/expenses", label: "Loans & expenses", module: "hr.expenses" },
