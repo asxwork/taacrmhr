@@ -319,6 +319,28 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Monthly check-ins: Read shows their team's check-ins, Edit lets them add notes."],
   },
   {
+    key: "feed", group: "HR", title: "Feed: announcements and kudos", who: "Everyone", href: "/feed",
+    summary: "Company news in one place, and a quick way to thank a colleague publicly.",
+    steps: [
+      "Open My Space → Feed.",
+      "Give kudos: pick a colleague, write what they did and press Send — they get a notification and everyone sees it.",
+      "Tap the heart to like a post.",
+      "HR / management post announcements (optionally pinned to the top); everyone is notified.",
+    ],
+    tips: ["Roles → Announcements & kudos: Add lets someone post announcements, Delete lets them remove any post."],
+  },
+  {
+    key: "org-chart", group: "HR", module: "hr.orgchart", title: "Org chart", who: "Everyone", href: "/org-chart",
+    summary: "See who reports to whom across the company, with photos.",
+    steps: [
+      "Open My Space → Feed → Org chart (or HR → More → Org chart).",
+      "Each card shows the person's photo, designation and department; their team is drawn underneath.",
+      "Pick a department to see just that team. HR can click a card to open the profile.",
+      "The chart follows each employee's Line manager field — fix that on the profile if someone is in the wrong place.",
+    ],
+    tips: ["Roles → Org chart decides who can open it (on by default for everyone)."],
+  },
+  {
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [

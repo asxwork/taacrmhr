@@ -74,7 +74,7 @@ export const APPS: AppDef[] = [
   },
   {
     key: "me", name: "My Space", description: "Your profile, attendance, leave and payslips", icon: "user", tile: "from-emerald-500 to-teal-700",
-    home: "/me/home", prefixes: ["/me"], layout: "list",
+    home: "/me/home", prefixes: ["/me", "/feed", "/org-chart"], layout: "list",
     groups: [
       {
         // Five entries; requests and profile pages are tabs (lib/sections.ts).
@@ -83,6 +83,7 @@ export const APPS: AppDef[] = [
           { href: "/me/attendance", label: "Attendance", icon: "fingerprint" },
           { href: "/me/leave", label: "Requests", icon: "palm", also: ["/me/expenses", "/me/swaps", "/hr/requests", "/approvals"] },
           { href: "/me/payslips", label: "Payslips", icon: "banknote" },
+          { href: "/feed", label: "Feed", icon: "award", also: ["/org-chart"] },
           { href: "/me", label: "My profile", icon: "user", also: ["/me/performance", "/me/check-ins", "/me/policies", "/me/surveys"] },
         ],
       },

@@ -12,6 +12,8 @@ const TILES: { href: string; label: string; about: string; icon: string; module?
   { href: "/hr/recruitment", label: "Recruitment", about: "Openings and candidates", icon: "briefcase", module: "hr.recruitment" },
   { href: "/hr/performance", label: "Performance", about: "Appraisals and KPIs", icon: "trending", module: "hr.performance" },
   { href: "/hr/check-ins", label: "Monthly check-ins", about: "1:1 notes and goals each month", icon: "chatplus", module: "hr.checkins" },
+  { href: "/org-chart", label: "Org chart", about: "Who reports to whom, with photos", icon: "hierarchy", module: "hr.orgchart" },
+  { href: "/feed", label: "Feed", about: "Announcements and kudos", icon: "award" },
   { href: "/hr/probation", label: "Probation", about: "Reviews before confirmation", icon: "usercog", module: "hr.performance" },
   { href: "/hr/assets", label: "Assets", about: "Laptops, phones, cars given to staff", icon: "laptop", module: "hr.assets" },
   { href: "/hr/policies/manage", label: "Policies", about: "Documents and acknowledgements", icon: "shield", module: "hr.employees" },
