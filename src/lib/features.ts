@@ -21,6 +21,15 @@ export const FEATURES = [
   { key: "assets", label: "Assets", group: "HR", paths: ["/hr/assets"], about: "Company assets given to staff" },
   { key: "policies", label: "Policies", group: "HR", paths: ["/hr/policies", "/me/policies"], about: "Policy documents and acknowledgements" },
   { key: "letters", label: "Letters", group: "HR", paths: ["/hr/letters"], about: "Offer, experience and other letters" },
+  { key: "onboarding", label: "Onboarding links", group: "HR", paths: ["/hr/onboarding", "/onboard"], about: "New hires fill in their own details from a link" },
+  { key: "leaveplanner", label: "Leave planner", group: "HR", paths: ["/hr/leave/planner"], about: "Team leave calendar with clash warnings" },
+  { key: "shiftswap", label: "Shift swaps", group: "HR", paths: ["/hr/attendance/swaps", "/me/swaps"], about: "Staff swap shifts with a colleague, manager approves" },
+  { key: "payrollchecklist", label: "Payroll checklist", group: "HR", paths: ["/hr/payroll/checklist"], about: "Step-by-step monthly payroll run checklist" },
+  { key: "checkins", label: "Monthly check-ins", group: "HR", paths: ["/hr/check-ins", "/me/check-ins"], about: "Monthly 1:1 notes and goals" },
+  { key: "feed", label: "Announcements & kudos", group: "HR", paths: ["/feed"], about: "Company announcements and recognition between colleagues" },
+  { key: "orgchart", label: "Org chart", group: "HR", paths: ["/org-chart"], about: "Who reports to whom, with photos" },
+  { key: "docreminders", label: "Document expiry reminders", group: "HR", paths: [], about: "Remind employees before their CNIC, passport or documents expire" },
+  { key: "exitinterviews", label: "Exit interviews", group: "HR", paths: ["/hr/exits/interviews", "/me/exit-interview"], about: "Leavers answer a short exit survey" },
   { key: "engagement", label: "Engagement surveys", group: "HR", paths: ["/hr/engagement", "/me/surveys"], about: "Staff surveys" },
 ] as const;
 export type FeatureKey = (typeof FEATURES)[number]["key"];

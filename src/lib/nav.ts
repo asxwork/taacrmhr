@@ -62,7 +62,7 @@ export const APPS: AppDef[] = [
         label: "HR",
         items: [
           { href: "/hr", label: "Home", icon: "layout", module: "hr.attendance", anyModule: ["hr.employees"] },
-          { href: "/hr/employees", label: "People", icon: "users", module: "hr.employees", also: ["/hr/organization", "/hr/exits"] },
+          { href: "/hr/employees", label: "People", icon: "users", module: "hr.employees", anyModule: ["hr.onboarding"], also: ["/hr/organization", "/hr/exits", "/hr/onboarding"] },
           { href: "/hr/attendance", label: "Attendance", icon: "clock", module: "hr.attendance" },
           { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave", also: ["/hr/leave-encashment"] },
           { href: "/hr/payroll", label: "Payroll", icon: "wallet", module: "hr.payroll", anyModule: ["hr.expenses"], also: ["/hr/salary-revisions", "/hr/expenses"] },

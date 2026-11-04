@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Cheap gate: no session cookie → login. Real validation happens server-side in getCurrentUser().
 export function middleware(req: NextRequest) {
   const hasSession = req.cookies.has("tad_session");
-  const isPublic = req.nextUrl.pathname === "/login" || req.nextUrl.pathname === "/verify-email";
+  const isPublic = req.nextUrl.pathname === "/login" || req.nextUrl.pathname === "/verify-email" || req.nextUrl.pathname.startsWith("/onboard/");
   if (!hasSession && !isPublic) return NextResponse.redirect(new URL("/login", req.url));
   // "View as" is read-only: refuse every change (server actions and API writes) until the Super Admin exits.
   if (req.cookies.has("taa_view_as") && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !isPublic && !req.nextUrl.pathname.startsWith("/api/view-as")) {

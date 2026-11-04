@@ -264,6 +264,17 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
+    key: "onboarding", group: "HR", module: "hr.onboarding", title: "Onboarding links for new hires", who: "HR", href: "/hr/onboarding",
+    summary: "New hires fill in their own details, CNIC and photo from a link — no typing for HR.",
+    steps: [
+      "Add the person in People → Employees (name, joining date, department).",
+      "Open People → Onboarding, choose them and press Create link.",
+      "Copy the link or tap WhatsApp to send it. It works for 14 days, once, without a login.",
+      "When they submit, HR gets a notification; their details are on the profile and the CNIC pictures wait for HR to verify.",
+    ],
+    tips: ["Roles → Onboarding links: Read shows the list, Add creates links."],
+  },
+  {
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [

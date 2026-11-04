@@ -733,6 +733,12 @@ model Employee {
   probationReviews  ProbationReview[]
   devices           CheckinDevice[]
   settlements       FinalSettlement[]
+  onboardingInvites OnboardingInvite[]
+  swapsAsked        ShiftSwap[]             @relation("SwapRequester")
+  swapsOffered      ShiftSwap[]             @relation("SwapPartner")
+  checkIns          CheckIn[]
+  kudos             FeedPost[]
+  exitInterview     ExitInterview?
 
   @@index([branchId])
   @@index([departmentId])
@@ -1877,4 +1883,97 @@ model MessageTemplate {
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─── HR extras ───────────────────────────────────────────────
+
+/// Self-service onboarding link: a new hire fills in their own details and uploads their photo / CNIC.
+model OnboardingInvite {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdById String?
+  expiresAt   DateTime
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+/// Two employees swap their shifts for one day. status: partner (waiting for the colleague) | manager | approved | rejected | cancelled
+model ShiftSwap {
+  id           String    @id @default(cuid())
+  requesterId  String
+  requester    Employee  @relation("SwapRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  partnerId    String
+  partner      Employee  @relation("SwapPartner", fields: [partnerId], references: [id], onDelete: Cascade)
+  date         DateTime
+  reason       String?
+  status       String    @default("partner")
+  partnerAt    DateTime?
+  decidedById  String?
+  decidedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([status])
+  @@index([date])
+}
+
+/// Payroll run checklist: one tick per step per month.
+model PayrollCheck {
+  id       String   @id @default(cuid())
+  month    String
+  key      String
+  doneById String?
+  doneAt   DateTime @default(now())
+  note     String?
+
+  @@unique([month, key])
+}
+
+/// Monthly 1:1 check-in between an employee and their manager.
+model CheckIn {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  month        String
+  mood         Int?
+  wins         String? // @text
+  blockers     String? // @text
+  goals        String? // @text
+  managerNotes String? // @text
+  managerId    String?
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  @@unique([employeeId, month])
+}
+
+/// Company feed: announcements from HR / management and kudos between colleagues. kind: announcement | kudos
+model FeedPost {
+  id         String    @id @default(cuid())
+  kind       String    @default("announcement")
+  authorId   String
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  title      String?
+  body       String // @text
+  pinned     Boolean   @default(false)
+  likes      String    @default("") // comma-separated user ids
+  createdAt  DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
+/// Exit interview filled by a leaver (or HR on their behalf).
+model ExitInterview {
+  id          String    @id @default(cuid())
+  employeeId  String    @unique
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reasons     String?
+  ratings     String? // @text
+  liked       String? // @text
+  improve     String? // @text
+  wouldRejoin Boolean?
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
 }
