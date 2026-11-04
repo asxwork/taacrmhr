@@ -50,6 +50,11 @@ export const SECTIONS: Section[] = [
     tabs: [
       { href: "/crm/contacts", label: "Contacts", module: "crm.contacts", params: { tab: null } },
       { href: "/crm/contacts?tab=companies", label: "Companies", module: "crm.contacts", params: { tab: "companies" } },
+    ],
+  },
+  {
+    key: "inventory",
+    tabs: [
       { href: "/inventory", label: "Units", module: "inventory.units", params: { tab: null, status: null } },
       { href: "/inventory?status=available", label: "Available units", module: "inventory.units", params: { tab: null, status: "available" } },
       { href: "/inventory?tab=projects", label: "Projects", module: "inventory.projects", params: { tab: "projects" } },

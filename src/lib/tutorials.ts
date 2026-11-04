@@ -36,7 +36,7 @@ export const TUTORIALS: Tutorial[] = [
     key: "find-your-way", group: "Getting started", title: "Finding your way around", who: "Everyone", chapter: "start",
     summary: "Apps, the menu on the left, tabs at the top of each section, and quick search.",
     steps: [
-      "The menu on the left lists the sections of the app you're in. In CRM: Home, Leads, Deals, Calls, Contacts & Property, Reports.",
+      "The menu on the left lists the sections of the app you're in. In CRM: Home, Leads, Deals, Calls, Contacts, Inventory, Reports.",
       "Inside a section, the tabs across the top switch between its screens (for example Leads → All leads, My leads, Follow-ups, Tasks & calendar).",
       "Switch apps with the app name at the top of the menu, or go back to the home screen.",
       "Press Ctrl + K (⌘ K on Mac) anywhere to jump to a page or find a lead, deal, contact, unit or employee by name or phone.",
@@ -113,11 +113,20 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "contacts-property", group: "CRM", module: "crm.contacts", title: "Contacts, companies and property", who: "Agents, managers", href: "/crm/contacts", chapter: "property",
-    summary: "Clients and companies, plus your projects and units with photos and prices.",
+    key: "contacts", group: "CRM", module: "crm.contacts", title: "Contacts and companies", who: "Agents, managers", href: "/crm/contacts", chapter: "property",
+    summary: "Your clients and their companies, each with their deals and history.",
     steps: [
-      "Contacts & Property → Contacts / Companies lists your clients; each has their deals and history.",
-      "Units lists every listing with status (available, on hold, sold). Filter by project, type and price.",
+      "Contacts in the menu opens your client list; the Companies tab lists the firms they belong to.",
+      "Search by name or phone; open a contact to see their leads, deals and history.",
+      "New contact adds someone who isn't a lead yet (e.g. a buyer met at a site).",
+    ],
+  },
+  {
+    key: "inventory", group: "CRM", module: "inventory.units", title: "Inventory: units and projects", who: "Agents, managers", href: "/inventory", chapter: "property",
+    summary: "Your projects and units with photos, prices and availability, separate from contacts.",
+    steps: [
+      "Inventory in the menu opens Units: every listing with status (available, on hold, sold). Filter by project, type and price.",
+      "Available units shows only what you can sell today.",
       "Projects holds blocks, photos and payment plans for each project.",
       "Open a unit to add photos, change the price or start a deal for it.",
     ],
