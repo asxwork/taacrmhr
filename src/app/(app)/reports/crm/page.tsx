@@ -20,6 +20,7 @@ export default async function CrmReportsPage({ searchParams }: { searchParams: P
   const me = await requireUser();
   if (!can(me, "reports.crm") && can(me, "crm.targets")) redirect("/reports/targets");
   if (!can(me, "reports.crm") && can(me, "reports.lost")) redirect("/reports/lost");
+  if (!can(me, "reports.crm") && can(me, "reports.activity")) redirect("/reports/activity");
   const user = await requirePermission("reports.crm");
   const sp = await searchParams;
   const { from, to } = resolvePeriod(sp.period, sp.from, sp.to);

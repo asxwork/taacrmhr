@@ -62,6 +62,8 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "hr.exit", label: "Exit interviews", group: "HR", actions: ["view", "edit"], scoped: true },
   { key: "calls", label: "Calling centre", group: "Calls", actions: [...CRUD, "assign", "listen"], scoped: true },
   { key: "reports.crm", label: "CRM Reports", group: "Reports", actions: ["view", "export"], scoped: true },
+  { key: "reports.activity", label: "Person activity feed", group: "Reports", actions: ["view"], scoped: true },
+  { key: "reports.weekly", label: "Boss weekly email", group: "Reports", actions: ["view"], scoped: false },
   { key: "reports.lost", label: "Lost-reason analysis", group: "Reports", actions: ["view", "export"], scoped: true },
   { key: "reports.hr", label: "HR Reports", group: "Reports", actions: ["view", "export"], scoped: true },
   { key: "settings.users", label: "Users", group: "Settings", actions: ["view", "create", "edit", "delete"], scoped: false },
@@ -72,7 +74,8 @@ export const MODULES: readonly ModuleDef[] = [
 
 /** Modules added after go-live: the seed gives built-in roles their default grants for these once (prisma/seed.ts). */
 export const ADDED_MODULES = ["crm.matches", "crm.summary", "crm.templates", "crm.visits", "crm.merge", "reports.lost",
-  "hr.onboarding", "hr.leaveplanner", "hr.shiftswap", "hr.payrollchecklist", "hr.checkins", "hr.feed", "hr.orgchart", "hr.exit"];
+  "hr.onboarding", "hr.leaveplanner", "hr.shiftswap", "hr.payrollchecklist", "hr.checkins", "hr.feed", "hr.orgchart", "hr.exit",
+  "reports.activity", "reports.weekly"];
 
 export const MODULE_MAP = Object.fromEntries(MODULES.map((m) => [m.key, m])) as Record<string, ModuleDef>;
 
@@ -110,7 +113,7 @@ function all(scope: Scope, keys: string[]) {
 }
 
 const allModules = MODULES.map((m) => m.key);
-const crmAll = [...crmGroup, "inventory.projects", "inventory.units", "reports.crm", "reports.lost"];
+const crmAll = [...crmGroup, "inventory.projects", "inventory.units", "reports.crm", "reports.lost", "reports.activity"];
 
 export const DEFAULT_ROLES: RoleTemplate[] = [
   // Bitrix-style roles
@@ -148,6 +151,7 @@ export const DEFAULT_ROLES: RoleTemplate[] = [
       "inventory.units": { view: "all", create: "team", edit: "team", export: "team", assign: "team" },
       "reports.crm": "team",
       "reports.lost": "team",
+      "reports.activity": "team",
       "hr.leave": { view: "team", approve: "team" },
       "hr.attendance": { view: "team", approve: "team" },
       "hr.leaveplanner": "team",

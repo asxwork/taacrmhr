@@ -208,6 +208,27 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Merging can't be undone. Roles → Duplicate leads & merge: Read shows the list, Edit allows merging."],
   },
   {
+    key: "activity-feed", group: "CRM", module: "reports.activity", title: "Person activity feed", who: "Managers, Boss", href: "/reports/activity",
+    summary: "See everything one person did — calls, notes, meetings, visits and changes — day by day.",
+    steps: [
+      "Open Reports → Activity feed.",
+      "Pick the person and the period (today, 7 or 30 days).",
+      "Each day lists their calls (with outcome), notes, meetings, site visits (with GPS check-in) and every change they made in AMS, newest first.",
+      "Click a lead or deal name to open it.",
+    ],
+    tips: ["Roles → Person activity feed: own = only themselves, team/branch/all = the people they look after."],
+  },
+  {
+    key: "weekly-email", group: "CRM", module: "reports.weekly", title: "Boss weekly email", who: "Boss, directors", href: "/boss",
+    summary: "Every Monday morning: last week's leads, deals, calls, visits, top agents and people numbers.",
+    steps: [
+      "The Boss gets it automatically; give anyone else Roles → Boss weekly email → Read (or a per-user exception).",
+      "Every Monday when the daily job runs they get a notification and an email (when email is set up) with last week's numbers.",
+      "Tap it to open the Boss dashboard for the details.",
+    ],
+    tips: ["To send it on another day, run the daily job with &weekly=1 added to its link."],
+  },
+  {
     key: "crm-reports", group: "CRM", module: "reports.crm", title: "CRM reports", who: "Managers, Boss", href: "/reports/crm", chapter: "reports",
     summary: "Leads by source and stage, conversion, agent leaderboard and won value.",
     steps: [

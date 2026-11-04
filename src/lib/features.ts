@@ -13,6 +13,8 @@ export const FEATURES = [
   { key: "visits", label: "Site-visit check-ins", group: "CRM", paths: ["/crm/visits"], about: "Agents check in with phone GPS at site visits" },
   { key: "merge", label: "Duplicate merge", group: "CRM", paths: ["/crm/duplicates"], about: "Find leads with the same phone and merge them" },
   { key: "lostreasons", label: "Lost-reason analysis", group: "CRM", paths: ["/reports/lost"], about: "Why deals and leads are lost, by source and agent" },
+  { key: "activityfeed", label: "Person activity feed", group: "CRM", paths: ["/reports/activity"], about: "Everything one person did, day by day" },
+  { key: "weekly", label: "Boss weekly email", group: "CRM", paths: [], about: "Monday email with last week's sales and HR numbers" },
   { key: "automations", label: "Lead automations", group: "CRM", paths: ["/crm/automations"], about: "Rules that act on leads in bulk" },
   { key: "payroll", label: "Payroll", group: "HR", paths: ["/hr/payroll", "/payslips", "/hr/salary-revisions", "/hr/leave-encashment", "/me/payslips"], about: "Payroll runs, payslips, salary revisions, encashment" },
   { key: "expenses", label: "Expenses & loans", group: "HR", paths: ["/hr/expenses", "/me/expenses"], about: "Expense claims, advances and loans" },

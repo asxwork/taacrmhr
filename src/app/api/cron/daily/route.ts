@@ -11,6 +11,7 @@ import { purgeOldRecordings } from "@/lib/softphone";
 import { syncAllPullMachines } from "@/lib/attendance-machine";
 import { sendMorningSummaries } from "@/lib/morning";
 import { sendDocumentReminders } from "@/lib/doc-reminders";
+import { sendWeeklyEmail } from "@/lib/weekly";
 
 // Hostinger cron (once a day, e.g. 07:00): GET https://<domain>/api/cron/daily?key=<CRON_SECRET>
 // Attendance and leave balances are computed live, so this job only sends reminders.
@@ -71,5 +72,8 @@ export async function GET(req: Request) {
   // 7. Remind employees before their own CNIC / passport / licence / documents expire.
   const docReminders = await sendDocumentReminders().catch(() => 0);
 
-  return Response.json({ ok: true, summaries, docReminders, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
+  // 8. Mondays: the boss weekly email (add &weekly=1 to send it today).
+  const weekly = await sendWeeklyEmail(new URL(req.url).searchParams.get("weekly") === "1").catch(() => 0);
+
+  return Response.json({ ok: true, summaries, docReminders, weekly, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
 }

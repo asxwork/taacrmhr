@@ -143,6 +143,7 @@ export const SECTIONS: Section[] = [
       { href: "/reports/crm", label: "CRM reports", module: "reports.crm" },
       { href: "/reports/targets", label: "Targets", module: "crm.targets" },
       { href: "/reports/lost", label: "Lost reasons", module: "reports.lost" },
+      { href: "/reports/activity", label: "Activity feed", module: "reports.activity" },
       { href: "/reports/agents", label: "Agent performance", superAdmin: true },
     ],
   },
