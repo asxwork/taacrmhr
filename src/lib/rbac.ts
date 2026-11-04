@@ -36,6 +36,11 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "crm.deals", label: "Deals", group: "CRM", actions: [...CRUD, "assign", "reopen"], scoped: true },
   { key: "crm.contacts", label: "Contacts & Companies", group: "CRM", actions: CRUD, scoped: true },
   { key: "crm.targets", label: "Targets & leaderboard", group: "CRM", actions: ["view", "edit"], scoped: true },
+  { key: "crm.matches", label: "Property-match alerts", group: "CRM", actions: ["view"], scoped: true },
+  { key: "crm.summary", label: "Morning summary", group: "CRM", actions: ["view"], scoped: true },
+  { key: "crm.templates", label: "Message templates", group: "CRM", actions: ["view", "create", "edit", "delete"], scoped: false },
+  { key: "crm.visits", label: "Site-visit check-ins", group: "CRM", actions: ["view", "create"], scoped: true },
+  { key: "crm.merge", label: "Duplicate leads & merge", group: "CRM", actions: ["view", "edit"], scoped: true },
   { key: "crm.activities", label: "Activities & Tasks", group: "CRM", actions: ["view", "create", "edit", "delete", "export"], scoped: true },
   { key: "inventory.projects", label: "Projects & Blocks", group: "Inventory", actions: CRUD, scoped: false },
   { key: "inventory.units", label: "Units / Listings", group: "Inventory", actions: [...CRUD, "assign"], scoped: true },
@@ -49,12 +54,16 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "hr.assets", label: "Assets", group: "HR", actions: CRUD, scoped: false },
   { key: "calls", label: "Calling centre", group: "Calls", actions: [...CRUD, "assign", "listen"], scoped: true },
   { key: "reports.crm", label: "CRM Reports", group: "Reports", actions: ["view", "export"], scoped: true },
+  { key: "reports.lost", label: "Lost-reason analysis", group: "Reports", actions: ["view", "export"], scoped: true },
   { key: "reports.hr", label: "HR Reports", group: "Reports", actions: ["view", "export"], scoped: true },
   { key: "settings.users", label: "Users", group: "Settings", actions: ["view", "create", "edit", "delete"], scoped: false },
   { key: "settings.roles", label: "Roles & Permissions", group: "Settings", actions: ["view", "create", "edit", "delete"], scoped: false },
   { key: "settings.company", label: "Company, Branches & Lists", group: "Settings", actions: ["view", "edit"], scoped: false },
   { key: "settings.audit", label: "Audit Log", group: "Settings", actions: ["view"], scoped: false },
 ] as const;
+
+/** Modules added after go-live: the seed gives built-in roles their default grants for these once (prisma/seed.ts). */
+export const ADDED_MODULES = ["crm.matches", "crm.summary", "crm.templates", "crm.visits", "crm.merge", "reports.lost"];
 
 export const MODULE_MAP = Object.fromEntries(MODULES.map((m) => [m.key, m])) as Record<string, ModuleDef>;
 
@@ -84,7 +93,7 @@ export function scopeOf(perms: PermissionMap, module: string, action: Action): S
 
 type RoleTemplate = { name: string; description: string; grants: Record<string, Partial<Record<Action, Scope>> | Scope> };
 
-const crmGroup = ["crm.leads", "crm.deals", "crm.contacts", "crm.activities", "crm.targets"];
+const crmGroup = ["crm.leads", "crm.deals", "crm.contacts", "crm.activities", "crm.targets", "crm.matches", "crm.summary", "crm.visits", "crm.merge", "crm.templates"];
 const hrGroup = MODULES.filter((m) => m.group === "HR").map((m) => m.key);
 
 function all(scope: Scope, keys: string[]) {
@@ -92,7 +101,7 @@ function all(scope: Scope, keys: string[]) {
 }
 
 const allModules = MODULES.map((m) => m.key);
-const crmAll = [...crmGroup, "inventory.projects", "inventory.units", "reports.crm"];
+const crmAll = [...crmGroup, "inventory.projects", "inventory.units", "reports.crm", "reports.lost"];
 
 export const DEFAULT_ROLES: RoleTemplate[] = [
   // Bitrix-style roles
@@ -109,7 +118,7 @@ export const DEFAULT_ROLES: RoleTemplate[] = [
   {
     name: "Deputy supervisor",
     description: "CRM and inventory for their team (themselves and everyone reporting to them).",
-    grants: { ...all("team", crmGroup), "inventory.projects": { view: "all" }, "inventory.units": "team", "reports.crm": "team" },
+    grants: { ...all("team", crmGroup), "inventory.projects": { view: "all" }, "inventory.units": "team", "reports.crm": "team", "reports.lost": "team" },
   },
   {
     name: "Observer",
@@ -129,6 +138,7 @@ export const DEFAULT_ROLES: RoleTemplate[] = [
       "inventory.projects": { view: "all" },
       "inventory.units": { view: "all", create: "team", edit: "team", export: "team", assign: "team" },
       "reports.crm": "team",
+      "reports.lost": "team",
       "hr.leave": { view: "team", approve: "team" },
       "hr.attendance": { view: "team", approve: "team" },
     },
@@ -139,6 +149,10 @@ export const DEFAULT_ROLES: RoleTemplate[] = [
     grants: {
       "crm.leads": { view: "own", create: "own", edit: "own" },
       "crm.targets": { view: "own" },
+      "crm.matches": { view: "own" },
+      "crm.summary": { view: "own" },
+      "crm.templates": { view: "all" },
+      "crm.visits": { view: "own", create: "own" },
       "crm.deals": { view: "own", create: "own", edit: "own" },
       "crm.contacts": { view: "own", create: "own", edit: "own" },
       "crm.activities": { view: "own", create: "own", edit: "own", delete: "own" },

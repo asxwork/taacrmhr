@@ -1,5 +1,6 @@
 "use server";
 
+import { findMatchesForUnit } from "@/lib/matches";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -144,6 +145,7 @@ export async function saveUnit(_: FormState, fd: FormData): Promise<FormState> {
     await addPhotos(photoFiles(fd, "photos").slice(0, MAX_PHOTOS), `units/${unit.id}`, 0, (path, sortOrder) => db.unitImage.create({ data: { unitId: unit.id, path, sortOrder } }));
   }
   await audit(user.id, existing ? "update" : "create", "unit", unit.id, `${existing ? "Updated" : "Added"} unit ${unitNo}`);
+  if (!existing || existing.status !== "available" || existing.price !== unit.price) findMatchesForUnit(unit.id);
   revalidatePath("/inventory");
   redirect(`/inventory/units/${unit.id}`);
 }
@@ -156,6 +158,7 @@ export async function setUnitStatus(fd: FormData) {
   if (!unit || !(await unitAllows(user, unit, "edit"))) return;
   if (unit.activeDealId || !["available", "hold", "offmarket"].includes(status)) return;
   await db.unit.update({ where: { id: unit.id }, data: { status } });
+  if (status === "available") findMatchesForUnit(unit.id);
   await audit(user.id, "update", "unit", unit.id, `Unit ${unit.unitNo} set to ${status}`);
   revalidatePath(`/inventory/units/${unit.id}`);
 }

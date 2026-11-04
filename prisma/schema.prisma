@@ -271,6 +271,7 @@ model Lead {
   updatedAt       DateTime    @updatedAt
   deals           Deal[]
   activities      Activity[]
+  matches         PropertyMatch[]
 
   @@index([ownerId])
   @@index([branchId])
@@ -392,6 +393,11 @@ model Activity {
   createdById String?
   createdBy   User?     @relation("ActivityCreator", fields: [createdById], references: [id], onDelete: SetNull)
   branchId    String?
+  /// Site-visit GPS check-in (phone location when the agent tapped "Check in here").
+  checkInAt   DateTime?
+  checkInLat  Float?
+  checkInLng  Float?
+  checkInAcc  Float?
   createdAt   DateTime  @default(now())
 
   @@index([leadId])
@@ -490,7 +496,8 @@ model Unit {
   images             UnitImage[]
   deals              DealUnit[]
 
-  leads Lead[] @relation("LeadUnit")
+  leads   Lead[]          @relation("LeadUnit")
+  matches PropertyMatch[]
 
   @@index([projectId])
   @@index([status])
@@ -1839,4 +1846,35 @@ model SalesTarget {
   wonValue Float  @default(0)
 
   @@unique([userId, month])
+}
+
+// ─── CRM extras ──────────────────────────────────────────────
+
+/// A unit that fits an open lead's budget / type / project, found when the unit is added or becomes available.
+model PropertyMatch {
+  id          String    @id @default(cuid())
+  leadId      String
+  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  unitId      String
+  unit        Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  score       Int       @default(0)
+  why         String?
+  dismissedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([leadId, unitId])
+  @@index([createdAt])
+}
+
+/// Ready-made WhatsApp / email messages with {placeholders}, used from a lead.
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  channel   String   @default("whatsapp") // whatsapp | email
+  subject   String?
+  body      String // @text
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

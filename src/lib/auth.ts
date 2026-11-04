@@ -84,7 +84,8 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
 
 const USER_INCLUDE = { branch: true, roles: { include: { role: { include: { permissions: true } } } } } as const;
 
-async function loadUserById(id: string): Promise<SessionUser | null> {
+/** A user with their permissions, for background jobs (cron, alerts) that act for someone who isn't signed in. */
+export async function loadUserById(id: string): Promise<SessionUser | null> {
   const user = await db.user.findUnique({ where: { id }, include: USER_INCLUDE });
   return user && user.active ? buildSessionUser(user) : null;
 }

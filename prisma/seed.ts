@@ -10,7 +10,7 @@
 //   staff@advisor.local     Employee (self-service only)
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { DEFAULT_ROLES, MODULES, expandGrants } from "../src/lib/rbac";
+import { ADDED_MODULES, DEFAULT_ROLES, MODULES, expandGrants } from "../src/lib/rbac";
 import { randomBytes } from "node:crypto";
 import { demoLoaded, loadDemo, upgradeDemo } from "../src/lib/demo-data";
 import { nextNumber } from "../src/lib/sequence";
@@ -27,7 +27,7 @@ async function main() {
   ]);
 
   // Modules added after a role was first created: give the built-in role its default grants for them (once per module).
-  for (const mod of ["calls", "crm.targets"]) {
+  for (const mod of ["calls", "crm.targets", ...ADDED_MODULES]) {
     const flag = `rbac.added.${mod}`;
     if (await db.setting.findUnique({ where: { key: flag } })) continue;
     for (const tpl of DEFAULT_ROLES) {

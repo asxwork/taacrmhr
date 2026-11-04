@@ -132,6 +132,16 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
+    key: "matches", group: "CRM", module: "crm.matches", title: "Property-match alerts", who: "Agents, managers", href: "/crm/matches",
+    summary: "AMS tells you when a new or freed-up unit fits one of your leads.",
+    steps: [
+      "When someone adds a unit, or a unit becomes available again, AMS checks it against every open lead: project, property type, budget (±10%) and area.",
+      "If it fits, the lead's agent gets a notification, and the match appears under Leads → Matches.",
+      "Tap “Offer on WhatsApp” to send the lead a ready-written message, or ✕ to dismiss the match.",
+    ],
+    tips: ["Leads match best when their project, property type and budget are filled in.", "Admins switch this on/off in Settings → Features and control who sees it under Roles → Property-match alerts."],
+  },
+  {
     key: "crm-reports", group: "CRM", module: "reports.crm", title: "CRM reports", who: "Managers, Boss", href: "/reports/crm", chapter: "reports",
     summary: "Leads by source and stage, conversion, agent leaderboard and won value.",
     steps: [
