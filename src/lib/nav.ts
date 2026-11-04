@@ -36,19 +36,19 @@ export type AppDef = {
 export const APPS: AppDef[] = [
   {
     key: "crm", name: "CRM", description: "Leads, deals, contacts, calls, inventory", icon: "target", tile: "from-sky-500 to-blue-700",
-    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents", "/reports/targets"], layout: "list",
+    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents", "/reports/targets", "/reports/lost"], layout: "list",
     // Six sections; the screens inside each are tabs across the top of the page (lib/sections.ts).
     groups: [
       {
         label: "CRM",
         items: [
           { href: "/dashboard", label: "Home", icon: "home" },
-          { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads", also: ["/crm/follow-ups", "/crm/tasks", "/crm/focus", "/crm/matches", "/crm/templates", "/crm/visits"] },
+          { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads", also: ["/crm/follow-ups", "/crm/tasks", "/crm/focus", "/crm/matches", "/crm/templates", "/crm/visits", "/crm/duplicates"] },
           { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals" },
           { href: "/calls", label: "Calls", icon: "phonecall", module: "calls" },
           { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts", also: ["/crm/companies"] },
           { href: "/inventory", label: "Inventory", icon: "building", module: "inventory.units", anyModule: ["inventory.projects"] },
-          { href: "/reports/crm", label: "Reports", icon: "chart", module: "reports.crm", anyModule: ["crm.targets"], also: ["/reports/agents", "/reports/targets"] },
+          { href: "/reports/crm", label: "Reports", icon: "chart", module: "reports.crm", anyModule: ["crm.targets", "reports.lost"], also: ["/reports/agents", "/reports/targets", "/reports/lost"] },
         ],
       },
     ],

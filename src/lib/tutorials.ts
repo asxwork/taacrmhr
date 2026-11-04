@@ -175,6 +175,28 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Site-visit check-ins: Read shows the log (own/team/branch/all); Add lets someone check in."],
   },
   {
+    key: "lost-reasons", group: "CRM", module: "reports.lost", title: "Lost-reason analysis", who: "Managers, Boss", href: "/reports/lost",
+    summary: "See why deals are lost and leads are closed — by reason, source and agent.",
+    steps: [
+      "Open Reports → Lost reasons and pick a period.",
+      "The top row shows deals lost, value lost, win rate and leads closed.",
+      "The charts split lost deals (by the reason typed when the deal was lost) and closed leads (by their closing stage) by reason, source and agent.",
+      "Use it to fix the biggest leak first — e.g. a source that brings mostly wrong numbers.",
+    ],
+    tips: ["Always type a reason when marking a deal lost — “No reason given” hides the real problem."],
+  },
+  {
+    key: "duplicates", group: "CRM", module: "crm.merge", title: "Find and merge duplicate leads", who: "Managers, admins", href: "/crm/duplicates",
+    summary: "Clean up leads that came in twice with the same phone number.",
+    steps: [
+      "Open Leads → Duplicates. Each card is one phone number with all the leads that share it.",
+      "AMS pre-selects the lead with the most history; pick another one if you prefer.",
+      "Press Merge: activities, deals and property matches move onto the kept lead, its empty fields are filled from the others, and the duplicates are deleted.",
+      "A note on the kept lead lists what was merged.",
+    ],
+    tips: ["Merging can't be undone. Roles → Duplicate leads & merge: Read shows the list, Edit allows merging."],
+  },
+  {
     key: "crm-reports", group: "CRM", module: "reports.crm", title: "CRM reports", who: "Managers, Boss", href: "/reports/crm", chapter: "reports",
     summary: "Leads by source and stage, conversion, agent leaderboard and won value.",
     steps: [

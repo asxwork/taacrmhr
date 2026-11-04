@@ -19,6 +19,7 @@ export const SECTIONS: Section[] = [
       { href: "/crm/focus", label: "Focus", module: "crm.leads" },
       { href: "/crm/matches", label: "Matches", module: "crm.matches" },
       { href: "/crm/visits", label: "Site visits", module: "crm.visits" },
+      { href: "/crm/duplicates", label: "Duplicates", module: "crm.merge" },
       { href: "/crm/templates", label: "Templates", module: "crm.templates", action: "create" },
       { href: "/crm/leads?owner=me", label: "My leads", module: "crm.leads", params: { owner: "me", group: null } },
       { href: "/crm/follow-ups", label: "Follow-ups", module: "crm.leads" },
@@ -127,6 +128,7 @@ export const SECTIONS: Section[] = [
     tabs: [
       { href: "/reports/crm", label: "CRM reports", module: "reports.crm" },
       { href: "/reports/targets", label: "Targets", module: "crm.targets" },
+      { href: "/reports/lost", label: "Lost reasons", module: "reports.lost" },
       { href: "/reports/agents", label: "Agent performance", superAdmin: true },
     ],
   },
