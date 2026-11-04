@@ -11,6 +11,8 @@ export const APP_URL = () => (process.env.APP_URL ?? "http://localhost:3000").re
 export async function notify(userId: string | null | undefined, title: string, opts: { body?: string; link?: string; email?: boolean } = {}) {
   if (!userId) return;
   await db.notification.create({ data: { userId, title, body: opts.body ?? null, link: opts.link ?? null } });
+  // Phone / desktop push for people who turned it on (after the response, never slowing the page).
+  inBackground(async () => (await import("./push")).sendPush(userId, title, opts.body, opts.link));
   if (opts.email && smtpConfigured()) {
     // The email goes out after the page has responded, so a slow mail server never slows down saving.
     const send = async () => {

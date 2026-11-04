@@ -22,6 +22,17 @@ export const TUTORIAL_GROUPS = ["Getting started", "CRM", "Calls", "HR", "My Spa
 export const TUTORIALS: Tutorial[] = [
   // ── Getting started
   {
+    key: "push", group: "Getting started", title: "Notifications on your phone", who: "Everyone", href: "/notifications",
+    summary: "Get AMS notifications on your phone or computer, even when AMS is closed.",
+    steps: [
+      "On your phone, open AMS in Chrome (Android) — or on iPhone, first tap Share → Add to Home Screen and open AMS from the icon.",
+      "Open the bell (Notifications) and tap Turn on, then Allow.",
+      "From now on new leads, approvals, matches, kudos and reminders pop up like any other app notification. Tap one to open the page.",
+      "Turn it off any time from the same switch. Each phone or computer is turned on separately.",
+    ],
+    tips: ["Admins switch push on/off for everyone in Settings → Features → Phone push notifications."],
+  },
+  {
     key: "sign-in", group: "Getting started", title: "Signing in", who: "Everyone", chapter: "start",
     summary: "Sign in with your work email. Your role decides which apps and screens you see.",
     steps: [

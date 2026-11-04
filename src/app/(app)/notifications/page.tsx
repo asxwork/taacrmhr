@@ -1,3 +1,4 @@
+import { PushToggle } from "@/components/push-toggle";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
@@ -29,6 +30,7 @@ export default async function NotificationsPage() {
           </form>
         )}
       />
+      <div className="mb-4"><PushToggle /></div>
       <Card className="overflow-hidden">
         {items.length === 0 ? (
           <EmptyState title="You’re all caught up" description="Assignments, new leads and reminders show up here." />

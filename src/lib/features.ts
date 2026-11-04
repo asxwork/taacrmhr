@@ -30,6 +30,7 @@ export const FEATURES = [
   { key: "orgchart", label: "Org chart", group: "HR", paths: ["/org-chart"], about: "Who reports to whom, with photos" },
   { key: "docreminders", label: "Document expiry reminders", group: "HR", paths: [], about: "Remind employees before their CNIC, passport or documents expire" },
   { key: "exitinterviews", label: "Exit interviews", group: "HR", paths: ["/hr/exits/interviews", "/me/exit-interview"], about: "Leavers answer a short exit survey" },
+  { key: "push", label: "Phone push notifications", group: "HR", paths: [], about: "Notifications on phones and computers even when AMS is closed" },
   { key: "engagement", label: "Engagement surveys", group: "HR", paths: ["/hr/engagement", "/me/surveys"], about: "Staff surveys" },
 ] as const;
 export type FeatureKey = (typeof FEATURES)[number]["key"];
