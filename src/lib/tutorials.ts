@@ -33,6 +33,17 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Admins switch push on/off for everyone in Settings → Features → Phone push notifications."],
   },
   {
+    key: "search", group: "Getting started", title: "Smart search (Ctrl + K)", who: "Everyone", href: "/dashboard",
+    summary: "Find anything from one box: people, leads by number or phone, units by what the client wants, and how-tos.",
+    steps: [
+      "Press Ctrl + K (or tap the search icon on your phone).",
+      "Type a name, a lead number like #1234, or a phone number in any format (0300…, +92 300…, 92300…).",
+      "Ask for property in plain words, e.g. “3 bed apartment DHA under 2 crore” or “shop for rent 50 lakh” — AMS shows matching available units and a link to all of them.",
+      "Type a question like “leave” or “payslip” to get the matching how-to.",
+    ],
+    tips: ["Search only shows what you're allowed to open, and hides phone numbers your role can't see."],
+  },
+  {
     key: "sign-in", group: "Getting started", title: "Signing in", who: "Everyone", chapter: "start",
     summary: "Sign in with your work email. Your role decides which apps and screens you see.",
     steps: [
