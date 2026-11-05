@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { AlarmClock, CircleSlash, Hourglass, TimerReset } from "lucide-react";
 import { db } from "@/lib/db";
 import { requirePermission, scopeFor } from "@/lib/permissions";

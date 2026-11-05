@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
     // Shared hosting (Hostinger) caps threads per account; parallel build workers exhaust it.
     cpus: 1,
     // "Create" buttons prefetch their screen in the background; keep that copy at most a minute.
-    staleTimes: { static: 60 },
+    // Recently visited pages are reused too, so Cancel and Back are instant; any save clears this.
+    staleTimes: { static: 60, dynamic: 30 },
   },
 };
 

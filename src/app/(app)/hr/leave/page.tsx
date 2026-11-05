@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import type { Prisma } from "@prisma/client";
 import { addMonths, eachDayOfInterval, endOfMonth, format, isSameDay, parse, startOfDay, startOfMonth, subMonths } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";

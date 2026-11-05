@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 
 // Minimal single-series charts in plain HTML/CSS (no chart library).
 // One accent hue (--chart, swapped for dark mode), thin marks with 4px rounded data-ends,

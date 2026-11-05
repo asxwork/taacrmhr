@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { ArrowLeft, Mail, Phone } from "lucide-react";
 import { fileUrl } from "@/lib/files";
 import { fmtDate } from "@/lib/utils";

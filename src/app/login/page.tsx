@@ -5,9 +5,10 @@ import { LoginForm } from "./login-form";
 
 export const metadata = { title: "Sign in" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ idle?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ idle?: string; password?: string }> }) {
   if (await getCurrentUser()) redirect("/home");
-  const reason = (await searchParams).idle ? "You were signed out after a period of inactivity." : null;
+  const sp = await searchParams;
+  const reason = sp.idle ? "You were signed out after a period of inactivity." : null;
 
   return (
     <main className="grid grid-cols-1 min-h-screen bg-surface lg:grid-cols-[1.1fr_1fr]">
@@ -34,6 +35,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <h1 className="font-display text-3xl font-semibold tracking-tight">Welcome back</h1>
           <p className="mb-8 mt-1.5 text-sm text-muted">Sign in with your work email.</p>
           {reason && <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{reason}</p>}
+          {sp.password === "set" && <p role="status" className="mb-4 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Password set. You can sign in now.</p>}
           <LoginForm action={login} />
           <p className="mt-10 text-center text-xs text-muted">Forgot your password? Ask your administrator to reset it.</p>
         </div>

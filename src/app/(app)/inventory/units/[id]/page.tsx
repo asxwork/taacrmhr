@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Handshake, MapPin, Pencil, Phone, Trash2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
@@ -68,7 +68,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
           <p className="mt-1 text-2xl font-semibold text-navy-900">{fmtPKR(unit.price)}{unit.purpose === "rent" && <span className="text-sm font-normal text-muted"> / month</span>}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {canCreateDeal && <LinkButton href={`/crm/deals?new=1&unit=${unit.id}${unit.purpose === "rent" ? "&pipeline=" + (rentalPipelineId ?? "") : ""}`} prefetch><Handshake className="size-4" /> Create deal</LinkButton>}
+          {canCreateDeal && <LinkButton href={`/crm/deals/new?unit=${unit.id}${unit.purpose === "rent" ? "&pipeline=" + (rentalPipelineId ?? "") : ""}`} prefetch><Handshake className="size-4" /> Create deal</LinkButton>}
           {canEdit && <LinkButton href={`${path}?edit=1`} variant="secondary" scroll={false}><Pencil className="size-4" /> Edit</LinkButton>}
         </div>
       </div>

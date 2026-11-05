@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { notFound, redirect } from "next/navigation";
 import { format, startOfMonth } from "date-fns";
 import { Download } from "lucide-react";

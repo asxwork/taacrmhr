@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { ImagePlus, Star, X } from "lucide-react";
 import { fileUrl } from "@/lib/files";
 import { cn } from "@/lib/utils";

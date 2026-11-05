@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { FileText, IdCard } from "lucide-react";
 import { db } from "@/lib/db";
 import { ID_DOCS } from "@/lib/hr-shared";

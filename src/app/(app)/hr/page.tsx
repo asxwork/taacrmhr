@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { differenceInMinutes, format, isToday, parse, startOfDay } from "date-fns";
 import { Award, Cake, FileCheck2, FileWarning, Gift, Mail, Newspaper, Quote, Sunrise, Timer, Trash2, UserPlus, Users } from "lucide-react";
 import { db } from "@/lib/db";

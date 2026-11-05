@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { format, startOfDay, subDays } from "date-fns";
 import { CalendarCheck, FilePen, MapPin, Phone, StickyNote } from "lucide-react";
 import { db } from "@/lib/db";

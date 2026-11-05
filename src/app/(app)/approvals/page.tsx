@@ -1,6 +1,6 @@
 import { profileSection } from "@/lib/profile-fields";
 import { CLASH_MIN, CLASH_SHARE, leaveClashes } from "@/lib/leave-planner";
-import Link from "next/link";
+import Link from "@/components/link";
 import type { Prisma } from "@prisma/client";
 import { Check, Circle, X } from "lucide-react";
 import { requireUser } from "@/lib/auth";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { addDays, endOfMonth, format, isSameMonth, parse, startOfDay, startOfMonth, subDays, addMonths, subMonths } from "date-fns";
 import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import { db } from "@/lib/db";

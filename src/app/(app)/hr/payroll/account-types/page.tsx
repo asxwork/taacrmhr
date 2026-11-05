@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { PAYMENT_METHODS } from "@/lib/profile-fields";

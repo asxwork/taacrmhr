@@ -2,7 +2,7 @@
 // tabs — Employee Info, Employment Info, Salary & Benefits, User Information, Contact Info, Assets, Relatives,
 // Qualifications & Experiences, Documents, Policies, Banks — plus any extra tabs the page adds (history, checklists).
 // HR editors get inline forms; everyone else (including the employee in My Space) sees values.
-import Link from "next/link";
+import Link from "@/components/link";
 import { format } from "date-fns";
 import { Briefcase, CreditCard, Download, FileText, Hourglass, IdCard, Landmark, Mail, MapPin, Phone, Plus, ShieldCheck, Trash2, User, Users } from "lucide-react";
 import { fileUrl } from "@/lib/files";

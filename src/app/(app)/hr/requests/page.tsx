@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { requireUser } from "@/lib/auth";
 import { REQUEST_TYPES } from "@/lib/request-types";
 import { Card, LinkButton, PageHeader } from "@/components/ui";

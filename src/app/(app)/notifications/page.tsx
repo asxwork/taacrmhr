@@ -1,5 +1,5 @@
 import { PushToggle } from "@/components/push-toggle";
-import Link from "next/link";
+import Link from "@/components/link";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";

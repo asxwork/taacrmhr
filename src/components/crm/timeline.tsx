@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { format, isPast, isToday, isYesterday, startOfDay } from "date-fns";
 import { CalendarCheck, CalendarClock, Check, CircleDot, Info, MapPin, MessageSquare, Phone, Plus, StickyNote, Trash2, Users } from "lucide-react";
 import { cn, fmtAgo } from "@/lib/utils";

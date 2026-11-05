@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { addDays, format, formatDistanceToNowStrict, startOfDay, subDays } from "date-fns";
 import { CheckCircle2, CircleAlert, CircleX } from "lucide-react";
 import type { SessionUser } from "@/lib/auth";

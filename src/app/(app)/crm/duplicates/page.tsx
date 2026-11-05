@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeWhere } from "@/lib/permissions";
 import { fieldAccess } from "@/lib/field-rules";

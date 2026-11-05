@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { Building2, Wallet, X } from "lucide-react";
 import { fmtPKR } from "@/lib/crm-shared";
 import { fmtDate } from "@/lib/utils";

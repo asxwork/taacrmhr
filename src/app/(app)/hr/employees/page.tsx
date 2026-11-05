@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/components/link";
+import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { addDays, differenceInCalendarDays } from "date-fns";
 import { Download, Plus, Search, Upload } from "lucide-react";
@@ -11,7 +12,6 @@ import { cn, fmtDate } from "@/lib/utils";
 import { Badge, Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { PersonAvatar } from "@/components/person-avatar";
 import { StatusPill, hrefWith } from "@/components/crm/bits";
-import { EmployeeForm } from "./forms";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { orgOptions } from "./org-data";
 
@@ -22,6 +22,7 @@ type SP = { tab?: string; q?: string; dept?: string; desig?: string; branch?: st
 export default async function EmployeesPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("hr.employees");
   const sp = await searchParams;
+  if (sp.new) redirect("/hr/employees/new"); // old links
   const tab = sp.tab === "org" ? "org" : sp.tab === "documents" ? "documents" : "directory";
   const keep = { tab: sp.tab, q: sp.q, dept: sp.dept, desig: sp.desig, branch: sp.branch, status: sp.status, type: sp.type, gender: sp.gender };
   const scope = (await employeeWhere(user))!;
@@ -177,7 +178,6 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
   }
 
   const canImport = user.isSuperAdmin || scopeFor(user, "hr.employees", "create") === "all";
-  const freeUsers = sp.new && canCreate ? await db.user.findMany({ where: { employee: null, active: true }, select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }) : [];
 
   return (
     <>
@@ -187,7 +187,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
         actions={canCreate && (
           <>
             {canImport && <LinkButton href={hrefWith("/hr/employees", keep, { import: "1" })} variant="secondary" scroll={false}><Upload className="size-4" /> Import</LinkButton>}
-            <LinkButton href={hrefWith("/hr/employees", keep, { new: "1" })} scroll={false} prefetch><Plus className="size-4" /> Add employee</LinkButton>
+            <LinkButton href="/hr/employees/new" prefetch><Plus className="size-4" /> Add employee</LinkButton>
           </>
         )}
       />
@@ -204,11 +204,6 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
             </ActionForm>
             <p className="text-xs text-muted">Logins aren’t created by the import — add them later in Settings → Users and link them to the employee.</p>
           </div>
-        </Drawer>
-      )}
-      {sp.new && canCreate && (
-        <Drawer title="Add employee" closeHref={closeHref} width="max-w-2xl">
-          <EmployeeForm org={org} freeUsers={freeUsers} canCreateLogin={can(user, "settings.users", "create") || scopeFor(user, "hr.employees", "create") === "all"} cancelHref={closeHref} />
         </Drawer>
       )}
     </>

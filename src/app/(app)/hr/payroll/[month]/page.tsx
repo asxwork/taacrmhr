@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { notFound } from "next/navigation";
 import { comingSoon } from "@/components/coming-soon";
 import { format } from "date-fns";

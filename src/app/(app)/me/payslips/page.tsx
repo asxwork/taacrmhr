@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { format } from "date-fns";
 import { ChevronRight } from "lucide-react";
 import { requireUser } from "@/lib/auth";

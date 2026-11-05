@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { ArrowLeft, Info, Plus } from "lucide-react";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";

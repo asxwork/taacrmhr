@@ -1,14 +1,13 @@
-import Link from "next/link";
+import Link from "@/components/link";
+import { redirect } from "next/navigation";
 import { fmtPhone } from "@/lib/crm-shared";
 import type { Prisma } from "@prisma/client";
 import { Plus, Search } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeWhere } from "@/lib/permissions";
-import { assignableUsers } from "@/lib/crm";
 import { cn, fmtAgo } from "@/lib/utils";
-import { Avatar, Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/ui";
+import { Avatar, Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { Pagination, hrefWith } from "@/components/crm/bits";
-import { CompanyForm, ContactForm } from "./forms";
 
 export const metadata = { title: "Contacts" };
 
@@ -18,13 +17,13 @@ type SP = { tab?: string; q?: string; page?: string; new?: string };
 export default async function ContactsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("crm.contacts");
   const sp = await searchParams;
+  if (sp.new) redirect(hrefWith("/crm/contacts/new", { tab: sp.tab }, {})); // old links
   const tab = sp.tab === "companies" ? "companies" : "contacts";
   const page = Math.max(1, Number(sp.page) || 1);
   const q = sp.q?.trim();
   const keep = { tab: sp.tab, q: sp.q };
   const scope = (await scopeWhere(user, "crm.contacts"))!;
   const canCreate = can(user, "crm.contacts", "create");
-  const closeHref = hrefWith("/crm/contacts", keep, {});
 
   const contactWhere: Prisma.ContactWhereInput = { ...scope, ...(q && { OR: [{ name: { contains: q } }, { phone: { contains: q } }, { email: { contains: q } }] }) };
   const companyWhere: Prisma.CompanyWhereInput = { ...scope, ...(q && { OR: [{ name: { contains: q } }, { phone: { contains: q } }] }) };
@@ -42,21 +41,13 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   const linked = [...new Set(contacts.flatMap((c) => (c.company ? [c.company.id] : [])))];
   const openable = new Set(linked.length ? (await db.company.findMany({ where: { id: { in: linked }, ...scope }, select: { id: true } })).map((c) => c.id) : []);
 
-  const drawerData = sp.new && canCreate
-    ? await Promise.all([
-        db.company.findMany({ where: scope, select: { id: true, name: true }, orderBy: { name: "asc" }, take: 500 }),
-        db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-        assignableUsers(user, "crm.contacts"),
-      ])
-    : null;
-
   return (
     <>
       <PageHeader
         title="Contacts"
         actions={
           canCreate && (
-            <LinkButton href={hrefWith("/crm/contacts", keep, { new: "1" })} scroll={false} prefetch>
+            <LinkButton href={hrefWith("/crm/contacts/new", { tab: sp.tab }, {})} prefetch>
               <Plus className="size-4" /> {tab === "companies" ? "New company" : "New contact"}
             </LinkButton>
           )
@@ -144,16 +135,6 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
           </>
         )}
       </Card>
-
-      {drawerData && (
-        <Drawer title={tab === "companies" ? "New company" : "New contact"} closeHref={closeHref}>
-          {tab === "companies" ? (
-            <CompanyForm owners={drawerData[2]} currentUserId={user.id} cancelHref={closeHref} />
-          ) : (
-            <ContactForm companies={drawerData[0]} sources={drawerData[1]} owners={drawerData[2]} currentUserId={user.id} cancelHref={closeHref} />
-          )}
-        </Drawer>
-      )}
     </>
   );
 }

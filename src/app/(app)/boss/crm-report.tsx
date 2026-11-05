@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { db } from "@/lib/db";
 import { fmtPKR } from "@/lib/crm-shared";
 import { crmReport } from "@/lib/reports";

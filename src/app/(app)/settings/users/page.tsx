@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { Plus, Search } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
@@ -6,11 +6,12 @@ import { fmtAgo } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Avatar, Badge, Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
-import { saveUser } from "./actions";
+import { smtpConfigured } from "@/lib/mail";
+import { resendLoginEmail, saveUser } from "./actions";
 
 export const metadata = { title: "Users" };
 
-type SP = Promise<{ q?: string; branch?: string; edit?: string; new?: string }>;
+type SP = Promise<{ q?: string; branch?: string; edit?: string; new?: string; mail?: string }>;
 
 export default async function UsersPage({ searchParams }: { searchParams: SP }) {
   const actor = await requirePermission("settings.users");
@@ -49,6 +50,13 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
           )
         }
       />
+
+      {sp.mail === "sent" && <p role="status" className="mb-4 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">User created. Welcome email sent, with a link to set their password.</p>}
+      {sp.mail && sp.mail !== "sent" && (
+        <p role="alert" className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          User created, but the welcome email {sp.mail === "skipped" ? "wasn't sent because email isn't set up yet" : "failed to send"}. Check <Link href="/settings/integrations" className="underline">Settings → Integrations</Link>, then open the user and use Send login email.
+        </p>
+      )}
 
       <AutoFilterForm className="mb-4 flex flex-wrap gap-2">
         <div className="relative min-w-60 flex-1">
@@ -176,8 +184,17 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
               </Link>
             )}
 
-            <Field label={editing ? "Reset password" : "Initial password"} hint={editing ? "Leave blank to keep the current password." : "At least 8 characters. They can change it later."}>
-              <input name="password" type="password" autoComplete="new-password" required={!editing} className="input" />
+            {!editing && (
+              <label className="flex items-start gap-2 rounded-md border border-line p-2.5 text-sm">
+                <input type="checkbox" name="sendWelcome" defaultChecked={smtpConfigured()} className="mt-0.5 accent-navy-900" />
+                <span>
+                  <span className="block font-medium">Send welcome email</span>
+                  <span className="block text-xs text-muted">{smtpConfigured() ? "From your company address, with a link to set their own password." : "Email isn't set up yet. See Settings → Integrations."}</span>
+                </span>
+              </label>
+            )}
+            <Field label={editing ? "Reset password" : "Password"} hint={editing ? "Leave blank to keep the current password." : "Optional with the welcome email: leave blank and they choose their own. Otherwise at least 8 characters."}>
+              <input name="password" type="password" autoComplete="new-password" className="input" />
             </Field>
 
             <div className="space-y-2 border-t border-line pt-4">
@@ -198,6 +215,13 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
               <LinkButton href={closeHref} variant="ghost" scroll={false}>Cancel</LinkButton>
             </div>
           </ActionForm>
+          {editing && (
+            <ActionForm action={resendLoginEmail} className="mt-6 border-t border-line pt-4">
+              <input type="hidden" name="id" value={editing.id} />
+              <p className="mb-2 text-sm text-muted">Email {editing.email} a link to set a new password. Any earlier link stops working.</p>
+              <SubmitButton variant="secondary" pendingText="Sending…">Send login email</SubmitButton>
+            </ActionForm>
+          )}
         </Drawer>
       )}
     </>
