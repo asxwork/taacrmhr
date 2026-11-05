@@ -22,6 +22,8 @@ const toMin = (hhmm: string) => {
   return (h ?? 0) * 60 + (m ?? 0);
 };
 const at = (day: Date, minutes: number) => new Date(startOfDay(day).getTime() + minutes * 60_000);
+/** A shift ending after midnight, e.g. 10:00 to 03:00. */
+const isOvernight = (s: { start: string; end: string }) => toMin(s.end) <= toMin(s.start);
 export const isWorkDay = (shift: ShiftLike, day: Date) => shift.workDays.split(",").map(Number).includes(getISODay(day));
 
 export type DayResult = {
@@ -34,7 +36,7 @@ export type DayResult = {
 /** The single source of truth for what a day counts as. */
 export function evaluateDay(input: {
   date: Date; shift: ShiftLike | null; punches: Date[]; holiday?: string | null; leave?: { halfDay: boolean; type: string } | null;
-  override?: { status: string; note: string | null } | null; now?: Date;
+  override?: { status: string; note: string | null; checkIn?: Date | null; checkOut?: Date | null; workedMin?: number; lateMin?: number; earlyMin?: number; overtimeMin?: number } | null; now?: Date;
   /** Policy Planner rules (lib/attendance-policy.ts); defaults when left out. */
   policy?: { absentUnderMin: number; overtimeAfterMin: number };
 }): DayResult {
@@ -47,10 +49,15 @@ export function evaluateDay(input: {
   const workedMin = checkIn && checkOut ? Math.max(0, differenceInMinutes(checkOut, checkIn)) : 0;
   const base = { date: day, checkIn, checkOut, workedMin, lateMin: 0, earlyMin: 0, overtimeMin: 0, note: input.override?.note ?? null, overridden: false };
 
-  if (input.override && input.override.status !== "auto") return { ...base, status: input.override.status as DayStatus, overridden: true };
+  if (input.override && input.override.status !== "auto") {
+    // Days imported from the old HR system keep their reported times and minutes.
+    const o = input.override;
+    return { ...base, ...(o.checkIn && { checkIn: o.checkIn, checkOut: o.checkOut ?? null, workedMin: o.workedMin ?? 0, lateMin: o.lateMin ?? 0, earlyMin: o.earlyMin ?? 0, overtimeMin: o.overtimeMin ?? 0 }), status: o.status as DayStatus, overridden: true };
+  }
 
   const start = at(day, toMin(shift.start));
-  const end = at(day, toMin(shift.end));
+  const endMin = toMin(shift.end) + (isOvernight(shift) ? 1440 : 0);
+  const end = at(day, endMin);
   const offDay = !!input.holiday || !isWorkDay(shift, day);
 
   if (!checkIn) {
@@ -67,7 +74,7 @@ export function evaluateDay(input: {
   if (!checkOut) {
     return { ...base, lateMin, status: isSameDay(day, now) ? (lateMin ? "late" : "present") : "missing" };
   }
-  const earlyMin = checkOut < at(day, toMin(shift.end) - shift.graceMin) ? differenceInMinutes(end, checkOut) : 0;
+  const earlyMin = checkOut < at(day, endMin - shift.graceMin) ? differenceInMinutes(end, checkOut) : 0;
   const overtimeMin = differenceInMinutes(checkOut, end) > (input.policy?.overtimeAfterMin ?? OVERTIME_AFTER_MIN) ? differenceInMinutes(checkOut, end) : 0;
   if (input.policy?.absentUnderMin && workedMin < input.policy.absentUnderMin && !input.leave) return { ...base, lateMin, earlyMin, status: "absent", note: base.note ?? "Too short to count (attendance policy)" };
   const half = workedMin < shift.halfDayMin || input.leave?.halfDay;
@@ -80,7 +87,7 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
   const endExcl = addDays(startOfDay(to), 1);
   const [emps, punches, leaves, holidays, overrides, defShift, roster, shifts, policy] = await Promise.all([
     db.employee.findMany({ where: { id: { in: employeeIds } }, select: { id: true, branchId: true, joiningDate: true, leftAt: true, shift: true, attendanceExempt: true } }),
-    db.attendancePunch.findMany({ where: { employeeId: { in: employeeIds }, at: { gte: start, lt: endExcl } }, select: { employeeId: true, at: true } }),
+    db.attendancePunch.findMany({ where: { employeeId: { in: employeeIds }, at: { gte: start, lt: addDays(endExcl, 1) } }, select: { employeeId: true, at: true } }),
     db.leaveRequest.findMany({ where: { employeeId: { in: employeeIds }, status: "approved", from: { lt: endExcl }, to: { gte: start } }, include: { type: { select: { name: true } } } }),
     db.holiday.findMany({ where: { date: { gte: start, lt: endExcl } } }),
     db.attendanceDay.findMany({ where: { employeeId: { in: employeeIds }, date: { gte: start, lt: endExcl } } }),
@@ -94,8 +101,6 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
   // (with hundreds of staff over a year, scanning made the dashboard and month view take seconds).
   const dk = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
   const ek = (employeeId: string, d: Date) => `${employeeId}|${dk(d)}`;
-  const punchesBy = new Map<string, Date[]>();
-  for (const p of punches) { const k = ek(p.employeeId, p.at); const list = punchesBy.get(k); if (list) list.push(p.at); else punchesBy.set(k, [p.at]); }
   const rosterBy = new Map(roster.map((r) => [ek(r.employeeId, r.date), r]));
   const overrideBy = new Map(overrides.map((o) => [ek(o.employeeId, o.date), o]));
   const holidaysBy = new Map<number, typeof holidays>();
@@ -114,6 +119,17 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
     if (r.start && r.end) return { ...base, start: r.start, end: r.end, workDays: "1,2,3,4,5,6,7" };
     return usual;
   };
+  // A punch in the small hours after an overnight shift belongs to the day that shift started.
+  const usualShift = new Map(emps.map((e) => [e.id, e.shift ?? defShift]));
+  const punchesBy = new Map<string, Date[]>();
+  for (const p of punches) {
+    const prev = addDays(startOfDay(p.at), -1);
+    const s = shiftOn(p.employeeId, usualShift.get(p.employeeId) ?? null, prev);
+    const minutes = p.at.getHours() * 60 + p.at.getMinutes();
+    const k = ek(p.employeeId, s && isOvernight(s) && minutes < (toMin(s.end) + toMin(s.start)) / 2 ? prev : p.at);
+    const list = punchesBy.get(k);
+    if (list) list.push(p.at); else punchesBy.set(k, [p.at]);
+  }
   const now = new Date();
   const out = new Map<string, DayResult[]>();
   for (const e of emps) {
@@ -127,7 +143,7 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
         return evaluateDay({
           date: d, shift: shiftOn(e.id, e.shift ?? defShift, d), now, punches: punchesBy.get(ek(e.id, d)) ?? [],
           holiday: holiday?.name ?? null, leave: leave ? { halfDay: leave.halfDay, type: leave.type.name } : null,
-          override: override ? { status: override.status, note: override.note } : null, policy,
+          override, policy,
         });
       })
       // Policy Planner: a forgotten check-out can count as a half day or an absence instead of present.
