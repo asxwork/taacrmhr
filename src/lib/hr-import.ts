@@ -7,6 +7,7 @@ import { db } from "./db";
 import { hashPassword } from "./auth";
 import { audit } from "./audit";
 import { balancesFor } from "./leave";
+import { demoLoaded, removeDemo } from "./demo-data";
 import { sendLoginEmail } from "./invites";
 
 type Cell = string | number | undefined;
@@ -252,6 +253,23 @@ export async function parseHrFiles(files: HrFiles): Promise<{ parsed: ParsedHr; 
       payslips: slips.length, payMonths: new Set(slips.map((s) => s.month)).size, balances: balances.length, probation, roles, warnings,
     },
   };
+}
+
+/**
+ * "Start fresh": deletes every employee and their HR records, every login except `actorId`, all leads (with their
+ * activities) and the sample data. Settings, roles, shifts, projects and units stay. Used before addHrData.
+ */
+export async function clearForFreshImport(actorId: string) {
+  if (await demoLoaded(db)) await removeDemo(db, actorId);
+  const leads = (await db.lead.deleteMany({})).count;
+  const employees = (await db.employee.deleteMany({})).count;
+  await db.$transaction([
+    db.payrollRun.deleteMany({}), db.appraisalCycle.deleteMany({}), db.jobOpening.deleteMany({}), db.asset.deleteMany({}), db.attendanceLog.deleteMany({}),
+  ]);
+  const users = (await db.user.deleteMany({ where: { id: { not: actorId } } })).count;
+  await db.setting.upsert({ where: { key: "demo.autoloaded" }, update: {}, create: { key: "demo.autoloaded", value: new Date().toISOString() } });
+  await audit(actorId, "delete", "employee", null, `Start fresh: deleted ${employees} employees, ${users} logins and ${leads} leads before importing`);
+  return { leads, employees, users };
 }
 
 const chunks = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));

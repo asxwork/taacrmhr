@@ -175,14 +175,15 @@ export async function upgradeDemo(db: PrismaClient) {
   }
 }
 
-export async function removeDemo(db: PrismaClient) {
+export async function removeDemo(db: PrismaClient, keepUserId?: string) {
   const row = await db.setting.findUnique({ where: { key: MARKER } });
   if (!row) return { error: "No sample data is loaded." };
   const { domain, projectIds, openingIds = [], cycleIds = [], assetIds = [], runIds = [], leadIds = [], apiIds = [], logIds = [], v2OpeningIds = [] } = JSON.parse(row.value) as {
     domain: string; projectIds: string[]; openingIds?: string[]; cycleIds?: string[]; assetIds?: string[]; runIds?: string[];
     leadIds?: string[]; apiIds?: string[]; logIds?: string[]; v2OpeningIds?: string[];
   };
-  const users = await db.user.findMany({ where: { email: { endsWith: `@${domain}` } }, select: { id: true } });
+  // keepUserId: the person running a fresh import keeps their login even if it's a sample account.
+  const users = await db.user.findMany({ where: { email: { endsWith: `@${domain}` }, ...(keepUserId ? { NOT: { id: keepUserId } } : {}) }, select: { id: true } });
   const ids = users.map((u) => u.id);
   const owned = { ownerId: { in: ids } };
   const photos = await Promise.all([

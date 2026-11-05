@@ -50,6 +50,7 @@ export function HrImporter({ smtp, waiting }: { smtp: boolean; waiting: number }
         <ul className="mt-3 space-y-1 text-sm">
           <li>{d.created} new employees added, {d.updated} already in AMS (only empty fields filled)</li>
           <li>{d.logins} new logins</li>
+          {d.cleared && <li>Deleted first: {d.cleared.employees} old employees, {d.cleared.users} logins, {d.cleared.leads} leads</li>}
           <li>{d.attendanceDays} attendance days, {d.punches} punches, {d.leaveDays} leave days</li>
           <li>{d.payslips} payslips across {d.payMonths} months</li>
         </ul>
@@ -91,7 +92,15 @@ export function HrImporter({ smtp, waiting }: { smtp: boolean; waiting: number }
           <form action={setState} className="space-y-3">
             <input type="hidden" name="step" value="confirm" />
             <input type="hidden" name="id" value={state.id} />
-            <SubmitButton pendingText="Adding data. Don't close this page…">Add to AMS</SubmitButton>
+            <details className="rounded-lg border border-red-200 bg-red-50/50 p-3">
+              <summary className="cursor-pointer text-sm font-medium text-red-700">Start fresh instead (delete old data first)</summary>
+              <div className="mt-3 space-y-3 text-sm">
+                <p>Deletes <b className="font-medium">all employees</b> (with their attendance, leave, payslips, documents), <b className="font-medium">every login except yours</b> and <b className="font-medium">all leads</b>, then adds these files. Settings, roles, projects and units stay. This can&apos;t be undone — back up first.</p>
+                <label className="flex items-center gap-2"><input type="checkbox" name="fresh" /> Yes, start fresh</label>
+                <Field label="Type DELETE to confirm"><input name="confirm" autoComplete="off" className="input" /></Field>
+              </div>
+            </details>
+            <SubmitButton pendingText="Working. Don't close this page…">Add to AMS</SubmitButton>
           </form>
           <form action={setState} className="mt-2">
             <input type="hidden" name="step" value="restart" />
