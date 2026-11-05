@@ -1,0 +1,8 @@
+{
+  "name": "minimatch",
+  "version": "11.0.4-compat",
+  "description": "Patched minimatch 11 with the minimatch 3 calling style, for old dev tools (@eslint/eslintrc, eslint-plugin-import). See package.json overrides.",
+  "main": "index.js",
+  "license": "ISC",
+  "dependencies": { "minimatch-v11": "npm:minimatch@^11.0.4" }
+}
