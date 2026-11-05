@@ -1992,3 +1992,18 @@ model PushSubscription {
 
   @@index([userId])
 }
+
+/// One backup run (daily to Google Drive). status: running | ok | failed
+model BackupRun {
+  id          String    @id @default(cuid())
+  trigger     String    @default("auto")
+  status      String    @default("running")
+  fileName    String?
+  sizeBytes   Int?
+  driveFileId String?
+  error       String? // @text
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([startedAt])
+}

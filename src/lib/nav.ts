@@ -124,6 +124,7 @@ export const APPS: AppDef[] = [
           { href: "/settings/roles", label: "Roles & Permissions", icon: "shield", module: "settings.roles" },
           { href: "/settings/features", label: "Features", icon: "sliders", module: "settings.company" },
           { href: "/settings/security", label: "Security", icon: "shield", superAdmin: true },
+          { href: "/settings/backup", label: "Backup", icon: "archive", superAdmin: true },
           { href: "/settings/company", label: "Company & Branches", icon: "landmark", module: "settings.company" },
           { href: "/settings/crm", label: "CRM Settings", icon: "sliders", module: "settings.company" },
           { href: "/crm/automations", label: "Lead automations", icon: "workflow", superAdmin: true },
