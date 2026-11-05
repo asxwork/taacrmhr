@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/link";
 import { ChevronDown, PlayCircle, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TUTORIAL_GROUPS, type Tutorial } from "@/lib/tutorials";

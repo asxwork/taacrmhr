@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { format } from "date-fns";
 import { FileCheck2, Settings2 } from "lucide-react";
 import { db } from "@/lib/db";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { addDays, format, startOfYear } from "date-fns";
 import { Plus, TrendingUp } from "lucide-react";
 import { db } from "@/lib/db";

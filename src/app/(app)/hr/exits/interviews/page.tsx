@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeWhere } from "@/lib/permissions";

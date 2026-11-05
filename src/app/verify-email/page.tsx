@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
 

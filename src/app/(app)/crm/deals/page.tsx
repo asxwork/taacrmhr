@@ -1,16 +1,16 @@
-import Link from "next/link";
+import Link from "@/components/link";
+import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { startOfMonth, subDays } from "date-fns";
 import { Download, Plus, Search } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
-import { assignableUsers, color, fmtPKR, getPipelines, usersInScope } from "@/lib/crm";
+import { color, fmtPKR, getPipelines, usersInScope } from "@/lib/crm";
 import { cn, fmtDate } from "@/lib/utils";
-import { Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/ui";
+import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { Kanban } from "@/components/crm/kanban";
 import { Pagination, StatusPill, ViewToggle, hrefWith } from "@/components/crm/bits";
-import { DealForm } from "./deal-form";
-import { unitLabel, unitWhere } from "@/lib/inventory";
+import { unitLabel } from "@/lib/inventory";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { moveDeal } from "./actions";
 import { fieldAccess } from "@/lib/field-rules";
@@ -24,21 +24,11 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   const user = await requirePermission("crm.deals");
   const showValue = (await fieldAccess(user))["deal.value"] !== "hidden";
   const sp = await searchParams;
+  if (sp.new) redirect(hrefWith("/crm/deals/new", { pipeline: sp.pipeline, contact: sp.contact, unit: sp.unit }, {})); // old links
   const view = sp.view === "list" ? "list" : "board";
   const page = Math.max(1, Number(sp.page) || 1);
 
   const canCreate = can(user, "crm.deals", "create");
-  // The New deal drawer's lists load alongside the board instead of after it.
-  const newDrawerPromise = sp.new && canCreate
-    ? Promise.all([
-        scopeWhere(user, "crm.contacts").then((w) => db.contact.findMany({ where: w ?? { id: "" }, select: { id: true, name: true, phone: true }, orderBy: { name: "asc" }, take: 500 })),
-        db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-        // "Create deal" on a unit page: that unit, if this user can see it and it's free.
-        sp.unit ? unitWhere(user, "view").then((w) => w && db.unit.findFirst({ where: { id: sp.unit, activeDealId: null, status: { in: ["available", "hold"] }, ...w }, include: { project: true, block: true } })) : null,
-      ])
-    : null;
-  newDrawerPromise?.catch(() => {});
-
   const [pipelines, scopeOrNull] = await Promise.all([getPipelines(), scopeWhere(user, "crm.deals")]);
   const pipeline = pipelines.find((p) => p.id === sp.pipeline) ?? pipelines.find((p) => p.isDefault) ?? pipelines[0]!;
   const keep = { pipeline: sp.pipeline, q: sp.q, owner: sp.owner, stage: sp.stage, view: sp.view };
@@ -56,7 +46,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     ...(view === "board" && { OR: [{ closedAt: null }, { closedAt: { gte: recentCutoff } }] }),
   };
 
-  const [deals, total, owners, assignees, canEditRow, summary, wonMonth] = await Promise.all([
+  const [deals, total, owners, canEditRow, summary, wonMonth] = await Promise.all([
     db.deal.findMany({
       where,
       include: { stage: true, contact: { select: { name: true } }, owner: { select: { name: true } }, units: { take: 1, include: { unit: { select: { unitNo: true, address: true, project: { select: { name: true } }, block: { select: { name: true } } } } } } },
@@ -66,16 +56,13 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     }),
     db.deal.count({ where }),
     usersInScope(user, "crm.deals", "view"),
-    assignableUsers(user, "crm.deals"),
     scopeMatcher(user, "crm.deals", "edit"),
     db.deal.aggregate({ where: { ...scope, pipelineId: pipeline.id, closedAt: null }, _sum: { value: true }, _count: true }),
     db.deal.aggregate({ where: { ...scope, pipelineId: pipeline.id, stage: { kind: "won" }, closedAt: { gte: startOfMonth(new Date()) } }, _sum: { value: true }, _count: true }),
   ]);
 
   const canEdit = can(user, "crm.deals", "edit");
-  const closeHref = hrefWith("/crm/deals", keep, {});
 
-  const newDrawer = await newDrawerPromise;
 
   return (
     <>
@@ -90,7 +77,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
               </LinkButton>
             )}
             {canCreate && (
-              <LinkButton href={hrefWith("/crm/deals", keep, { new: "1" })} scroll={false} prefetch>
+              <LinkButton href={hrefWith("/crm/deals/new", { pipeline: sp.pipeline }, {})} prefetch>
                 <Plus className="size-4" /> New deal
               </LinkButton>
             )}
@@ -196,22 +183,6 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
             </>
           )}
         </Card>
-      )}
-
-      {newDrawer && (
-        <Drawer title="New deal" closeHref={closeHref}>
-          <DealForm hideValue={!showValue}
-            pipelines={pipelines}
-            contacts={newDrawer[0]}
-            sources={newDrawer[1]}
-            owners={assignees}
-            currentUserId={user.id}
-            cancelHref={closeHref}
-            defaultPipelineId={pipeline.id}
-            defaultContactId={sp.contact}
-            unit={newDrawer[2] ? { id: newDrawer[2].id, label: unitLabel(newDrawer[2]), price: newDrawer[2].price, purpose: newDrawer[2].purpose } : null}
-          />
-        </Drawer>
       )}
     </>
   );

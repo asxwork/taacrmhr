@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { addMonths, format } from "date-fns";
 import { Paperclip } from "lucide-react";
 import { requireUser } from "@/lib/auth";

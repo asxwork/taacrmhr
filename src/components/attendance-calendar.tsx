@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek } from "date-fns";
 import { DAY_STATUSES, type DayStatus } from "@/lib/attendance-shared";
 import { color } from "@/lib/crm-shared";

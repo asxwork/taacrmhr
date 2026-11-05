@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/link";
 import { ArrowRightLeft, Delete, Grid3x3, Mic, MicOff, Pause, Phone, PhoneIncoming, PhoneOff, Play, Voicemail, X } from "lucide-react";
 import type { RTCSession } from "jssip/lib/RTCSession";
 import type { UA } from "jssip/lib/UA";

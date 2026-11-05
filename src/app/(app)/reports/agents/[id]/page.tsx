@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { notFound, redirect } from "next/navigation";
 import { eachDayOfInterval, endOfDay, format, isSameDay, min } from "date-fns";
 import { ArrowLeft, CalendarCheck, CircleDot, MapPin, MessageSquare, Phone, StickyNote, Users } from "lucide-react";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { format, isToday, startOfDay, startOfMonth } from "date-fns";
 import { CalendarPlus, ClipboardCheck, FileCheck2, HeartHandshake, MessageSquarePlus, Palmtree, Receipt, User, Wallet } from "lucide-react";
 import { requireUser } from "@/lib/auth";

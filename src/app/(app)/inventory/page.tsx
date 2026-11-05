@@ -1,18 +1,17 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { Building2, ImageOff, LayoutGrid, List, Plus, Search } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
-import { assignableUsers, color, fmtPKR, parseAmount } from "@/lib/crm";
+import { color, fmtPKR, parseAmount } from "@/lib/crm";
 import { LISTING_TYPES, UNIT_STATUSES, UNIT_TYPES, sizeLabel, unitStatus, unitWhere } from "@/lib/inventory";
 import { fileUrl } from "@/lib/files";
 import { cn } from "@/lib/utils";
-import { Badge, Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/ui";
+import { Badge, Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { Pagination, StatusPill, hrefWith } from "@/components/crm/bits";
 import { AutoFilterForm } from "@/components/auto-filter-form";
-import { ProjectForm, UnitForm } from "./forms";
 import { SafeImg } from "@/components/safe-img";
 
 export const metadata = { title: "Inventory" };
@@ -26,6 +25,7 @@ type SP = {
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requireUser();
   const sp = await searchParams;
+  if (sp.new) redirect(hrefWith("/inventory/new", { tab: sp.tab }, {})); // old links
   const canProjects = can(user, "inventory.projects");
   const visible = await unitWhere(user, "view");
   if (!visible && !canProjects) redirect("/no-access");
@@ -37,19 +37,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     ...(can(user, "inventory.projects", "create") ? ["project"] : []),
     ...(can(user, "inventory.units", "create") ? ["resale", "rental"] : []),
   ];
-  const closeHref = hrefWith("/inventory", keep, {});
 
   const projects = await db.project.findMany({ include: { blocks: { orderBy: { sortOrder: "asc" } }, images: { orderBy: { sortOrder: "asc" }, take: 1 } }, orderBy: { name: "asc" } });
-
-  const newDrawer = sp.new && (sp.tab === "projects" ? can(user, "inventory.projects", "create") : allowedTypes.length > 0) && (
-    <Drawer title={sp.tab === "projects" ? "New project" : "Add unit / listing"} closeHref={closeHref}>
-      {sp.tab === "projects" ? (
-        <ProjectForm cancelHref={closeHref} />
-      ) : (
-        <UnitForm projects={projects} owners={await assignableUsers(user, "inventory.units")} currentUserId={user.id} cancelHref={closeHref} allowedTypes={allowedTypes} />
-      )}
-    </Drawer>
-  );
 
   const header = (
     <>
@@ -67,7 +56,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               </div>
             )}
             {(tab === "projects" ? can(user, "inventory.projects", "create") : allowedTypes.length > 0) && (
-              <LinkButton href={hrefWith("/inventory", keep, { new: "1" })} scroll={false} prefetch>
+              <LinkButton href={hrefWith("/inventory/new", { tab: sp.tab }, {})} prefetch>
                 <Plus className="size-4" /> {tab === "projects" ? "New project" : "Add unit"}
               </LinkButton>
             )}
@@ -133,7 +122,6 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             })}
           </div>
         )}
-        {newDrawer}
       </>
     );
   }
@@ -266,7 +254,6 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </Card>
       )}
       <Pagination base="/inventory" sp={keep} page={page} pageSize={PAGE_SIZE} total={total} />
-      {newDrawer}
     </>
   );
 }

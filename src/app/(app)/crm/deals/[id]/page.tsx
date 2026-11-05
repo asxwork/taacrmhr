@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MessageCircle, Pencil, Phone, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { addDays, format, startOfDay } from "date-fns";
 import { MapPin } from "lucide-react";
 import { db } from "@/lib/db";

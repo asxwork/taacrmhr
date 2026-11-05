@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { differenceInCalendarDays, format, subMonths } from "date-fns";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { format } from "date-fns";
 import { Eye, FilePlus2, Plus, Printer, Trash2 } from "lucide-react";
 import { db } from "@/lib/db";

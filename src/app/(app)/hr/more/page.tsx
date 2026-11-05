@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { disabledFeatures, featureForPath } from "@/lib/features";

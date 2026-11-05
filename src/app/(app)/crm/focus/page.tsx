@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import type { Prisma } from "@prisma/client";
 import { formatDistanceToNowStrict } from "date-fns";
 import { MessageCircle, Phone } from "lucide-react";

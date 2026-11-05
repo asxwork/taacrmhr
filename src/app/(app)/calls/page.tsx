@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { format, startOfDay } from "date-fns";
 import { redirect } from "next/navigation";
 import { can, requirePermission } from "@/lib/permissions";

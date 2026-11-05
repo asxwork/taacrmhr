@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { Inbox, X } from "lucide-react";
 import { cn, initials } from "@/lib/utils";
 
@@ -31,6 +31,17 @@ export function LinkButton({
   ...props
 }: React.ComponentProps<typeof Link> & { variant?: ButtonVariant }) {
   return <Link className={buttonClass(variant, className)} {...props} />;
+}
+
+/** A form on its own page: back link, title, and a card. Opens fast because no list has to load behind it. */
+export function FormPage({ title, backHref, backLabel, wide, children }: { title: string; backHref: string; backLabel: string; wide?: boolean; children: React.ReactNode }) {
+  return (
+    <div className={cn("mx-auto", wide ? "max-w-3xl" : "max-w-xl")}>
+      <Link href={backHref} className="mb-3 inline-block text-sm text-muted hover:text-ink">← {backLabel}</Link>
+      <h1 className="mb-4 font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{title}</h1>
+      <Card className="p-5 sm:p-6">{children}</Card>
+    </div>
+  );
 }
 
 export function Field({ label, hint, children, className }: { label: string; hint?: string; children: React.ReactNode; className?: string }) {

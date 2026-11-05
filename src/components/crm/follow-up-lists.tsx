@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { maskPhone, type FieldMode } from "@/lib/field-defs";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { AlertTriangle, CalendarClock, CalendarX, Clock, PhoneOff, XCircle } from "lucide-react";

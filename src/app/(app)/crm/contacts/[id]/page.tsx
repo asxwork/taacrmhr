@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Mail, MessageCircle, Pencil, Phone, Plus, Trash2 } from "lucide-react";
@@ -93,7 +93,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
             </LinkButton>
           )}
           {can(user, "crm.deals", "create") && (
-            <LinkButton href={`/crm/deals?new=1&contact=${id}`} prefetch>
+            <LinkButton href={`/crm/deals/new?contact=${id}`} prefetch>
               <Plus className="size-4" /> New deal
             </LinkButton>
           )}

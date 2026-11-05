@@ -26,7 +26,7 @@ function getTransport() {
   return transporter;
 }
 
-export type MailContext = { userId?: string | null; leadId?: string | null; dealId?: string | null; contactId?: string | null };
+export type MailContext = { userId?: string | null; leadId?: string | null; dealId?: string | null; contactId?: string | null; /** What to store in the log instead of the body (e.g. when the body holds a secret link). */ logBody?: string };
 
 /** Sends a plain-text email (rendered with simple HTML line breaks) and logs the attempt. Never throws. */
 export async function sendMail(to: string, subject: string, body: string, ctx: MailContext = {}, replyTo?: string) {
@@ -50,7 +50,7 @@ export async function sendMail(to: string, subject: string, body: string, ctx: M
     }
   }
   await db.emailLog.create({
-    data: { to, subject, body, status, error, userId: ctx.userId ?? null, leadId: ctx.leadId ?? null, dealId: ctx.dealId ?? null, contactId: ctx.contactId ?? null },
+    data: { to, subject, body: ctx.logBody ?? body, status, error, userId: ctx.userId ?? null, leadId: ctx.leadId ?? null, dealId: ctx.dealId ?? null, contactId: ctx.contactId ?? null },
   });
   return { status, error };
 }

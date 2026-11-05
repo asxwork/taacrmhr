@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { addDays, format, parse, startOfDay, subDays } from "date-fns";
 import { MapPin, Trash2 } from "lucide-react";
 import type { Prisma } from "@prisma/client";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { addMonths, endOfMonth, format, parse, startOfMonth } from "date-fns";
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle } from "lucide-react";
 import { db } from "@/lib/db";

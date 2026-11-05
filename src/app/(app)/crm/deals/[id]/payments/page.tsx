@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { notFound, redirect } from "next/navigation";
 import { format, isPast, startOfDay } from "date-fns";
 import { ArrowLeft, Undo2 } from "lucide-react";

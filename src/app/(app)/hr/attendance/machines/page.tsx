@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { headers } from "next/headers";
 import { formatDistanceToNow } from "date-fns";
 import { CheckCircle2, Fingerprint, Network, RefreshCw, Trash2 } from "lucide-react";

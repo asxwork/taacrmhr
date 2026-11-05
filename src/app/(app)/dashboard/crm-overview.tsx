@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { endOfDay, startOfMonth, subDays } from "date-fns";
 import { db } from "@/lib/db";
 import { scopeFor, scopeWhere } from "@/lib/permissions";

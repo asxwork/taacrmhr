@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { ChevronLeft, ChevronRight, KanbanSquare, List } from "lucide-react";
 import { color } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";

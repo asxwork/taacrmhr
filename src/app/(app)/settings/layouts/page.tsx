@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { redirect } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { db } from "@/lib/db";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { format, subMonths } from "date-fns";
 import { db } from "@/lib/db";
 import { requirePermission, scopeFor } from "@/lib/permissions";

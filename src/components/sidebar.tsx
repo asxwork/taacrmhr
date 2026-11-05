@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import Link from "@/components/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CircleHelp, Bell, ChevronDown, ChevronRight, House, LayoutGrid, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { appForPathFrom, sidebarMode, type AppKey, type NavGroup, type NavItem } from "@/lib/nav";
@@ -24,6 +24,7 @@ const isActive = (pathname: string, href: string) => {
 
 export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const params = useSearchParams();
   const [open, setOpen] = useState(false); // phone drawer
   const [collapsed, setCollapsed] = useState(initiallyCollapsed); // desktop rail (the user's choice)
@@ -111,6 +112,7 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
       <Link
         href={item.href}
         onClick={() => setOpen(false)}
+        onMouseEnter={() => router.prefetch(item.href)}
         title={rail ? item.label : undefined}
         aria-label={rail ? item.label : undefined}
         aria-current={active ? "page" : undefined}

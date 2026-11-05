@@ -51,7 +51,7 @@ So **a redeploy is all it takes** to ship code and database changes. There is no
 | `CRON_SECRET` | yes | A long random string. The daily job URL must carry it. |
 | `APP_TIMEZONE` | recommended | `Asia/Karachi` (also the default). Attendance, leave and reports use it. |
 | `UPLOAD_DIR` | **strongly recommended** | `/home/u615121755/domains/ams.theadvisorassociates.com/uploads`. Each deploy goes into a fresh folder, so without this, photos, documents, receipts and CVs **are lost on every redeploy**. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | optional | Outgoing email (Hostinger: `smtp.hostinger.com`, port `465`). Until these are set, emails show on the timeline but aren't sent. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | optional | Outgoing email (Hostinger: `smtp.hostinger.com`, port `465`). New users get a welcome email with a one-time link to set their password (needs `APP_URL` too); test with Settings → Integrations → Send me a test email. Until these are set, emails show on the timeline but aren't sent. |
 | `FB_APP_SECRET`, `FB_PAGE_TOKEN` | optional | Facebook / Instagram Lead Ads. See Settings → Integrations. |
 
 After changing environment variables, **Redeploy** so the app picks them up.

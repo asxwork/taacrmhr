@@ -71,6 +71,7 @@ model User {
   employee          Employee?
   approvalRequests  ApprovalRequest[]
   approvalActions   ApprovalAction[]
+  passwordTokens    PasswordToken[]
 
   @@index([branchId])
   @@index([managerId])
@@ -2006,4 +2007,16 @@ model BackupRun {
   finishedAt  DateTime?
 
   @@index([startedAt])
+}
+
+/// One-time link to set a password, sent by email. Only the hash is stored.
+model PasswordToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { format, startOfDay } from "date-fns";
 import { Clock } from "lucide-react";
 import { db } from "@/lib/db";
