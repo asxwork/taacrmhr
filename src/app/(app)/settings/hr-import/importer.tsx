@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { SubmitButton } from "@/components/action-form";
 import { Card, Field } from "@/components/ui";
 import { checkHrFiles, confirmHrImport, emailEveryone, type HrImportState } from "./actions";
@@ -14,7 +14,7 @@ const FILES = [
   ["probation", "Probation report", "Optional"],
 ] as const;
 
-export function HrImporter({ smtp, keeping, waiting }: { smtp: boolean; keeping: string; waiting: number }) {
+export function HrImporter({ smtp, waiting }: { smtp: boolean; waiting: number }) {
   const [state, setState] = useActionState(async (prev: HrImportState, fd: FormData): Promise<HrImportState> => {
     const step = String(fd.get("step"));
     if (step === "check") return checkHrFiles(prev, fd);
@@ -48,8 +48,8 @@ export function HrImporter({ smtp, keeping, waiting }: { smtp: boolean; keeping:
       <Card className="p-6">
         <p className="flex items-center gap-2 font-medium text-emerald-700"><CheckCircle2 className="size-5" /> Import finished</p>
         <ul className="mt-3 space-y-1 text-sm">
-          <li>{d.employees} employees, {d.logins} logins</li>
-          <li>{d.leadsDeleted} leads deleted, {d.leadsKept} kept</li>
+          <li>{d.created} new employees added, {d.updated} already in AMS (only empty fields filled)</li>
+          <li>{d.logins} new logins</li>
           <li>{d.attendanceDays} attendance days, {d.punches} punches, {d.leaveDays} leave days</li>
           <li>{d.payslips} payslips across {d.payMonths} months</li>
         </ul>
@@ -85,24 +85,13 @@ export function HrImporter({ smtp, keeping, waiting }: { smtp: boolean; keeping:
             </div>
           )}
         </Card>
-        <Card className="border-red-200 p-6">
-          <h2 className="mb-2 flex items-center gap-2 font-medium text-red-700"><AlertTriangle className="size-5" /> What will be permanently deleted</h2>
-          <ul className="mb-4 list-disc space-y-1 pl-5 text-sm">
-            <li><b className="font-medium">Every user except you</b> ({keeping}).</li>
-            <li>All employees and their attendance, leave, payslips, salaries, loans, expenses, documents and reviews.</li>
-            <li>All payroll runs, recruitment, appraisal cycles and assets.</li>
-            <li><b className="font-medium">All leads and their activities</b> ({state.leads?.total ?? 0}), except the 2 newest{state.leads?.keep.length ? `: ${state.leads.keep.map((l) => l.name).join(", ")}` : ""}.</li>
-            <li>All sample CRM data. Real deals stay, but lose their lead link and become unassigned.</li>
-          </ul>
-          <p className="mb-4 text-sm text-muted">This can&apos;t be undone. Back up the database in phpMyAdmin first (Export → Quick → SQL).</p>
+        <Card className="p-6">
+          <p className="mb-4 text-sm text-muted">Nothing is deleted. People already in AMS (same employee code or email) keep their details; only empty fields are filled. Attendance days, leave and payslips already in AMS are skipped, so running it again won&apos;t add anything twice.</p>
           {error}
           <form action={setState} className="space-y-3">
             <input type="hidden" name="step" value="confirm" />
             <input type="hidden" name="id" value={state.id} />
-            <Field label="Type DELETE to confirm"><input name="confirm" required autoComplete="off" className="input" /></Field>
-            <div className="flex gap-2">
-              <SubmitButton variant="danger" pendingText="Replacing data. Don't close this page…">Delete and import</SubmitButton>
-            </div>
+            <SubmitButton pendingText="Adding data. Don't close this page…">Add to AMS</SubmitButton>
           </form>
           <form action={setState} className="mt-2">
             <input type="hidden" name="step" value="restart" />

@@ -136,3 +136,24 @@ To restore the database: phpMyAdmin → Import the `.sql` file into an empty dat
 See [README.md](README.md). In short: `npm install`, `npm run db:push`, `npm run db:seed`, `npm run dev`, then sign in at http://localhost:3000 with the test logins listed at the top of [`prisma/seed.ts`](prisma/seed.ts).
 
 Before pushing, run `npm run build` locally. A push to `main` is what the live site deploys, so it must build. If the local dev server shows blank pages after a production build, stop it, delete `.next`, and start it again.
+
+## Releases, checks and rollback
+
+- **Branches:** new work goes to `develop`. `main` is the live site (Hostinger deploys it) and only changes on a release.
+- **Checks:** GitHub Actions (`.github/workflows/checks.yml`) runs type check, lint, build and a browser smoke test
+  (`tests/smoke.cjs`) on every push. Only release a green `develop`.
+- **Release:** merge `develop` into `main`, bump `version` in `package.json`, tag it (`v1.2.0`), press Redeploy in hPanel.
+  Put a banner up first in Settings → System health if people are working.
+- **Rollback:** reset `main` to the previous tag (`git revert` the release merge, or redeploy the previous tag) and
+  press Redeploy. Database changes are additive (`prisma db push` refuses to drop data), so older code keeps working.
+
+## Cron jobs (hPanel → Advanced → Cron Jobs)
+
+| Job | URL | How often |
+| --- | --- | --- |
+| Keep-awake + watchdog | `/api/cron/ping` | every 5 minutes |
+| Daily (reminders, summaries, weekly email) | `/api/cron/daily?key=CRON_SECRET` | daily, 07:00 |
+| Google Drive backup | `/api/cron/backup?key=CRON_SECRET` | daily, 02:00 |
+| Attendance machines (if used) | `/api/cron/machines?key=CRON_SECRET` | every 30 minutes |
+
+Settings → System health shows when each one last ran; Super Admins get a daily alert if one stops.

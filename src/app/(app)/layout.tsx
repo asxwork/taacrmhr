@@ -10,6 +10,7 @@ import { NavProgress } from "@/components/nav-progress";
 import { unreadCount } from "@/lib/notify";
 import { maybeRunHoldRules } from "@/lib/lead-hold";
 import { db } from "@/lib/db";
+import { memo } from "@/lib/memo";
 import { SECTIONS, sectionForPath, type SectionTab } from "@/lib/sections";
 import { SectionTabs } from "@/components/section-tabs";
 import { redirect } from "next/navigation";
@@ -31,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     db.employee.findUnique({ where: { userId: user.id }, select: { photo: true } }),
     disabledFeatures(), securitySettings(), unreadCount(user.id),
   ]);
+  const banner = await memo("setting:banner", 30_000, async () => (await db.setting.findUnique({ where: { key: "maintenance.banner" } }))?.value ?? "");
   const collapsed = jar.get("sidebar")?.value === "collapsed";
   const myPhoto = me?.photo ?? null;
   const last = apps.find((a) => a.key === jar.get("app")?.value);
@@ -60,6 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         initiallyCollapsed={collapsed}
       />
       <main className="app-main">
+        {banner && <div className="sticky top-0 z-30 bg-sky-600 px-4 py-2 text-center text-sm font-medium text-white print:hidden" role="status">{banner}</div>}
         {user.viewAs && (
           <div className="sticky top-0 z-30 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-amber-400 px-4 py-2 text-center text-sm font-medium text-navy-950 print:hidden">
             <Eye className="size-4" aria-hidden />

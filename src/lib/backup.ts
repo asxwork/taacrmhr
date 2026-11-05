@@ -180,9 +180,11 @@ export async function runBackup(trigger: "auto" | "manual") {
     }
     await prune(token, folderId, c.keepDays ?? 30);
     await db.backupRun.update({ where: { id: run.id }, data: { status: "ok", fileName: path.basename(dbFile), sizeBytes: size, driveFileId: up.id, finishedAt: new Date() } });
+    await (await import("./heartbeat")).beat("backup");
     return { ok: true };
   } catch (e) {
     await db.backupRun.update({ where: { id: run.id }, data: { status: "failed", error: (e as Error).message.slice(0, 2000), finishedAt: new Date() } });
+    await (await import("./heartbeat")).beat("backup", false, (e as Error).message);
     return { error: (e as Error).message };
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});

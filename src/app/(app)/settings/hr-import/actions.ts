@@ -4,13 +4,13 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { smtpConfigured } from "@/lib/mail";
-import { leadPlan, parseHrFiles, replaceHrData, sendWelcomeToAll, type HrFiles, type HrPreview, type ParsedHr } from "@/lib/hr-import";
+import { addHrData, parseHrFiles, sendWelcomeToAll, type HrFiles, type HrPreview, type ParsedHr } from "@/lib/hr-import";
 
 // Checked files wait here (memory only, never on disk) until the Super Admin confirms. A restart just means re-uploading.
 const pending = new Map<string, { parsed: ParsedHr; actorId: string; at: number }>();
 const TTL = 30 * 60_000;
 
-export type HrImportState = { error?: string; preview?: HrPreview; id?: string; leads?: Awaited<ReturnType<typeof leadPlan>>; done?: Awaited<ReturnType<typeof replaceHrData>>; welcome?: { sent: number; failed: string[] } } | undefined;
+export type HrImportState = { error?: string; preview?: HrPreview; id?: string; done?: Awaited<ReturnType<typeof addHrData>>; welcome?: { sent: number; failed: string[] } } | undefined;
 
 async function superAdmin() {
   const user = await requireUser();
@@ -30,7 +30,7 @@ export async function checkHrFiles(_: HrImportState, fd: FormData): Promise<HrIm
     for (const [k, v] of pending) if (Date.now() - v.at > TTL) pending.delete(k);
     const id = randomBytes(12).toString("hex");
     pending.set(id, { parsed: res.parsed, actorId: user.id, at: Date.now() });
-    return { preview: res.preview, id, leads: await leadPlan() };
+    return { preview: res.preview, id };
   } catch (e) {
     return { error: `Couldn't read the files: ${e instanceof Error ? e.message : "unknown error"}` };
   }
@@ -41,14 +41,13 @@ export async function confirmHrImport(state: HrImportState, fd: FormData): Promi
   if (!user) return { error: "Only a Super Admin can do this." };
   const job = pending.get(String(fd.get("id") ?? ""));
   if (!job || job.actorId !== user.id) return { error: "That check has expired. Upload the files again." };
-  if (String(fd.get("confirm") ?? "").trim() !== "DELETE") return { ...state, error: "Type DELETE to confirm." };
   try {
-    const done = await replaceHrData(job.parsed, { id: user.id, email: user.email });
+    const done = await addHrData(job.parsed, { id: user.id, email: user.email });
     pending.delete(String(fd.get("id")));
     revalidatePath("/", "layout");
     return { done };
   } catch (e) {
-    return { ...state, error: `The import stopped: ${e instanceof Error ? e.message.slice(0, 400) : "unknown error"}. The old data may already be gone, so restore your backup or run the import again: it starts by clearing what's there.` };
+    return { ...state, error: `The import stopped: ${e instanceof Error ? e.message.slice(0, 400) : "unknown error"}. Nothing was deleted; run it again and it continues, skipping what was already added.` };
   }
 }
 

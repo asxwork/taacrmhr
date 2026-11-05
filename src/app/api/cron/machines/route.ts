@@ -9,5 +9,7 @@ export async function GET(req: Request) {
   if (!secret || secret === "change-me" || key.length !== secret.length || !timingSafeEqual(Buffer.from(key), Buffer.from(secret))) {
     return new Response("Forbidden", { status: 403 });
   }
-  return Response.json({ ok: true, machines: await syncAllPullMachines() });
+  const machines = await syncAllPullMachines();
+  await (await import("@/lib/heartbeat")).beat("machines");
+  return Response.json({ ok: true, machines });
 }

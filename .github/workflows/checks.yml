@@ -1,0 +1,42 @@
+# Runs on every push to develop / main and on pull requests: type check, lint, build, then a real
+# browser test against a fresh demo database. A red check means: don't release.
+name: Checks
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: file:./ci.db
+      SIP_SECRET_KEY: ci-only-not-a-secret
+      CRON_SECRET: ci-only-cron
+      APP_URL: http://localhost:3100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit -p .
+      - name: Lint
+        run: npx eslint src --max-warnings=200
+      - name: Database (fresh demo data)
+        run: npx prisma db push --skip-generate && npx tsx prisma/seed.ts
+      - name: Build
+        run: npx next build
+      - name: Start the app
+        run: (npx next start -p 3100 > app.log 2>&1 &) && npx --yes wait-on@8 -t 120000 http://localhost:3100/login
+      - name: Browser smoke test
+        run: |
+          npm i --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+          node tests/smoke.cjs
+      - name: App log (on failure)
+        if: failure()
+        run: tail -100 app.log || true

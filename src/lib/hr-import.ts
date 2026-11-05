@@ -1,12 +1,11 @@
-// One-time move from the old HR system: reads its five Excel exports, then replaces all users and HR records.
-// Files are read in memory and never stored. Only the Super Admin running it keeps their login.
+// Move from the old HR system: reads its five Excel exports and adds them to AMS (nothing is deleted).
+// Files are read in memory and never stored.
 import JSZip from "jszip";
 import { randomBytes } from "node:crypto";
 import { format, getDaysInMonth } from "date-fns";
 import { db } from "./db";
 import { hashPassword } from "./auth";
 import { audit } from "./audit";
-import { demoLoaded, removeDemo } from "./demo-data";
 import { balancesFor } from "./leave";
 import { sendLoginEmail } from "./invites";
 
@@ -255,35 +254,14 @@ export async function parseHrFiles(files: HrFiles): Promise<{ parsed: ParsedHr; 
   };
 }
 
-/** The two newest real leads survive the reset (sample leads don't count). */
-export async function leadPlan() {
-  const sample = (await db.setting.findUnique({ where: { key: "demo.data" } }))?.value;
-  const domain = sample ? (JSON.parse(sample) as { domain?: string }).domain : undefined;
-  const where = domain ? { NOT: { owner: { email: { endsWith: `@${domain}` } } } } : {};
-  const [total, keep] = await Promise.all([
-    db.lead.count(),
-    db.lead.findMany({ where, orderBy: { createdAt: "desc" }, take: 2, select: { id: true, name: true } }),
-  ]);
-  return { total, keep };
-}
-
 const chunks = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
 
 /**
- * Deletes every user but `actor`, all HR records and all leads but the two newest real ones, then loads the parsed
- * data. Sample CRM data goes with the sample users; real deals stay, unassigned. Settings (roles, shifts…) stay.
+ * Adds the parsed data to AMS. Nothing is deleted: employees already in AMS (same code, or same official email) keep
+ * what's there and only get their empty fields filled; new people are created; attendance days, punches, leave days
+ * and payslips that already exist are skipped, so running it twice adds nothing twice.
  */
-export async function replaceHrData(p: ParsedHr, actor: { id: string; email: string }) {
-  const plan = await leadPlan();
-  if (await demoLoaded(db)) await removeDemo(db);
-  const leadsDeleted = (await db.lead.deleteMany({ where: { id: { notIn: plan.keep.map((l) => l.id) } } })).count;
-  await db.employee.deleteMany({});
-  await db.$transaction([
-    db.payrollRun.deleteMany({}), db.appraisalCycle.deleteMany({}), db.jobOpening.deleteMany({}), db.asset.deleteMany({}), db.attendanceLog.deleteMany({}),
-    db.user.deleteMany({ where: { id: { not: actor.id } } }),
-  ]);
-  await db.setting.upsert({ where: { key: "demo.autoloaded" }, update: {}, create: { key: "demo.autoloaded", value: new Date().toISOString() } });
-
+export async function addHrData(p: ParsedHr, actor: { id: string; email: string }) {
   const [rolesRows, branches] = await Promise.all([db.role.findMany(), db.branch.findMany()]);
   const roleId = (name: string) => (name === "Boss" ? rolesRows.find((r) => r.key === "boss") : rolesRows.find((r) => r.name === name))?.id;
   const branchId = (name: string) => branches.find((b) => (/bahad/i.test(name) && b.code === "BHD") || (/dha/i.test(name) && b.code === "DHA") || b.name.toLowerCase() === name.toLowerCase())?.id ?? null;
@@ -291,6 +269,7 @@ export async function replaceHrData(p: ParsedHr, actor: { id: string; email: str
   const passwordHash = await hashPassword(randomBytes(24).toString("base64url"));
 
   const ids = new Map<string, string>();
+  let created = 0, updated = 0, logins = 0;
   for (const e of p.people) {
     const joiningDate = e.joining ?? new Date();
     const [department, designation, shift] = await Promise.all([
@@ -298,22 +277,43 @@ export async function replaceHrData(p: ParsedHr, actor: { id: string; email: str
       e.designation ? db.designation.upsert({ where: { name: e.designation }, update: {}, create: { name: e.designation } }) : null,
       e.shift ? db.shift.upsert({ where: { name: `${e.shift.start}–${e.shift.end}` }, update: {}, create: { name: `${e.shift.start}–${e.shift.end}`, start: e.shift.start, end: e.shift.end } }) : null,
     ]);
+    // Login: reuse an existing account with this email, otherwise create one.
     let userId: string | null = null;
-    if (e.email && e.email === actor.email.toLowerCase()) userId = actor.id;
-    else if (e.email) {
-      const role = roleId(e.role);
-      userId = (await db.user.create({ data: { name: e.name, email: e.email, phone: e.phone || null, title: e.designation || null, branchId: branchId(e.branch), passwordHash, roles: role ? { create: { roleId: role } } : undefined } })).id;
+    if (e.email) {
+      const existingUser = await db.user.findUnique({ where: { email: e.email }, select: { id: true } });
+      if (existingUser) userId = existingUser.id;
+      else {
+        const role = roleId(e.role);
+        userId = (await db.user.create({ data: { name: e.name, email: e.email, phone: e.phone || null, title: e.designation || null, branchId: branchId(e.branch), passwordHash, roles: role ? { create: { roleId: role } } : undefined } })).id;
+        logins++;
+      }
     }
+    const fields: Record<string, unknown> = {
+      fullName: e.name, firstName: e.first || null, middleName: e.middle || null, lastName: e.last || null, fatherName: e.father || null, motherName: e.mother || null,
+      gender: e.gender, dob: e.dob, maritalStatus: e.marital || null, religion: e.religion || null, nationality: e.nationality || null, bloodGroup: e.blood || null,
+      phone: e.phone || null, landline: e.landline || null, personalEmail: e.contactEmail || null, officialEmail: e.email || null, address: e.address || null, permanentAddress: e.permanent || null, city: e.city || null,
+      cnic: e.cnic || null, cnicExpiry: e.cnicExpiry, passportNo: e.passport || null, passportExpiry: e.passportExpiry, licenseNo: e.license || null, licenseExpiry: e.licenseExpiry,
+      emergencyName: e.emergencyName || null, emergencyRelation: e.emergencyRelation || null, emergencyPhone: e.emergencyPhone || null,
+      ntn: e.ntn || null, bankName: e.bank || null, grade: e.grade || null, jobTitle: e.designation || null,
+      departmentId: department?.id ?? null, designationId: designation?.id ?? null, branchId: branchId(e.branch), shiftId: shift?.id ?? null,
+    };
+    const existing = await db.employee.findFirst({ where: { OR: [{ code: e.code }, ...(e.email ? [{ officialEmail: e.email }, { userId: userId ?? "-" }] : [])] }, include: { salary: true } });
+    if (existing) {
+      // Fill blanks only: anything already typed into AMS wins.
+      const cur = existing as unknown as Record<string, unknown>;
+      const fill = Object.fromEntries(Object.entries(fields).filter(([k, v]) => v != null && (cur[k] == null || cur[k] === "")));
+      if (!existing.userId && userId && !(await db.employee.findUnique({ where: { userId } }))) fill.userId = userId;
+      if (Object.keys(fill).length) await db.employee.update({ where: { id: existing.id }, data: fill as never });
+      if (!existing.salary && e.gross > 0) await db.salaryProfile.create({ data: { employeeId: existing.id, gross: e.gross, effectiveFrom: existing.joiningDate, ...(e.paymentMethod && { paymentMethod: e.paymentMethod }) } });
+      ids.set(e.code, existing.id);
+      updated++;
+      continue;
+    }
+    const linkUser = userId && !(await db.employee.findUnique({ where: { userId } })) ? userId : null;
     const emp = await db.employee.create({
       data: {
-        code: e.code, userId, fullName: e.name, firstName: e.first || null, middleName: e.middle || null, lastName: e.last || null, fatherName: e.father || null, motherName: e.mother || null,
-        gender: e.gender, dob: e.dob, maritalStatus: e.marital || null, religion: e.religion || null, nationality: e.nationality || null, bloodGroup: e.blood || null,
-        phone: e.phone || null, landline: e.landline || null, personalEmail: e.contactEmail || null, officialEmail: e.email || null, address: e.address || null, permanentAddress: e.permanent || null, city: e.city || null,
-        cnic: e.cnic || null, cnicExpiry: e.cnicExpiry, passportNo: e.passport || null, passportExpiry: e.passportExpiry, licenseNo: e.license || null, licenseExpiry: e.licenseExpiry,
-        emergencyName: e.emergencyName || null, emergencyRelation: e.emergencyRelation || null, emergencyPhone: e.emergencyPhone || null,
-        ntn: e.ntn || null, bankName: e.bank || null, grade: e.grade || null, jobTitle: e.designation || null, joiningDate,
+        ...(fields as object), code: e.code, userId: linkUser, joiningDate,
         status: e.probation ? "probation" : "active", probationEnd: e.probation?.end ?? null, confirmedAt: e.probation ? null : joiningDate,
-        departmentId: department?.id, designationId: designation?.id, branchId: branchId(e.branch), shiftId: shift?.id,
         events: { create: [
           { type: "joined", date: joiningDate, title: `Joined${e.designation ? ` as ${e.designation}` : ""}`, byId: actor.id },
           ...e.history.map((h) => ({ type: "note", date: h.date, title: h.title, details: h.details || null, byId: actor.id })),
@@ -321,19 +321,26 @@ export async function replaceHrData(p: ParsedHr, actor: { id: string; email: str
         ] },
         ...(e.qualifications.length && { qualifications: { create: e.qualifications } }),
         ...(e.gross > 0 && { salary: { create: { gross: e.gross, effectiveFrom: joiningDate, ...(e.paymentMethod && { paymentMethod: e.paymentMethod }), ...(e.probation?.salary && { probationGross: e.probation.salary }) } } }),
-      },
+      } as never,
     });
     ids.set(e.code, emp.id);
+    created++;
   }
 
-  // Attendance: the report's own status for each day, plus the punches behind it. Past midnight counts as next day.
+  // Attendance: the report's own status for each day, plus the punches behind it. Days already in AMS are skipped.
+  const empIds = [...new Set(ids.values())];
+  const [haveDays, havePunches] = await Promise.all([
+    db.attendanceDay.findMany({ where: { employeeId: { in: empIds } }, select: { employeeId: true, date: true } }),
+    db.attendancePunch.findMany({ where: { employeeId: { in: empIds } }, select: { employeeId: true, at: true } }),
+  ]);
+  const seenDay = new Set(haveDays.map((d) => `${d.employeeId}|${+d.date}`));
+  const seenPunch = new Set(havePunches.map((x) => `${x.employeeId}|${+x.at}`));
   const at = (date: Date, min: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, min);
   const punches: { employeeId: string; at: Date; source: string }[] = [];
   const dayRows: { employeeId: string; date: Date; status: string; note: string | null; checkIn: Date | null; checkOut: Date | null; workedMin: number; lateMin: number; earlyMin: number; overtimeMin: number }[] = [];
-  const seenDay = new Set<string>();
-  const seenPunch = new Set<string>();
   for (const d of p.days) {
-    const employeeId = ids.get(d.code)!;
+    const employeeId = ids.get(d.code);
+    if (!employeeId) continue;
     const dayKey = `${employeeId}|${+d.date}`;
     if (seenDay.has(dayKey)) continue;
     seenDay.add(dayKey);
@@ -349,20 +356,22 @@ export async function replaceHrData(p: ParsedHr, actor: { id: string; email: str
   for (const c of chunks(punches, 500)) await db.attendancePunch.createMany({ data: c });
   for (const c of chunks(dayRows, 500)) await db.attendanceDay.createMany({ data: c });
 
-  // Leave: the old system's two types; each leave day from the report becomes an approved request.
+  // Leave: the old system's two types are added if missing (existing leave types are left as they are).
   const quota = (type: string) => Math.max(0, ...p.balances.filter((b) => b.type === type).map((b) => b.opening + b.additional));
   const leaveTypes = new Map<string, string>();
   for (const [i, [name, code, color]] of ([["Annual Paid Leaves", "APL", "blue"], ["Sick Leaves", "SL", "amber"]] as const).entries()) {
-    const t = await db.leaveType.upsert({ where: { name }, update: { quota: quota(name), active: true }, create: { name, code, color, paid: true, quota: quota(name), sortOrder: i } });
+    const t = await db.leaveType.upsert({ where: { name }, update: {}, create: { name, code, color, paid: true, quota: quota(name), sortOrder: 10 + i } });
     leaveTypes.set(name, t.id);
   }
-  await db.leaveType.updateMany({ where: { name: { in: ["Annual leave", "Sick leave"] } }, data: { active: false } });
-  const requests = p.days.filter((d) => d.leaveType).map((d) => ({ employeeId: ids.get(d.code)!, typeId: leaveTypes.get(d.leaveType!)!, from: d.date, to: d.date, halfDay: d.halfDay, days: d.halfDay ? 0.5 : 1, status: "approved", decidedAt: d.date, reason: "Imported from previous system" }));
+  const haveLeave = new Set((await db.leaveRequest.findMany({ where: { employeeId: { in: empIds } }, select: { employeeId: true, from: true } })).map((l) => `${l.employeeId}|${+l.from}`));
+  const requests = p.days.filter((d) => d.leaveType && ids.get(d.code) && !haveLeave.has(`${ids.get(d.code)}|${+d.date}`))
+    .map((d) => ({ employeeId: ids.get(d.code)!, typeId: leaveTypes.get(d.leaveType!)!, from: d.date, to: d.date, halfDay: d.halfDay, days: d.halfDay ? 0.5 : 1, status: "approved", decidedAt: d.date, reason: "Imported from previous system" }));
   for (const c of chunks(requests, 500)) await db.leaveRequest.createMany({ data: c });
-  // Match the balances the old system reported, whatever the entitlement rules work out to.
+  // Match the balances the old system reported.
   const year = new Date().getFullYear();
   for (const code of new Set(p.balances.map((b) => b.code))) {
-    const employeeId = ids.get(code)!;
+    const employeeId = ids.get(code);
+    if (!employeeId) continue;
     const current = await balancesFor(employeeId, year);
     for (const b of p.balances.filter((x) => x.code === code)) {
       const typeId = leaveTypes.get(b.type);
@@ -373,14 +382,17 @@ export async function replaceHrData(p: ParsedHr, actor: { id: string; email: str
     }
   }
 
-  // Past payroll, as paid runs.
+  // Past payroll, as paid runs; months or payslips already in AMS are kept and not duplicated.
   const months = [...new Set(p.slips.map((s) => s.month))].sort();
+  let payslips = 0;
   for (const month of months) {
     const [y, m] = month.split("-").map(Number) as [number, number];
     const paidAt = new Date(y, m, 0);
-    const run = await db.payrollRun.create({ data: { month, status: "paid", createdById: actor.id, approvedById: actor.id, approvedAt: paidAt, paidAt } });
+    const run = (await db.payrollRun.findUnique({ where: { month } })) ?? (await db.payrollRun.create({ data: { month, status: "paid", createdById: actor.id, approvedById: actor.id, approvedAt: paidAt, paidAt } }));
+    const already = new Set((await db.payslip.findMany({ where: { runId: run.id }, select: { employeeId: true } })).map((x) => x.employeeId));
     for (const s of p.slips.filter((x) => x.month === month)) {
-      const employeeId = ids.get(s.code)!;
+      const employeeId = ids.get(s.code);
+      if (!employeeId || already.has(employeeId)) continue;
       const daysInMonth = getDaysInMonth(paidAt);
       await db.payslip.create({
         data: {
@@ -389,11 +401,12 @@ export async function replaceHrData(p: ParsedHr, actor: { id: string; email: str
           lines: { create: s.lines.map((l, i) => ({ ...l, sortOrder: i })) },
         },
       });
+      payslips++;
     }
   }
 
-  await audit(actor.id, "update", "employee", null, `Replaced HR data from Excel: ${p.people.length} employees, ${dayRows.length} attendance days, ${p.slips.length} payslips`);
-  return { leadsDeleted, leadsKept: plan.keep.length, employees: p.people.length, logins: p.people.filter((e) => e.email).length, attendanceDays: dayRows.length, punches: punches.length, leaveDays: requests.length, payslips: p.slips.length, payMonths: months.length };
+  await audit(actor.id, "create", "employee", null, `Added HR data from Excel: ${created} new and ${updated} existing employees, ${dayRows.length} attendance days, ${payslips} payslips`);
+  return { created, updated, logins, attendanceDays: dayRows.length, punches: punches.length, leaveDays: requests.length, payslips, payMonths: months.length };
 }
 
 /** Welcome emails for everyone who has never signed in. */

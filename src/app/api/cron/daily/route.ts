@@ -13,6 +13,7 @@ import { sendMorningSummaries } from "@/lib/morning";
 import { sendDocumentReminders } from "@/lib/doc-reminders";
 import { sendWeeklyEmail } from "@/lib/weekly";
 import { backupIfDue } from "@/lib/backup";
+import { beat } from "@/lib/heartbeat";
 import { after } from "next/server";
 
 // Hostinger cron (once a day, e.g. 07:00): GET https://<domain>/api/cron/daily?key=<CRON_SECRET>
@@ -80,5 +81,6 @@ export async function GET(req: Request) {
   // 9. Google Drive backup, if connected and not done in the last 20 hours (runs after this answers).
   after(() => backupIfDue().catch(() => {}));
 
+  await beat("daily");
   return Response.json({ ok: true, summaries, docReminders, weekly, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
 }
