@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { forget } from "@/lib/memo";
 import { requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { MODULES, scopesFor, type Scope } from "@/lib/rbac";
@@ -98,7 +99,9 @@ export async function setModuleForRole(roleId: string, module: string, scope: st
     ? db.permission.deleteMany({ where: { roleId, module, action } })
     : db.permission.upsert({ where: { roleId_module_action: { roleId, module, action } }, update: { scope }, create: { roleId, module, action, scope } })));
   await audit(actor.id, "update", "role", roleId, `${role.name}: ${mod.label} · all actions → ${scope}`);
-  revalidatePath("/", "layout");
+  // The grid already shows the new value, so no page rebuild (that made each click slow on shared hosting).
+  // Clearing the cached sessions makes the change apply on each user's next click.
+  forget("session:");
   return {};
 }
 
@@ -111,7 +114,9 @@ export async function setPermission(roleId: string, module: string, action: stri
   if (scope === "none") await db.permission.deleteMany({ where: { roleId, module, action } });
   else await db.permission.upsert({ where: { roleId_module_action: { roleId, module, action } }, update: { scope }, create: { roleId, module, action, scope } });
   await audit(actor.id, "update", "role", roleId, `${role.name}: ${mod.label} · ${action} → ${scope}`);
-  revalidatePath("/", "layout");
+  // The grid already shows the new value, so no page rebuild (that made each click slow on shared hosting).
+  // Clearing the cached sessions makes the change apply on each user's next click.
+  forget("session:");
   return {};
 }
 
