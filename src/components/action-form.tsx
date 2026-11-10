@@ -24,6 +24,20 @@ export function SubmitButton({
   );
 }
 
+/** True for the error a page loaded before a redeploy gets when it calls a server action that changed. */
+export const isStaleDeployment = (e: unknown) =>
+  (e as Error)?.name === "UnrecognizedActionError" || /was not found on the server|failed-to-find-server-action|Failed to find Server Action|older or newer deployment/i.test(String((e as Error)?.message ?? ""));
+
+/** A save that throws shows a message on the form instead of replacing the whole page. */
+function saveFailed(err: Error & { digest?: string }): FormState {
+  if (isStaleDeployment(err)) {
+    setTimeout(() => location.reload(), 1500);
+    return { error: "AMS was just updated. Reloading the page… then please save again." };
+  }
+  void fetch("/api/errors", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: err?.message || err?.digest || "Save failed", stack: err?.stack, path: location.pathname }) }).catch(() => {});
+  return { error: `Couldn't save this${err?.digest ? ` (ref ${err.digest})` : ""}. It has been reported — try again, and if it keeps happening tell your admin.` };
+}
+
 /** Form bound to a server action returning FormState; shows the action's error inline. */
 export function ActionForm({
   action,
@@ -36,7 +50,15 @@ export function ActionForm({
   className?: string;
   successMessage?: string;
 }) {
-  const [state, formAction] = useActionState(action, undefined);
+  const [state, formAction] = useActionState(async (prev: FormState, fd: FormData): Promise<FormState> => {
+    try {
+      return await action(prev, fd);
+    } catch (e) {
+      const err = e as Error & { digest?: string };
+      if (err?.digest?.startsWith("NEXT_")) throw e; // redirects and not-found are handled by Next
+      return saveFailed(err);
+    }
+  }, undefined);
   const feedback = useRef<HTMLDivElement>(null);
   // Long forms submit from the bottom: bring the message into view so it is never missed.
   useEffect(() => {

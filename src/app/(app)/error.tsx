@@ -5,6 +5,13 @@ import { useEffect } from "react";
 /** Friendly screen when a page breaks; the error is reported to Settings → System health. */
 export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
+    // A page loaded before a redeploy: just reload it once instead of showing an error.
+    if ((error.name === "UnrecognizedActionError" || /was not found on the server|failed-to-find-server-action|Failed to find Server Action|older or newer deployment/i.test(error.message ?? "")) && !sessionStorage.getItem("ams-reloaded")) {
+      sessionStorage.setItem("ams-reloaded", "1");
+      location.reload();
+      return;
+    }
+    sessionStorage.removeItem("ams-reloaded");
     void fetch("/api/errors", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: error.message || error.digest, stack: error.stack, path: location.pathname }) }).catch(() => {});
   }, [error]);
   return (
