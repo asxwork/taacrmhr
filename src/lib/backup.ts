@@ -83,9 +83,23 @@ async function accessToken(c: BackupConfig) {
   return j.access_token;
 }
 
+/** Google's error, in plain words where we know the fix. */
+function driveProblem(status: number, body: string) {
+  let msg = body;
+  try { msg = (JSON.parse(body) as { error?: { message?: string } }).error?.message ?? body; } catch {}
+  const project = msg.match(/project[= ](\d+)/)?.[1];
+  if (/has not been used in project|is disabled|SERVICE_DISABLED|accessNotConfigured/i.test(msg)) {
+    return `The Google Drive API is switched off in your Google Cloud project. Turn it on at console.cloud.google.com → APIs & Services → Library → Google Drive API → Enable${project ? ` (project ${project})` : ""}, wait 2–3 minutes, then press Back up now.`;
+  }
+  if (/storageQuotaExceeded|quota/i.test(msg)) return "The Google Drive is full. Free up space in that Google account (or keep fewer days of backups), then try again.";
+  if (status === 401) return "Google access has expired. Press Reconnect in Settings → Backup and sign in again.";
+  if (status === 404 && /File not found/i.test(msg)) return "The “AMS backups” folder was deleted in Drive. Press Back up now again and AMS will create a new one.";
+  return `Google Drive: ${status} ${msg.slice(0, 300)}`;
+}
+
 async function drive(token: string, url: string, init: RequestInit = {}) {
   const res = await fetch(url, { ...init, headers: { authorization: `Bearer ${token}`, ...(init.headers ?? {}) } });
-  if (!res.ok) throw new Error(`Google Drive: ${res.status} ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) throw new Error(driveProblem(res.status, await res.text()));
   return res;
 }
 
