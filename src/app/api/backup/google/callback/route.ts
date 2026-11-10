@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { redirectTo } from "@/lib/redirect";
 import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/auth";
 import { exchangeCode } from "@/lib/backup";
@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   if (!user?.isSuperAdmin || user.viewAs) return new Response("Forbidden", { status: 403 });
   const url = new URL(req.url);
   const state = (await cookies()).get("taa_gstate")?.value;
-  const back = (q: string) => NextResponse.redirect(new URL(`/settings/backup?${q}`, req.url));
+  const back = (q: string) => redirectTo(`/settings/backup?${q}`);
   if (url.searchParams.get("error")) return back(`err=${encodeURIComponent(url.searchParams.get("error")!)}`);
   if (!state || state !== url.searchParams.get("state")) return back("err=The+sign-in+link+expired.+Try+again.");
   try {

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { redirectTo } from "@/lib/redirect";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -6,10 +6,10 @@ import { db } from "@/lib/db";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", url));
+  if (!user) return redirectTo("/login");
   const n = await db.notification.findFirst({ where: { id: url.searchParams.get("id") ?? "", userId: user.id } });
-  if (!n) return NextResponse.redirect(new URL("/notifications", url));
+  if (!n) return redirectTo("/notifications");
   if (!n.readAt) await db.notification.update({ where: { id: n.id }, data: { readAt: new Date() } });
   const target = n.link?.startsWith("/") && !n.link.startsWith("//") ? n.link : "/notifications";
-  return NextResponse.redirect(new URL(target, url));
+  return redirectTo(target);
 }

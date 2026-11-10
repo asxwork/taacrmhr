@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { redirectTo } from "@/lib/redirect";
 import { cookies } from "next/headers";
 import { getCurrentUser, VIEW_AS_COOKIE } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -13,14 +13,14 @@ export async function GET(req: Request) {
   const jar = await cookies();
   if (url.searchParams.has("exit")) {
     jar.delete(VIEW_AS_COOKIE);
-    return NextResponse.redirect(new URL("/settings/users", url));
+    return redirectTo("/settings/users");
   }
   const me = await getCurrentUser();
   const real = me?.viewAs ? await db.user.findUnique({ where: { id: me.viewAs.realId } }) : me;
   if (!real?.isSuperAdmin) return new Response("Not found", { status: 404 });
   const target = await db.user.findUnique({ where: { id: url.searchParams.get("user") ?? "" } });
-  if (!target || !target.active || target.id === real.id) return NextResponse.redirect(new URL("/settings/users", url));
+  if (!target || !target.active || target.id === real.id) return redirectTo("/settings/users");
   jar.set(VIEW_AS_COOKIE, target.id, { httpOnly: true, sameSite: "lax", secure: url.protocol === "https:", path: "/", maxAge: 2 * 3600 });
   await audit(real.id, "view_as", "user", target.id, `Started viewing the app as ${target.name}`);
-  return NextResponse.redirect(new URL("/profile", url));
+  return redirectTo("/profile");
 }
