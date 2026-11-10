@@ -6,7 +6,7 @@ import { LoginForm } from "./login-form";
 export const metadata = { title: "Sign in" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ idle?: string; password?: string }> }) {
-  if (await getCurrentUser()) redirect("/home");
+  if (await getCurrentUser().catch(() => null)) redirect("/home");
   const sp = await searchParams;
   const reason = sp.idle ? "You were signed out after a period of inactivity." : null;
 

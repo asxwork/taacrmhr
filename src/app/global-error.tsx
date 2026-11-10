@@ -13,6 +13,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         <h1 style={{ fontSize: 18 }}>Something went wrong</h1>
         <p style={{ color: "#6b7280", fontSize: 14 }}>It has been reported. Please try again.</p>
         <button onClick={reset} style={{ marginTop: 16, padding: "8px 16px", borderRadius: 8, background: "#0a223c", color: "#fff", border: 0 }}>Try again</button>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- plain link: the app shell itself is broken here */}
+        <p style={{ marginTop: 16, fontSize: 12 }}><a href="/api/status" style={{ color: "#6b7280" }}>Check system status</a>{error.digest ? ` · ref ${error.digest}` : ""}</p>
       </div>
     </body></html>
   );
