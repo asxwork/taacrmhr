@@ -8,6 +8,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, Field, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ExpandAll, Legend, ModuleBlock } from "./perm-matrix";
+import { SectionNav } from "./section-nav";
 import { createRole, setRoleMembers } from "./actions";
 
 export const metadata = { title: "Access permissions" };
@@ -47,23 +48,8 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
       />
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[13rem_minmax(0,1fr)]">
-        {/* Sections */}
-        <nav className="hidden xl:sticky xl:top-6 xl:block" aria-label="Sections">
-          {GROUPS.map((g) => {
-            const mods = modules.filter((m) => m.group === g.key);
-            if (!mods.length) return null;
-            return (
-              <div key={g.key} className="mb-4">
-                <a href={`#g-${g.key}`} className="mb-1 inline-flex items-center gap-2 rounded-full bg-navy-900 px-3 py-1 text-xs font-semibold text-white">{g.key}</a>
-                <ul>
-                  {mods.map((m) => (
-                    <li key={m.key}><a href={`#m-${m.key}`} className="block truncate rounded-md px-3 py-1.5 text-sm text-ink/80 hover:bg-canvas hover:text-ink">{m.label}</a></li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </nav>
+        {/* Sections: as tall as the grid, scrolls on its own, follows the grid */}
+        <SectionNav groups={GROUPS.map((g) => ({ key: g.key, modules: modules.filter((m) => m.group === g.key).map((m) => ({ key: m.key, label: m.label })) })).filter((g) => g.modules.length)} />
 
         <div className="min-w-0 space-y-3">
           <AutoFilterForm className="flex flex-wrap items-center gap-2">
@@ -78,7 +64,7 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
           </AutoFilterForm>
 
           <Card className="overflow-hidden">
-            <div className="max-h-[calc(100vh-12rem)] overflow-auto scroll-smooth">
+            <div id="perm-scroll" className="h-[calc(100vh-15rem)] min-h-[24rem] overflow-auto overscroll-contain">
               <table className="w-full border-separate border-spacing-0 text-sm">
                 <thead>
                   <tr>
