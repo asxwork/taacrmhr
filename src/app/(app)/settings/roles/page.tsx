@@ -2,12 +2,12 @@ import Link from "@/components/link";
 import { Briefcase, Building2, ChartBar, Plus, Search, Settings2, ShieldCheck, Target } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
-import { ACTION_LABELS, MODULES, SCOPE_LABELS, scopesFor, type ModuleDef } from "@/lib/rbac";
+import { ACTION_LABELS, MODULES, type ModuleDef } from "@/lib/rbac";
 import { cn, initials } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, Field, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
-import { PermCell } from "./perm-cell";
+import { ExpandAll, Legend, ModuleBlock } from "./perm-matrix";
 import { createRole, setRoleMembers } from "./actions";
 
 export const metadata = { title: "Access permissions" };
@@ -43,7 +43,7 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
     <>
       <PageHeader
         title="Access permissions"
-        description="Roles across the top, permissions down the side. Click any value to change it; it saves at once and applies on each user's next page."
+        description="Roles across the top, sections down the side. Click a section to open its actions; click any pill to change it. Changes save at once and apply on each user's next page."
       />
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[13rem_minmax(0,1fr)]">
@@ -71,19 +71,20 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
               <input name="q" defaultValue={sp.q} placeholder="Find a section, e.g. Leads, Payroll" className="input pl-9" />
             </label>
+            <ExpandAll />
             <span className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-xs text-muted">
               <ShieldCheck className="size-4 text-gold-600" /> {superAdmins} Super Admin{superAdmins === 1 ? "" : "s"} always have full access
             </span>
           </AutoFilterForm>
 
           <Card className="overflow-hidden">
-            <div className="max-h-[calc(100vh-12rem)] overflow-auto">
+            <div className="max-h-[calc(100vh-12rem)] overflow-auto scroll-smooth">
               <table className="w-full border-separate border-spacing-0 text-sm">
                 <thead>
                   <tr>
-                    <th className="sticky left-0 top-0 z-30 min-w-56 border-b border-r border-line bg-surface px-4 py-3 text-left font-medium">Roles <span className="font-normal text-muted">{roles.length}</span></th>
+                    <th className="sticky left-0 top-0 z-30 min-w-52 border-b border-r border-line bg-surface px-4 py-3 text-left font-medium">Roles <span className="font-normal text-muted">{roles.length}</span></th>
                     {roles.map((r) => (
-                      <th key={r.id} id={`role-${r.id}`} className="sticky top-0 z-20 min-w-40 border-b border-r border-line bg-surface px-3 py-3 text-center align-top font-normal">
+                      <th key={r.id} id={`role-${r.id}`} className="sticky top-0 z-20 min-w-[7.5rem] border-b border-r border-line bg-surface px-3 py-3 text-center align-top font-normal">
                         <Link href={`/settings/roles/${r.id}`} className="block truncate font-medium hover:underline" title={r.description ?? undefined}>{r.name}</Link>
                         <div className="mt-1.5 flex items-center justify-center gap-1">
                           <span className="flex -space-x-1.5">
@@ -102,7 +103,7 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
                       </th>
                     ))}
                     {canCreate && (
-                      <th className="sticky top-0 z-20 min-w-36 border-b border-line bg-surface px-3 py-3 align-top font-normal">
+                      <th className="sticky top-0 z-20 min-w-28 border-b border-line bg-surface px-3 py-3 align-top font-normal">
                         <Link href="/settings/roles?new=1" scroll={false} className="inline-flex items-center gap-1 text-sm text-navy-900 hover:underline"><Plus className="size-4" /> New role</Link>
                       </th>
                     )}
@@ -111,8 +112,8 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
                 {GROUPS.map((g) => {
                   const mods = modules.filter((m) => m.group === g.key);
                   if (!mods.length) return null;
-                  return (
-                    <tbody key={g.key} id={`g-${g.key}`}>
+                  return [
+                    <tbody key={g.key} id={`g-${g.key}`} className="scroll-mt-28">
                       <tr>
                         <td colSpan={roles.length + 2} className="sticky left-0 border-b border-line bg-canvas px-4 py-2">
                           <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted">
@@ -120,15 +121,18 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
                           </span>
                         </td>
                       </tr>
-                      {mods.map((m) => (
-                        <ModuleRows key={m.key} m={m} roles={roles} canEdit={canEdit} extraCol={canCreate} />
-                      ))}
-                    </tbody>
-                  );
+                    </tbody>,
+                    ...mods.map((m) => (
+                      <ModuleBlock key={m.key} moduleKey={m.key} label={m.label} scoped={m.scoped} extraCol={canCreate} canEdit={canEdit} defaultOpen={!!q}
+                        actions={m.actions.map((a) => ({ key: a, label: ACTION_LABELS[a] }))} roles={roles.map((r) => ({ id: r.id, name: r.name }))}
+                        initial={Object.fromEntries(roles.map((r) => [r.id, Object.fromEntries(m.actions.map((a) => [a, r.permissions.find((p) => p.module === m.key && p.action === a)?.scope ?? "none"]))]))} />
+                    )),
+                  ];
                 })}
               </table>
             </div>
           </Card>
+          <Legend />
           <p className="text-xs text-muted">
             <b className="font-medium text-ink">Only their own items</b> = records they&apos;re responsible for · <b className="font-medium text-ink">Their team&apos;s items</b> = theirs plus everyone who reports to them (set &quot;Reports to&quot; on the employee or user) · <b className="font-medium text-ink">Their branch&apos;s items</b> = their branch. A user with several roles gets the widest access of them all.
           </p>
@@ -177,31 +181,3 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
   );
 }
 
-function ModuleRows({ m, roles, canEdit, extraCol }: {
-  m: ModuleDef;
-  roles: { id: string; name: string; permissions: { module: string; action: string; scope: string }[] }[];
-  canEdit: boolean;
-  extraCol: boolean;
-}) {
-  const options = scopesFor(m).map((s) => ({ value: s, label: m.scoped ? SCOPE_LABELS[s] : s === "all" ? "Allowed" : "Deny access" }));
-  return (
-    <>
-      <tr id={`m-${m.key}`} className="scroll-mt-16">
-        <td className="sticky left-0 z-10 border-b border-r border-line bg-surface px-4 pb-1 pt-3 font-medium">{m.label}</td>
-        {roles.map((r) => <td key={r.id} className="border-b border-r border-line bg-surface" />)}
-        {extraCol && <td className="border-b border-line bg-surface" />}
-      </tr>
-      {m.actions.map((a) => (
-        <tr key={a} className="group">
-          <td className="sticky left-0 z-10 border-b border-r border-line bg-surface py-2.5 pl-8 pr-4 text-ink/80 group-hover:bg-canvas">{ACTION_LABELS[a]}</td>
-          {roles.map((r) => (
-            <td key={r.id} className="border-b border-r border-line px-2 py-2.5 text-center group-hover:bg-canvas/60">
-              <PermCell roleId={r.id} module={m.key} action={a} value={r.permissions.find((p) => p.module === m.key && p.action === a)?.scope ?? "none"} options={options} disabled={!canEdit} />
-            </td>
-          ))}
-          {extraCol && <td className="border-b border-line group-hover:bg-canvas/60" />}
-        </tr>
-      ))}
-    </>
-  );
-}

@@ -87,6 +87,21 @@ export async function deleteRole(fd: FormData) {
 }
 
 /** One cell of the access matrix, saved the moment it changes. "none" removes the grant. */
+/** Sets every action of one section (e.g. all of Leads) for a role in one go, from the collapsed summary row. */
+export async function setModuleForRole(roleId: string, module: string, scope: string): Promise<{ error?: string }> {
+  const actor = await requirePermission("settings.roles", "edit");
+  const mod = MODULES.find((m) => m.key === module);
+  if (!mod || !scopesFor(mod).includes(scope as Scope)) return { error: "Not allowed." };
+  const role = await db.role.findUnique({ where: { id: roleId } });
+  if (!role) return { error: "Role not found." };
+  await db.$transaction(mod.actions.map((action) => scope === "none"
+    ? db.permission.deleteMany({ where: { roleId, module, action } })
+    : db.permission.upsert({ where: { roleId_module_action: { roleId, module, action } }, update: { scope }, create: { roleId, module, action, scope } })));
+  await audit(actor.id, "update", "role", roleId, `${role.name}: ${mod.label} · all actions → ${scope}`);
+  revalidatePath("/", "layout");
+  return {};
+}
+
 export async function setPermission(roleId: string, module: string, action: string, scope: string): Promise<{ error?: string }> {
   const actor = await requirePermission("settings.roles", "edit");
   const mod = MODULES.find((m) => m.key === module);
