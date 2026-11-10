@@ -157,3 +157,9 @@ Before pushing, run `npm run build` locally. A push to `main` is what the live s
 | Attendance machines (if used) | `/api/cron/machines?key=CRON_SECRET` | every 30 minutes |
 
 Settings → System health shows when each one last ran; Super Admins get a daily alert if one stops.
+
+## Google Drive backup keys (one time)
+
+Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (a Google Cloud OAuth "Web application" client with the Drive API
+enabled, redirect URI `https://<domain>/api/backup/google/callback`, consent screen published). After that,
+Settings → Backup is just a "Sign in with Google" button.

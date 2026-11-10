@@ -3,7 +3,7 @@ import { format, formatDistanceToNowStrict } from "date-fns";
 import { CheckCircle2, CloudUpload, XCircle } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { backupConfig, redirectUri } from "@/lib/backup";
+import { backupConfig, googleKeysOnServer, redirectUri } from "@/lib/backup";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Button, Card, EmptyState, Field, PageHeader } from "@/components/ui";
 import { backupNow, disconnectDrive, saveBackupSettings } from "./actions";
@@ -19,6 +19,7 @@ export default async function BackupPage({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const [c, runs] = await Promise.all([backupConfig(), db.backupRun.findMany({ orderBy: { startedAt: "desc" }, take: 35 })]);
   const connected = !!c.refreshToken;
+  const onServer = googleKeysOnServer();
   const running = runs.some((r) => r.status === "running" && +r.startedAt > Date.now() - 30 * 60_000);
 
   return (
@@ -27,43 +28,71 @@ export default async function BackupPage({ searchParams }: { searchParams: Promi
       {sp.ok && <p className="mb-4 rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-800">Google Drive connected.</p>}
       {sp.err && <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800">{sp.err}</p>}
 
-      <Card className="mb-4 flex flex-wrap items-center gap-3 p-4">
-        {connected ? <CheckCircle2 className="size-6 text-emerald-600" /> : <XCircle className="size-6 text-muted" />}
-        <div className="min-w-0 flex-1">
-          <p className="font-medium">{connected ? `Connected to ${c.email ?? "Google Drive"}` : "Google Drive isn't connected"}</p>
-          <p className="text-xs text-muted">{connected ? "Backups go to the “AMS backups” folder in this Drive." : "Fill in the Google keys below, save, then connect."}</p>
-        </div>
-        {connected && <form action={backupNow}><Button disabled={running}><CloudUpload className="size-4" /> {running ? "Backing up…" : "Back up now"}</Button></form>}
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- a full page load: this redirects to Google */}
-        {c.clientId && c.clientSecret && <a href="/api/backup/google/connect" className="rounded-lg border border-line px-3 py-2 text-sm font-medium hover:bg-canvas">{connected ? "Reconnect" : "Connect Google Drive"}</a>}
-        {connected && <form action={disconnectDrive}><button className="text-sm text-muted hover:text-red-600">Disconnect</button></form>}
+      <Card className="mb-4 p-6">
+        {connected ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <CheckCircle2 className="size-7 text-emerald-600" />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Connected to {c.email ?? "Google Drive"}</p>
+              <p className="text-xs text-muted">Backups go to the “AMS backups” folder in this Google Drive.</p>
+            </div>
+            <form action={backupNow}><Button disabled={running}><CloudUpload className="size-4" /> {running ? "Backing up…" : "Back up now"}</Button></form>
+            <form action={disconnectDrive}><button className="text-sm text-muted hover:text-red-600">Disconnect</button></form>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <XCircle className="size-8 text-muted" />
+            <p className="font-medium">Google Drive isn&apos;t connected</p>
+            <p className="max-w-md text-sm text-muted">Sign in with the Google account that should keep the backups. AMS can only see the files it saves there — nothing else in that Drive.</p>
+            {c.clientId && c.clientSecret ? (
+              // eslint-disable-next-line @next/next/no-html-link-for-pages -- a full page load: this redirects to Google
+              <a href="/api/backup/google/connect" className="mt-1 inline-flex items-center gap-3 rounded-full border border-line bg-white px-5 py-2.5 text-sm font-medium text-[#1f1f1f] shadow-sm hover:bg-[#f8f9fa]">
+                <svg viewBox="0 0 48 48" className="size-5" aria-hidden><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.3 5.7c4.3-3.9 7-9.7 7-17.2z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
+                Sign in with Google
+              </a>
+            ) : (
+              <p className="max-w-md rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">One-time setup needed by your developer: add <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> to the server (steps below), then this button appears.</p>
+            )}
+          </div>
+        )}
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="mb-4 font-medium">Settings</h2>
           <ActionForm action={saveBackupSettings} className="space-y-4">
-            <Field label="Google OAuth client ID"><input name="clientId" required defaultValue={c.clientId ?? ""} className="input font-mono text-xs" placeholder="1234-abc.apps.googleusercontent.com" /></Field>
-            <Field label="Google OAuth client secret" hint={c.clientSecret ? "Saved — leave empty to keep it." : undefined}><input name="clientSecret" type="password" autoComplete="off" className="input" placeholder={c.clientSecret ? "••••••••" : ""} /></Field>
+            {!onServer && (
+              <details className="rounded-lg border border-line p-3">
+                <summary className="cursor-pointer text-sm text-muted">Advanced: enter the Google keys here instead of on the server</summary>
+                <div className="mt-3 space-y-3">
+                  <Field label="Google OAuth client ID"><input name="clientId" defaultValue={c.clientId ?? ""} className="input font-mono text-xs" placeholder="1234-abc.apps.googleusercontent.com" /></Field>
+                  <Field label="Google OAuth client secret" hint={c.clientSecret ? "Saved — leave empty to keep it." : undefined}><input name="clientSecret" type="password" autoComplete="off" className="input" placeholder={c.clientSecret ? "••••••••" : ""} /></Field>
+                </div>
+              </details>
+            )}
             <Field label="Keep backups for (days)"><input name="keepDays" type="number" min={7} max={365} defaultValue={c.keepDays} className="input w-32" /></Field>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="includeFiles" defaultChecked={c.includeFiles} className="mt-1" />
               <span>Also back up uploaded files (photos, CNICs, documents, recordings). Uses more Drive space.</span></label>
             <SubmitButton>Save</SubmitButton>
           </ActionForm>
         </Card>
-        <Card className="p-5 text-sm">
-          <h2 className="mb-3 font-medium">One-time Google setup (10 minutes)</h2>
+        {onServer ? (
+          <Card className="p-5 text-sm"><h2 className="mb-2 font-medium">How it works</h2><ul className="list-disc space-y-1 pl-5 text-muted"><li>Every night AMS saves a full copy to the “AMS backups” folder in the connected Google Drive.</li><li>Backups older than the days you choose are deleted automatically.</li><li>To use a different Google account, Disconnect and sign in again.</li></ul></Card>
+        ) : (
+          <Card className="p-5 text-sm">
+          <h2 className="mb-3 font-medium">One-time setup for the developer (10 minutes, never again)</h2>
           <ol className="list-decimal space-y-2 pl-5 text-muted">
             <li>Open <span className="font-medium text-ink">console.cloud.google.com</span> with the Google account that should hold the backups and create a project (e.g. “AMS Backup”).</li>
             <li><span className="font-medium text-ink">APIs &amp; Services → Library</span>: enable <span className="font-medium text-ink">Google Drive API</span>.</li>
             <li><span className="font-medium text-ink">OAuth consent screen</span>: External, app name “AMS Backup”, your email. Then press <span className="font-medium text-ink">Publish app</span> (otherwise Google stops backups after 7 days).</li>
             <li><span className="font-medium text-ink">Credentials → Create credentials → OAuth client ID</span>, type <span className="font-medium text-ink">Web application</span>, and add this redirect URI:
               <input readOnly value={redirectUri()} aria-label="Redirect URI" className="input mt-1 h-8 w-full font-mono text-xs" /></li>
-            <li>Copy the client ID and secret into Settings here, Save, then press <span className="font-medium text-ink">Connect Google Drive</span> and allow access.</li>
+            <li>In hPanel → your Node.js app → <span className="font-medium text-ink">Environment variables</span>, add <code className="text-ink">GOOGLE_CLIENT_ID</code> and <code className="text-ink">GOOGLE_CLIENT_SECRET</code>, then Redeploy. From then on this page is just “Sign in with Google”.</li>
             <li>Add a daily cron in hPanel: <code className="break-all text-xs text-ink">/api/cron/backup?key=YOUR_CRON_SECRET</code> (the daily job also backs up as a fallback).</li>
           </ol>
           <p className="mt-3 text-xs text-muted">AMS can only see the files it creates in your Drive, nothing else.</p>
         </Card>
+        )}
       </div>
 
       <h2 className="mb-2 mt-6 text-sm font-semibold uppercase tracking-wide text-muted">Recent backups</h2>

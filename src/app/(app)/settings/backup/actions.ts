@@ -18,7 +18,8 @@ export async function saveBackupSettings(_: FormState, fd: FormData): Promise<Fo
   const user = await superAdmin();
   if (!canStoreSecrets()) return { error: "Set SIP_SECRET_KEY (or CRON_SECRET) on the server first — it's used to encrypt the Google keys." };
   const cur = await backupConfig();
-  const clientId = str(fd, "clientId");
+  // The keys fields only appear when the keys aren't set on the server.
+  const clientId = fd.has("clientId") ? str(fd, "clientId") : cur.clientId ?? "";
   const secret = str(fd, "clientSecret");
   const keepDays = Math.max(7, Math.min(365, Number(str(fd, "keepDays")) || 30));
   const changedClient = clientId !== (cur.clientId ?? "");

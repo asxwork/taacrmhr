@@ -28,15 +28,24 @@ export async function backupConfig(): Promise<BackupConfig> {
   const row = await db.setting.findUnique({ where: { key: SETTING } });
   let s: Stored = {};
   try { s = row ? JSON.parse(row.value) : {}; } catch {}
-  return { ...s, clientSecret: openSecret(s.secretSealed ?? null), refreshToken: openSecret(s.tokenSealed ?? null), keepDays: s.keepDays || 30, includeFiles: !!s.includeFiles };
+  // The app's Google keys normally come from the server (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET), so the Backup page
+  // is just "Sign in with Google", like a WordPress backup plugin. Keys typed on the page are the fallback.
+  return {
+    ...s, clientId: process.env.GOOGLE_CLIENT_ID || s.clientId, clientSecret: process.env.GOOGLE_CLIENT_SECRET || openSecret(s.secretSealed ?? null),
+    refreshToken: openSecret(s.tokenSealed ?? null), keepDays: s.keepDays || 30, includeFiles: !!s.includeFiles,
+  };
 }
+
+/** True when the Google keys are set on the server, so nobody has to type them on the Backup page. */
+export const googleKeysOnServer = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
 export async function saveBackupConfig(patch: BackupConfig) {
   const cur = await backupConfig();
   const next = { ...cur, ...patch };
   const stored: Stored = {
-    clientId: next.clientId, email: next.email, folderId: next.folderId, includeFiles: next.includeFiles, keepDays: next.keepDays,
-    secretSealed: next.clientSecret ? sealSecret(next.clientSecret) : null, tokenSealed: next.refreshToken ? sealSecret(next.refreshToken) : null,
+    // Keys that come from the server are never copied into the database.
+    clientId: next.clientId === process.env.GOOGLE_CLIENT_ID ? undefined : next.clientId, email: next.email, folderId: next.folderId, includeFiles: next.includeFiles, keepDays: next.keepDays,
+    secretSealed: next.clientSecret && next.clientSecret !== process.env.GOOGLE_CLIENT_SECRET ? sealSecret(next.clientSecret) : null, tokenSealed: next.refreshToken ? sealSecret(next.refreshToken) : null,
   };
   await db.setting.upsert({ where: { key: SETTING }, update: { value: JSON.stringify(stored) }, create: { key: SETTING, value: JSON.stringify(stored) } });
 }
