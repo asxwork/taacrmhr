@@ -68,6 +68,7 @@ export const TUTORIALS: Tutorial[] = [
     summary: "Apps, the menu on the left, tabs at the top of each section, and quick search.",
     steps: [
       "The menu on the left lists the sections of the app you're in. In CRM: Home, Leads, Deals, Calls, Contacts, Inventory, Reports.",
+      "In HR the menu has two parts: section icons on the far left (Dashboard, People, Payroll, Attendance, Requests, Assessment, Recruitment, Reports, System Settings) and that section's pages next to them. Items with ▸ open a sub-menu (e.g. People → Compliance).",
       "Inside a section, the tabs across the top switch between its screens (for example Leads → All leads, My leads, Follow-ups, Tasks & calendar).",
       "Switch apps with the app name at the top of the menu, or go back to the home screen.",
       "Press Ctrl + K (⌘ K on Mac) anywhere to jump to a page or find a lead, deal, contact, unit or employee by name or phone.",
@@ -318,7 +319,7 @@ export const TUTORIALS: Tutorial[] = [
     key: "employees", group: "HR", module: "hr.employees", title: "Employees and profiles", who: "HR", href: "/hr/employees", chapter: "hr",
     summary: "Add employees, keep their full profile, documents and history up to date.",
     steps: [
-      "HR → People → New employee: name, joining date, department, designation, branch and salary.",
+      "HR → People → Employee → Add employee: name, joining date, department, designation, branch and salary.",
       "Open an employee: the profile has five tabs — Overview, Job & Pay, Documents, Time off & Attendance, History.",
       "Upload documents (CNIC, contract…) on the Documents tab; expiring documents are flagged.",
       "Role / transfer records promotions and moves with an effective date; Exit starts the leaving process.",
@@ -329,8 +330,8 @@ export const TUTORIALS: Tutorial[] = [
     key: "onboarding", group: "HR", module: "hr.onboarding", title: "Onboarding links for new hires", who: "HR", href: "/hr/onboarding",
     summary: "New hires fill in their own details, CNIC and photo from a link — no typing for HR.",
     steps: [
-      "Add the person in People → Employees (name, joining date, department).",
-      "Open People → Onboarding, choose them and press Create link.",
+      "Add the person in HR → People → Employee (name, joining date, department).",
+      "Open HR → People → Onboarding, choose them and press Create link.",
       "Copy the link or tap WhatsApp to send it. It works for 14 days, once, without a login.",
       "When they submit, HR gets a notification; their details are on the profile and the CNIC pictures wait for HR to verify.",
     ],
@@ -340,7 +341,7 @@ export const TUTORIALS: Tutorial[] = [
     key: "leave-planner", group: "HR", module: "hr.leaveplanner", title: "Leave planner and clash warnings", who: "HR, managers", href: "/hr/leave/planner",
     summary: "See who is off each day of the month and spot days a department is short-staffed.",
     steps: [
-      "Open Leave → Planner. Each row is a person, each column a day; solid = approved leave, striped = waiting.",
+      "Open HR → Attendance → Leave Planner. Each row is a person, each column a day; solid = approved leave, striped = waiting.",
       "Days are flagged red when 2+ people and 30%+ of one department are off; the list above the grid names them.",
       "Filter by department, or move between months with the arrows.",
       "When approving a leave request, Approvals shows who else from that department is off on the same days.",
@@ -353,7 +354,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       "Open My Space → Requests → Shift swaps, pick a colleague and the day, and press Ask.",
       "Your colleague gets a notification and taps Accept or Decline.",
-      "Once accepted, your line manager (or HR) approves it in Attendance → Shift swaps.",
+      "Once accepted, your line manager (or HR) approves it in HR → Attendance → Shift Swaps.",
       "On approval the roster for that day changes for both of you, so attendance is judged on the new shift.",
     ],
     tips: ["Roles → Shift swaps: Read shows the list for their team/branch, Approve lets them decide."],
@@ -362,7 +363,7 @@ export const TUTORIALS: Tutorial[] = [
     key: "payroll-checklist", group: "HR", module: "hr.payrollchecklist", title: "Payroll run checklist", who: "HR, payroll", href: "/hr/payroll/checklist",
     summary: "Ten steps for every month's payroll, so nothing is missed.",
     steps: [
-      "Open Payroll → Checklist; it opens on the current month (use the arrows for others).",
+      "Open HR → Payroll → Checklist; it opens on the current month (use the arrows for others).",
       "Each step shows a live hint — e.g. how many leave requests are still waiting — and an Open button to go there.",
       "Tick a step when it's done; AMS records who ticked it and when.",
       "Run, approve and paid tick themselves when they happen.",
@@ -374,7 +375,7 @@ export const TUTORIALS: Tutorial[] = [
     summary: "Once a month: how it went, what's blocking you, and goals for next month.",
     steps: [
       "Employees: open My Space → My profile → Check-ins, pick how the month felt and write wins, blockers and goals. Your manager is notified.",
-      "Managers: open HR → More → Monthly check-ins, choose the month, and open a person to read theirs.",
+      "Managers: open HR → Assessment → Monthly Check-ins, choose the month, and open a person to read theirs.",
       "Add your notes and the agreed goals and Save — the employee is notified and sees them in My Space.",
       "Past months stay on file for appraisals.",
     ],
@@ -395,7 +396,7 @@ export const TUTORIALS: Tutorial[] = [
     key: "org-chart", group: "My Space", module: "hr.orgchart", title: "Org chart", who: "Everyone", href: "/org-chart",
     summary: "See who reports to whom across the company, with photos.",
     steps: [
-      "Open My Space → Feed → Org chart (or HR → More → Org chart).",
+      "Open My Space → Feed → Org chart (or HR → People → Hierarchy).",
       "Each card shows the person's photo, designation and department; their team is drawn underneath.",
       "Pick a department to see just that team. HR can click a card to open the profile.",
       "The chart follows each employee's Line manager field — fix that on the profile if someone is in the wrong place.",
@@ -409,7 +410,7 @@ export const TUTORIALS: Tutorial[] = [
       "Keep the expiry dates on your profile up to date (CNIC, Passport and Driving License sections, and the expiry on uploaded documents).",
       "You get a notification — and an email when email is set up — 30 days, 7 days and 1 day before, and on the day.",
       "Renew the document and upload the new copy in My Space → My profile → Documents; HR verifies it.",
-      "HR still sees everything expiring soon under People → Employees → Documents.",
+      "HR still sees everything expiring soon under HR → People → Compliance → Renewals.",
     ],
     tips: ["Admins switch this on/off in Settings → Features → Document expiry reminders."],
   },
@@ -419,7 +420,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       "When a resignation or termination notice is recorded, the employee gets a notification to fill in the exit interview (My Space).",
       "They pick their reasons, rate their manager, team, pay, growth and work-life balance, and say what to improve.",
-      "HR sees answers under People → Exit interviews: top reasons, average ratings and the would-rejoin rate.",
+      "HR sees answers under HR → People → End Of Employment → Exit Interviews: top reasons, average ratings and the would-rejoin rate.",
       "HR can also fill it in on someone's behalf (e.g. after a face-to-face exit meeting).",
     ],
     tips: ["Roles → Exit interviews: Read shows the answers, Edit lets HR fill them in."],
@@ -428,7 +429,7 @@ export const TUTORIALS: Tutorial[] = [
     key: "reporting-lines", group: "HR", module: "hr.employees", title: "Reporting lines (who reports to whom)", who: "HR", href: "/hr/organization/reporting",
     summary: "Set every employee's line manager on one screen.",
     steps: [
-      "Open People → Reporting lines. Tick “Only people without a line manager” to see who is missing.",
+      "Open HR → People → Reporting Lines. Tick “Only people without a line manager” to see who is missing.",
       "Pick each person's manager in the “Reports to” list — it saves at once.",
       "Line managers drive Team access, leave and shift-swap approvals, monthly check-ins and the org chart.",
       "AMS refuses loops (two people reporting to each other).",
@@ -459,9 +460,9 @@ export const TUTORIALS: Tutorial[] = [
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [
-      "HR → Attendance shows today: present, late, absent, on leave. Switch to Monthly register for the whole month (50 people per page).",
+      "HR → Attendance → Daily attendance shows today: present, late, absent, on leave. Switch to Monthly register for the whole month (50 people per page).",
       "Click a day in the register to correct it; every change is logged in Attendance logs.",
-      "Attendance → Machines: connect a ZKTeco machine by IP (port 4370) or Cloud Server, or import the USB file.",
+      "HR → Attendance → Attendance Machines: connect a ZKTeco machine by IP (port 4370) or Cloud Server, or import the USB file.",
       "Set each employee's device user ID so machine punches match the right person.",
     ],
   },
@@ -487,7 +488,7 @@ export const TUTORIALS: Tutorial[] = [
     key: "payroll", group: "HR", module: "hr.payroll", title: "Running payroll", who: "Payroll / accounts", href: "/hr/payroll", chapter: "payroll",
     summary: "Monthly salaries with attendance, leave, tax, loans, expenses and commission worked out for you.",
     steps: [
-      "HR → Payroll → pick the month and press Create & calculate.",
+      "HR → Payroll → Payrolls → pick the month and press Create & calculate.",
       "Check the salary sheet: unpaid leave, absents, tax, loans, expenses, rewards and commission are already applied.",
       "Approve the run; payslips appear in each employee's My Space.",
       "The Payroll tabs also hold Payslips, Salary revisions (increments with approval), Loans & expenses and Final settlement.",
@@ -510,7 +511,7 @@ export const TUTORIALS: Tutorial[] = [
     summary: "Apply for leave, raise requests (WFH, overtime, expenses…) and download payslips.",
     steps: [
       "My Space → Requests → Leave: choose the type and dates and submit; you'll be notified when it's approved.",
-      "Requests → New request: work from home, official duty, overtime, travel, general tickets and more. Expenses & loans is a tab too.",
+      "HR → Requests → pick the type (work from home, official duty, overtime, travel, general tickets and more) → Request. Each type also has its Approvals list.",
       "Payslips: open or print each month's payslip.",
       "Requests → My requests shows everything you've asked for and its status.",
     ],
