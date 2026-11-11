@@ -37,6 +37,8 @@ export async function problems() {
     if (hours > j.maxHours) list.push(`${j.label} last ran ${Math.round(hours)} hours ago.`);
     else if (!x.ok) list.push(`${j.label} failed: ${x.note ?? "unknown error"}`);
   }
+  const starts = await (await import("./app-starts")).recentStarts(24);
+  if (starts.length > 6) list.push(`The app restarted ${starts.length} times in the last 24 hours — the host is stopping it (often too little memory on the plan). Every restart makes the next click wait.`);
   if (lastBackup?.status === "failed") list.push(`Last backup failed: ${lastBackup.error ?? ""}`.slice(0, 300));
   // Attendance that stopped arriving (machine offline / not linked) makes everyone look absent.
   const [staff, lastPunch, lastDay] = await Promise.all([

@@ -8,6 +8,7 @@ import { JOBS, beats, problems } from "@/lib/heartbeat";
 import { backupConfig } from "@/lib/backup";
 import { smtpConfigured } from "@/lib/mail";
 import { APP_VERSION } from "@/lib/version";
+import { recentStarts } from "@/lib/app-starts";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { clearErrors, saveBanner } from "./actions";
@@ -35,6 +36,8 @@ export default async function HealthPage() {
   const dbSize = url.startsWith("file:") ? await stat(url.replace("file:", "").replace(/^\.\//, "prisma/")).then((s) => s.size).catch(() => null) : null;
   const ok = list.length === 0;
   const noManager = await db.employee.count({ where: { status: { not: "left" }, managerId: null } });
+  const starts = await recentStarts(24);
+  const memMb = Math.round(process.memoryUsage().rss / 1048576);
 
   return (
     <>
@@ -76,6 +79,8 @@ export default async function HealthPage() {
             ["Google Drive backup", cfg.refreshToken ? (lastBackup ? `last saved ${formatDistanceToNowStrict(lastBackup.startedAt, { addSuffix: true })}` : "connected, no backup yet") : "not connected"],
             ["Email (SMTP)", smtpConfigured() ? "set up" : "not set up — no emails are sent"],
             ["APP_URL", process.env.APP_URL || "not set — links in emails and onboarding will be wrong"],
+            ["App restarts (last 24 h)", `${starts.length}${starts[0] ? ` · last ${formatDistanceToNowStrict(starts[0], { addSuffix: true })}` : ""}`],
+            ["Memory in use", `${memMb} MB`],
             ["Employees without a line manager", noManager ? `${noManager} — set them in People → Reporting lines` : "none"],
             ["CRON_SECRET", process.env.CRON_SECRET && process.env.CRON_SECRET !== "change-me" ? "set" : "not set — scheduled jobs can't run"],
             ["Secret key for stored passwords", process.env.SIP_SECRET_KEY ? "set" : process.env.CRON_SECRET ? "using CRON_SECRET" : "missing"],

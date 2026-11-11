@@ -30,12 +30,16 @@ function datasourceUrl() {
   return u.toString();
 }
 
+const SIMULATE_DB_MS = Number(process.env.SIMULATE_DB_MS) || 0;
+
 function createClient() {
   const base = new PrismaClient({ datasourceUrl: datasourceUrl() });
   const client = base.$extends({
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
+          // Testing only: SIMULATE_DB_MS=30 adds that delay to every query, like a database on another server.
+          if (SIMULATE_DB_MS) await new Promise((r) => setTimeout(r, SIMULATE_DB_MS));
           if (model === "Lead") await stampLeadWrite(base, operation, args as Parameters<typeof stampLeadWrite>[2]);
           const result = await query(args);
           const prefix = CACHE_PREFIX[model];

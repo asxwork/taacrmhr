@@ -1,7 +1,12 @@
 // Runs once when the server starts. All dates (attendance days, task due times, payroll months)
 // are computed in company local time, so pin the process timezone even if the host runs on UTC.
-export function register() {
+export async function register() {
   process.env.TZ = process.env.APP_TIMEZONE ?? "Asia/Karachi";
+  // Count server starts (System health shows restarts in the last 24 hours).
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { recordStart } = await import("./lib/app-starts");
+    void recordStart();
+  }
 }
 
 /** Every unhandled server error (pages, server actions, API routes) goes to the error log. */
