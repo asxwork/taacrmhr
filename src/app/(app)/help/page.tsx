@@ -33,11 +33,18 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
   let chapters: Chapter[] = [];
   try { chapters = JSON.parse(await readFile(path.join(dir, "chapters.json"), "utf8")); } catch {}
   // Only the parts of the video tour that cover this person's tutorials (Super Admins: the whole tour).
-  if (!user.isSuperAdmin) { const keys = new Set(["start", ...mine.map((t) => t.chapter)]); chapters = chapters.filter((c) => keys.has(c.key)); }
+  // The video can only play those parts: each allowed chapter runs until the next chapter of the full tour starts.
+  let ranges: [number, number][] | null = null;
+  if (!user.isSuperAdmin) {
+    const keys = new Set(["start", ...mine.map((t) => t.chapter)]);
+    const sorted = [...chapters].sort((a, b) => a.start - b.start);
+    ranges = sorted.map((c, i) => [c, sorted[i + 1]?.start ?? Number.MAX_SAFE_INTEGER] as const).filter(([c]) => keys.has(c.key)).map(([c, end]) => [c.start, end]);
+    chapters = chapters.filter((c) => keys.has(c.key));
+  }
   return (
     <>
       <PageHeader title={group ? `${group} tutorials` : "Tutorials"} description={user.isSuperAdmin ? "Everything in AMS: the full video tour and every guide. Each topic can jump to its part of the video." : "The guides for what your role can use. Open a topic for steps, or jump to its part of the video."} />
-      <TutorialsView tutorials={shown} chapters={chapters} video={video} />
+      <TutorialsView tutorials={shown} chapters={chapters} video={video} ranges={ranges} />
     </>
   );
 }

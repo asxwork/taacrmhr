@@ -11,7 +11,11 @@ export type Chapter = { key: string; title: string; start: number };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** Help page body: the full video tour with chapters, then searchable step-by-step tutorials. */
-export function TutorialsView({ tutorials, chapters, video }: { tutorials: Tutorial[]; chapters: Chapter[]; video: string | null }) {
+export function TutorialsView({ tutorials, chapters, video, ranges = null }: {
+  tutorials: Tutorial[]; chapters: Chapter[]; video: string | null;
+  /** Parts of the tour this person may watch ([start, end) seconds); null = all (Super Admins). Other parts are skipped. */
+  ranges?: [number, number][] | null;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
   const top = useRef<HTMLElement>(null);
   const [q, setQ] = useState("");
@@ -46,7 +50,17 @@ export function TutorialsView({ tutorials, chapters, video }: { tutorials: Tutor
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="flex items-center justify-center bg-navy-950">
             {video ? (
-              <video ref={ref} src={video} controls preload="metadata" playsInline className="aspect-video max-h-[75svh] w-full" onTimeUpdate={(e) => setNow(e.currentTarget.currentTime)} />
+              <video ref={ref} src={video} controls preload="metadata" playsInline className="aspect-video max-h-[75svh] w-full" onTimeUpdate={(e) => {
+                const v = e.currentTarget, t = v.currentTime;
+                if (ranges?.length && !ranges.some(([a, b]) => t >= a && t < b)) {
+                  // Skip parts of the tour for sections this person doesn't use (e.g. CRM for HR staff).
+                  const next = ranges.find(([a]) => a > t);
+                  if (next) v.currentTime = next[0];
+                  else { v.pause(); v.currentTime = ranges[0]![0]; }
+                  return;
+                }
+                setNow(t);
+              }} />
             ) : (
               <div className="flex aspect-video w-full items-center justify-center p-6 text-center text-sm text-white/70">The full video tour is being prepared. Meanwhile, every step is written out below.</div>
             )}
