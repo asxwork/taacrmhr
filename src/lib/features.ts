@@ -33,6 +33,7 @@ export const FEATURES = [
   { key: "orgchart", label: "Org chart", group: "HR", paths: ["/org-chart"], about: "Who reports to whom, with photos" },
   { key: "docreminders", label: "Document expiry reminders", group: "HR", paths: [], about: "Remind employees before their CNIC, passport or documents expire" },
   { key: "exitinterviews", label: "Exit interviews", group: "HR", paths: ["/hr/exits/interviews", "/me/exit-interview"], about: "Leavers answer a short exit survey" },
+  { key: "breaks", label: "Breaks (Break Out / Back)", group: "HR", paths: [], about: "Staff log breaks; break time comes off worked minutes" },
   { key: "loginalerts", label: "New-device sign-in alerts", group: "HR", paths: [], about: "Tell people (and Super Admins) when their account signs in from a new device" },
   { key: "push", label: "Phone push notifications", group: "HR", paths: [], about: "Notifications on phones and computers even when AMS is closed" },
   { key: "engagement", label: "Engagement surveys", group: "HR", paths: ["/hr/engagement", "/me/surveys"], about: "Staff surveys" },

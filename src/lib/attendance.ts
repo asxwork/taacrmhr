@@ -31,6 +31,8 @@ export type DayResult = {
   workedMin: number; lateMin: number; earlyMin: number; overtimeMin: number; note: string | null; overridden: boolean;
   /** Set by loadAttendance for attendance-exempt employees. */
   exempt?: boolean;
+  /** Minutes on break (Break Out → Back), already taken off workedMin. */
+  breakMin?: number;
 };
 
 /** The single source of truth for what a day counts as. */
@@ -39,6 +41,8 @@ export function evaluateDay(input: {
   override?: { status: string; note: string | null; checkIn?: Date | null; checkOut?: Date | null; workedMin?: number; lateMin?: number; earlyMin?: number; overtimeMin?: number } | null; now?: Date;
   /** Policy Planner rules (lib/attendance-policy.ts); defaults when left out. */
   policy?: { absentUnderMin: number; overtimeAfterMin: number };
+  /** Minutes on break that day. */
+  breakMin?: number;
 }): DayResult {
   const shift = input.shift ?? FALLBACK_SHIFT;
   const now = input.now ?? new Date();
@@ -46,8 +50,9 @@ export function evaluateDay(input: {
   const punches = [...input.punches].sort((a, b) => +a - +b);
   const checkIn = punches[0] ?? null;
   const checkOut = punches.length > 1 ? punches.at(-1)! : null;
-  const workedMin = checkIn && checkOut ? Math.max(0, differenceInMinutes(checkOut, checkIn)) : 0;
-  const base = { date: day, checkIn, checkOut, workedMin, lateMin: 0, earlyMin: 0, overtimeMin: 0, note: input.override?.note ?? null, overridden: false };
+  const breakMin = input.breakMin ?? 0;
+  const workedMin = checkIn && checkOut ? Math.max(0, differenceInMinutes(checkOut, checkIn) - breakMin) : 0;
+  const base = { date: day, checkIn, checkOut, workedMin, lateMin: 0, earlyMin: 0, overtimeMin: 0, note: input.override?.note ?? null, overridden: false, ...(breakMin ? { breakMin } : {}) };
 
   if (input.override && input.override.status !== "auto") {
     // Days imported from the old HR system keep their reported times and minutes.
@@ -85,7 +90,7 @@ export function evaluateDay(input: {
 export async function loadAttendance(employeeIds: string[], from: Date, to: Date) {
   const start = startOfDay(from);
   const endExcl = addDays(startOfDay(to), 1);
-  const [emps, punches, leaves, holidays, overrides, defShift, roster, shifts, policy] = await Promise.all([
+  const [emps, punches, leaves, holidays, overrides, defShift, roster, shifts, policy, breaks] = await Promise.all([
     db.employee.findMany({ where: { id: { in: employeeIds } }, select: { id: true, branchId: true, joiningDate: true, leftAt: true, shift: true, attendanceExempt: true } }),
     db.attendancePunch.findMany({ where: { employeeId: { in: employeeIds }, at: { gte: start, lt: addDays(endExcl, 1) } }, select: { employeeId: true, at: true } }),
     db.leaveRequest.findMany({ where: { employeeId: { in: employeeIds }, status: "approved", from: { lt: endExcl }, to: { gte: start } }, include: { type: { select: { name: true } } } }),
@@ -95,6 +100,7 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
     db.rosterDay.findMany({ where: { employeeId: { in: employeeIds }, date: { gte: start, lt: endExcl } } }),
     db.shift.findMany(),
     attendancePolicy(),
+    db.attendanceBreak.findMany({ where: { employeeId: { in: employeeIds }, start: { gte: start, lt: endExcl } }, select: { employeeId: true, start: true, end: true } }),
   ]);
   const days = eachDayOfInterval({ start, end: startOfDay(to) });
   // Index everything by employee and calendar day once, so each day is a lookup rather than a scan
@@ -131,6 +137,12 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
     if (list) list.push(p.at); else punchesBy.set(k, [p.at]);
   }
   const now = new Date();
+  // Break minutes per employee per day (a break still open counts up to now).
+  const breakBy = new Map<string, number>();
+  for (const b of breaks) {
+    const k = ek(b.employeeId, b.start);
+    breakBy.set(k, (breakBy.get(k) ?? 0) + Math.max(0, differenceInMinutes(b.end ?? now, b.start)));
+  }
   const out = new Map<string, DayResult[]>();
   for (const e of emps) {
     const myLeaves = leavesBy.get(e.id) ?? [];
@@ -143,7 +155,7 @@ export async function loadAttendance(employeeIds: string[], from: Date, to: Date
         return evaluateDay({
           date: d, shift: shiftOn(e.id, e.shift ?? defShift, d), now, punches: punchesBy.get(ek(e.id, d)) ?? [],
           holiday: holiday?.name ?? null, leave: leave ? { halfDay: leave.halfDay, type: leave.type.name } : null,
-          override, policy,
+          override, policy, breakMin: breakBy.get(ek(e.id, d)),
         });
       })
       // Policy Planner: a forgotten check-out can count as a half day or an absence instead of present.

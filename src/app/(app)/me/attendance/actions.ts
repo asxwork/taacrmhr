@@ -8,6 +8,7 @@ import { distanceMeters, geofenceMode, logAttendance } from "@/lib/attendance";
 import { submitRequest } from "@/lib/approvals";
 import { checkDevice } from "@/lib/devices";
 import { str, type FormState } from "@/lib/utils";
+import { disabledFeatures } from "@/lib/features";
 
 /** Web check-in/out. Location is checked against the employee's branch geo-fence. */
 export async function punchNow(_: FormState, fd: FormData): Promise<FormState> {
@@ -42,6 +43,8 @@ export async function punchNow(_: FormState, fd: FormData): Promise<FormState> {
     data: { employeeId: emp.id, at: now, source: "web", lat: hasFix ? lat : null, lng: hasFix ? lng : null, accuracy: Number.isFinite(accuracy) ? accuracy : null, distanceM: distance, outside: mode !== "off" && outside, createdById: user.id },
   });
   const verb = today % 2 === 0 ? "Checked in" : "Checked out";
+  // Checking out ends a break that's still open.
+  if (verb === "Checked out") await db.attendanceBreak.updateMany({ where: { employeeId: emp.id, end: null }, data: { end: now } });
   await logAttendance({
     employeeId: emp.id, date: now, kind: "checkin", source: "web", byId: user.id,
     summary: `${verb} at ${format(now, "h:mm a")} from the web${distance != null ? ` · ~${distance} m from office` : hasFix ? "" : " · no location"}${mode !== "off" && outside ? " · OUTSIDE office" : ""}`,
@@ -77,4 +80,28 @@ export async function requestCorrection(_: FormState, fd: FormData): Promise<For
   });
   revalidatePath("/me/attendance");
   return { ok: true, message: "Sent for approval." };
+}
+
+/** Break Out / Back: opens a break while checked in, or ends the open one. Break minutes come off worked time. */
+export async function toggleBreak(): Promise<FormState> {
+  const user = await requireUser();
+  if ((await disabledFeatures()).has("breaks")) return { error: "Breaks are switched off." };
+  const emp = await db.employee.findUnique({ where: { userId: user.id }, select: { id: true, status: true } });
+  if (!emp || emp.status === "left") return { error: "Your login isn't linked to an active employee record." };
+  const now = new Date();
+  const open = await db.attendanceBreak.findFirst({ where: { employeeId: emp.id, end: null }, orderBy: { start: "desc" } });
+  if (open) {
+    await db.attendanceBreak.update({ where: { id: open.id }, data: { end: now } });
+    const mins = Math.max(1, Math.round((+now - +open.start) / 60000));
+    await logAttendance({ employeeId: emp.id, date: now, kind: "checkin", source: "web", byId: user.id, summary: `Back from break at ${format(now, "h:mm a")} (${mins} min)` });
+    revalidatePath("/me/attendance"); revalidatePath("/hr");
+    return { ok: true, message: `Welcome back — ${mins} min break.` };
+  }
+  // Only while checked in (an odd number of punches today).
+  const punches = await db.attendancePunch.count({ where: { employeeId: emp.id, at: { gte: startOfDay(now), lte: now } } });
+  if (punches % 2 === 0) return { error: "Check in first — a break starts from a checked-in day." };
+  await db.attendanceBreak.create({ data: { employeeId: emp.id, start: now } });
+  await logAttendance({ employeeId: emp.id, date: now, kind: "checkin", source: "web", byId: user.id, summary: `Break out at ${format(now, "h:mm a")}` });
+  revalidatePath("/me/attendance"); revalidatePath("/hr");
+  return { ok: true, message: `On break since ${format(now, "h:mm a")}.` };
 }

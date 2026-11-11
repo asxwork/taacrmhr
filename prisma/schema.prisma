@@ -2051,3 +2051,14 @@ model LoginDevice {
 
   @@unique([userId, key])
 }
+
+/// A break during the working day (Break Out → Back). Its minutes are taken off the day's worked time.
+model AttendanceBreak {
+  id         String    @id @default(cuid())
+  employeeId String
+  start      DateTime
+  end        DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([employeeId, start])
+}

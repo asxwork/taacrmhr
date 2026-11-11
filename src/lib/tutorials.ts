@@ -445,6 +445,17 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
+    key: "breaks", group: "My Space", title: "Taking a break", who: "Everyone", href: "/me/attendance",
+    summary: "Log your breaks with Break out / Back; break time comes off your worked hours.",
+    steps: [
+      "After you check in, a Break out button appears under Check out (My Space → Attendance, and on the HR dashboard).",
+      "Tap Break out when you leave for lunch or prayer; it shows “On break since …”.",
+      "Tap Back from break when you return. Checking out also ends a break you forgot to close.",
+      "Your worked time for the day is check-in to check-out minus your breaks.",
+    ],
+    tips: ["Admins can switch breaks off in Settings → Features."],
+  },
+  {
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [

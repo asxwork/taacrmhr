@@ -19,6 +19,8 @@ import { BarList } from "@/components/charts";
 import { LineChart } from "@/components/line-chart";
 import { LiveClock } from "@/components/live-clock";
 import { CheckInButton } from "../me/attendance/check-in-button";
+import { BreakButton } from "../me/attendance/break-button";
+import { disabledFeatures } from "@/lib/features";
 import { addHrPost, deleteHrPost, sendHrSupport } from "./dashboard-actions";
 
 export const metadata = { title: "HR Dashboard" };
@@ -62,6 +64,7 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
   const lateComers = rows.filter((r) => r.d.lateMin > 0).sort((a, b) => b.d.lateMin - a.d.lateMin).slice(0, 6);
   const k = company.kpis;
   const hidden = await hiddenWidgets(); // System Settings → Customization → Dashboard
+  const breaksOn = !(await disabledFeatures()).has("breaks");
   const show = (w: WidgetKey) => !hidden.has(w);
   const h = company.headcount;
 
@@ -98,10 +101,10 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
 
       {show("kpis") && (<>
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi tone="from-emerald-600 to-emerald-800" value={k.active} label="Active Employees" href="/hr/employees" />
-        <Kpi tone="from-sky-600 to-sky-800" value={k.separations30} label="Separations in 30 Days" href="/hr/exits" />
-        <Kpi tone="from-amber-500 to-amber-700" value={k.confirmations30} label="Confirmations in 30 Days" href="/hr/employees?status=probation" />
-        <Kpi tone="from-red-600 to-red-800" value={k.separationsMonth} label="Separation This Month" href="/hr/exits?tab=left" />
+        <Kpi tone="from-emerald-600 to-emerald-800" delta={company.kpiDelta.active} value={k.active} label="Active Employees" href="/hr/employees" />
+        <Kpi tone="from-sky-600 to-sky-800" delta={company.kpiDelta.separations30} value={k.separations30} label="Separations in 30 Days" href="/hr/exits" />
+        <Kpi tone="from-amber-500 to-amber-700" delta={company.kpiDelta.confirmations30} value={k.confirmations30} label="Confirmations in 30 Days" href="/hr/employees?status=probation" />
+        <Kpi tone="from-red-600 to-red-800" delta={company.kpiDelta.separationsMonth} value={k.separationsMonth} label="Separation This Month" href="/hr/exits?tab=left" />
       </div>
       </>)}
 
@@ -118,6 +121,9 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
                 {mine.punches.length ? fmtMinutes(differenceInMinutes(mine.punches.length % 2 ? now : mine.punches.at(-1)!.at, mine.punches[0]!.at)) : "00:00"}
               </p>
               <CheckInButton checkedIn={mine.punches.length % 2 === 1} needsLocation={mode !== "off" && mine.needsLocation} />
+              {breaksOn && (mine.punches.length % 2 === 1 || mine.onBreakSince || mine.breakMin > 0) && (
+                <BreakButton onBreakSince={mine.onBreakSince} todayMin={mine.breakMin} disabled={mine.punches.length % 2 === 0 && !mine.onBreakSince} />
+              )}
               {mine.punches.length > 0 && (
                 <p className="text-center text-xs text-muted">{mine.punches.map((p, i) => `${i % 2 ? "Out" : "In"} ${format(p.at, "h:mm a")}`).join(" · ")}</p>
               )}
@@ -349,11 +355,14 @@ function Empty({ text = "No Record Found!" }: { text?: string }) {
   );
 }
 
-function Kpi({ tone, value, label, href }: { tone: string; value: number; label: string; href: string }) {
+function Kpi({ tone, value, label, href, delta }: { tone: string; value: number; label: string; href: string; delta?: { value: number; hint: string } }) {
   return (
-    <Link href={href} className={cn("group flex items-center gap-3 rounded-xl bg-gradient-to-br p-4 text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md", tone)}>
+    <Link href={href} className={cn("group relative flex items-center gap-3 rounded-xl bg-gradient-to-br p-4 text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md", tone)}>
       <span className="flex size-10 items-center justify-center rounded-full bg-white/15 text-lg font-semibold tabular-nums">{value}</span>
       <span className="text-sm font-medium leading-tight">{label}</span>
+      {delta && delta.value !== 0 && (
+        <span title={delta.hint} className="absolute right-3 top-2.5 rounded-full bg-white/20 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums">{delta.value > 0 ? `+${delta.value}` : `−${Math.abs(delta.value)}`}</span>
+      )}
     </Link>
   );
 }

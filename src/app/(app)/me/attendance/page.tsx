@@ -10,6 +10,8 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
 import { AttendanceCalendar } from "@/components/attendance-calendar";
 import { CheckInButton } from "./check-in-button";
+import { BreakButton } from "./break-button";
+import { disabledFeatures } from "@/lib/features";
 import { requestCorrection } from "./actions";
 
 export const metadata = { title: "My Attendance" };
@@ -25,11 +27,15 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
   const now = new Date();
   const month = sp.month ? parse(sp.month, "yyyy-MM", now) : now;
   const to = isSameMonth(month, now) ? now : endOfMonth(month);
-  const [att, todayPunches, mode] = await Promise.all([
+  const [att, todayPunches, mode, breaks, off] = await Promise.all([
     loadAttendance([emp.id], startOfMonth(month), to),
     db.attendancePunch.findMany({ where: { employeeId: emp.id, at: { gte: startOfDay(now) } }, orderBy: { at: "asc" } }),
     geofenceMode(),
+    db.attendanceBreak.findMany({ where: { employeeId: emp.id, start: { gte: startOfDay(now) } }, orderBy: { start: "asc" } }),
+    disabledFeatures(),
   ]);
+  const openBreak = breaks.find((b) => !b.end);
+  const breakMin = breaks.filter((b) => b.end).reduce((s, b) => s + Math.round((+b.end! - +b.start) / 60000), 0);
   const days = att.get(emp.id) ?? [];
   const sum = summarize(days.filter((d) => d.date <= now));
   const today = days.find((d) => d.date.getTime() === startOfDay(now).getTime());
@@ -51,8 +57,17 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
             )}
           </div>
           <CheckInButton checkedIn={todayPunches.length % 2 === 1} needsLocation={mode !== "off" && emp.branch?.lat != null} />
+          {!off.has("breaks") && (todayPunches.length % 2 === 1 || openBreak || breakMin > 0) && (
+            <div className="mt-2"><BreakButton onBreakSince={openBreak ? openBreak.start.toISOString() : null} todayMin={breakMin} disabled={todayPunches.length % 2 === 0 && !openBreak} /></div>
+          )}
           {todayPunches.length > 0 && (
             <ul className="mt-4 space-y-1.5 border-t border-line pt-3 text-sm">
+              {breaks.map((b) => (
+                <li key={b.id} className="flex justify-between text-amber-800">
+                  <span>Break</span>
+                  <span className="tabular-nums">{format(b.start, "h:mm a")} – {b.end ? format(b.end, "h:mm a") : "now"}</span>
+                </li>
+              ))}
               {todayPunches.map((p, i) => (
                 <li key={p.id} className="flex justify-between">
                   <span className="text-muted">{i % 2 === 0 ? "In" : "Out"}</span>

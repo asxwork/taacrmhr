@@ -34,7 +34,7 @@ export async function companyWidgets(scope: Prisma.EmployeeWhereInput) {
     where: scope,
     select: {
       id: true, fullName: true, photo: true, gender: true, dob: true, joiningDate: true, status: true, employmentType: true, leftAt: true, exitType: true,
-      lastWorkingDay: true, probationEnd: true, branchId: true, departmentId: true, designationId: true, code: true,
+      lastWorkingDay: true, probationEnd: true, confirmedAt: true, branchId: true, departmentId: true, designationId: true, code: true,
       branch: { select: { name: true, address: true } }, department: { select: { name: true } }, designation: { select: { name: true } },
     },
   });
@@ -46,6 +46,15 @@ export async function companyWidgets(scope: Prisma.EmployeeWhereInput) {
     separations30: active.filter((e) => e.status === "notice" && e.lastWorkingDay && e.lastWorkingDay <= addDays(today, 30)).length,
     confirmations30: active.filter((e) => e.status === "probation" && e.probationEnd && e.probationEnd <= addDays(today, 30)).length,
     separationsMonth: all.filter((e) => e.leftAt && e.leftAt >= startOfMonth(now)).length,
+  };
+  // The small "+4" on each card: change against the matching earlier period.
+  const within = (d: Date | null, from: Date, to: Date) => !!d && d >= from && d < to;
+  const ago30 = subDays(today, 30), lastMonth = subMonths(startOfMonth(now), 1);
+  const kpiDelta = {
+    active: { value: all.filter((e) => within(e.joiningDate, ago30, addDays(today, 1))).length - all.filter((e) => within(e.leftAt, ago30, addDays(today, 1))).length, hint: "net change in the last 30 days" },
+    separations30: { value: kpis.separations30 - all.filter((e) => within(e.leftAt, ago30, today)).length, hint: "vs people who left in the last 30 days" },
+    confirmations30: { value: kpis.confirmations30 - all.filter((e) => within(e.confirmedAt, ago30, today)).length, hint: "vs people confirmed in the last 30 days" },
+    separationsMonth: { value: kpis.separationsMonth - all.filter((e) => within(e.leftAt, lastMonth, startOfMonth(now))).length, hint: "vs last month" },
   };
 
   const birthdays = active.filter((e) => e.dob).map((e) => ({ e, on: nextYearly(e.dob!, today) }))
@@ -132,7 +141,7 @@ export async function companyWidgets(scope: Prisma.EmployeeWhereInput) {
   const postEmployees = new Map((await db.employee.findMany({ where: { id: { in: posts.map((p) => p.employeeId).filter(Boolean) as string[] } }, select: { id: true, fullName: true, photo: true } })).map((e) => [e.id, e]));
 
   return {
-    kpis, birthdays, anniversaries, joiners, headcount, expenseRows,
+    kpis, kpiDelta, birthdays, anniversaries, joiners, headcount, expenseRows,
     monthAbsents: { labels: months.map((m) => format(m, "MMM yyyy")), values: monthAbsents },
     monthly,
     posts: (["accolade", "news", "wisdom"] as const).map((kind) => ({ kind, rows: posts.filter((p) => p.kind === kind).slice(0, 4).map((p) => ({ ...p, employee: p.employeeId ? postEmployees.get(p.employeeId) ?? null : null })) })),
@@ -148,12 +157,15 @@ export async function myWidgets(userId: string) {
   const now = new Date();
   const today = startOfDay(now);
   const from = subDays(today, 30);
-  const [att, punches, balances, teamAtt] = await Promise.all([
+  const [att, punches, balances, teamAtt, breaks] = await Promise.all([
     loadAttendance([emp.id], from < startOfMonth(now) ? from : startOfMonth(now), today),
     db.attendancePunch.findMany({ where: { employeeId: emp.id, at: { gte: today } }, orderBy: { at: "asc" } }),
     balancesFor(emp.id).catch(() => []),
     emp.reports.length ? loadAttendance(emp.reports.map((r) => r.id), today, today) : new Map<string, DayResult[]>(),
+    db.attendanceBreak.findMany({ where: { employeeId: emp.id, start: { gte: today } }, orderBy: { start: "asc" } }),
   ]);
+  const openBreak = breaks.find((b) => !b.end);
+  const breakMin = breaks.filter((b) => b.end).reduce((s, b) => s + Math.round((+b.end! - +b.start) / 60000), 0);
   const days = att.get(emp.id) ?? [];
   const month = days.filter((d) => d.date >= startOfMonth(now) && d.date <= today);
   const shift = emp.shift;
@@ -166,6 +178,7 @@ export async function myWidgets(userId: string) {
 
   return {
     employeeId: emp.id, shift, punches, balances, needsLocation: emp.branch?.lat != null,
+    onBreakSince: openBreak ? openBreak.start.toISOString() : null, breakMin,
     summary: { shifts: planned.length, expected, worked, short: Math.max(0, expected - worked) },
     trend: { labels: trend.map((d) => format(d.date, "d MMM")), values: trend.map((d) => d.checkIn!.getHours() * 60 + d.checkIn!.getMinutes()) },
     team: emp.reports.map((r) => ({ ...r, today: teamAtt.get(r.id)?.[0] ?? null })),
