@@ -492,6 +492,8 @@ model Unit {
   branch             Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
   /// The deal currently holding this unit (booked/sold through it)
   activeDealId       String?
+  /// A manual "On hold" ends on its own at this time (Settings → CRM → Unit holds); null = no expiry.
+  holdUntil          DateTime?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
   images             UnitImage[]
@@ -2035,4 +2037,17 @@ model ErrorLog {
   lastAt  DateTime @default(now())
 
   @@index([lastAt])
+}
+
+/// Browsers / devices a user has signed in from, for "new sign-in" alerts.
+model LoginDevice {
+  id        String   @id @default(cuid())
+  userId    String
+  key       String // hash of the browser + platform
+  label     String?
+  lastIp    String?
+  firstAt   DateTime @default(now())
+  lastAt    DateTime @default(now())
+
+  @@unique([userId, key])
 }

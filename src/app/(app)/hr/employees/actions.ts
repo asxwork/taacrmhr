@@ -150,6 +150,22 @@ export async function recordResignation(_: FormState, fd: FormData): Promise<For
   const lastWorkingDay = date(fd, "lastWorkingDay");
   if (!lastWorkingDay || lastWorkingDay < noticeDate) return { error: "Last working day must be on or after the notice date." };
 
+  // Someone who already left (e.g. before AMS was set up): one step, no checklist, exit interview or notifications.
+  if (fd.get("alreadyLeft") === "on") {
+    if (lastWorkingDay > new Date()) return { error: "For someone who has already left, the last working day must be in the past." };
+    await db.employee.update({ where: { id: emp.id }, data: { status: "left", exitType, noticeDate, lastWorkingDay, leftAt: lastWorkingDay, exitReason: str(fd, "reason") || null } });
+    if (emp.userId) {
+      await db.user.update({ where: { id: emp.userId }, data: { active: false } });
+      await db.session.deleteMany({ where: { userId: emp.userId } });
+    }
+    await addEvent(emp.id, "exited", exitType === "terminated" ? "Terminated" : "Left the company", {
+      date: lastWorkingDay, details: [`Last working day ${format(lastWorkingDay, "d MMM yyyy")}`, str(fd, "reason"), emp.userId ? "Login disabled" : null].filter(Boolean).join("\n"), byId: user.id,
+    });
+    await audit(user.id, "update", "employee", emp.id, `Marked ${emp.fullName} as already left (${format(lastWorkingDay, "d MMM yyyy")})`);
+    revalidatePath(path(emp.id));
+    redirect(path(emp.id));
+  }
+
   await db.employee.update({ where: { id: emp.id }, data: { status: "notice", exitType, noticeDate, lastWorkingDay, exitReason: str(fd, "reason") || null } });
   await addEvent(emp.id, "resigned", exitType === "terminated" ? "Termination notice" : exitType === "resigned" ? "Resigned" : "Leaving", {
     date: noticeDate, details: `Last working day ${format(lastWorkingDay, "d MMM yyyy")}${str(fd, "reason") ? `\n${str(fd, "reason")}` : ""}`, byId: user.id,

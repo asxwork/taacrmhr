@@ -3,6 +3,7 @@ import path from "node:path";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { TUTORIALS } from "@/lib/tutorials";
+import { MODULES } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui";
 import { TutorialsView, type Chapter } from "@/components/tutorials-view";
 
@@ -15,7 +16,17 @@ const GROUPS: Record<string, string> = { start: "Getting started", crm: "CRM", c
 export default async function HelpPage({ searchParams }: { searchParams: Promise<{ g?: string }> }) {
   const user = await requireUser();
   const group = GROUPS[(await searchParams).g ?? ""];
-  const mine = TUTORIALS.filter((t) => user.isSuperAdmin || ((!t.module || can(user, t.module, t.action ?? "view")) && !t.superAdmin));
+  // Section by section: CRM guides only for people who use CRM, HR guides only for HR people, and so on.
+  // Getting started and My Space are for everyone. Then each guide's own permission applies.
+  const anyOf = (mods: string[]) => mods.some((m) => can(user, m));
+  const section: Record<string, boolean> = {
+    "Getting started": true, "My Space": true,
+    CRM: anyOf(["crm.leads", "crm.deals", "crm.contacts", "crm.activities", "inventory.units", "inventory.projects", "reports.crm"]),
+    Calls: anyOf(["calls"]),
+    HR: MODULES.some((m) => m.group === "HR" && can(user, m.key) && m.key !== "hr.orgchart") || anyOf(["reports.hr"]),
+    Admin: anyOf(["settings.users", "settings.roles", "settings.company", "settings.audit"]),
+  };
+  const mine = TUTORIALS.filter((t) => user.isSuperAdmin || (section[t.group] !== false && (!t.module || can(user, t.module, t.action ?? "view")) && !t.superAdmin));
   const shown = group ? mine.filter((t) => t.group === group) : mine;
   const dir = path.join(process.cwd(), "public", "tutorials");
   const video = await stat(path.join(dir, "ams-tour.mp4")).then(() => "/tutorials/ams-tour.mp4").catch(() => null);

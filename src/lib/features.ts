@@ -15,6 +15,7 @@ export const FEATURES = [
   { key: "lostreasons", label: "Lost-reason analysis", group: "CRM", paths: ["/reports/lost"], about: "Why deals and leads are lost, by source and agent" },
   { key: "activityfeed", label: "Person activity feed", group: "CRM", paths: ["/reports/activity"], about: "Everything one person did, day by day" },
   { key: "weekly", label: "Boss weekly email", group: "CRM", paths: [], about: "Monday email with last week's sales and HR numbers" },
+  { key: "holdexpiry", label: "Unit hold expiry", group: "CRM", paths: [], about: "Units put on hold by hand become available again after a set number of days" },
   { key: "automations", label: "Lead automations", group: "CRM", paths: ["/crm/automations"], about: "Rules that act on leads in bulk" },
   { key: "payroll", label: "Payroll", group: "HR", paths: ["/hr/payroll", "/payslips", "/hr/salary-revisions", "/hr/leave-encashment", "/me/payslips"], about: "Payroll runs, payslips, salary revisions, encashment" },
   { key: "expenses", label: "Expenses & loans", group: "HR", paths: ["/hr/expenses", "/me/expenses"], about: "Expense claims, advances and loans" },
@@ -32,6 +33,7 @@ export const FEATURES = [
   { key: "orgchart", label: "Org chart", group: "HR", paths: ["/org-chart"], about: "Who reports to whom, with photos" },
   { key: "docreminders", label: "Document expiry reminders", group: "HR", paths: [], about: "Remind employees before their CNIC, passport or documents expire" },
   { key: "exitinterviews", label: "Exit interviews", group: "HR", paths: ["/hr/exits/interviews", "/me/exit-interview"], about: "Leavers answer a short exit survey" },
+  { key: "loginalerts", label: "New-device sign-in alerts", group: "HR", paths: [], about: "Tell people (and Super Admins) when their account signs in from a new device" },
   { key: "push", label: "Phone push notifications", group: "HR", paths: [], about: "Notifications on phones and computers even when AMS is closed" },
   { key: "engagement", label: "Engagement surveys", group: "HR", paths: ["/hr/engagement", "/me/surveys"], about: "Staff surveys" },
 ] as const;

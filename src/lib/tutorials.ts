@@ -44,6 +44,15 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Search only shows what you're allowed to open, and hides phone numbers your role can't see."],
   },
   {
+    key: "login-alerts", group: "Getting started", title: "New-device sign-in alerts", who: "Everyone", href: "/profile/security",
+    summary: "AMS tells you when your account signs in from a phone or computer it hasn't seen before.",
+    steps: [
+      "The first time you sign in from a new browser or device, you get a notification (and an email when email is set up) saying which device and when.",
+      "If it was you, ignore it.",
+      "If it wasn't, change your password straight away (My profile → Security) and tell your admin. Turning on two-step login stops this happening again.",
+    ],
+  },
+  {
     key: "sign-in", group: "Getting started", title: "Signing in", who: "Everyone", chapter: "start",
     summary: "Sign in with your work email. Your role decides which apps and screens you see.",
     steps: [
@@ -240,6 +249,16 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["To send it on another day, run the daily job with &weekly=1 added to its link."],
   },
   {
+    key: "unit-holds", group: "CRM", module: "inventory.units", title: "Unit holds that expire", who: "Agents, managers", href: "/inventory",
+    summary: "A unit put on hold goes back to Available automatically after a few days.",
+    steps: [
+      "On a unit's page, press On hold when a client is deciding. The page shows the date the hold ends.",
+      "When the hold ends (7 days by default), the unit becomes Available again, its agent is told, and matching leads get an alert.",
+      "Put it on hold again if the client still needs time.",
+      "Admins change the number of days in Settings → CRM Settings → Unit holds (0 = holds never expire). Units held by a deal aren't affected.",
+    ],
+  },
+  {
     key: "crm-reports", group: "CRM", module: "reports.crm", title: "CRM reports", who: "Managers, Boss", href: "/reports/crm", chapter: "reports",
     summary: "Leads by source and stage, conversion, agent leaderboard and won value.",
     steps: [
@@ -329,7 +348,7 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Leave planner sets who sees it (own team, branch or all)."],
   },
   {
-    key: "shift-swaps", group: "HR", title: "Shift swaps", who: "Everyone, managers", href: "/me/swaps",
+    key: "shift-swaps", group: "My Space", title: "Shift swaps", who: "Everyone, managers", href: "/me/swaps",
     summary: "Swap a day's shift with a colleague from your phone; your manager approves.",
     steps: [
       "Open My Space → Requests → Shift swaps, pick a colleague and the day, and press Ask.",
@@ -351,7 +370,7 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Payroll checklist: Read shows it, Edit lets someone tick steps."],
   },
   {
-    key: "check-ins", group: "HR", title: "Monthly check-ins (1:1)", who: "Everyone, managers", href: "/me/check-ins",
+    key: "check-ins", group: "My Space", title: "Monthly check-ins (1:1)", who: "Everyone, managers", href: "/me/check-ins",
     summary: "Once a month: how it went, what's blocking you, and goals for next month.",
     steps: [
       "Employees: open My Space → My profile → Check-ins, pick how the month felt and write wins, blockers and goals. Your manager is notified.",
@@ -362,7 +381,7 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Monthly check-ins: Read shows their team's check-ins, Edit lets them add notes."],
   },
   {
-    key: "feed", group: "HR", title: "Feed: announcements and kudos", who: "Everyone", href: "/feed",
+    key: "feed", group: "My Space", title: "Feed: announcements and kudos", who: "Everyone", href: "/feed",
     summary: "Company news in one place, and a quick way to thank a colleague publicly.",
     steps: [
       "Open My Space → Feed.",
@@ -373,7 +392,7 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Announcements & kudos: Add lets someone post announcements, Delete lets them remove any post."],
   },
   {
-    key: "org-chart", group: "HR", module: "hr.orgchart", title: "Org chart", who: "Everyone", href: "/org-chart",
+    key: "org-chart", group: "My Space", module: "hr.orgchart", title: "Org chart", who: "Everyone", href: "/org-chart",
     summary: "See who reports to whom across the company, with photos.",
     steps: [
       "Open My Space → Feed → Org chart (or HR → More → Org chart).",
@@ -384,7 +403,7 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Org chart decides who can open it (on by default for everyone)."],
   },
   {
-    key: "doc-reminders", group: "HR", title: "Document expiry reminders", who: "Everyone", href: "/me",
+    key: "doc-reminders", group: "My Space", title: "Document expiry reminders", who: "Everyone", href: "/me",
     summary: "AMS reminds you before your CNIC, passport, licence or other documents expire.",
     steps: [
       "Keep the expiry dates on your profile up to date (CNIC, Passport and Driving License sections, and the expiry on uploaded documents).",
@@ -404,6 +423,26 @@ export const TUTORIALS: Tutorial[] = [
       "HR can also fill it in on someone's behalf (e.g. after a face-to-face exit meeting).",
     ],
     tips: ["Roles → Exit interviews: Read shows the answers, Edit lets HR fill them in."],
+  },
+  {
+    key: "reporting-lines", group: "HR", module: "hr.employees", title: "Reporting lines (who reports to whom)", who: "HR", href: "/hr/organization/reporting",
+    summary: "Set every employee's line manager on one screen.",
+    steps: [
+      "Open People → Reporting lines. Tick “Only people without a line manager” to see who is missing.",
+      "Pick each person's manager in the “Reports to” list — it saves at once.",
+      "Line managers drive Team access, leave and shift-swap approvals, monthly check-ins and the org chart.",
+      "AMS refuses loops (two people reporting to each other).",
+    ],
+  },
+  {
+    key: "past-leavers", group: "HR", module: "hr.employees", title: "Mark someone who already left", who: "HR", href: "/hr/employees",
+    summary: "For people who left before AMS: one step, no exit process.",
+    steps: [
+      "Open the employee's profile and choose Record exit (Resign / exit).",
+      "Pick the type and enter their last working day (a past date).",
+      "Tick “They have already left” and save.",
+      "They're marked as left on that date, their login is switched off, and no checklist, exit interview or notifications are sent.",
+    ],
   },
   {
     key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",

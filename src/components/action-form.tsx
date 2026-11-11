@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import type { FormState } from "@/lib/utils";
 import { buttonClass } from "./ui";
+import { reportSlow } from "./nav-progress";
 
 export function SubmitButton({
   children,
@@ -51,8 +52,12 @@ export function ActionForm({
   successMessage?: string;
 }) {
   const [state, formAction] = useActionState(async (prev: FormState, fd: FormData): Promise<FormState> => {
+    const t0 = Date.now();
     try {
-      return await action(prev, fd);
+      const res = await action(prev, fd);
+      const ms = Date.now() - t0;
+      if (ms > 4000) reportSlow(`Slow save on ${location.pathname} took ${(ms / 1000).toFixed(1)}s`, location.pathname);
+      return res;
     } catch (e) {
       const err = e as Error & { digest?: string };
       if (err?.digest?.startsWith("NEXT_")) throw e; // redirects and not-found are handled by Next

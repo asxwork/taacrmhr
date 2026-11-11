@@ -11,6 +11,7 @@ import { openSecret } from "@/lib/softphone";
 import { verifyTotp } from "@/lib/totp";
 import { describeWindow, insideWindow, windowFromRoles } from "@/lib/security";
 import { explainDbError } from "@/lib/db-diagnose";
+import { recordSignIn } from "@/lib/login-alerts";
 
 export async function login(_: FormState, fd: FormData): Promise<FormState> {
   const email = str(fd, "email").toLowerCase();
@@ -52,6 +53,7 @@ export async function login(_: FormState, fd: FormData): Promise<FormState> {
     await createSession(user.id);
     await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     await audit(user.id, "login", "user", user.id, `${user.name} signed in`);
+    await recordSignIn(user, h.get("user-agent") ?? "", ip).catch(() => {}); // new-device alert; never blocks sign-in
   } catch (e) {
     const x = explainDbError(e);
     console.error("[login] database error", x.code);

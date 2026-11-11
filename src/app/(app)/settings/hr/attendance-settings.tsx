@@ -1,3 +1,4 @@
+import { UseLocationButton } from "@/components/use-location-button";
 import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { db } from "@/lib/db";
@@ -70,7 +71,7 @@ export async function AttendanceSettings() {
         </Card>
       </Block>
 
-      <Block id="geofence" title="Check-in location (geo-fence)" hint="Web check-ins are compared with the branch location. Get coordinates by right-clicking the office in Google Maps.">
+      <Block id="geofence" title="Check-in location (geo-fence)" hint="Web check-ins are compared with the branch location. Stand in the office and press “Use my location”, or right-click the office in Google Maps to copy its coordinates. Choose Enforce to block check-ins from anywhere else.">
         <Card className="p-5">
           <ActionForm action={saveGeofence} className="space-y-4" successMessage="Saved.">
             <Field label="Mode" className="max-w-sm">
@@ -82,11 +83,12 @@ export async function AttendanceSettings() {
             </Field>
             <div className="space-y-2">
               {branches.map((b) => (
-                <div key={b.id} className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[140px_1fr_1fr_120px]">
+                <div key={b.id} className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[140px_1fr_1fr_120px_auto]">
                   <span className="pb-2.5 text-sm font-medium">{b.name}</span>
                   <Field label="Latitude"><input name={`lat:${b.id}`} defaultValue={b.lat ?? ""} inputMode="decimal" className="input" /></Field>
                   <Field label="Longitude"><input name={`lng:${b.id}`} defaultValue={b.lng ?? ""} inputMode="decimal" className="input" /></Field>
                   <Field label="Radius (m)"><input name={`r:${b.id}`} type="number" min={30} max={5000} defaultValue={b.radiusM} className="input" /></Field>
+                  <UseLocationButton latName={`lat:${b.id}`} lngName={`lng:${b.id}`} />
                 </div>
               ))}
             </div>

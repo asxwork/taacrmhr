@@ -3,6 +3,13 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+/** Sends a "slow" entry to the error log; never throws. */
+export function reportSlow(message: string, path: string) {
+  try {
+    void fetch("/api/errors", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message, path }), keepalive: true }).catch(() => {});
+  } catch { /* ignore */ }
+}
+
 /**
  * Thin bar at the top that starts the instant a link is clicked and finishes when the new page arrives,
  * so a slow server never looks like a dead button.
@@ -12,6 +19,7 @@ export function NavProgress() {
   const params = useSearchParams();
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
   const safety = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const started = useRef<{ at: number; to: string } | null>(null);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -22,6 +30,7 @@ export function NavProgress() {
       if (url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
       if (url.pathname === location.pathname && url.search === location.search) return; // same page (e.g. #anchor)
       setState("loading");
+      started.current = { at: Date.now(), to: url.pathname };
       if (safety.current) clearTimeout(safety.current);
       safety.current = setTimeout(() => setState("idle"), 15000);
     };
@@ -30,6 +39,12 @@ export function NavProgress() {
   }, []);
 
   useEffect(() => {
+    // Slow page on the live site: record it (Settings → System health → Error log) so we can see where.
+    if (started.current) {
+      const ms = Date.now() - started.current.at;
+      if (ms > 4000) reportSlow(`Slow page: ${started.current.to} took ${(ms / 1000).toFixed(1)}s`, started.current.to);
+      started.current = null;
+    }
     setState((s) => (s === "loading" ? "done" : s));
     const t = setTimeout(() => setState((s) => (s === "done" ? "idle" : s)), 300);
     return () => clearTimeout(t);

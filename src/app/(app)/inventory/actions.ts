@@ -1,6 +1,7 @@
 "use server";
 
 import { findMatchesForUnit } from "@/lib/matches";
+import { holdUntilFromNow } from "@/lib/unit-holds";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -157,7 +158,7 @@ export async function setUnitStatus(fd: FormData) {
   const status = str(fd, "status");
   if (!unit || !(await unitAllows(user, unit, "edit"))) return;
   if (unit.activeDealId || !["available", "hold", "offmarket"].includes(status)) return;
-  await db.unit.update({ where: { id: unit.id }, data: { status } });
+  await db.unit.update({ where: { id: unit.id }, data: { status, holdUntil: status === "hold" ? await holdUntilFromNow() : null } });
   if (status === "available") findMatchesForUnit(unit.id);
   await audit(user.id, "update", "unit", unit.id, `Unit ${unit.unitNo} set to ${status}`);
   revalidatePath(`/inventory/units/${unit.id}`);

@@ -189,7 +189,11 @@ export function ResignForm({ employeeId, cancelHref }: { employeeId: string; can
         <Field label="Last working day"><input name="lastWorkingDay" type="date" required className="input" /></Field>
       </div>
       <Field label="Reason"><textarea name="reason" rows={3} className="input" /></Field>
-      <p className="text-xs text-muted">The exit checklist is created now. The login stays active until you complete the exit.</p>
+      <label className="flex items-start gap-2 rounded-lg border border-line bg-canvas/50 p-3 text-sm">
+        <input type="checkbox" name="alreadyLeft" className="mt-0.5" />
+        <span><span className="font-medium">They have already left</span><span className="block text-xs text-muted">For people who left before AMS: marks them as left on the last working day straight away and switches off their login. No checklist, exit interview or notifications.</span></span>
+      </label>
+      <p className="text-xs text-muted">Otherwise the exit checklist is created now, and the login stays active until you complete the exit.</p>
       <div className="flex gap-2">
         <SubmitButton variant="danger">Record notice</SubmitButton>
         <LinkButton href={cancelHref} variant="ghost" scroll={false}>Cancel</LinkButton>

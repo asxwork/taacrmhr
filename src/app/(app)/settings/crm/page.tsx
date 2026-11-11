@@ -1,3 +1,4 @@
+import { holdDays } from "@/lib/unit-holds";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { COLOR_NAMES, color } from "@/lib/crm-shared";
@@ -5,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, PageHeader } from "@/components/ui";
 import { holdConfig } from "@/lib/lead-hold";
-import { deleteStage, saveHoldRules, saveLeadSource, saveLeadStatus, savePipeline, saveStage } from "./actions";
+import { deleteStage, saveHoldRules, saveLeadSource, saveLeadStatus, savePipeline, saveStage, saveUnitHoldDays } from "./actions";
 
 export const metadata = { title: "CRM Settings" };
 
@@ -37,12 +38,13 @@ const Order = ({ value }: { value: number }) => <input name="sortOrder" type="nu
 export default async function CrmSettingsPage() {
   const user = await requirePermission("settings.company");
   const editable = can(user, "settings.company", "edit");
-  const [statuses, pipelines, sources, hold, people] = await Promise.all([
+  const [statuses, pipelines, sources, hold, people, unitHoldDays] = await Promise.all([
     db.leadStatus.findMany({ include: { _count: { select: { leads: true } } }, orderBy: { sortOrder: "asc" } }),
     db.pipeline.findMany({ include: { stages: { include: { _count: { select: { deals: true } } }, orderBy: { sortOrder: "asc" } } }, orderBy: { sortOrder: "asc" } }),
     db.leadSource.findMany({ include: { _count: { select: { leads: true } } }, orderBy: { sortOrder: "asc" } }),
     holdConfig(db),
     db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    holdDays(),
   ]);
   const newStage = statuses.find((s) => s.systemKey === "new");
   const holdStage = statuses.find((s) => s.systemKey === "onhold");
@@ -83,6 +85,17 @@ export default async function CrmSettingsPage() {
               </select>
               <Order value={(statuses.at(-1)?.sortOrder ?? 0) + 1} />
               <SubmitButton>Add status</SubmitButton>
+            </ActionForm>
+          </Card>
+        </Section>
+
+        <Section title="Unit holds" hint="A unit put “On hold” by hand goes back to Available after this many days, and its agent is told. Units held by a deal stage aren't affected.">
+          <Card className="p-4">
+            <ActionForm action={saveUnitHoldDays} className="flex flex-wrap items-center gap-2 text-sm">
+              Release manual holds after
+              <input name="days" type="number" min={0} max={365} defaultValue={unitHoldDays} className="input w-20" aria-label="Days" />
+              days <span className="text-muted">(0 = never)</span>
+              <SubmitButton variant="secondary">Save</SubmitButton>
             </ActionForm>
           </Card>
         </Section>

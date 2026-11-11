@@ -1,5 +1,6 @@
 "use server";
 
+import { HOLD_DAYS_KEY } from "@/lib/unit-holds";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
@@ -129,4 +130,14 @@ export async function saveHoldRules(_: FormState, fd: FormData): Promise<FormSta
   for (const [key, value] of values) await db.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
   await audit(user.id, "update", "setting", null, `On-hold rules: ${fd.get("enabled") === "on" ? "on" : "off"}, ${toHold}h → On-hold, ${reassign}h → reassign`);
   return done("On-hold rules saved.");
+}
+
+/** Settings → CRM → Unit holds: days a manual "On hold" lasts (0 = never expires). */
+export async function saveUnitHoldDays(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("settings.company", "edit");
+  const days = Math.max(0, Math.min(365, Math.round(Number(str(fd, "days")) || 0)));
+  await db.setting.upsert({ where: { key: HOLD_DAYS_KEY }, update: { value: String(days) }, create: { key: HOLD_DAYS_KEY, value: String(days) } });
+  await audit(user.id, "update", "settings", null, `Unit holds now last ${days ? `${days} days` : "until changed by hand"}`);
+  revalidatePath("/settings/crm");
+  return { ok: true, message: days ? `Holds now end after ${days} days.` : "Holds no longer expire." };
 }

@@ -27,12 +27,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   maybeRunHoldRules(); // background, at most every 5 minutes
   // Everything the frame needs, fetched side by side (each is a database round trip on the live server).
   // apps = only the apps and pages this user's roles allow — this is what makes Admin and Agent see different apps.
-  const [jar, h, apps, me, off, security, unread] = await Promise.all([
+  const [jar, h, apps, me, off, security, unread, banner] = await Promise.all([
     cookies(), headers(), appsForUser(user),
     db.employee.findUnique({ where: { userId: user.id }, select: { photo: true } }),
     disabledFeatures(), securitySettings(), unreadCount(user.id),
+    memo("setting:banner", 30_000, async () => (await db.setting.findUnique({ where: { key: "maintenance.banner" } }))?.value ?? ""),
   ]);
-  const banner = await memo("setting:banner", 30_000, async () => (await db.setting.findUnique({ where: { key: "maintenance.banner" } }))?.value ?? "");
+
   const collapsed = jar.get("sidebar")?.value === "collapsed";
   const myPhoto = me?.photo ?? null;
   const last = apps.find((a) => a.key === jar.get("app")?.value);

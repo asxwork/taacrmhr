@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import Link from "@/components/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Handshake, MapPin, Pencil, Phone, Trash2 } from "lucide-react";
@@ -97,14 +98,23 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
               {unit.activeDealId ? (
                 <p className="text-sm text-muted">Managed by its deal. Change the deal stage to update it.</p>
               ) : (
-                <form action={setUnitStatus} className="flex flex-wrap gap-2">
-                  <input type="hidden" name="id" value={id} />
-                  {(["available", "hold", "offmarket"] as const).map((s) => (
-                    <button key={s} name="status" value={s} disabled={unit.status === s} className="rounded-md border border-line px-3 py-1.5 text-sm enabled:hover:bg-canvas disabled:bg-navy-900 disabled:text-white">
-                      {unitStatus(s).label}
-                    </button>
-                  ))}
-                </form>
+                <>
+                  {/* One form per button: the clicked button's value isn't sent with a server-action form. */}
+                  <div className="flex flex-wrap gap-2">
+                    {(["available", "hold", "offmarket"] as const).map((s) => (
+                      <form key={s} action={setUnitStatus}>
+                        <input type="hidden" name="id" value={id} />
+                        <input type="hidden" name="status" value={s} />
+                        <button disabled={unit.status === s} className="rounded-md border border-line px-3 py-1.5 text-sm enabled:hover:bg-canvas disabled:bg-navy-900 disabled:text-white">
+                          {unitStatus(s).label}
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                  {unit.status === "hold" && (
+                    <p className="mt-2 text-xs text-muted">{unit.holdUntil ? `On hold until ${format(unit.holdUntil, "d MMM yyyy")}, then it becomes available again automatically.` : "On hold with no end date."}</p>
+                  )}
+                </>
               )}
             </Card>
           )}
