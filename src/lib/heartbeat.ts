@@ -38,6 +38,14 @@ export async function problems() {
     else if (!x.ok) list.push(`${j.label} failed: ${x.note ?? "unknown error"}`);
   }
   if (lastBackup?.status === "failed") list.push(`Last backup failed: ${lastBackup.error ?? ""}`.slice(0, 300));
+  // Attendance that stopped arriving (machine offline / not linked) makes everyone look absent.
+  const [staff, lastPunch, lastDay] = await Promise.all([
+    db.employee.count({ where: { status: { not: "left" }, attendanceExempt: false } }),
+    db.attendancePunch.findFirst({ orderBy: { at: "desc" }, select: { at: true } }),
+    db.attendanceDay.findFirst({ where: { status: { in: ["present", "late"] } }, orderBy: { date: "desc" }, select: { date: true } }),
+  ]);
+  const last = [lastPunch?.at, lastDay?.date].filter(Boolean).sort((a, b) => +b! - +a!)[0];
+  if (staff && last && Date.now() - +last > 3 * 864e5) list.push(`No attendance received since ${last.toISOString().slice(0, 10)} — check the attendance machine connection (HR → Attendance → Machines), otherwise everyone shows as absent.`);
   return list;
 }
 

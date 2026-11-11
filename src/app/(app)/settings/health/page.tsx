@@ -34,6 +34,7 @@ export default async function HealthPage() {
   const url = process.env.DATABASE_URL ?? "";
   const dbSize = url.startsWith("file:") ? await stat(url.replace("file:", "").replace(/^\.\//, "prisma/")).then((s) => s.size).catch(() => null) : null;
   const ok = list.length === 0;
+  const noManager = await db.employee.count({ where: { status: { not: "left" }, managerId: null } });
 
   return (
     <>
@@ -75,6 +76,7 @@ export default async function HealthPage() {
             ["Google Drive backup", cfg.refreshToken ? (lastBackup ? `last saved ${formatDistanceToNowStrict(lastBackup.startedAt, { addSuffix: true })}` : "connected, no backup yet") : "not connected"],
             ["Email (SMTP)", smtpConfigured() ? "set up" : "not set up — no emails are sent"],
             ["APP_URL", process.env.APP_URL || "not set — links in emails and onboarding will be wrong"],
+            ["Employees without a line manager", noManager ? `${noManager} — set them in People → Reporting lines` : "none"],
             ["CRON_SECRET", process.env.CRON_SECRET && process.env.CRON_SECRET !== "change-me" ? "set" : "not set — scheduled jobs can't run"],
             ["Secret key for stored passwords", process.env.SIP_SECRET_KEY ? "set" : process.env.CRON_SECRET ? "using CRON_SECRET" : "missing"],
           ] as const).map(([k, v]) => <p key={k} className="flex justify-between gap-3"><span className="text-muted">{k}</span><span className="text-right font-medium">{v}</span></p>)}

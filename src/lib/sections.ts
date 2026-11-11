@@ -98,6 +98,7 @@ export const SECTIONS: Section[] = [
     tabs: [
       { href: "/hr/employees", label: "Employees", module: "hr.employees" },
       { href: "/hr/organization", label: "Organization", module: "hr.employees" },
+      { href: "/hr/organization/reporting", label: "Reporting lines", module: "hr.employees" },
       { href: "/hr/onboarding", label: "Onboarding", module: "hr.onboarding" },
       { href: "/hr/exits", label: "Exits", module: "hr.employees" },
       { href: "/hr/exits/interviews", label: "Exit interviews", module: "hr.exit" },
