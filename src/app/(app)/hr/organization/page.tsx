@@ -1,7 +1,11 @@
 import Link from "@/components/link";
+import { Trash2 } from "lucide-react";
+import { ActionForm } from "@/components/action-form";
+import { ConfirmButton } from "@/components/confirm-button";
+import { deleteOrgUnit } from "@/app/(app)/settings/hr/actions";
 import { ArrowRight, Award, Building2, Briefcase, Layers, MapPin, Network, Search, Settings2, Users } from "lucide-react";
 import { db } from "@/lib/db";
-import { can, requirePermission } from "@/lib/permissions";
+import { can, requirePermission, scopeFor } from "@/lib/permissions";
 import { employeeWhere } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
@@ -18,7 +22,7 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
-type Row = { key: string; code: string; name: string; sub?: string | null; extra?: React.ReactNode; people: { id: string; fullName: string; photo: string | null }[]; href: string };
+type Row = { key: string; code: string; name: string; sub?: string | null; extra?: React.ReactNode; people: { id: string; fullName: string; photo: string | null }[]; href: string; del?: { kind: "department" | "designation"; id: string } };
 
 /** Branches, departments, designations and grades: each with code, headcount share and the people in it. */
 export default async function OrganizationPage({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string }> }) {
@@ -36,6 +40,7 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
   const byId = new Map(staff.map((e) => [e.id, e]));
   const total = staff.length;
   const canManage = can(user, "hr.employees", "edit");
+  const canDelete = user.isSuperAdmin || scopeFor(user, "hr.employees", "edit") === "all";
   const pad = (prefix: string, i: number) => `${prefix}-${String(i + 1).padStart(3, "0")}`;
 
   let rows: Row[] = [];
@@ -54,7 +59,7 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
       return {
         key: d.id, code: d.code || pad("DEP", i), name: d.name,
         extra: head ? <span className="inline-flex items-center gap-1.5 text-xs"><PersonAvatar name={head.fullName} photo={head.photo} className="size-5 text-[8px]" /> {head.fullName}</span> : <span className="text-xs text-amber-700">No head set</span>,
-        people: staff.filter((e) => e.departmentId === d.id), href: `/hr/employees?dept=${d.id}`,
+        people: staff.filter((e) => e.departmentId === d.id), href: `/hr/employees?dept=${d.id}`, del: { kind: "department" as const, id: d.id },
       };
     });
     const none = staff.filter((e) => !e.departmentId);
@@ -63,7 +68,7 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
     manageHref = "/settings/hr?tab=org";
     rows = designations.map((d, i) => ({
       key: d.id, code: pad("DSG", i), name: d.name, extra: d.grade ? <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs text-violet-800">Grade {d.grade}</span> : <span className="text-xs text-muted">No grade</span>,
-      people: staff.filter((e) => e.designationId === d.id), href: `/hr/employees?desig=${d.id}`,
+      people: staff.filter((e) => e.designationId === d.id), href: `/hr/employees?desig=${d.id}`, del: { kind: "designation" as const, id: d.id },
     }));
   } else {
     manageHref = "/settings/hr?tab=org";
@@ -148,7 +153,17 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
                           {n === 0 && <span className="text-xs text-muted">Nobody yet</span>}
                         </div>
                       </td>
-                      <td className="td"><Link href={r.href} aria-label={`People in ${r.name}`} className="text-muted group-hover:text-ink"><ArrowRight className="size-4" /></Link></td>
+                      <td className="td">
+                        <span className="flex items-center justify-end gap-1">
+                          {canDelete && r.del && (
+                            <ActionForm action={deleteOrgUnit} className="flex max-w-[14rem] flex-col items-end text-right text-xs">
+                              <input type="hidden" name="kind" value={r.del.kind} /><input type="hidden" name="id" value={r.del.id} />
+                              <ConfirmButton message={`Delete ${r.name}? This can't be undone.`} title={n ? "Move its people first" : "Delete"} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /> Delete</ConfirmButton>
+                            </ActionForm>
+                          )}
+                          <Link href={r.href} aria-label={`People in ${r.name}`} className="p-1.5 text-muted group-hover:text-ink"><ArrowRight className="size-4" /></Link>
+                        </span>
+                      </td>
                     </tr>
                   );
                 })}

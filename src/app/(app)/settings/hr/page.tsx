@@ -75,7 +75,7 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
               </ActionForm>
               <ActionForm action={deleteOrgUnit} className="flex max-w-[15rem] shrink-0 flex-col items-end text-right text-xs">
                 <input type="hidden" name="kind" value="department" /><input type="hidden" name="id" value={d.id} />
-                <button title={d._count.employees ? "Move its people first" : "Delete"} aria-label={`Delete ${d.name}`} className="rounded-md p-2 text-muted hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /></button>
+                <button title={d._count.employees ? "Move its people first" : "Delete"} aria-label={`Delete ${d.name}`} className="inline-flex items-center gap-1 rounded-md px-2 py-2 text-xs text-muted hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /> Delete</button>
               </ActionForm>
               </div>
             ))}
@@ -102,7 +102,7 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
               </ActionForm>
               <ActionForm action={deleteOrgUnit} className="flex max-w-[15rem] shrink-0 flex-col items-end text-right text-xs">
                 <input type="hidden" name="kind" value="designation" /><input type="hidden" name="id" value={d.id} />
-                <button title={d._count.employees ? "Move its people first" : "Delete"} aria-label={`Delete ${d.name}`} className="rounded-md p-2 text-muted hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /></button>
+                <button title={d._count.employees ? "Move its people first" : "Delete"} aria-label={`Delete ${d.name}`} className="inline-flex items-center gap-1 rounded-md px-2 py-2 text-xs text-muted hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /> Delete</button>
               </ActionForm>
               </div>
             ))}

@@ -188,5 +188,6 @@ export async function deleteOrgUnit(_: FormState, fd: FormData): Promise<FormSta
   if (kind === "department") await db.department.delete({ where: { id } });
   else await db.designation.delete({ where: { id } });
   await audit(user.id, "delete", kind, id, `Deleted ${kind} ${unit.name}`);
+  revalidatePath("/hr/organization");
   return done(`${unit.name} deleted.`);
 }
