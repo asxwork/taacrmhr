@@ -24,7 +24,8 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const user = await requirePermission("hr.attendance");
   const sp = await searchParams;
   const now = new Date();
-  const view = sp.view === "month" ? "month" : "day";
+  const view = sp.view === "month" ? "month" : sp.view === "people" ? "people" : "day";
+  const monthly = view !== "day";
   const date = sp.date ? parse(sp.date, "yyyy-MM-dd", now) : startOfDay(now);
   const month = sp.month ? parse(sp.month, "yyyy-MM", now) : now;
   const isAdmin = user.isSuperAdmin || scopeFor(user, "hr.attendance", "edit") === "all";
@@ -37,26 +38,26 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const [employees, branches] = await Promise.all([
     db.employee.findMany({
       where: { ...scope, status: { not: "left" }, ...(sp.branch && { branchId: sp.branch }) },
-      include: { designation: true, branch: true }, orderBy: { fullName: "asc" },
+      include: { designation: true, branch: true, shift: true }, orderBy: { fullName: "asc" },
     }),
     scopeFor(user, "hr.attendance") === "all" ? db.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }) : [],
   ]);
   const page = Math.max(1, Number(sp.page) || 1);
-  const registerRows = view === "month" ? employees.slice((page - 1) * REGISTER_PAGE, page * REGISTER_PAGE) : employees;
+  const registerRows = monthly ? employees.slice((page - 1) * REGISTER_PAGE, page * REGISTER_PAGE) : employees;
   const ids = registerRows.map((e) => e.id);
-  const from = view === "day" ? date : startOfMonth(month);
-  const to = view === "day" ? date : isSameMonth(month, now) ? now : endOfMonth(month);
+  const from = !monthly ? date : startOfMonth(month);
+  const to = !monthly ? date : isSameMonth(month, now) ? now : endOfMonth(month);
   const att = ids.length ? await loadAttendance(ids, from, to) : new Map();
 
   const toolbar = (
     <div className="mb-4 flex flex-wrap items-center gap-2">
       <div className="flex rounded-lg bg-black/5 p-0.5">
-        {([["day", "Daily"], ["month", "Monthly register"]] as const).map(([v, label]) => (
+        {([["day", "Daily"], ["people", "Summary"], ["month", "Monthly register"]] as const).map(([v, label]) => (
           <Link key={v} href={hrefWith("/hr/attendance", { branch: sp.branch }, { view: v === "day" ? undefined : v })} className={cn("whitespace-nowrap rounded-md px-3 py-1.5 text-sm", view === v ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{label}</Link>
         ))}
       </div>
       <div className="flex items-center gap-1">
-        {view === "day" ? (
+        {!monthly ? (
           <>
             <Link href={hrefWith("/hr/attendance", keep, { date: format(subDays(date, 1), "yyyy-MM-dd") })} className="rounded-md p-2 text-muted hover:bg-canvas" aria-label="Previous day"><ChevronLeft className="size-4" /></Link>
             <span className="min-w-36 text-center text-sm font-medium">{format(date, "EEE d MMM yyyy")}</span>
@@ -86,7 +87,55 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
 
   let body: React.ReactNode;
   if (!employees.length) body = <Card><EmptyState title="No employees in your view" /></Card>;
-  else if (view === "day") {
+  else if (view === "people") {
+    // One card per person for the month: attendance score, worked vs expected time, and the day counts.
+    const shiftMin = (e: (typeof employees)[number]) => {
+      const sh = e.shift ?? { start: "09:00", end: "18:00" };
+      const [a, b] = sh.start.split(":").map(Number); const [c, d] = sh.end.split(":").map(Number);
+      const m = c! * 60 + d! - (a! * 60 + b!); return m > 0 ? m : m + 1440;
+    };
+    body = (
+      <>
+        <div className="space-y-3">
+          {registerRows.map((e) => {
+            const days = (att.get(e.id) ?? []) as DayResult[];
+            const sum = summarize(days);
+            const due = days.filter((d) => !["weekend", "holiday", "leave", "upcoming"].includes(d.status)).length;
+            const expected = due * shiftMin(e);
+            const short = Math.max(0, expected - sum.workedMin);
+            const score = due ? Math.round(((sum.present + sum.half * 0.5) / due) * 100) : 0;
+            const workedPct = expected ? Math.min(100, (sum.workedMin / expected) * 100) : 0;
+            const ring = score >= 85 ? "text-emerald-500" : score >= 60 ? "text-amber-500" : "text-red-500";
+            return (
+              <Card key={e.id} className="flex flex-wrap items-center gap-4 p-4 transition hover:shadow-md">
+                <Link href={`/hr/employees/${e.id}?tab=attendance`} className="relative shrink-0" title={`Attendance score ${score}%`}>
+                  <svg viewBox="0 0 36 36" className={cn("size-14 -rotate-90", ring)}><circle cx="18" cy="18" r="16" fill="none" className="stroke-black/10" strokeWidth="3" /><circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray={`${score} 100`} pathLength={100} strokeLinecap="round" /></svg>
+                  <span className="absolute inset-1.5"><PersonAvatar name={e.fullName} photo={e.photo} className="size-11 text-xs" /></span>
+                  <span className={cn("absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-surface px-1.5 text-[10px] font-bold shadow", ring)}>{score}%</span>
+                </Link>
+                <div className="min-w-60 flex-1">
+                  <p className="text-sm"><Link href={`/hr/employees/${e.id}?tab=attendance`} className="font-semibold hover:underline">{e.fullName}</Link> <span className="text-muted">· {e.code}{e.designation ? ` · ${e.designation.name}` : ""}</span></p>
+                  <div className="my-2 h-2 overflow-hidden rounded-full bg-amber-200/60"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${workedPct}%` }} /></div>
+                  <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted">
+                    <span>Expected <b className="text-ink">{fmtMinutes(expected)}</b></span>
+                    <span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-500" />Worked <b className="text-ink">{fmtMinutes(sum.workedMin)}</b></span>
+                    <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-400" />Short <b className="text-ink">{fmtMinutes(short)}</b></span>
+                    <span><span className="mr-1 inline-block size-2 rounded-full bg-sky-500" />Overtime <b className="text-ink">{fmtMinutes(sum.overtimeMin)}</b></span>
+                  </p>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5 text-center">
+                  {([["Present", sum.present, "bg-emerald-50 text-emerald-700"], ["Absent", sum.absent, "bg-red-50 text-red-700"], ["Leave", sum.leave, "bg-sky-50 text-sky-700"], ["Late", sum.late, "bg-amber-50 text-amber-700"], ["Half day", sum.half, "bg-violet-50 text-violet-700"]] as const).map(([k, v, c]) => (
+                    <span key={k} className={cn("min-w-16 rounded-lg px-2 py-1.5", c)}><span className="block text-lg font-semibold tabular-nums leading-none">{v}</span><span className="mt-1 block text-[10px]">{k}</span></span>
+                  ))}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+        {employees.length > REGISTER_PAGE && <Pagination base="/hr/attendance" sp={keep} page={page} pageSize={REGISTER_PAGE} total={employees.length} />}
+      </>
+    );
+  } else if (view === "day") {
     const all = employees.map((e) => ({ e, d: (att.get(e.id) ?? [])[0] }));
     const s = summarize(all.map((r) => r.d).filter(Boolean));
     const rows = drill ? all.filter((r) => r.d && drill.test(r.d)) : all;

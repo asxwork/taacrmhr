@@ -129,7 +129,7 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/hr/attendance", label: "Daily attendance", icon: "clock", module: "hr.attendance" },
           { href: "/hr/attendance/schedule", label: "Scheduling", icon: "calendar", module: "hr.attendance" },
-          { href: "/hr/attendance?view=month", label: "Time Sheet", icon: "sheet", module: "hr.attendance" },
+          { href: "/hr/attendance?view=people", label: "Time Sheet", icon: "sheet", module: "hr.attendance" },
           { href: "/hr/attendance/logs", label: "Attendance Logs", icon: "history", module: "hr.attendance" },
           { href: "/hr/attendance/device-changes", label: "Device Change Approvals", icon: "filecheck", module: "hr.attendance" },
           { href: "/hr/attendance/machines", label: "Attendance Machines", icon: "fingerprint", module: "hr.attendance" },
