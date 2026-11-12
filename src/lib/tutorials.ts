@@ -492,7 +492,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       "Open HR → People → Organization to see every branch, department and designation and their headcount.",
       "Click a number to open those people in the employee list.",
-      "Add or rename branches, departments and designations in HR Settings → General.",
+      "Add or rename departments and designations in HR Settings → Departments & designations; branches in Settings → Company.",
     ],
   },
   {
@@ -506,12 +506,22 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    key: "policy-planner", group: "HR", module: "hr.employees", title: "Attendance rules (policy planner)", who: "HR", href: "/hr/policies/planner",
-    summary: "How attendance is counted: too-short days, missing check-outs and overtime.",
+    key: "policy-planner", group: "HR", module: "hr.employees", title: "Attendance Policy (rules)", who: "HR", href: "/hr/attendance/policy", paths: ["/hr/policies/planner"],
+    summary: "How punches become Present, Late, Half day or Absent.",
     steps: [
-      "Open HR → People → Compliance → Policy Planner.",
-      "Set when a day counts as absent (worked too little), how a missing check-out counts (present, half day or absent), and when overtime starts.",
-      "Save. The rules apply everywhere at once: daily attendance, the HR dashboard, reports and payroll deductions.",
+      "Open HR → People → Compliance → Attendance Policy.",
+      "Each tab is one rule: Absent (worked too little), Missing (no check-out), Late arrival (lates that cost a day), Early left, Short duration (half day), Overtime (when it starts and the pay rate) and Leave.",
+      "Change the number on a tab and press Save rule. It applies everywhere at once: daily attendance, the Time Sheet, reports and payroll.",
+    ],
+    tips: ["Start, end, grace minutes and half-day hours are per shift on Attendance → Shifts."],
+  },
+  {
+    key: "request-policy", group: "HR", module: "hr.employees", title: "Request Policy", who: "HR", href: "/hr/requests/policy",
+    summary: "Every kind of request, who can file it, and who approves it.",
+    steps: [
+      "Open HR → People → Compliance → Request Policy.",
+      "Each row shows a request type, who can file it, where from, the approvers in order and how many are waiting.",
+      "To change who approves, press Change approvers (Settings → Approval Chains).",
     ],
   },
   {
@@ -802,7 +812,7 @@ export const TUTORIALS: Tutorial[] = [
     summary: "Arrange menus per role, set company details, and see who changed what.",
     steps: [
       "Settings → Layouts: per app and role, hide menu items, reorder sections and set the start page.",
-      "Settings → Company & Branches, CRM Settings (stages, sources, on-hold rules) and HR Settings (shifts, leave types, approvals).",
+      "Settings → Company & Branches, CRM Settings (stages, sources, on-hold rules) and HR Settings (codes, departments, leave types, approval chains); shifts are on HR → Attendance → Shifts.",
       "Settings → Audit Log lists every important change with who and when.",
       "Company & Branches → Sample data loads or removes demo data for training.",
     ],

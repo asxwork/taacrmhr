@@ -7,71 +7,71 @@
  {
   "key": "leads",
   "title": "Leads",
-  "start": 24
+  "start": 32
  },
  {
   "key": "lead-page",
   "title": "Inside a lead",
-  "start": 75
+  "start": 80
  },
  {
   "key": "follow-ups",
   "title": "Follow-ups & tasks",
-  "start": 97
+  "start": 102
  },
  {
   "key": "deals",
   "title": "Deals & payments",
-  "start": 109
+  "start": 114
  },
  {
   "key": "property",
-  "title": "Contacts & property",
-  "start": 122
+  "title": "Contacts & inventory",
+  "start": 127
  },
  {
   "key": "reports",
   "title": "Reports",
-  "start": 134
+  "start": 137
  },
  {
   "key": "calls",
   "title": "Calls",
-  "start": 141
+  "start": 144
  },
  {
   "key": "hr",
   "title": "HR & employees",
-  "start": 169
+  "start": 171
  },
  {
   "key": "attendance",
   "title": "Attendance",
-  "start": 189
+  "start": 213
  },
  {
   "key": "leave",
   "title": "Leave & approvals",
-  "start": 207
+  "start": 249
  },
  {
   "key": "payroll",
   "title": "Payroll",
-  "start": 225
+  "start": 266
  },
  {
   "key": "myspace",
   "title": "My Space",
-  "start": 233
+  "start": 286
  },
  {
   "key": "profile",
   "title": "My profile",
-  "start": 244
+  "start": 315
  },
  {
   "key": "admin",
   "title": "Admin: users, access & security",
-  "start": 251
+  "start": 323
  }
 ]
