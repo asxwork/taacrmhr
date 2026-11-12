@@ -7,9 +7,10 @@ import { scopeFor } from "@/lib/permissions";
 import { getSetting, nextEmployeeCode } from "@/lib/hr";
 import type { Step } from "@/lib/approvals";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Badge, Card, Field, PageHeader } from "@/components/ui";
+import { Card, Drawer, Field, PageHeader } from "@/components/ui";
 import { deleteOrgUnit, saveDepartment, saveDesignation, saveFlow, saveHrGeneral } from "./actions";
-import { Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import { ConfirmButton } from "@/components/confirm-button";
 import { AttendanceSettings } from "./attendance-settings";
 
 export const metadata = { title: "HR Settings" };
@@ -23,15 +24,16 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
-export default async function HrSettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const want = (await searchParams).tab;
+export default async function HrSettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string; edit?: string }> }) {
+  const sp = await searchParams;
+  const want = sp.tab;
   const tab: Tab = (TABS.find(([t]) => t === want)?.[0] ?? "general") as Tab;
   const user = await requireUser();
   if (!user.isSuperAdmin && scopeFor(user, "hr.employees", "edit") !== "all") redirect("/no-access");
 
   const [departments, designations, employees, flows, users, prefix, probation, onboarding, offboarding] = await Promise.all([
-    db.department.findMany({ include: { _count: { select: { employees: true } } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-    db.designation.findMany({ include: { _count: { select: { employees: true } } }, orderBy: { name: "asc" } }),
+    db.department.findMany({ include: { _count: { select: { employees: { where: { status: { not: "left" } } } } } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    db.designation.findMany({ include: { _count: { select: { employees: { where: { status: { not: "left" } } } } } }, orderBy: { name: "asc" } }),
     db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }),
     db.approvalFlow.findMany({ orderBy: { name: "asc" } }),
     db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
@@ -42,6 +44,9 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
   ]);
 
   const nextCode = await nextEmployeeCode();
+  const [editKind, editId] = (sp.edit ?? "").split(":") as ["department" | "designation" | "", string | undefined];
+  const editDept = editKind === "department" && editId !== "new" ? departments.find((d) => d.id === editId) : undefined;
+  const editDesig = editKind === "designation" && editId !== "new" ? designations.find((d) => d.id === editId) : undefined;
   return (
     <>
       <PageHeader title="HR Settings" description="Pick a topic. Each one is a short page with only what it needs." />
@@ -55,64 +60,70 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
         ))}
       </nav>
       <div className="space-y-8">
-        {tab === "org" && <Section id="departments" title="Departments">
-          <Card className="divide-y divide-line">
-            {departments.map((d) => (
-              <div key={d.id} className="flex items-start gap-1 pr-3 [&>form:last-child]:pt-3">
-              <ActionForm action={saveDepartment} className="flex flex-1 flex-wrap items-center gap-2 p-3">
-                <input type="hidden" name="id" value={d.id} />
-                <input name="name" defaultValue={d.name} required className="input w-44" aria-label="Name" />
-                <input name="code" defaultValue={d.code ?? ""} placeholder="Code" className="input w-20" aria-label="Code" />
-                <select name="headId" defaultValue={d.headId ?? ""} className="input w-44" aria-label="Head of department">
-                  <option value="">Head: —</option>
-                  {employees.map((e) => <option key={e.id} value={e.id}>{e.fullName}</option>)}
-                </select>
-                <input name="sortOrder" type="number" defaultValue={d.sortOrder} className="input w-16" aria-label="Order" />
-                <label className="flex items-center gap-1.5 px-1 text-sm text-muted"><input type="checkbox" name="active" defaultChecked={d.active} className="accent-navy-900" /> Active</label>
-                <span className="flex-1" />
-                <Badge>{d._count.employees} people</Badge>
-                <SubmitButton variant="secondary">Save</SubmitButton>
+        {tab === "org" && (() => {
+          const people = (n: number) => <span className={n ? "font-medium tabular-nums" : "text-muted"}>{n} {n === 1 ? "person" : "people"}</span>;
+          const status = (on: boolean) => <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${on ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{on ? "Active" : "Hidden"}</span>;
+          const rowActions = (kind: "department" | "designation", id: string, name: string, n: number) => (
+            <span className="flex items-start justify-end gap-1">
+              <Link href={`/settings/hr?tab=org&edit=${kind}:${id}`} scroll={false} className="rounded-md px-2.5 py-1.5 text-xs font-medium text-navy-900 hover:bg-canvas">Edit</Link>
+              <ActionForm action={deleteOrgUnit} className="flex max-w-[14rem] flex-col items-end text-right text-xs">
+                <input type="hidden" name="kind" value={kind} /><input type="hidden" name="id" value={id} />
+                <ConfirmButton message={`Delete ${name}? This can't be undone.`} title={n ? "Move its people first" : "Delete"} className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-muted hover:bg-red-50 hover:text-red-600"><Trash2 className="size-3.5" /> Delete</ConfirmButton>
               </ActionForm>
-              <ActionForm action={deleteOrgUnit} className="flex max-w-[15rem] shrink-0 flex-col items-end text-right text-xs">
-                <input type="hidden" name="kind" value="department" /><input type="hidden" name="id" value={d.id} />
-                <button title={d._count.employees ? "Move its people first" : "Delete"} aria-label={`Delete ${d.name}`} className="inline-flex items-center gap-1 rounded-md px-2 py-2 text-xs text-muted hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /> Delete</button>
-              </ActionForm>
-              </div>
-            ))}
-            <ActionForm action={saveDepartment} className="flex flex-wrap items-center gap-2 bg-canvas/50 p-3">
-              <input name="name" required placeholder="New department" className="input w-44" />
-              <input name="code" placeholder="Code" className="input w-20" />
-              <SubmitButton>Add</SubmitButton>
-            </ActionForm>
-          </Card>
-        </Section>}
-
-        {tab === "org" && <Section id="designations" title="Designations">
-          <Card className="divide-y divide-line">
-            {designations.map((d) => (
-              <div key={d.id} className="flex items-start gap-1 pr-3 [&>form:last-child]:pt-3">
-              <ActionForm action={saveDesignation} className="flex flex-1 flex-wrap items-center gap-2 p-3">
-                <input type="hidden" name="id" value={d.id} />
-                <input name="name" defaultValue={d.name} required className="input w-56" aria-label="Designation" />
-                <input name="grade" defaultValue={d.grade ?? ""} placeholder="Grade" className="input w-20" aria-label="Grade" />
-                <label className="flex items-center gap-1.5 px-1 text-sm text-muted"><input type="checkbox" name="active" defaultChecked={d.active} className="accent-navy-900" /> Active</label>
-                <span className="flex-1" />
-                <Badge>{d._count.employees} people</Badge>
-                <SubmitButton variant="secondary">Save</SubmitButton>
-              </ActionForm>
-              <ActionForm action={deleteOrgUnit} className="flex max-w-[15rem] shrink-0 flex-col items-end text-right text-xs">
-                <input type="hidden" name="kind" value="designation" /><input type="hidden" name="id" value={d.id} />
-                <button title={d._count.employees ? "Move its people first" : "Delete"} aria-label={`Delete ${d.name}`} className="inline-flex items-center gap-1 rounded-md px-2 py-2 text-xs text-muted hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /> Delete</button>
-              </ActionForm>
-              </div>
-            ))}
-            <ActionForm action={saveDesignation} className="flex flex-wrap items-center gap-2 bg-canvas/50 p-3">
-              <input name="name" required placeholder="New designation" className="input w-56" />
-              <input name="grade" placeholder="Grade" className="input w-20" />
-              <SubmitButton>Add</SubmitButton>
-            </ActionForm>
-          </Card>
-        </Section>}
+            </span>
+          );
+          const head = (title: string, n: number, kind: string, label: string) => (
+            <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+              <h2 className="font-semibold">{title}</h2>
+              <span className="rounded-full bg-black/5 px-2 text-xs tabular-nums">{n}</span>
+              <Link href={`/settings/hr?tab=org&edit=${kind}:new`} scroll={false} className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-navy-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-navy-800"><Plus className="size-4" /> {label}</Link>
+            </div>
+          );
+          return (
+            <div className="space-y-6">
+              <Card id="departments" className="overflow-hidden">
+                {head("Departments", departments.length, "department", "Add department")}
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-sm">
+                    <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Code</th><th className="px-4 py-2.5">Department</th><th className="px-4 py-2.5">Head</th><th className="px-4 py-2.5">People</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5" /></tr></thead>
+                    <tbody className="divide-y divide-line">
+                      {departments.map((d) => (
+                        <tr key={d.id} className="align-top hover:bg-canvas/50">
+                          <td className="px-4 py-3"><span className="rounded-md bg-canvas px-2 py-0.5 font-mono text-xs text-muted">{d.code || "—"}</span></td>
+                          <td className="px-4 py-3 font-medium">{d.name}</td>
+                          <td className="px-4 py-3">{d.headId ? employees.find((e) => e.id === d.headId)?.fullName ?? "—" : <span className="text-amber-700">Not set</span>}</td>
+                          <td className="px-4 py-3"><Link href={`/hr/employees?dept=${d.id}`} className="hover:underline">{people(d._count.employees)}</Link></td>
+                          <td className="px-4 py-3">{status(d.active)}</td>
+                          <td className="px-4 py-2">{rowActions("department", d.id, d.name, d._count.employees)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+              <Card id="designations" className="overflow-hidden">
+                {head("Designations", designations.length, "designation", "Add designation")}
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[560px] text-sm">
+                    <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Designation</th><th className="px-4 py-2.5">Grade</th><th className="px-4 py-2.5">People</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5" /></tr></thead>
+                    <tbody className="divide-y divide-line">
+                      {designations.map((d) => (
+                        <tr key={d.id} className="align-top hover:bg-canvas/50">
+                          <td className="px-4 py-3 font-medium">{d.name}</td>
+                          <td className="px-4 py-3">{d.grade ? <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs text-violet-800">{d.grade}</span> : <span className="text-muted">—</span>}</td>
+                          <td className="px-4 py-3"><Link href={`/hr/employees?desig=${d.id}`} className="hover:underline">{people(d._count.employees)}</Link></td>
+                          <td className="px-4 py-3">{status(d.active)}</td>
+                          <td className="px-4 py-2">{rowActions("designation", d.id, d.name, d._count.employees)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+              <p className="text-xs text-muted">People counts are current staff. A department or designation can be deleted once nobody is in it; to keep it but stop it being picked, edit it and untick Active.</p>
+            </div>
+          );
+        })()}
 
         {tab === "general" && <Section id="checklists" title="Employee defaults & checklists" hint="One checklist item per line. New hires get the onboarding list; recording a resignation creates the exit list.">
           <Card className="p-5">
@@ -167,6 +178,31 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
           </Card>
         </Section>}
       </div>
+      {tab === "org" && editKind && (
+        <Drawer title={editKind === "department" ? (editDept ? `Edit ${editDept.name}` : "Add department") : editDesig ? `Edit ${editDesig.name}` : "Add designation"} closeHref="/settings/hr?tab=org" width="max-w-md">
+          {editKind === "department" ? (
+            <ActionForm action={saveDepartment} className="space-y-4">
+              {editDept && <input type="hidden" name="id" value={editDept.id} />}
+              <Field label="Department name"><input name="name" required defaultValue={editDept?.name} className="input" autoFocus /></Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Code" hint="e.g. SAL"><input name="code" defaultValue={editDept?.code ?? ""} className="input uppercase" /></Field>
+                <Field label="Order in lists"><input name="sortOrder" type="number" defaultValue={editDept?.sortOrder ?? 0} className="input" /></Field>
+              </div>
+              <Field label="Head of department"><select name="headId" defaultValue={editDept?.headId ?? ""} className="input"><option value="">Not set</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.fullName}</option>)}</select></Field>
+              {editDept && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={editDept.active} className="accent-navy-900" /> Active (can be picked for employees)</label>}
+              <SubmitButton>{editDept ? "Save" : "Add department"}</SubmitButton>
+            </ActionForm>
+          ) : (
+            <ActionForm action={saveDesignation} className="space-y-4">
+              {editDesig && <input type="hidden" name="id" value={editDesig.id} />}
+              <Field label="Designation"><input name="name" required defaultValue={editDesig?.name} className="input" autoFocus /></Field>
+              <Field label="Grade" hint="Optional, e.g. M2, S1"><input name="grade" defaultValue={editDesig?.grade ?? ""} className="input" /></Field>
+              {editDesig && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={editDesig.active} className="accent-navy-900" /> Active (can be picked for employees)</label>}
+              <SubmitButton>{editDesig ? "Save" : "Add designation"}</SubmitButton>
+            </ActionForm>
+          )}
+        </Drawer>
+      )}
     </>
   );
 }

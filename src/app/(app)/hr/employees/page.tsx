@@ -125,17 +125,17 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
             <Search className="absolute left-3 top-2.5 size-4 text-muted" />
             <input name="q" defaultValue={q} aria-label="Search" placeholder="Name, code, phone or CNIC" className="input pl-9" />
           </div>
-          <select name="dept" defaultValue={sp.dept ?? ""} className="input w-48">
+          <select name="dept" defaultValue={sp.dept ?? ""} aria-label="Department" className="input w-auto min-w-48 pr-9">
             <option value="">All departments</option>
             {org.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
           {scopeFor(user, "hr.employees") === "all" && (
-            <select name="branch" defaultValue={sp.branch ?? ""} className="input w-36">
+            <select name="branch" defaultValue={sp.branch ?? ""} aria-label="Branch" className="input w-auto min-w-44 pr-9">
               <option value="">All branches</option>
               {org.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           )}
-          <select name="status" defaultValue={sp.status ?? ""} className="input w-36">
+          <select name="status" defaultValue={sp.status ?? ""} aria-label="Status" className="input w-auto min-w-44 pr-9">
             <option value="">Current staff</option>
             {EMP_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>

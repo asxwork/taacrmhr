@@ -33,7 +33,9 @@ export async function saveDepartment(_: FormState, fd: FormData): Promise<FormSt
   if (id) await db.department.update({ where: { id }, data });
   else await db.department.create({ data });
   await audit(user.id, id ? "update" : "create", "department", id || null, `${id ? "Updated" : "Added"} department ${name}`);
-  return done();
+  done();
+  revalidatePath("/hr/organization");
+  redirect("/settings/hr?tab=org"); // closes the edit panel
 }
 
 export async function saveDesignation(_: FormState, fd: FormData): Promise<FormState> {
@@ -47,7 +49,9 @@ export async function saveDesignation(_: FormState, fd: FormData): Promise<FormS
   if (id) await db.designation.update({ where: { id }, data });
   else await db.designation.create({ data });
   await audit(user.id, id ? "update" : "create", "designation", id || null, `${id ? "Updated" : "Added"} designation ${name}`);
-  return done();
+  done();
+  revalidatePath("/hr/organization");
+  redirect("/settings/hr?tab=org"); // closes the edit panel
 }
 
 export async function saveHrGeneral(_: FormState, fd: FormData): Promise<FormState> {
