@@ -1692,6 +1692,8 @@ model Asset {
   tag          String     @unique
   name         String
   category     String
+  /// Free tags, comma-separated (e.g. "new,16GB,office-2").
+  tags         String?
   serial       String?
   cost         Float?
   purchasedAt  DateTime?

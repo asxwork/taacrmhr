@@ -2,7 +2,7 @@ import Link from "@/components/link";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { addDays, differenceInCalendarDays } from "date-fns";
-import { Download, Plus, Search, Upload } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Network, Plus, Search, Upload, Users } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { importEmployees } from "./import-action";
 import { db } from "@/lib/db";
@@ -17,18 +17,20 @@ import { orgOptions } from "./org-data";
 
 export const metadata = { title: "Employees" };
 
-type SP = { tab?: string; q?: string; dept?: string; desig?: string; branch?: string; status?: string; type?: string; gender?: string; new?: string; import?: string };
+type SP = { view?: string; mine?: string; page?: string; tab?: string; q?: string; dept?: string; desig?: string; branch?: string; status?: string; type?: string; gender?: string; new?: string; import?: string };
 
 export default async function EmployeesPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("hr.employees");
   const sp = await searchParams;
   if (sp.new) redirect("/hr/employees/new"); // old links
   const tab = sp.tab === "org" ? "org" : sp.tab === "documents" ? "documents" : "directory";
-  const keep = { tab: sp.tab, q: sp.q, dept: sp.dept, desig: sp.desig, branch: sp.branch, status: sp.status, type: sp.type, gender: sp.gender };
+  const keep = { view: sp.view, mine: sp.mine, tab: sp.tab, q: sp.q, dept: sp.dept, desig: sp.desig, branch: sp.branch, status: sp.status, type: sp.type, gender: sp.gender };
   const scope = (await employeeWhere(user))!;
   const canCreate = can(user, "hr.employees", "create");
   const closeHref = hrefWith("/hr/employees", keep, {});
   const q = sp.q?.trim();
+  // "My team": only the people who report to me (directly).
+  const meEmp = sp.mine ? await db.employee.findUnique({ where: { userId: user.id }, select: { id: true } }) : null;
 
   const where: Prisma.EmployeeWhereInput = {
     ...scope,
@@ -39,12 +41,18 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
     ...(sp.type && { employmentType: sp.type }),
     ...(sp.gender && { gender: sp.gender }),
     ...(sp.status ? { status: sp.status } : { status: { not: "left" } }),
+    ...(sp.mine && { managerId: meEmp?.id ?? "-" }),
   };
 
   const [org, employees] = await Promise.all([
     orgOptions(),
-    db.employee.findMany({ where, include: { department: true, designation: true, branch: true }, orderBy: { fullName: "asc" }, take: 500 }),
+    db.employee.findMany({ where, include: { department: true, designation: true, branch: true }, orderBy: { fullName: "asc" }, take: 1000 }),
   ]);
+
+  const PER = 12;
+  const pages = Math.max(1, Math.ceil(employees.length / PER));
+  const page = Math.min(pages, Math.max(1, Number(sp.page) || 1));
+  const pageRows = employees.slice((page - 1) * PER, page * PER);
 
   const tabs = (
     <div className="mb-4 flex rounded-lg bg-black/5 p-0.5 sm:w-fit">
@@ -132,8 +140,68 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
             {EMP_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </AutoFilterForm>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="flex rounded-lg bg-black/5 p-0.5">
+            {([["", "All", Users], ["1", "My team", Network]] as const).map(([v, label, Icon]) => (
+              <Link key={label} href={hrefWith("/hr/employees", keep, { mine: v || undefined, page: undefined })} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm", (sp.mine ?? "") === v ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
+                <Icon className="size-4" /> {label}
+              </Link>
+            ))}
+          </div>
+          <span className="rounded-full bg-navy-900/5 px-2.5 py-0.5 text-sm font-semibold tabular-nums text-navy-900">{employees.length}</span>
+          <div className="ml-auto flex rounded-lg border border-line bg-surface p-0.5">
+            {([["", "Cards", LayoutGrid], ["list", "List", List]] as const).map(([v, label, Icon]) => (
+              <Link key={label} href={hrefWith("/hr/employees", keep, { view: v || undefined })} aria-label={label} title={label} className={cn("rounded-md p-1.5", (sp.view === "list" ? "list" : "") === v ? "bg-navy-900 text-white" : "text-muted hover:text-ink")}>
+                <Icon className="size-4" />
+              </Link>
+            ))}
+          </div>
+        </div>
+        {employees.length === 0 ? <Card><EmptyState title={sp.mine ? "Nobody reports to you yet" : "No employees found"} /></Card> : sp.view !== "list" ? (
+          <>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {pageRows.map((e) => {
+                const st = empStatus(e.status);
+                return (
+                  <Link key={e.id} href={`/hr/employees/${e.id}`} className="group flex flex-col rounded-2xl border border-line bg-surface shadow-sm transition hover:-translate-y-0.5 hover:border-navy-900/20 hover:shadow-md">
+                    <div className="flex items-start gap-3 p-4">
+                      <span className="relative shrink-0">
+                        <PersonAvatar name={e.fullName} photo={e.photo} className="size-14 text-base" />
+                        <span className={cn("absolute bottom-0 right-0 size-3.5 rounded-full ring-2 ring-surface", e.status === "active" ? "bg-emerald-500" : "bg-amber-400")} title={st.label} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold">{e.fullName}</span>
+                        <span className="block text-xs text-muted">{e.code ?? "—"}</span>
+                        <span className="mt-0.5 block line-clamp-2 text-sm text-muted">{e.designation?.name ?? "No designation"}</span>
+                      </span>
+                      <ArrowRight className="mt-1 size-4 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-ink" />
+                    </div>
+                    <div className="mt-auto grid grid-cols-3 gap-2 border-t border-line px-4 py-3 text-center text-xs">
+                      {([["Branch", e.branch?.name], ["Department", e.department?.name], ["Joined", e.joiningDate ? fmtDate(e.joiningDate) : null]] as const).map(([k, v]) => (
+                        <span key={k} className="min-w-0">
+                          <span className="block text-muted">{k}</span>
+                          <span className="mt-0.5 block truncate font-medium" title={v ?? undefined}>{v ?? "—"}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+            {pages > 1 && (
+              <div className="mt-5 flex items-center justify-end gap-1.5 text-sm">
+                <span className="mr-2 text-muted">{(page - 1) * PER + 1}–{Math.min(page * PER, employees.length)} of {employees.length}</span>
+                {page > 1 && <Link href={hrefWith("/hr/employees", keep, { page: String(page - 1) })} className="rounded-md border border-line bg-surface p-1.5 hover:bg-canvas" aria-label="Previous page"><ChevronLeft className="size-4" /></Link>}
+                {Array.from({ length: pages }, (_, i) => i + 1).filter((n) => n === 1 || n === pages || Math.abs(n - page) <= 2).map((n) => (
+                  <Link key={n} href={hrefWith("/hr/employees", keep, { page: String(n) })} className={cn("min-w-8 rounded-md border px-2 py-1 text-center", n === page ? "border-navy-900 bg-navy-900 text-white" : "border-line bg-surface hover:bg-canvas")}>{n}</Link>
+                ))}
+                {page < pages && <Link href={hrefWith("/hr/employees", keep, { page: String(page + 1) })} className="rounded-md border border-line bg-surface p-1.5 hover:bg-canvas" aria-label="Next page"><ChevronRight className="size-4" /></Link>}
+              </div>
+            )}
+          </>
+        ) : (
         <Card className="overflow-hidden">
-          {employees.length === 0 ? <EmptyState title="No employees found" /> : (
+          {(
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b border-line bg-canvas/60">
@@ -173,6 +241,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
             </div>
           )}
         </Card>
+        )}
       </>
     );
   }

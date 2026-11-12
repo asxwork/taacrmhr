@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notify";
-import { ASSET_CATEGORIES } from "@/lib/hr-shared";
+import { assetTypes } from "@/lib/asset-types";
 import { str, type FormState } from "@/lib/utils";
 
 const refresh = (employeeId?: string | null) => {
@@ -24,7 +24,8 @@ export async function saveAsset(_: FormState, fd: FormData): Promise<FormState> 
   const cost = parseFloat(str(fd, "cost").replace(/,/g, ""));
   const purchasedAt = str(fd, "purchasedAt") ? new Date(str(fd, "purchasedAt")) : null;
   const data = {
-    tag, name, category: ASSET_CATEGORIES.includes(str(fd, "category")) ? str(fd, "category") : "Other",
+    tag, name, category: (await assetTypes()).includes(str(fd, "category")) ? str(fd, "category") : "Other",
+    tags: [...new Set(str(fd, "tags").split(",").map((t) => t.trim().toLowerCase()).filter(Boolean))].join(",") || null,
     serial: str(fd, "serial") || null, cost: Number.isFinite(cost) ? cost : null,
     purchasedAt: purchasedAt && !Number.isNaN(purchasedAt.getTime()) ? purchasedAt : null, notes: str(fd, "notes") || null,
   };
@@ -72,4 +73,31 @@ export async function deleteAsset(fd: FormData) {
   await audit(user.id, "delete", "asset", asset.id, `Deleted asset ${asset.tag} ${asset.name}`);
   refresh(asset.assignedToId);
   redirect("/hr/assets");
+}
+
+/** Asset types (categories): add, rename or remove. Renaming moves the assets of that type too. */
+export async function saveAssetType(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("hr.assets", "edit");
+  const list = await assetTypes();
+  const op = str(fd, "op");
+  const name = str(fd, "name").replace(/\s+/g, " ");
+  const old = str(fd, "old");
+  let next = list;
+  if (op === "add") {
+    if (name.length < 2) return { error: "Type a name." };
+    if (list.some((t) => t.toLowerCase() === name.toLowerCase())) return { error: `${name} already exists.` };
+    next = [...list, name];
+  } else if (op === "rename") {
+    if (!list.includes(old) || name.length < 2) return { error: "Type a new name." };
+    next = list.map((t) => (t === old ? name : t));
+    await db.asset.updateMany({ where: { category: old }, data: { category: name } });
+  } else if (op === "remove") {
+    if (await db.asset.count({ where: { category: old } })) return { error: `Some assets are still “${old}”. Move them to another type first.` };
+    next = list.filter((t) => t !== old);
+  } else return { error: "Unknown action." };
+  const value = JSON.stringify(next);
+  await db.setting.upsert({ where: { key: "assets.types" }, update: { value }, create: { key: "assets.types", value } });
+  await audit(user.id, "update", "setting", "assets.types", `Asset types: ${op} ${old || name}`);
+  revalidatePath("/hr/assets");
+  return { ok: true, message: "Saved." };
 }

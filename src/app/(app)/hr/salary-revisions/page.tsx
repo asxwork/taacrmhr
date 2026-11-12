@@ -1,6 +1,8 @@
 import Link from "@/components/link";
 import { addDays, format, startOfYear } from "date-fns";
-import { Plus, TrendingUp } from "lucide-react";
+import { ArrowRight, Plus, Search, TrendingUp } from "lucide-react";
+import { PersonAvatar } from "@/components/person-avatar";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 import { db } from "@/lib/db";
 import { requirePermission, scopeFor } from "@/lib/permissions";
 import { employeeWhere } from "@/lib/hr";
@@ -13,7 +15,7 @@ import { proposeRevision } from "../compensation-actions";
 
 export const metadata = { title: "Salary Revisions" };
 
-type SP = { tab?: string; status?: string; new?: string; bulk?: string; emp?: string };
+type SP = { q?: string; tab?: string; status?: string; new?: string; bulk?: string; emp?: string };
 const pkr = (n: number) => `PKR ${Math.round(n).toLocaleString("en-PK")}`;
 const STATUS_TONE = { pending: "amber", approved: "green", rejected: "red", cancelled: "neutral" } as const;
 
@@ -28,8 +30,8 @@ export default async function SalaryRevisionsPage({ searchParams }: { searchPara
 
   const [revisions, due, staff, departments, branches] = await Promise.all([
     db.salaryRevision.findMany({
-      where: { employee: scope, ...(sp.status && { status: sp.status }) },
-      include: { employee: { select: { id: true, fullName: true, code: true, department: { select: { name: true } } } } },
+      where: { employee: scope },
+      include: { employee: { select: { id: true, fullName: true, code: true, photo: true, department: { select: { name: true } } } } },
       orderBy: { createdAt: "desc" }, take: 300,
     }),
     db.employee.findMany({
@@ -40,6 +42,11 @@ export default async function SalaryRevisionsPage({ searchParams }: { searchPara
     admin ? db.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }) : [],
     admin ? db.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }) : [],
   ]);
+  // Stable codes SR-00001… in the order revisions were created.
+  const codeOf = new Map([...revisions].sort((a, b) => +a.createdAt - +b.createdAt).map((r, i) => [r.id, `SR-${String(i + 1).padStart(5, "0")}`]));
+  const q = sp.q?.trim().toLowerCase() ?? "";
+  const shown = revisions.filter((r) => (!sp.status || r.status === sp.status) && (!q || `${r.employee.fullName} ${r.employee.code} ${codeOf.get(r.id)}`.toLowerCase().includes(q)));
+  const statusCount = (s: string) => revisions.filter((r) => r.status === s).length;
   const thisYear = revisions.filter((r) => r.status === "approved" && r.effectiveFrom >= startOfYear(now));
   const avgPct = thisYear.length ? thisYear.reduce((s, r) => s + (r.oldGross ? ((r.newGross - r.oldGross) / r.oldGross) * 100 : 0), 0) / thisYear.length : 0;
   const pct = (r: { oldGross: number; newGross: number }) => (r.oldGross ? ((r.newGross - r.oldGross) / r.oldGross) * 100 : 0);
@@ -58,7 +65,7 @@ export default async function SalaryRevisionsPage({ searchParams }: { searchPara
         { key: "p", label: "Waiting for approval", tone: "amber", value: revisions.filter((r) => r.status === "pending").length, href: "/hr/salary-revisions?status=pending" },
         { key: "a", label: `Approved in ${now.getFullYear()}`, tone: "green", value: thisYear.length, href: "/hr/salary-revisions?status=approved" },
         { key: "d", label: "Due for increment (30 days)", tone: "violet", value: due.length, href: "/hr/salary-revisions?tab=due" },
-        { key: "avg", label: "Average change this year", tone: "navy", value: `${avgPct.toFixed(1)}%` },
+        { key: "avg", label: `Average change · +${pkr(thisYear.reduce((s, r) => s + r.newGross - r.oldGross, 0))}/month added`, tone: "navy", value: `${avgPct.toFixed(1)}%` },
       ]} />
 
       <div className="mb-4 flex gap-1 border-b border-line">
@@ -68,31 +75,64 @@ export default async function SalaryRevisionsPage({ searchParams }: { searchPara
       </div>
 
       {tab === "revisions" ? (
-        <Card className="overflow-x-auto">
-          {revisions.length === 0 ? <EmptyState title="No salary revisions yet" description={admin ? "Use “New revision” or “Bulk increment”." : undefined} /> : (
-            <table className="w-full min-w-[820px] text-sm">
+        <Card className="overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
+            {([["", "All", revisions.length], ["pending", "Pending", statusCount("pending")], ["approved", "Approved", statusCount("approved")], ["rejected", "Rejected", statusCount("rejected")]] as const).map(([v, label, n]) => (
+              <Link key={label} href={`/hr/salary-revisions?${new URLSearchParams(Object.entries({ status: v, q: sp.q ?? "" }).filter(([, x]) => x))}`}
+                className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm", (sp.status ?? "") === v ? "border-navy-900 bg-navy-900 text-white" : "border-line text-muted hover:text-ink")}>
+                {label} <span className="tabular-nums opacity-70">{n}</span>
+              </Link>
+            ))}
+            <AutoFilterForm className="ml-auto">
+              {sp.status && <input type="hidden" name="status" value={sp.status} />}
+              <label className="relative block w-60">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+                <input name="q" defaultValue={sp.q} placeholder="Search name, code or SR-…" aria-label="Search" className="input h-9 pl-9" />
+              </label>
+            </AutoFilterForm>
+          </div>
+          {shown.length === 0 ? <EmptyState title={revisions.length ? "Nothing matches" : "No salary revisions yet"} description={admin && !revisions.length ? "Use “New revision” or “Bulk increment”." : undefined} /> : (
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted">
-                <tr><th className="px-4 py-2.5">Employee</th><th className="px-4 py-2.5">Type</th><th className="px-4 py-2.5 text-right">Old</th><th className="px-4 py-2.5 text-right">New</th><th className="px-4 py-2.5 text-right">Change</th><th className="px-4 py-2.5">Effective</th><th className="px-4 py-2.5">Status</th></tr>
+                <tr><th className="px-4 py-2.5">Code</th><th className="px-4 py-2.5">Employee</th><th className="px-4 py-2.5">Type</th><th className="px-4 py-2.5">Salary change</th><th className="px-4 py-2.5">Effective</th><th className="px-4 py-2.5">Status</th></tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {revisions.map((r) => (
-                  <tr key={r.id}>
-                    <td className="px-4 py-2.5"><Link href={`/hr/employees/${r.employee.id}?tab=salary`} className="font-medium hover:underline">{r.employee.fullName}</Link><span className="block text-xs text-muted">{r.employee.code}{r.employee.department ? ` · ${r.employee.department.name}` : ""}</span></td>
-                    <td className="px-4 py-2.5">{revisionKind(r.kind)}{r.reason && <span className="block max-w-56 truncate text-xs text-muted">{r.reason}</span>}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{pkr(r.oldGross)}</td>
-                    <td className="px-4 py-2.5 text-right font-medium tabular-nums">{pkr(r.newGross)}</td>
-                    <td className={cn("px-4 py-2.5 text-right tabular-nums", pct(r) >= 0 ? "text-emerald-600" : "text-red-600")}>{pct(r) >= 0 ? "+" : ""}{pct(r).toFixed(1)}%</td>
-                    <td className="px-4 py-2.5">{format(r.effectiveFrom, "d MMM yyyy")}</td>
-                    <td className="px-4 py-2.5">
+                {shown.map((r) => {
+                  const up = r.newGross >= r.oldGross;
+                  return (
+                  <tr key={r.id} className="hover:bg-canvas/60">
+                    <td className="px-4 py-3"><span className="rounded-md bg-canvas px-2 py-0.5 font-mono text-xs text-muted">{codeOf.get(r.id)}</span></td>
+                    <td className="px-4 py-3">
+                      <Link href={`/hr/employees/${r.employee.id}?tab=salary`} className="flex items-center gap-3">
+                        <PersonAvatar name={r.employee.fullName} photo={r.employee.photo} className="size-9" />
+                        <span><span className="block font-medium hover:underline">{r.employee.fullName}</span><span className="block text-xs text-muted">{r.employee.code}{r.employee.department ? ` · ${r.employee.department.name}` : ""}</span></span>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">{revisionKind(r.kind)}{r.reason && <span className="block max-w-48 truncate text-xs text-muted" title={r.reason}>{r.reason}</span>}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 tabular-nums">
+                        <span className="text-muted line-through decoration-black/20">{pkr(r.oldGross)}</span>
+                        <ArrowRight className="size-3.5 text-muted" />
+                        <span className="font-semibold">{pkr(r.newGross)}</span>
+                      </div>
+                      <span className={cn("mt-0.5 inline-flex rounded-full px-2 py-0.5 text-xs font-medium tabular-nums", up ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>
+                        {up ? "+" : "−"}{pkr(Math.abs(r.newGross - r.oldGross)).replace("PKR ", "Rs ")} · {up ? "+" : ""}{pct(r).toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">{format(r.effectiveFrom, "d MMM yyyy")}</td>
+                    <td className="px-4 py-3">
                       {(() => {
                         const badge = <Badge tone={r.status === "approved" && !r.appliedAt ? "navy" : STATUS_TONE[r.status as keyof typeof STATUS_TONE] ?? "neutral"}>{r.status === "approved" && !r.appliedAt ? `scheduled · ${format(r.effectiveFrom, "d MMM")}` : r.status}</Badge>;
                         return r.approvalId ? <Link href={`/approvals?open=${r.approvalId}`}>{badge}</Link> : badge;
                       })()}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
+            </div>
           )}
         </Card>
       ) : (
