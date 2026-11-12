@@ -290,14 +290,16 @@ export const APPS: AppDef[] = [
     home: "/me/home", prefixes: ["/me", "/feed", "/org-chart"], layout: "list",
     groups: [
       {
-        // Five entries; requests and profile pages are tabs (lib/sections.ts).
+        // Everything about me; requests and profile pages are tabs (lib/sections.ts).
         items: [
           { href: "/me/home", label: "Home", icon: "home" },
           { href: "/me/attendance", label: "Attendance", icon: "fingerprint" },
           { href: "/me/leave", label: "Requests", icon: "palm", also: ["/me/expenses", "/me/swaps", "/hr/requests", "/approvals"] },
           { href: "/me/payslips", label: "Payslips", icon: "banknote" },
+          { href: "/me/documents", label: "Documents", icon: "filecheck", also: ["/me/policies"] },
+          { href: "/me/assets", label: "Assets", icon: "laptop" },
           { href: "/feed", label: "Feed", icon: "award", also: ["/org-chart"] },
-          { href: "/me", label: "My profile", icon: "user", also: ["/me/performance", "/me/check-ins", "/me/exit-interview", "/me/policies", "/me/surveys"] },
+          { href: "/me", label: "My profile", icon: "user", also: ["/me/performance", "/me/check-ins", "/me/exit-interview", "/me/surveys"] },
         ],
       },
     ],

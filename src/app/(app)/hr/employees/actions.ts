@@ -252,6 +252,7 @@ export async function uploadDocument(_: FormState, fd: FormData): Promise<FormSt
   }
   revalidatePath(path(emp.id));
   revalidatePath("/me");
+  revalidatePath("/me/documents");
   return { ok: true, message: isHr ? "Document added." : "Uploaded — HR will verify it." };
 }
 
