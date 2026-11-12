@@ -348,7 +348,7 @@ export const APPS: AppDef[] = [
           { href: "/crm/automations", label: "Lead automations", icon: "workflow", superAdmin: true },
           { href: "/settings/hr", label: "HR Settings", icon: "clipboard", module: "hr.employees" },
           { href: "/settings/integrations", label: "Integrations", icon: "plug", module: "settings.company" },
-          { href: "/settings/audit", label: "Audit Log", icon: "history", module: "settings.audit" },
+          { href: "/settings/audit", label: "Activity Log", icon: "history", module: "settings.audit" },
           { href: "/settings/layouts", label: "Layouts", icon: "layout", superAdmin: true },
         ],
       },
