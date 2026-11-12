@@ -304,6 +304,9 @@ export async function importDevicePunches(rows: DevicePunch[], byUserId: string 
   const max = new Date(Math.max(...known.map((k) => +k.at)));
   const existing = await db.attendancePunch.findMany({ where: { employeeId: { in: [...new Set(known.map((k) => k.employeeId))] }, at: { gte: min, lte: max } }, select: { employeeId: true, at: true } });
   const seen = new Set(existing.map((e) => `${e.employeeId}|${+e.at}`));
+  // Punches HR has edited: the device still sends the original time, which must not come back as a new punch.
+  const edited = await db.punchOriginal.findMany({ where: { employeeId: { in: [...new Set(known.map((k) => k.employeeId))] }, at: { gte: min, lte: max } }, select: { employeeId: true, at: true } });
+  for (const e of edited) seen.add(`${e.employeeId}|${+e.at}`);
   const fresh = known.filter((k) => {
     const key = `${k.employeeId}|${+k.at}`;
     if (seen.has(key)) return false;

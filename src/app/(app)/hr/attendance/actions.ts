@@ -106,6 +106,36 @@ export async function deletePunch(fd: FormData) {
   revalidatePath("/hr/attendance");
 }
 
+/**
+ * HR edits a punch time. The original (what the machine recorded) is saved in PunchOriginal — kept for good, never
+ * shown in attendance — and the punch itself takes the corrected time. The change log records who, when and why.
+ */
+export async function editPunch(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!can(user, "hr.attendance", "edit")) return { error: "You can't edit attendance." };
+  const punch = await db.attendancePunch.findUnique({ where: { id: str(fd, "id") }, include: { employee: { select: { fullName: true, userId: true, branchId: true } } } });
+  if (!punch) return { error: "Punch not found." };
+  if (!(await scopeMatcher(user, "hr.attendance", "edit"))({ ownerId: punch.employee.userId, branchId: punch.employee.branchId })) return { error: "This employee isn't in your HR scope." };
+  const newAt = new Date(str(fd, "at"));
+  const note = str(fd, "note").slice(0, 300);
+  if (Number.isNaN(newAt.getTime())) return { error: "Enter the corrected date and time." };
+  if (!note) return { error: "Write why it's being changed." };
+  if (newAt.getTime() > Date.now() + 5 * 60_000) return { error: "The time can't be in the future." };
+  if (+newAt === +punch.at) return { error: "That's the same time." };
+  if (await db.attendancePunch.findUnique({ where: { employeeId_at: { employeeId: punch.employeeId, at: newAt } } })) return { error: "There's already a punch at that exact time." };
+  await db.punchOriginal.create({ data: { punchId: punch.id, employeeId: punch.employeeId, at: punch.at, source: punch.source, newAt, note, editedById: user.id } });
+  await db.attendancePunch.update({ where: { id: punch.id }, data: { at: newAt, source: "hr_edit" } });
+  await logAttendance({
+    employeeId: punch.employeeId, date: startOfDay(newAt), kind: "hr_edit", source: punch.source, byId: user.id,
+    summary: `Punch changed to ${format(newAt, "h:mm a, d MMM")}: ${note}`,
+    after: `${format(newAt, "h:mm a")} (edited)`,
+  });
+  await audit(user.id, "update", "attendancePunch", punch.id, `Edited a punch for ${punch.employee.fullName}: ${note}`);
+  revalidatePath("/hr/attendance/logs");
+  revalidatePath("/hr/attendance");
+  return { ok: true, message: "Punch updated. The machine's original time is kept on record." };
+}
+
 /** Removes an attendance log entry. Recorded in the audit log, so even this leaves a trace. */
 export async function deleteAttendanceLog(fd: FormData) {
   const user = await requireUser();

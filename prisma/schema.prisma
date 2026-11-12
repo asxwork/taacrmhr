@@ -1214,6 +1214,23 @@ model AttendancePunch {
   @@index([at])
 }
 
+/// The machine's original punch, kept when HR edits a punch. Never shown in attendance and never deleted:
+/// the punch row carries the corrected time; this keeps what the device actually recorded (Super Admin can see it).
+model PunchOriginal {
+  id          String   @id @default(cuid())
+  punchId     String?
+  employeeId  String
+  at          DateTime
+  source      String
+  newAt       DateTime
+  note        String?
+  editedById  String?
+  editedAt    DateTime @default(now())
+
+  @@index([employeeId, at])
+  @@index([punchId])
+}
+
 /// status: present | late | half | absent | leave | holiday | weekend | missing (no check-out) | upcoming
 /// Append-only history of attendance: check-ins, machine imports, HR edits, approved corrections, deletions.
 /// Nobody but a Super Admin can remove an entry (and that removal is audited).

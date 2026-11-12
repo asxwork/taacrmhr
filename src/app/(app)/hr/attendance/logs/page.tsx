@@ -1,23 +1,25 @@
 import Link from "@/components/link";
 import { addDays, format, parse, startOfDay, subDays } from "date-fns";
-import { MapPin, Trash2 } from "lucide-react";
+import { MapPin, Pencil, Trash2 } from "lucide-react";
+import { ActionForm, SubmitButton } from "@/components/action-form";
+import { Drawer, Field } from "@/components/ui";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { requirePermission, scopeFor } from "@/lib/permissions";
+import { can, requirePermission, scopeFor } from "@/lib/permissions";
 import { attendanceEmployeeWhere } from "@/lib/attendance";
 import { cn } from "@/lib/utils";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { hrefWith } from "@/components/crm/bits";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ConfirmButton } from "@/components/confirm-button";
-import { deleteAttendanceLog, deletePunch } from "../actions";
+import { deleteAttendanceLog, deletePunch, editPunch } from "../actions";
 
 export const metadata = { title: "Attendance logs" };
 
 const LIMIT = 300;
-const SOURCES = [["device", "Machine"], ["web", "Web check-in"], ["manual", "Manual / correction"]] as const;
+const SOURCES = [["device", "Machine"], ["web", "Web check-in"], ["manual", "Manual / correction"], ["hr_edit", "Edited by HR"]] as const;
 const KINDS = [["checkin", "Check-in", "green"], ["import", "Machine import", "navy"], ["hr_edit", "HR edit", "amber"], ["correction", "Correction", "gold"], ["delete", "Deleted", "red"]] as const;
-type SP = { tab?: string; from?: string; to?: string; employee?: string; source?: string; kind?: string };
+type SP = { editPunch?: string; tab?: string; from?: string; to?: string; employee?: string; source?: string; kind?: string };
 
 const day = (v: string | undefined, fallback: Date) => {
   const d = v ? parse(v, "yyyy-MM-dd", new Date()) : fallback;
@@ -52,6 +54,10 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
     tab === "changes" ? db.attendanceLog.findMany({ where: logWhere, include: { employee: { select: { fullName: true } } }, orderBy: { createdAt: "desc" }, take: LIMIT }) : [],
     db.attendanceLog.count({ where: logWhere }),
   ]);
+  const canEdit = can(user, "hr.attendance", "edit");
+  // Super Admin only: what the machine originally recorded for punches HR edited.
+  const originals = user.isSuperAdmin ? await db.punchOriginal.findMany({ where: { punchId: { in: punches.filter((p) => p.source === "hr_edit").map((p) => p.id) } }, orderBy: { editedAt: "asc" } }) : [];
+  const editing = sp.editPunch ? await db.attendancePunch.findUnique({ where: { id: sp.editPunch }, include: { employee: { select: { fullName: true } } } }) : null;
   const adders = new Map((await db.user.findMany({ where: { id: { in: [...new Set(punches.map((p) => p.createdById).filter((x): x is string => !!x))] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
 
   const tabLink = (t: "machine" | "changes", label: string, n: number) => (
@@ -104,7 +110,10 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
                   {punches.map((p) => (
                     <tr key={p.id} className="hover:bg-canvas/60">
                       <td className="td font-medium">{p.employee.fullName}</td>
-                      <td className="td whitespace-nowrap tabular-nums">{format(p.at, "EEE d MMM yyyy, h:mm a")}</td>
+                      <td className="td whitespace-nowrap tabular-nums">
+                        {format(p.at, "EEE d MMM yyyy, h:mm a")}
+                        {user.isSuperAdmin && originals.filter((o) => o.punchId === p.id).slice(0, 1).map((o) => <span key={o.id} className="block text-[11px] text-muted" title={o.note ?? undefined}>machine: {format(o.at, "h:mm a, d MMM")}</span>)}
+                      </td>
                       <td className="td"><Badge tone={p.source === "device" ? "navy" : p.source === "web" ? "green" : "amber"}>{SOURCES.find(([v]) => v === p.source)?.[1] ?? p.source}</Badge></td>
                       <td className="td text-sm">
                         {p.source === "web" ? (
@@ -116,6 +125,8 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
                       <td className="td text-sm">{p.createdById ? adders.get(p.createdById) ?? "—" : "—"}</td>
                       <td className="td whitespace-nowrap text-xs text-muted">{format(p.createdAt, "d MMM, h:mm a")}</td>
                       <td className="td text-right">
+                        <span className="inline-flex items-center gap-1">
+                        {canEdit && <Link href={hrefWith("/hr/attendance/logs", keep, { editPunch: p.id })} scroll={false} title="Edit time" aria-label="Edit punch time" className="rounded p-1.5 text-muted hover:bg-canvas hover:text-ink"><Pencil className="size-4" /></Link>}
                         {user.isSuperAdmin && (
                           <form action={deletePunch}>
                             <input type="hidden" name="id" value={p.id} />
@@ -124,6 +135,7 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
                             </ConfirmButton>
                           </form>
                         )}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -170,6 +182,17 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
         )}
         {(tab === "machine" ? punchCount : logCount) > LIMIT && <p className="border-t border-line px-4 py-3 text-xs text-muted">Showing the latest {LIMIT}. Narrow the dates or pick an employee to see the rest.</p>}
       </Card>
+      {editing && canEdit && (
+        <Drawer title={`Edit punch · ${editing.employee.fullName}`} closeHref={hrefWith("/hr/attendance/logs", keep, {})} width="max-w-md">
+          <p className="mb-4 text-sm text-muted">Now: <b className="text-ink">{format(editing.at, "EEE d MMM yyyy, h:mm a")}</b>. The machine&apos;s original record is kept safely and never deleted; attendance uses the corrected time.</p>
+          <ActionForm action={editPunch} className="space-y-4">
+            <input type="hidden" name="id" value={editing.id} />
+            <Field label="Corrected date & time"><input name="at" type="datetime-local" required defaultValue={format(editing.at, "yyyy-MM-dd'T'HH:mm")} className="input" /></Field>
+            <Field label="Why"><textarea name="note" rows={3} required className="input" placeholder="e.g. Machine was 1 hour fast that morning" /></Field>
+            <SubmitButton>Save corrected time</SubmitButton>
+          </ActionForm>
+        </Drawer>
+      )}
     </>
   );
 }
