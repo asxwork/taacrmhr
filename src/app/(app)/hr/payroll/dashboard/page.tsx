@@ -1,5 +1,6 @@
 import Link from "@/components/link";
-import { addDays, format } from "date-fns";
+import { addDays, format, startOfMonth, subMonths } from "date-fns";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { monthDate } from "@/lib/payroll";
@@ -12,9 +13,24 @@ import { LineChart } from "@/components/line-chart";
 export const metadata = { title: "Payroll Dashboard" };
 
 /** Payroll → Dashboard: cost trend, latest run, where the money goes and what is waiting to be paid. */
-export default async function PayrollDashboard() {
+export default async function PayrollDashboard({ searchParams }: { searchParams: Promise<{ emp?: string }> }) {
   await requirePermission("hr.payroll");
+  const sp = await searchParams;
   const now = new Date();
+  // Last 12 months as yyyy-MM keys (oldest first) and the same months a year earlier, for the comparison and monthly charts.
+  const months = Array.from({ length: 12 }, (_, i) => format(subMonths(startOfMonth(now), 11 - i), "yyyy-MM"));
+  const prevMonths = months.map((m) => format(subMonths(monthDate(m), 12), "yyyy-MM"));
+  const since = subMonths(startOfMonth(now), 11);
+  const [yearRuns, expenses, loansIssued, staff] = await Promise.all([
+    db.payrollRun.findMany({ where: { month: { gte: prevMonths[0]! } }, select: { month: true, payslips: { select: { net: true, employeeId: true } } } }),
+    db.expense.findMany({ where: { date: { gte: since } }, select: { date: true, amount: true, status: true } }),
+    db.loan.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true, amount: true, status: true } }),
+    db.employee.findMany({ where: { salary: { isNot: null } }, select: { id: true, fullName: true, code: true }, orderBy: { fullName: "asc" } }),
+  ]);
+  const netOf = (m: string, emp?: string) => (yearRuns.find((r) => r.month === m)?.payslips ?? []).filter((p) => !emp || p.employeeId === emp).reduce((s, p) => s + p.net, 0);
+  const inMonth = (d: Date, m: string) => format(d, "yyyy-MM") === m;
+  const empPick = staff.find((e) => e.id === sp.emp) ?? staff[0];
+  const label = (m: string) => format(monthDate(m), "MMM");
   const [runs, pendingExpenses, encashments, loans, revisionsDue, notice] = await Promise.all([
     db.payrollRun.findMany({ orderBy: { month: "desc" }, take: 12, include: { payslips: { select: { net: true, gross: true, tax: true, earnings: true, deductions: true, department: true } } } }),
     db.expense.aggregate({ where: { status: "approved", runId: null }, _sum: { amount: true }, _count: true }),
@@ -54,6 +70,34 @@ export default async function PayrollDashboard() {
           <BarList rows={[...byDept.entries()].sort((a, b) => b[1] - a[1]).map(([name, v]) => ({ name, value: v, display: fmtPKR(v), href: latest ? `/hr/payroll/payslips?month=${latest.month}&dept=${encodeURIComponent(name)}` : undefined }))} />
         </Card>
       </div>
+      <Card className="mt-6 p-5">
+        <h2 className="mb-1 text-sm font-semibold">Payroll comparison · this year vs last year</h2>
+        <p className="mb-3 text-xs text-muted">Net pay per month: {format(monthDate(months[0]!), "MMM yyyy")} – {format(monthDate(months[11]!), "MMM yyyy")} against the 12 months before.</p>
+        <LineChart labels={months.map(label)} format={(v) => `${Math.round(v / 1000)}k`}
+          series={[{ name: `${format(monthDate(months[0]!), "MMM yy")} – ${format(monthDate(months[11]!), "MMM yy")}`, color: "#c2410c", values: months.map((m) => netOf(m)) }, { name: `${format(monthDate(prevMonths[0]!), "MMM yy")} – ${format(monthDate(prevMonths[11]!), "MMM yy")}`, color: "#10b981", values: prevMonths.map((m) => netOf(m)) }]} />
+      </Card>
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="p-5">
+          <h2 className="mb-3 text-sm font-semibold">Expenses month-wise</h2>
+          <LineChart labels={months.map(label)} format={(v) => `${Math.round(v / 1000)}k`} empty="No expense claims in the last 12 months."
+            series={expenses.length ? [{ name: "Requested", color: "#c2410c", values: months.map((m) => expenses.filter((x) => inMonth(x.date, m)).reduce((s, x) => s + x.amount, 0)) }, { name: "Approved / paid", color: "#10b981", values: months.map((m) => expenses.filter((x) => inMonth(x.date, m) && ["approved", "paid"].includes(x.status)).reduce((s, x) => s + x.amount, 0)) }] : []} />
+        </Card>
+        <Card className="p-5">
+          <h2 className="mb-3 text-sm font-semibold">Loans &amp; advances month-wise</h2>
+          <LineChart labels={months.map(label)} format={(v) => `${Math.round(v / 1000)}k`} empty="No loans or advances in the last 12 months."
+            series={loansIssued.length ? [{ name: "Requested", color: "#1c3f63", values: months.map((m) => loansIssued.filter((x) => inMonth(x.createdAt, m)).reduce((s, x) => s + x.amount, 0)) }, { name: "Given", color: "#10b981", values: months.map((m) => loansIssued.filter((x) => inMonth(x.createdAt, m) && ["active", "closed"].includes(x.status)).reduce((s, x) => s + x.amount, 0)) }] : []} />
+        </Card>
+      </div>
+      <Card className="mt-6 p-5">
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <h2 className="text-sm font-semibold">Employee month-wise earning</h2>
+          <AutoFilterForm className="ml-auto">
+            <select name="emp" defaultValue={empPick?.id ?? ""} aria-label="Employee" className="input h-9 w-64">{staff.map((e) => <option key={e.id} value={e.id}>{e.fullName} ({e.code})</option>)}</select>
+          </AutoFilterForm>
+        </div>
+        <LineChart labels={months.map((m) => format(monthDate(m), "MMM yy"))} format={(v) => `${Math.round(v / 1000)}k`} empty="Nobody has a salary yet."
+          series={empPick ? [{ name: `${empPick.fullName} · net pay`, color: "#10b981", values: months.map((m) => netOf(m, empPick.id)) }] : []} />
+      </Card>
       <Card className="mt-6 overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Month</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5 text-right">Payslips</th><th className="px-4 py-2.5 text-right">Gross</th><th className="px-4 py-2.5 text-right">Deductions</th><th className="px-4 py-2.5 text-right">Net</th></tr></thead>
