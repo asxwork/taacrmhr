@@ -375,7 +375,9 @@ export function appForPath<T extends Pick<AppDef, "key" | "prefixes">>(apps: T[]
 export function appForPathFrom<T extends Pick<AppDef, "key" | "prefixes" | "groups">>(apps: T[], pathname: string, lastKey?: string): T | null {
   const last = apps.find((a) => a.key === lastKey);
   const pathOf = (h: string) => h.split(/[?#]/)[0];
-  if (last?.groups.some((g) => g.items.some((i) => pathOf(i.href) === pathname || i.also?.includes(pathname)))) return last;
+  // Stay in the app you came from when this page is in its menu, sub-menus included (HR → Leave → Request opens
+  // /me/leave but keeps the HR menu).
+  if (last?.groups.some((g) => g.items.some((i) => [i, ...(i.children ?? [])].some((c) => pathOf(c.href) === pathname || c.also?.includes(pathname))))) return last;
   return appForPath(apps, pathname);
 }
 
