@@ -170,3 +170,23 @@ export async function saveLeaveType(_: FormState, fd: FormData): Promise<FormSta
   await audit(user.id, id ? "update" : "create", "leaveType", id || null, `${id ? "Updated" : "Added"} leave type ${name}`);
   return done();
 }
+
+/**
+ * Delete a department or designation. Only when no current employee is in it (move them first); past employees
+ * just lose the link (their payslips keep the name they had).
+ */
+export async function deleteOrgUnit(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireHrAdmin();
+  const kind = str(fd, "kind");
+  const id = str(fd, "id");
+  if (kind !== "department" && kind !== "designation") return { error: "Unknown item." };
+  const where = kind === "department" ? { departmentId: id } : { designationId: id };
+  const inUse = await db.employee.count({ where: { ...where, status: { not: "left" } } });
+  const unit = kind === "department" ? await db.department.findUnique({ where: { id }, select: { name: true } }) : await db.designation.findUnique({ where: { id }, select: { name: true } });
+  if (!unit) return { error: "Already deleted." };
+  if (inUse) return { error: `${inUse} ${inUse === 1 ? "person is" : "people are"} still in ${unit.name}. Move them to another ${kind} first (or untick Active to hide it).` };
+  if (kind === "department") await db.department.delete({ where: { id } });
+  else await db.designation.delete({ where: { id } });
+  await audit(user.id, "delete", kind, id, `Deleted ${kind} ${unit.name}`);
+  return done(`${unit.name} deleted.`);
+}

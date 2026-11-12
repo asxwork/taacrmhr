@@ -8,7 +8,8 @@ import { getSetting, nextEmployeeCode } from "@/lib/hr";
 import type { Step } from "@/lib/approvals";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field, PageHeader } from "@/components/ui";
-import { saveDepartment, saveDesignation, saveFlow, saveHrGeneral } from "./actions";
+import { deleteOrgUnit, saveDepartment, saveDesignation, saveFlow, saveHrGeneral } from "./actions";
+import { Trash2 } from "lucide-react";
 import { AttendanceSettings } from "./attendance-settings";
 
 export const metadata = { title: "HR Settings" };
@@ -57,7 +58,8 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
         {tab === "org" && <Section id="departments" title="Departments">
           <Card className="divide-y divide-line">
             {departments.map((d) => (
-              <ActionForm key={d.id} action={saveDepartment} className="flex flex-wrap items-center gap-2 p-3">
+              <div key={d.id} className="flex items-start gap-1 pr-3 [&>form:last-child]:pt-3">
+              <ActionForm action={saveDepartment} className="flex flex-1 flex-wrap items-center gap-2 p-3">
                 <input type="hidden" name="id" value={d.id} />
                 <input name="name" defaultValue={d.name} required className="input w-44" aria-label="Name" />
                 <input name="code" defaultValue={d.code ?? ""} placeholder="Code" className="input w-20" aria-label="Code" />
@@ -71,6 +73,11 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
                 <Badge>{d._count.employees} people</Badge>
                 <SubmitButton variant="secondary">Save</SubmitButton>
               </ActionForm>
+              <ActionForm action={deleteOrgUnit} className="flex max-w-[15rem] shrink-0 flex-col items-end text-right text-xs">
+                <input type="hidden" name="kind" value="department" /><input type="hidden" name="id" value={d.id} />
+                <button title={d._count.employees ? "Move its people first" : "Delete"} aria-label={`Delete ${d.name}`} className="rounded-md p-2 text-muted hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /></button>
+              </ActionForm>
+              </div>
             ))}
             <ActionForm action={saveDepartment} className="flex flex-wrap items-center gap-2 bg-canvas/50 p-3">
               <input name="name" required placeholder="New department" className="input w-44" />
@@ -83,7 +90,8 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
         {tab === "org" && <Section id="designations" title="Designations">
           <Card className="divide-y divide-line">
             {designations.map((d) => (
-              <ActionForm key={d.id} action={saveDesignation} className="flex flex-wrap items-center gap-2 p-3">
+              <div key={d.id} className="flex items-start gap-1 pr-3 [&>form:last-child]:pt-3">
+              <ActionForm action={saveDesignation} className="flex flex-1 flex-wrap items-center gap-2 p-3">
                 <input type="hidden" name="id" value={d.id} />
                 <input name="name" defaultValue={d.name} required className="input w-56" aria-label="Designation" />
                 <input name="grade" defaultValue={d.grade ?? ""} placeholder="Grade" className="input w-20" aria-label="Grade" />
@@ -92,6 +100,11 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
                 <Badge>{d._count.employees} people</Badge>
                 <SubmitButton variant="secondary">Save</SubmitButton>
               </ActionForm>
+              <ActionForm action={deleteOrgUnit} className="flex max-w-[15rem] shrink-0 flex-col items-end text-right text-xs">
+                <input type="hidden" name="kind" value="designation" /><input type="hidden" name="id" value={d.id} />
+                <button title={d._count.employees ? "Move its people first" : "Delete"} aria-label={`Delete ${d.name}`} className="rounded-md p-2 text-muted hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /></button>
+              </ActionForm>
+              </div>
             ))}
             <ActionForm action={saveDesignation} className="flex flex-wrap items-center gap-2 bg-canvas/50 p-3">
               <input name="name" required placeholder="New designation" className="input w-56" />
