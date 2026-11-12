@@ -6,6 +6,7 @@ import { fiscalYearOf, monthDate, payrollEmployeeWhere, payrollSettings } from "
 import { fmtPKR } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
+import { fyStartMonth } from "@/lib/payslip-doc";
 import { Badge, Card, Drawer, EmptyState, Field, PageHeader } from "@/components/ui";
 import { PersonAvatar } from "@/components/person-avatar";
 import { createRun, savePayrollSettings, saveSalary, saveTaxSlabs } from "./actions";
@@ -111,6 +112,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       </>
     );
   } else {
+    const slipSettings = { fyStart: await fyStartMonth(), payslipStart: Number((await db.setting.findUnique({ where: { key: "payroll.payslipStart" } }))?.value ?? 1) || 1 };
     const [settings, comps, fys] = await Promise.all([payrollSettings(), db.payComponent.findMany({ orderBy: { sortOrder: "asc" } }), db.taxSlab.findMany({ distinct: ["fiscalYear"], select: { fiscalYear: true }, orderBy: { fiscalYear: "desc" } })]);
     const fy = sp.fy ?? fiscalYearOf(thisMonth);
     const slabs = await db.taxSlab.findMany({ where: { fiscalYear: fy }, orderBy: { from: "asc" } });
@@ -133,6 +135,10 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
               <Field label="EOBI employer (PKR/month)"><input name="eobiEmployer" type="number" defaultValue={settings.eobiEmployer} className="input" /></Field>
               <Field label="Lates per day deducted" hint="0 = don't deduct"><input name="latesPerDay" type="number" min={0} defaultValue={settings.latesPerDay} className="input" /></Field>
               <Field label="Overtime rate (× hourly)" hint="0 = don't pay overtime"><input name="overtimeRate" type="number" step="0.25" min={0} defaultValue={settings.overtimeRate} className="input" /></Field>
+              <Field label="Financial year starts" hint="YTD on payslips restarts here">
+                <select name="fyStart" defaultValue={slipSettings.fyStart} className="input">{["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select>
+              </Field>
+              <Field label="First payslip number" hint="e.g. 598 → PS-000598 (used once)"><input name="payslipStart" type="number" min={1} defaultValue={slipSettings.payslipStart} className="input" /></Field>
             </div>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="commission" defaultChecked={settings.commission} className="accent-navy-900" /> Pay deal commissions through payroll (won deals × commission %)</label>
             <SubmitButton>Save</SubmitButton>

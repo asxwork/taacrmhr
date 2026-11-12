@@ -129,6 +129,12 @@ export async function savePayrollSettings(_: FormState, fd: FormData): Promise<F
     await set(k, String(v));
   }
   await set("commission", fd.get("commission") === "on" ? "on" : "off");
+  const fy = Math.round(Number(str(fd, "fyStart") || 7));
+  if (fy < 1 || fy > 12) return { error: "Financial year start must be a month 1–12." };
+  await set("fyStart", String(fy));
+  const start = Math.round(Number(str(fd, "payslipStart") || 1));
+  if (!(start >= 1)) return { error: "First payslip number must be 1 or more." };
+  await set("payslipStart", String(start));
 
   // Components: name / % pairs; percentages must add up to 100.
   const comps = await db.payComponent.findMany({ orderBy: { sortOrder: "asc" } });

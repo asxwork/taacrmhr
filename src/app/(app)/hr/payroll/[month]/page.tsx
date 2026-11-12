@@ -2,7 +2,7 @@ import Link from "@/components/link";
 import { notFound } from "next/navigation";
 import { comingSoon } from "@/components/coming-soon";
 import { format } from "date-fns";
-import { ArrowLeft, Download, Printer, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowLeft, Download, Mail, Printer, RefreshCw, Trash2, X } from "lucide-react";
 import { db } from "@/lib/db";
 import { requirePermission, scopeFor } from "@/lib/permissions";
 import { monthDate, payrollEmployeeWhere } from "@/lib/payroll";
@@ -10,6 +10,7 @@ import { fmtPKR } from "@/lib/crm-shared";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Button, Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
 import { PersonAvatar } from "@/components/person-avatar";
+import { emailRun } from "../payslip-actions";
 import { addAdjustment, approvePayroll, deleteRun, markPaid, recalculateRun, removeAdjustment, reopenPayroll } from "../actions";
 
 export const metadata = { title: "Payroll run" };
@@ -58,6 +59,9 @@ export default async function PayrollRunPage({ params, searchParams }: { params:
                 <form action={reopenPayroll}><input type="hidden" name="runId" value={run.id} /><Button variant="ghost">Reopen</Button></form>
                 <form action={markPaid}><input type="hidden" name="runId" value={run.id} /><Button>Mark as paid</Button></form>
               </>
+            )}
+            {canApprove && run.status !== "draft" && (
+              <ActionForm action={emailRun}><input type="hidden" name="runId" value={run.id} /><SubmitButton variant="secondary" pendingText="Sending…"><Mail className="size-4" /> Email all payslips</SubmitButton></ActionForm>
             )}
           </div>
         }

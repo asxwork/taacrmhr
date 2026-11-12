@@ -1445,10 +1445,15 @@ model Payslip {
   bankName      String?
   accountTitle  String?
   accountNumber String?
+  /// Payslip # (PS-000598): given once when the run is approved, never reused.
+  number        Int?
+  /// When the payslip was last emailed to the employee.
+  emailedAt     DateTime?
   createdAt     DateTime      @default(now())
   lines         PayslipLine[]
 
   @@unique([runId, employeeId])
+  @@index([number])
 }
 
 /// kind: earning | deduction. source: component | overtime | commission | expense | adjustment | absence | late | unpaid | loan | tax | eobi | pf

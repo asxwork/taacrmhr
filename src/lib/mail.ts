@@ -26,7 +26,7 @@ function getTransport() {
   return transporter;
 }
 
-export type MailContext = { userId?: string | null; leadId?: string | null; dealId?: string | null; contactId?: string | null; /** What to store in the log instead of the body (e.g. when the body holds a secret link). */ logBody?: string };
+export type MailContext = { userId?: string | null; leadId?: string | null; dealId?: string | null; contactId?: string | null; /** What to store in the log instead of the body (e.g. when the body holds a secret link). */ logBody?: string; /** A ready HTML email (e.g. a payslip) sent instead of the plain-text body. */ html?: string };
 
 /** Sends a plain-text email (rendered with simple HTML line breaks) and logs the attempt. Never throws. */
 export async function sendMail(to: string, subject: string, body: string, ctx: MailContext = {}, replyTo?: string) {
@@ -39,8 +39,8 @@ export async function sendMail(to: string, subject: string, body: string, ctx: M
         to,
         replyTo,
         subject,
-        text: body,
-        html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#0f1a2a">${escapeHtml(body).replace(/\n/g, "<br>")}</div>`,
+        text: body || subject,
+        html: ctx.html ?? `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#0f1a2a">${escapeHtml(body).replace(/\n/g, "<br>")}</div>`,
       });
       status = "sent";
       error = null;
