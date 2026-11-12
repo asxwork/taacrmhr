@@ -9,8 +9,10 @@ export type Tutorial = {
   summary: string;
   steps: string[];
   tips?: string[];
-  /** Where to try it. */
+  /** Where to try it. Its path also decides which page shows this guide behind the "?" help button. */
   href?: string;
+  /** Other pages that show this guide in their "?" help button (paths; a guide matches sub-pages too). */
+  paths?: string[];
   /** Video chapter key, if the full tour covers it. */
   chapter?: string;
   /** Who sees this tutorial: people who can view `module` (with `action`), or Super Admins only. None = everyone. */
@@ -457,7 +459,217 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Admins can switch breaks off in Settings → Features."],
   },
   {
-    key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance",
+    key: "salary-revisions", group: "HR", module: "hr.payroll", title: "Salary revisions", who: "HR, payroll", href: "/hr/salary-revisions",
+    summary: "Increments, promotions and adjustments, with the date they take effect.",
+    steps: [
+      "Open HR → People → Salary Revisions and press New revision.",
+      "Choose the employee, the type (increment, promotion, adjustment or decrement), the new gross salary and the effective date, and add a reason.",
+      "Once approved, the salary changes on the effective date (the daily job applies future-dated ones) and the next increment date is set.",
+      "Every revision stays on the employee's profile history, so you can see how their pay changed over time.",
+    ],
+  },
+  {
+    key: "leave-encashment", group: "HR", module: "hr.leave", title: "Leave encashment", who: "HR, payroll", href: "/hr/leave-encashment",
+    summary: "Pay out unused paid leave as salary.",
+    steps: [
+      "Open HR → People → Leave Encashment and choose the employee, the leave type and the number of days.",
+      "AMS works out the amount from their salary.",
+      "When approved, the days come off their leave balance straight away and the amount is added to the next payroll.",
+    ],
+  },
+  {
+    key: "assets", group: "HR", module: "hr.assets", title: "Company assets", who: "HR, admin", href: "/hr/assets",
+    summary: "Laptops, phones, SIMs, cars and other equipment — and who has each one.",
+    steps: [
+      "Open HR → People → Asset and press Add asset: name, tag number, category and serial.",
+      "Assign it to an employee; it appears on their profile under Assets.",
+      "When someone leaves, the exit checklist reminds HR to collect their assets; return an asset to make it available again.",
+    ],
+  },
+  {
+    key: "organization", group: "HR", module: "hr.employees", title: "Organization", who: "HR", href: "/hr/organization",
+    summary: "Branches, departments and designations, with how many people are in each.",
+    steps: [
+      "Open HR → People → Organization to see every branch, department and designation and their headcount.",
+      "Click a number to open those people in the employee list.",
+      "Add or rename branches, departments and designations in HR Settings → General.",
+    ],
+  },
+  {
+    key: "policies", group: "HR", module: "hr.employees", title: "Policy documents", who: "HR", href: "/hr/policies", paths: ["/hr/policies/manage"],
+    summary: "Publish policies and track who has read and acknowledged them.",
+    steps: [
+      "Open HR → People → Settings → Policy Management, write the policy or attach a PDF, choose who it applies to, and publish.",
+      "Staff are notified and acknowledge it in My Space → Policies.",
+      "HR → People → Compliance → Policy Documents shows who has and hasn't acknowledged the current version.",
+      "Changing a published policy can send it out again as a new version for everyone to acknowledge.",
+    ],
+  },
+  {
+    key: "policy-planner", group: "HR", module: "hr.employees", title: "Attendance rules (policy planner)", who: "HR", href: "/hr/policies/planner",
+    summary: "How attendance is counted: too-short days, missing check-outs and overtime.",
+    steps: [
+      "Open HR → People → Compliance → Policy Planner.",
+      "Set when a day counts as absent (worked too little), how a missing check-out counts (present, half day or absent), and when overtime starts.",
+      "Save. The rules apply everywhere at once: daily attendance, the HR dashboard, reports and payroll deductions.",
+    ],
+  },
+  {
+    key: "letters", group: "HR", module: "hr.employees", title: "Letters", who: "HR", href: "/hr/letters",
+    summary: "Experience letters, salary certificates, appointment and warning letters.",
+    steps: [
+      "Open HR → People → Settings → Letter Management and choose a template, or edit the wording.",
+      "Pick the employee: the letter fills in their name, designation, dates and salary from their record.",
+      "Issue it: it's saved on their profile (Documents) and opens on the letterhead to print or save as PDF.",
+    ],
+  },
+  {
+    key: "exits", group: "HR", module: "hr.employees", title: "End of employment", who: "HR", href: "/hr/exits",
+    summary: "Resignations and terminations: notice, last day, exit checklist and leavers.",
+    steps: [
+      "Record an exit from the employee's profile (Record exit): type, notice date, last working day and reason.",
+      "HR → People → End Of Employment → Exits lists everyone serving notice with their last day and checklist progress, and who left in the last 12 months.",
+      "On the last day, complete the exit: they're marked as left and their login is switched off.",
+      "For people who left before AMS, tick “They have already left” when recording the exit.",
+    ],
+  },
+  {
+    key: "recruitment", group: "HR", module: "hr.recruitment", title: "Recruitment", who: "HR, managers", href: "/hr/recruitment",
+    summary: "Job openings and a pipeline of candidates for each.",
+    steps: [
+      "Open HR → Recruitment and create an opening (title, department, branch, how many people).",
+      "Add candidates with their CV; move them through the stages (applied, shortlisted, interview, offer, hired).",
+      "Record interviews and their outcome; hire the successful candidate to create their employee record.",
+    ],
+  },
+  {
+    key: "performance", group: "HR", module: "hr.performance", title: "Performance reviews", who: "HR, managers", href: "/hr/performance",
+    summary: "Review cycles: employees rate themselves, then their line manager completes the review.",
+    steps: [
+      "Open HR → Assessment → Performance and start a review cycle (period and who it covers).",
+      "Each employee fills in their self-review in My Space; then their line manager rates them.",
+      "HR sees progress and results in Assessment → Reports. Criteria are set in Assessment → Settings → Performance.",
+    ],
+  },
+  {
+    key: "probation", group: "HR", module: "hr.performance", title: "Probation evaluation", who: "HR, managers", href: "/hr/probation",
+    summary: "Rate probationers before their probation ends, then confirm, extend or end.",
+    steps: [
+      "Open HR → Assessment → Probations → Probation Evaluation to see who is due.",
+      "The line manager rates each probationer against the criteria.",
+      "HR then confirms them, extends probation, or ends their employment. AMS reminds HR before probation ends.",
+    ],
+  },
+  {
+    key: "scheduling", group: "HR", module: "hr.attendance", title: "Scheduling (roster)", who: "HR, managers", href: "/hr/attendance/schedule",
+    summary: "Plan who works which shift each day.",
+    steps: [
+      "Open HR → Attendance → Scheduling and pick the week or month.",
+      "Click a person's day to give them a different shift, custom hours, or a day off.",
+      "Attendance is judged against this plan; approved shift-adjustment and shift-swap requests appear here automatically.",
+    ],
+  },
+  {
+    key: "attendance-logs", group: "HR", module: "hr.attendance", title: "Attendance logs", who: "HR", href: "/hr/attendance/logs",
+    summary: "Every machine punch, web check-in and attendance change — who, when and what it was before.",
+    steps: [
+      "Open HR → Attendance → Attendance Logs and filter by employee, date or type.",
+      "Each entry shows what happened and who did it; corrections show the value before and after.",
+      "Entries can't be edited; only a Super Admin can delete one, and that is recorded too.",
+    ],
+  },
+  {
+    key: "device-changes", group: "HR", module: "hr.attendance", title: "Device change approvals", who: "HR", href: "/hr/attendance/device-changes",
+    summary: "With the device lock on, each employee checks in from one registered phone or computer.",
+    steps: [
+      "An employee's first device is registered automatically.",
+      "If they check in from a new phone or computer, it waits for HR approval here (and in Approvals).",
+      "Approve to switch them to the new device, or reject it.",
+    ],
+  },
+  {
+    key: "payslips-vouchers", group: "HR", module: "hr.payroll", title: "Payslips and vouchers", who: "HR, payroll", href: "/hr/payroll/payslips", paths: ["/hr/payroll/vouchers"],
+    summary: "Payslips for staff, and the bank transfer list for paying them.",
+    steps: [
+      "After a payroll run is approved, its payslips appear in HR → Payroll → Payslips and in each employee's My Space → Payslips.",
+      "HR → Payroll → Vouchers shows who gets how much and into which account.",
+      "Download the bank transfer list as CSV for your bank's bulk upload, then mark the run as paid.",
+    ],
+  },
+  {
+    key: "settlements", group: "HR", module: "hr.payroll", title: "Final settlement", who: "HR, payroll", href: "/hr/payroll/settlements",
+    summary: "The last payment for someone leaving.",
+    steps: [
+      "Open HR → Payroll → Final Settlement: it lists people serving notice or who left in the last six months.",
+      "Open a person: AMS adds the last salary, unused leave, approved claims and pay items, and recovers loans and advances.",
+      "Adjust if needed, approve, and print the settlement statement.",
+    ],
+  },
+  {
+    key: "pay-items", group: "HR", module: "hr.payroll", title: "Commission, late sittings and rewards", who: "HR, payroll", href: "/hr/payroll/items/commission", paths: ["/hr/payroll/items/late-sittings", "/hr/payroll/rewards"],
+    summary: "Extra pay items added to the month's payroll.",
+    steps: [
+      "Commission comes from the CRM: won deals closed this month that have a commission % on the deal.",
+      "Late sittings: enter the number of extra-hour sittings per person for the month.",
+      "Rewards: bonuses and spot awards for an employee and month.",
+      "All of these are added automatically when that month's payroll is calculated.",
+    ],
+  },
+  {
+    key: "payroll-banks", group: "HR", module: "hr.payroll", title: "Disbursement banks", who: "HR, payroll", href: "/hr/payroll/banks", paths: ["/hr/payroll/account-types"],
+    summary: "The company accounts salaries are paid from.",
+    steps: [
+      "Open HR → Payroll → Settings → Disbursement Banks and add the company's salary account(s).",
+      "Mark one as default: it appears on payroll vouchers.",
+    ],
+  },
+  {
+    key: "loans-expenses", group: "HR", module: "hr.expenses", title: "Loans, advances and expenses", who: "HR, payroll", href: "/hr/expenses",
+    summary: "Claims and borrowing, approved through the approval chain and settled via payroll.",
+    steps: [
+      "Staff ask for a loan, advance or expense claim in My Space → Requests → Expenses & loans.",
+      "It goes through the approval chain (line manager, then HR).",
+      "Approved expenses are paid with the next payroll; loan installments are deducted each month until it's repaid. HR → Payroll → Balances shows what's outstanding.",
+    ],
+  },
+  {
+    key: "engagement", group: "HR", module: "hr.employees", title: "Engagement surveys", who: "HR", href: "/hr/engagement",
+    summary: "Short pulse surveys to hear how people feel.",
+    steps: [
+      "Open HR → People → Settings → Employee Engagement and create a survey with a few questions.",
+      "Everyone with a login is notified and answers in My Space → Surveys.",
+      "Results appear here as they come in.",
+    ],
+  },
+  {
+    key: "hr-settings", group: "HR", module: "hr.employees", title: "HR settings", who: "HR", href: "/settings/hr",
+    summary: "Organisation, shifts, holidays, leave types, checklists and approval chains.",
+    steps: [
+      "Branches, departments and designations: the organisation lists used across HR.",
+      "Holidays: public holidays per branch; attendance counts them automatically.",
+      "Leave types: quota per year, paid or unpaid, granted yearly or earned monthly.",
+      "Checklists: onboarding and exit steps. Approval chains: who approves each request type, in order.",
+    ],
+  },
+  {
+    key: "hr-reports", group: "HR", module: "reports.hr", title: "HR reports", who: "HR, management", href: "/reports/hr",
+    summary: "Headcount, joiners, leavers, attendance, leave and payroll reports.",
+    steps: [
+      "Open HR → Reports, pick the period, and open the report you need.",
+      "Each report can be filtered by branch and department and downloaded.",
+    ],
+  },
+  {
+    key: "hr-requests", group: "My Space", title: "Making a request", who: "Everyone", href: "/hr/requests",
+    summary: "Work from home, overtime, travel, official duty, tickets and more.",
+    steps: [
+      "Open Requests (or HR → Requests) and choose what you need.",
+      "Fill in the form and send it: it goes to its approvers in order (usually your line manager, then HR).",
+      "You're notified of the decision; see all your requests in Approvals → My requests.",
+    ],
+  },
+  {
+    key: "attendance", group: "HR", module: "hr.attendance", title: "Attendance and the machine", who: "HR", href: "/hr/attendance", chapter: "attendance", paths: ["/hr/attendance/machines", "/hr/attendance/reports"],
     summary: "Daily attendance, the monthly register, corrections and the attendance machine.",
     steps: [
       "HR → Attendance → Daily attendance shows today: present, late, absent, on leave. Switch to Monthly register for the whole month (50 people per page).",

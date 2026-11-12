@@ -11,6 +11,8 @@ import { unreadCount } from "@/lib/notify";
 import { maybeRunHoldRules } from "@/lib/lead-hold";
 import { db } from "@/lib/db";
 import { memo } from "@/lib/memo";
+import { PageHelp } from "@/components/page-help";
+import { visibleTutorials } from "@/lib/tutorial-access";
 import { SECTIONS, sectionForPath, type SectionTab } from "@/lib/sections";
 import { SectionTabs } from "@/components/section-tabs";
 import { redirect } from "next/navigation";
@@ -55,6 +57,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="app-wallpaper min-h-screen" data-sidebar={sidebarMode(current.layout, collapsed)}>
       <NavProgress />
+      {/* "?" help button: the guide for the page you're on, from the sections you use. */}
+      <PageHelp items={visibleTutorials(user).filter((t) => t.href || t.paths?.length).map((t) => ({ key: t.key, title: t.title, summary: t.summary, steps: t.steps, tips: t.tips, paths: [...(t.href ? [t.href] : []), ...(t.paths ?? [])] }))} />
       <Sidebar
         apps={apps}
         initialApp={current.key as AppKey}
