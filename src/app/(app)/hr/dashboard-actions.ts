@@ -44,3 +44,27 @@ export async function sendHrSupport(_: FormState, fd: FormData): Promise<FormSta
   for (const id of to) await notify(id, `Support: ${subject}`, { body: `${user.name} (${user.email}): ${message}`, link: "/hr", email: true });
   return { ok: true, message: to.length ? `Sent to HR (${to.length}).` : "No HR users to send to yet." };
 }
+
+/** My dashboard: show/hide one widget, move it up/down, or reset to the default layout. Saved per person. */
+export async function arrangeMyDashboard(fd: FormData) {
+  const user = await requireUser();
+  const { myDashboardLayout, DASHBOARD_WIDGETS } = await import("@/lib/hr-dashboard-widgets");
+  const key = String(fd.get("key") ?? "");
+  const op = String(fd.get("op") ?? "");
+  const settingKey = `hr.dashboard.layout.${user.id}`;
+  if (op === "reset") {
+    await db.setting.deleteMany({ where: { key: settingKey } });
+  } else {
+    if (!DASHBOARD_WIDGETS.some((w) => w.key === key)) return;
+    const { order, hidden } = await myDashboardLayout(user.id);
+    const k = key as (typeof order)[number];
+    if (op === "toggle") { if (hidden.has(k)) hidden.delete(k); else hidden.add(k); }
+    if (op === "up" || op === "down") {
+      const i = order.indexOf(k), j = op === "up" ? i - 1 : i + 1;
+      if (i >= 0 && j >= 0 && j < order.length) [order[i], order[j]] = [order[j]!, order[i]!];
+    }
+    const value = JSON.stringify({ order, hidden: [...hidden] });
+    await db.setting.upsert({ where: { key: settingKey }, update: { value }, create: { key: settingKey, value } });
+  }
+  revalidatePath("/hr");
+}

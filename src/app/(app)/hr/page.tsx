@@ -6,7 +6,8 @@ import { can, requirePermission, scopeFor } from "@/lib/permissions";
 import { ATTENDANCE_DRILL, DAY_STATUSES, attendanceEmployeeWhere, fmtMinutes, geofenceMode, loadAttendance, type DayResult } from "@/lib/attendance";
 import { companyWidgets, myWidgets } from "@/lib/hr-dashboard";
 import { policiesFor } from "@/lib/policies";
-import { hiddenWidgets, type WidgetKey } from "@/lib/hr-dashboard-widgets";
+import { hiddenWidgets, myDashboardLayout, quoteOfTheDay, type WidgetKey } from "@/lib/hr-dashboard-widgets";
+import { Fragment } from "react";
 import { color } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -22,11 +23,14 @@ import { LiveClock } from "@/components/live-clock";
 import { CheckInButton } from "../me/attendance/check-in-button";
 import { BreakButton } from "../me/attendance/break-button";
 import { disabledFeatures } from "@/lib/features";
-import { addHrPost, deleteHrPost, sendHrSupport } from "./dashboard-actions";
+import { addHrPost, arrangeMyDashboard, deleteHrPost, sendHrSupport } from "./dashboard-actions";
+import { ArrowDown, ArrowUp, Eye, EyeOff, LayoutGrid, RotateCcw } from "lucide-react";
+import { DASHBOARD_WIDGETS } from "@/lib/hr-dashboard-widgets";
+import { Drawer } from "@/components/ui";
 
 export const metadata = { title: "HR Dashboard" };
 
-type SP = { date?: string; branch?: string };
+type SP = { date?: string; branch?: string; customize?: string };
 const TZ = process.env.APP_TIMEZONE ?? "Asia/Karachi";
 
 /** HR app home in the ResourceInn layout: every widget opens the list behind it. */
@@ -66,14 +70,12 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
   const k = company.kpis;
   const hidden = await hiddenWidgets(); // System Settings → Customization → Dashboard
   const breaksOn = !(await disabledFeatures()).has("breaks");
-  const show = (w: WidgetKey) => !hidden.has(w);
+  const layout = await myDashboardLayout(user.id); // this person's own choice and order
+  const show = (w: WidgetKey) => !hidden.has(w) && !layout.hidden.has(w);
   const h = company.headcount;
 
-  return (
-    <>
-      <PageHeader title="Dashboard" description={`${format(now, "EEEE d MMMM yyyy")} · ${TZ}`} actions={<FeedIcon />} />
-
-      {show("drill") && (<>
+  const blocks: Partial<Record<WidgetKey, React.ReactNode>> = {
+    drill: (<>
       {/* Attendance drill-down */}
       <Widget title={`Attendance Drill Down${branches.length > 1 ? " By Branch" : ""}`} className="mb-6"
         action={
@@ -89,27 +91,24 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
         }>
         <DrillTiles tiles={tiles} className="xl:grid-cols-4 2xl:grid-cols-5" />
       </Widget>
-      </>)}
-
-      {show("risers") && (<>
+    </>),
+    risers: (<>
       <Grid>
         <PeopleList title="Early Risers" icon={<Sunrise className="size-4 text-amber-500" />}
           rows={earlyRisers.map(({ e, d }) => ({ e, value: format(d.checkIn!, "h:mm a"), sub: e.designation?.name ?? e.code }))} />
         <PeopleList title="Late Comers" icon={<Timer className="size-4 text-red-500" />} action={<span className="text-xs text-muted">{format(date, "MMMM d, yyyy")}</span>}
           rows={lateComers.map(({ e, d }) => ({ e, value: `${d.lateMin} min late`, sub: `In at ${format(d.checkIn!, "h:mm a")}`, tone: "text-red-600" }))} />
       </Grid>
-      </>)}
-
-      {show("kpis") && (<>
+    </>),
+    kpis: (<>
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi tone="from-emerald-600 to-emerald-800" delta={company.kpiDelta.active} value={k.active} label="Active Employees" href="/hr/employees" />
         <Kpi tone="from-sky-600 to-sky-800" delta={company.kpiDelta.separations30} value={k.separations30} label="Separations in 30 Days" href="/hr/exits" />
         <Kpi tone="from-amber-500 to-amber-700" delta={company.kpiDelta.confirmations30} value={k.confirmations30} label="Confirmations in 30 Days" href="/hr/employees?status=probation" />
         <Kpi tone="from-red-600 to-red-800" delta={company.kpiDelta.separationsMonth} value={k.separationsMonth} label="Separation This Month" href="/hr/exits?tab=left" />
       </div>
-      </>)}
-
-      {show("me") && (<>
+    </>),
+    me: (<>
       {/* Me: clock in/out, leave summary, clock */}
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Widget title="Mark Clock In/Clock Out">
@@ -151,9 +150,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
         </Widget>
         <Widget title="Clock"><LiveClock timeZone={TZ} /></Widget>
       </div>
-      </>)}
-
-      {show("posts") && (<>
+    </>),
+    posts: (<>
       {/* Accolades / News Letter / Words of Wisdom */}
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {company.posts.map(({ kind, rows: posts }) => (
@@ -200,9 +198,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
           </Widget>
         ))}
       </div>
-      </>)}
-
-      {show("summary") && (<>
+    </>),
+    summary: (<>
       {mine && (
         <>
           <Widget title="Attendance Summary" className="mb-6" action={<span className="text-xs text-muted">{format(now, "MMMM yyyy")}</span>}>
@@ -220,15 +217,13 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
           </Widget>
         </>
       )}
-      </>)}
-
-      {show("absents") && (<>
+    </>),
+    absents: (<>
       <Widget title="Month Wise Absents" className="mb-6" action={<span className="text-xs text-muted">{company.monthAbsents.labels[0]} – {company.monthAbsents.labels.at(-1)}</span>}>
         <LineChart labels={company.monthAbsents.labels} series={[{ name: "Absents", color: "#ea580c", values: company.monthAbsents.values }]} />
       </Widget>
-      </>)}
-
-      {show("people") && (<>
+    </>),
+    people: (<>
       <Grid>
         <Widget title="Birthday" icon={<Cake className="size-4 text-pink-500" />}>
           {company.birthdays.length ? (
@@ -261,9 +256,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
           ) : <Empty />}
         </Widget>
       </Grid>
-      </>)}
-
-      {show("headcount") && (<>
+    </>),
+    headcount: (<>
       <Grid>
         <Widget title="Head Count By Age"><BarList rows={h.age} empty="No Record Found!" /></Widget>
         <Widget title="Head Count By Branch"><BarList rows={h.branch} empty="No Record Found!" /></Widget>
@@ -276,8 +270,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
         <Widget title="Head Count By Employment Type"><BarList rows={h.type} empty="No Record Found!" /></Widget>
         <Widget title="Head Count By Location"><BarList rows={h.location} empty="No Record Found!" /></Widget>
       </Grid>
-      </>)}
-      {show("money") && (<>
+    </>),
+    money: (<>
       <Grid>
         <Widget title="Head Count By Service"><BarList rows={h.service} empty="No Record Found!" /></Widget>
         <Widget title="Attrition By Separation Type" action={<span className="text-xs text-muted">Last 12 months</span>}>{h.attrition.length ? <BarList rows={h.attrition} /> : <Empty />}</Widget>
@@ -292,8 +286,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
           ]} />
         </Widget>
       </Grid>
-      </>)}
-      {show("gender") && (<>
+    </>),
+    gender: (<>
       <Grid>
         <Widget title="Gender Wise Head Count"><BarList rows={h.gender} empty="No Record Found!" /></Widget>
         <Widget title="Company Documents and Policies" action={<Link href={mine ? "/me/policies" : "/hr/policies"} className="text-xs text-navy-700 hover:underline">View all</Link>}>
@@ -313,8 +307,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
           ) : <Empty />}
         </Widget>
       </Grid>
-      </>)}
-      {show("support") && (<>
+    </>),
+    support: (<>
       <Grid>
         <Widget title="Support Email" icon={<Mail className="size-4 text-navy-700" />}>
           <ActionForm action={sendHrSupport} className="space-y-2">
@@ -325,7 +319,58 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
         </Widget>
         <Widget title="New Joiners By Gender" action={<span className="text-xs text-muted">Last 90 days</span>}>{h.joinersGender.length ? <BarList rows={h.joinersGender} /> : <Empty />}</Widget>
       </Grid>
-      </>)}
+    </>),
+    quote: (() => { const [q, who] = quoteOfTheDay(); return (
+      <Card className="relative mb-6 overflow-hidden bg-gradient-to-br from-navy-950 to-navy-800 p-6 text-white">
+        <Quote className="absolute -right-2 -top-2 size-24 text-white/5" />
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-400">Quote of the day</p>
+        <p className="mt-2 max-w-3xl font-display text-xl leading-snug sm:text-2xl">“{q}”</p>
+        <p className="mt-2 text-sm text-white/60">— {who}</p>
+      </Card>
+    ); })(),
+  };
+
+  return (
+    <>
+      <PageHeader title="Dashboard" description={`${format(now, "EEEE d MMMM yyyy")} · ${TZ}`} actions={<div className="flex items-center gap-2"><FeedIcon /><Link href="/hr?customize=1" scroll={false} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line bg-surface px-4 text-sm shadow-sm hover:shadow-md"><LayoutGrid className="size-4" /> Customize</Link></div>} />
+
+      {layout.order.filter(show).map((k) => <Fragment key={k}>{blocks[k]}</Fragment>)}
+
+
+
+
+
+
+
+
+      {sp.customize && (
+        <Drawer title="Customize my dashboard" closeHref="/hr" width="max-w-md">
+          <p className="mb-4 text-sm text-muted">Show the widgets you use and put them in your order. Only your dashboard changes.</p>
+          <ul className="divide-y divide-line rounded-xl border border-line">
+            {layout.order.filter((k) => !hidden.has(k)).map((k, i, arr) => {
+              const on = !layout.hidden.has(k);
+              const btn = (op: string, icon: React.ReactNode, label: string, disabled = false) => (
+                <form action={arrangeMyDashboard}><input type="hidden" name="key" value={k} /><input type="hidden" name="op" value={op} />
+                  <button disabled={disabled} aria-label={label} title={label} className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink disabled:opacity-30">{icon}</button></form>
+              );
+              return (
+                <li key={k} className={cn("flex items-center gap-2 px-3 py-2.5 text-sm", !on && "opacity-50")}>
+                  <span className="w-6 text-center text-xs tabular-nums text-muted">{i + 1}</span>
+                  <span className="flex-1 font-medium">{DASHBOARD_WIDGETS.find((w) => w.key === k)?.label}</span>
+                  {btn("up", <ArrowUp className="size-4" />, "Move up", i === 0)}
+                  {btn("down", <ArrowDown className="size-4" />, "Move down", i === arr.length - 1)}
+                  {btn("toggle", on ? <Eye className="size-4" /> : <EyeOff className="size-4" />, on ? "Hide" : "Show")}
+                </li>
+              );
+            })}
+          </ul>
+          {layout.custom && (
+            <form action={arrangeMyDashboard} className="mt-4"><input type="hidden" name="op" value="reset" />
+              <button className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><RotateCcw className="size-4" /> Back to the default layout</button></form>
+          )}
+          {hidden.size > 0 && <p className="mt-3 text-xs text-muted">{hidden.size} widget(s) are switched off for everyone in System Settings.</p>}
+        </Drawer>
+      )}
     </>
   );
 }
