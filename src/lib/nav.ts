@@ -75,8 +75,8 @@ export const APPS: AppDef[] = [
           sub("Compliance", [
             { href: "/hr/policies", label: "Policy Documents", icon: "filecheck", module: "hr.employees" },
             { href: "/hr/policies/planner", label: "Policy Planner", icon: "calendar", module: "hr.employees" },
-            { href: "/hr/attendance/shifts", label: "Attendance Policy", icon: "clock", module: "hr.attendance" },
-            { href: "/settings/hr?tab=approvals", label: "Request Policy", icon: "check", module: "hr.employees" },
+            { href: "/hr/attendance/policy", label: "Attendance Policy", icon: "clock", module: "hr.attendance" },
+            { href: "/hr/requests/policy", label: "Request Policy", icon: "check", module: "hr.employees" },
             { href: "/hr/employees?tab=documents", label: "Renewals", icon: "refresh", module: "hr.employees" },
           ], "clipboard"),
           sub("End Of Employment", [
@@ -86,12 +86,12 @@ export const APPS: AppDef[] = [
           { href: "/reports/hr", label: "Reports", icon: "pie", module: "reports.hr" },
           sub("Settings", [
             { href: "/settings/hr", label: "General", icon: "sliders", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Approval Chains", icon: "check", module: "hr.employees" },
             { href: "/settings/roles", label: "Privileges", icon: "shield", module: "settings.roles" },
-            { href: "/settings/hr", label: "Checklist", icon: "clipboard", module: "hr.employees" },
+            { href: "/settings/hr?tab=checklists", label: "Checklist", icon: "clipboard", module: "hr.employees" },
             { href: "/hr/letters", label: "Letter Management", icon: "mail", module: "hr.employees" },
-            { href: "/settings/hr?tab=org", label: "Manage Employee", icon: "usercog", module: "hr.employees" },
+            { href: "/settings/hr?tab=org", label: "Departments & Designations", icon: "usercog", module: "hr.employees" },
             { href: "/hr/policies/manage", label: "Policy Management", icon: "filecheck", module: "hr.employees" },
-            { href: "/settings/hr?tab=org", label: "Manage Employments", icon: "briefcase", module: "hr.employees" },
             { href: "/hr/engagement", label: "Employee Engagement", icon: "heart", module: "hr.employees" },
             { href: "/hr/settings/custom-fields", label: "Custom Fields", icon: "list", module: "hr.employees" },
             { href: "/settings/hr-import", label: "Import HR Data", icon: "fileplus", superAdmin: true },
@@ -145,8 +145,9 @@ export const APPS: AppDef[] = [
           ], "pie"),
           sub("Settings", [
             { href: "/hr/attendance/shifts", label: "Shifts", icon: "clock", module: "hr.attendance" },
-            { href: "/settings/hr?tab=leave", label: "Types", icon: "list", module: "hr.employees" },
-            { href: "/settings/hr?tab=shifts", label: "Restrictions", icon: "ban", module: "hr.employees" },
+            { href: "/settings/hr?tab=leave", label: "Leave Types", icon: "list", module: "hr.employees" },
+            { href: "/hr/attendance/policy", label: "Attendance Policy", icon: "sliders", module: "hr.attendance" },
+            { href: "/settings/hr?tab=shifts", label: "Check-in Location", icon: "ban", module: "hr.employees" },
             { href: "/settings/hr?tab=leave", label: "Holidays", icon: "calendar", module: "hr.employees" },
           ], "settings"),
         ],
