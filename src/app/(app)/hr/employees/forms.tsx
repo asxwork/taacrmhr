@@ -173,7 +173,7 @@ export function AssignmentForm({ employee, org, cancelHref }: {
   );
 }
 
-export function ResignForm({ employeeId, cancelHref }: { employeeId: string; cancelHref: string }) {
+export function ResignForm({ employeeId, cancelHref, reasons = [] }: { employeeId: string; cancelHref: string; reasons?: string[] }) {
   return (
     <ActionForm action={recordResignation} className="space-y-4">
       <input type="hidden" name="id" value={employeeId} />
@@ -188,7 +188,10 @@ export function ResignForm({ employeeId, cancelHref }: { employeeId: string; can
         <Field label="Notice date"><input name="noticeDate" type="date" defaultValue={d(new Date())} required className="input" /></Field>
         <Field label="Last working day"><input name="lastWorkingDay" type="date" required className="input" /></Field>
       </div>
-      <Field label="Reason"><textarea name="reason" rows={3} className="input" /></Field>
+      <Field label="Reason">
+        <select name="reasonPick" className="input" defaultValue=""><option value="">Choose…</option>{reasons.map((r) => <option key={r}>{r}</option>)}</select>
+      </Field>
+      <Field label="Details (optional)"><textarea name="reason" rows={2} className="input" placeholder="e.g. Moving to Lahore" /></Field>
       <label className="flex items-start gap-2 rounded-lg border border-line bg-canvas/50 p-3 text-sm">
         <input type="checkbox" name="alreadyLeft" className="mt-0.5" />
         <span><span className="font-medium">They have already left</span><span className="block text-xs text-muted">For people who left before AMS: marks them as left on the last working day straight away and switches off their login. No checklist, exit interview or notifications.</span></span>

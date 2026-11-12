@@ -153,7 +153,7 @@ export async function recordResignation(_: FormState, fd: FormData): Promise<For
   // Someone who already left (e.g. before AMS was set up): one step, no checklist, exit interview or notifications.
   if (fd.get("alreadyLeft") === "on") {
     if (lastWorkingDay > new Date()) return { error: "For someone who has already left, the last working day must be in the past." };
-    await db.employee.update({ where: { id: emp.id }, data: { status: "left", exitType, noticeDate, lastWorkingDay, leftAt: lastWorkingDay, exitReason: str(fd, "reason") || null } });
+    await db.employee.update({ where: { id: emp.id }, data: { status: "left", exitType, noticeDate, lastWorkingDay, leftAt: lastWorkingDay, exitReason: exitReasonFrom(fd) } });
     if (emp.userId) {
       await db.user.update({ where: { id: emp.userId }, data: { active: false } });
       await db.session.deleteMany({ where: { userId: emp.userId } });
@@ -166,7 +166,7 @@ export async function recordResignation(_: FormState, fd: FormData): Promise<For
     redirect(path(emp.id));
   }
 
-  await db.employee.update({ where: { id: emp.id }, data: { status: "notice", exitType, noticeDate, lastWorkingDay, exitReason: str(fd, "reason") || null } });
+  await db.employee.update({ where: { id: emp.id }, data: { status: "notice", exitType, noticeDate, lastWorkingDay, exitReason: exitReasonFrom(fd) } });
   await addEvent(emp.id, "resigned", exitType === "terminated" ? "Termination notice" : exitType === "resigned" ? "Resigned" : "Leaving", {
     date: noticeDate, details: `Last working day ${format(lastWorkingDay, "d MMM yyyy")}${str(fd, "reason") ? `\n${str(fd, "reason")}` : ""}`, byId: user.id,
   });
@@ -301,4 +301,10 @@ export async function createLoginForEmployee(_: FormState, fd: FormData): Promis
   await audit(user.id, "create", "user", created.id, `Created login ${email} for ${emp.fullName}`);
   revalidatePath(path(emp.id));
   return { ok: true, message: `Login created. Share the email and temporary password with ${emp.fullName}; they can change it under My Profile.` };
+}
+
+/** "Relocation — moving to Lahore": the picked reason, then any details. */
+function exitReasonFrom(fd: FormData) {
+  const pick = str(fd, "reasonPick"), more = str(fd, "reason");
+  return [pick, more].filter(Boolean).join(" — ") || null;
 }

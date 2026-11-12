@@ -1,5 +1,6 @@
 import Link from "@/components/link";
 import type { Prisma } from "@prisma/client";
+import { exitReasons } from "@/lib/exit-reasons";
 import { notFound } from "next/navigation";
 import { differenceInCalendarDays, format } from "date-fns";
 import { ArrowLeft, ArrowRightLeft, Check, CheckCircle2, FileText, LogOut, RotateCcw, Trash2, UserCheck } from "lucide-react";
@@ -216,7 +217,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
       )}
       {sp.resign && canEdit && (
         <Drawer title="Record exit notice" closeHref={path} width="max-w-md">
-          <ResignForm employeeId={id} cancelHref={path} />
+          <ResignForm employeeId={id} cancelHref={path} reasons={await exitReasons()} />
         </Drawer>
       )}
     </>
