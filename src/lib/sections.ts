@@ -102,6 +102,7 @@ export const SECTIONS: Section[] = [
     tabs: [
       { href: "/hr/attendance", label: "Daily & monthly", module: "hr.attendance" },
       { href: "/hr/attendance/schedule", label: "Scheduling", module: "hr.attendance" },
+      { href: "/hr/attendance/shifts", label: "Shifts", module: "hr.attendance" },
       { href: "/hr/attendance/logs", label: "Logs", module: "hr.attendance" },
       { href: "/hr/attendance/machines", label: "Machines", module: "hr.attendance" },
       { href: "/hr/attendance/device-changes", label: "Device approvals", module: "hr.attendance" },

@@ -17,6 +17,7 @@ async function requireHrAdmin() {
 }
 const done = (message?: string): FormState => {
   revalidatePath("/settings/hr");
+  revalidatePath("/hr/attendance/shifts");
   return { ok: true, message };
 };
 

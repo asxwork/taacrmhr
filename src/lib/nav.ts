@@ -75,7 +75,7 @@ export const APPS: AppDef[] = [
           sub("Compliance", [
             { href: "/hr/policies", label: "Policy Documents", icon: "filecheck", module: "hr.employees" },
             { href: "/hr/policies/planner", label: "Policy Planner", icon: "calendar", module: "hr.employees" },
-            { href: "/settings/hr?tab=shifts", label: "Attendance Policy", icon: "clock", module: "hr.employees" },
+            { href: "/hr/attendance/shifts", label: "Attendance Policy", icon: "clock", module: "hr.attendance" },
             { href: "/settings/hr?tab=approvals", label: "Request Policy", icon: "check", module: "hr.employees" },
             { href: "/hr/employees?tab=documents", label: "Renewals", icon: "refresh", module: "hr.employees" },
           ], "clipboard"),
@@ -129,6 +129,7 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/hr/attendance", label: "Daily attendance", icon: "clock", module: "hr.attendance" },
           { href: "/hr/attendance/schedule", label: "Scheduling", icon: "calendar", module: "hr.attendance" },
+          { href: "/hr/attendance/shifts", label: "Shifts", icon: "clock", module: "hr.attendance" },
           { href: "/hr/attendance?view=people", label: "Time Sheet", icon: "sheet", module: "hr.attendance" },
           { href: "/hr/attendance/logs", label: "Attendance Logs", icon: "history", module: "hr.attendance" },
           { href: "/hr/attendance/device-changes", label: "Device Change Approvals", icon: "filecheck", module: "hr.attendance" },
@@ -143,7 +144,7 @@ export const APPS: AppDef[] = [
             { href: "/hr/attendance/reports/travel", label: "Travel", icon: "plane", module: "hr.attendance" },
           ], "pie"),
           sub("Settings", [
-            { href: "/settings/hr?tab=shifts", label: "General", icon: "sliders", module: "hr.employees" },
+            { href: "/hr/attendance/shifts", label: "Shifts", icon: "clock", module: "hr.attendance" },
             { href: "/settings/hr?tab=leave", label: "Types", icon: "list", module: "hr.employees" },
             { href: "/settings/hr?tab=shifts", label: "Restrictions", icon: "ban", module: "hr.employees" },
             { href: "/settings/hr?tab=leave", label: "Holidays", icon: "calendar", module: "hr.employees" },

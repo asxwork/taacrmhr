@@ -561,6 +561,18 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
+    key: "shifts", group: "HR", module: "hr.attendance", title: "Shifts & custom schedules", who: "HR", href: "/hr/attendance/shifts",
+    summary: "Set the company's working hours, who works which shift, and special hours for one person.",
+    steps: [
+      "Open HR → Attendance → Shifts. Each card is a shift with its hours, working days and the people on it.",
+      "Press “+ Add shift” (or Edit on a card): set start, end, how many minutes until someone counts as late, and the half-day rule.",
+      "Use “Move people to a shift” to put several people on a shift at once.",
+      "For one person with their own timings (part-time, fixed late hours), fill “Custom attendance for one employee”. Saving again updates it.",
+      "A shift nobody is on can be deleted from its card.",
+    ],
+    tips: ["Late, half day and overtime on the Time Sheet all follow the person's shift.", "Day-by-day changes (a different shift on one date, a day off) are made in Scheduling."],
+  },
+  {
     key: "scheduling", group: "HR", module: "hr.attendance", title: "Scheduling (roster)", who: "HR, managers", href: "/hr/attendance/schedule",
     summary: "Plan who works which shift each day.",
     steps: [

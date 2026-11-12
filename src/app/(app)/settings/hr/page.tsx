@@ -16,7 +16,7 @@ export const metadata = { title: "HR Settings" };
 const TABS = [
   ["general", "General", "Employee codes, probation and checklists"],
   ["org", "Departments & designations", "Your company structure"],
-  ["shifts", "Shifts & check-in", "Working hours and office location"],
+  ["shifts", "Check-in location", "Office location for web check-in"],
   ["leave", "Leave & holidays", "Leave types and public holidays"],
   ["approvals", "Approvals", "Who approves each request"],
 ] as const;
@@ -116,7 +116,8 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
           </Card>
         </Section>}
 
-        {(tab === "shifts" || tab === "leave") && <AttendanceSettings show={tab === "shifts" ? ["shifts", "geofence"] : ["leave-types", "holidays"]} />}
+        {(tab === "shifts" || tab === "leave") && <AttendanceSettings show={tab === "shifts" ? ["geofence"] : ["leave-types", "holidays"]} />}
+        {tab === "shifts" && <p className="text-sm text-muted">Shifts and custom schedules have their own page: <Link href="/hr/attendance/shifts" className="font-medium text-navy-900 underline">Attendance → Shifts</Link>.</p>}
 
         {tab === "approvals" && <Section id="approvals" title="Approval chains" hint="Who approves each kind of request, in order. “Manager” is the employee’s reporting manager (falls back to HR if they have none).">
           <Card className="divide-y divide-line">
