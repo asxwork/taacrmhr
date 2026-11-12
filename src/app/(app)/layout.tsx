@@ -83,7 +83,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <PageTransition>
             {/* View as is read-only: every input and button on the page is disabled (the server refuses writes too). */}
             <fieldset disabled={!!user.viewAs} className="m-0 min-w-0 border-0 p-0">
-              <Suspense><BackLink roots={[...new Set(pages.map((x) => x.href.split(/[?#]/)[0]!.replace(/\/+$/, "")))]} /></Suspense>
+              <Suspense><BackLink pages={pages.map((x) => ({ href: x.href, label: x.label }))} apps={apps.map((a) => ({ key: a.key, name: a.name, home: a.home, prefixes: a.prefixes }))} /></Suspense>
               {!offFeature && tabs.length > 1 && <SectionTabs tabs={tabs} />}
               {offFeature ? <FeatureOff label={offFeature.label} canManage={user.isSuperAdmin || can(user, "settings.company", "edit")} /> : children}
             </fieldset>
