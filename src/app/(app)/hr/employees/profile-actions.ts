@@ -88,6 +88,14 @@ export async function saveProfileSection(_: FormState, fd: FormData): Promise<Fo
       } catch (e) {
         return { error: (e as Error).message };
       }
+      // The employee code: Super Admin only (everyone else never sends it; the field is read-only for them).
+      const code = str(fd, "code").toUpperCase();
+      if (user.isSuperAdmin && code && code !== emp.code) {
+        if (!/^[A-Z0-9-]{2,20}$/.test(code)) return { error: "Employee code: letters, numbers and dashes only." };
+        if (await db.employee.findFirst({ where: { code, NOT: { id } } })) return { error: `${code} is already used by another employee.` };
+        await db.employee.update({ where: { id }, data: { code } });
+        await audit(user.id, "update", "employee", id, `Employee code changed ${emp.code} → ${code}`);
+      }
       await db.employee.update({ where: { id }, data: { ...rest, deviceUserId } as never });
       if (rest.shiftId !== undefined) await syncUserFromEmployee(id);
       break;

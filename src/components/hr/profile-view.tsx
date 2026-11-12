@@ -23,7 +23,9 @@ import { updateMyPhoto } from "@/app/(app)/me/actions";
 const money = (n: number, currency?: string | null) => `${currency || "PKR"} ${Math.round(n).toLocaleString("en-PK")}`;
 const def = (k: string) => profileSection(k)!;
 
-export function ProfileView({ p, options, canEdit, canSalary, showSalary, actions, banner, extraTabs = [], initialTab, docsTab, userTab, fields = FULL_ACCESS, self = false }: {
+export function ProfileView({ p, options, canEdit, canSalary, showSalary, actions, banner, extraTabs = [], initialTab, docsTab, userTab, fields = FULL_ACCESS, self = false, superAdmin = false }: {
+  /** Super Admins may change the employee code; nobody else can. */
+  superAdmin?: boolean;
   /** The employee's own profile: personal, contact and ID sections are editable in place (ID changes go to HR). */
   self?: boolean;
   /** Field rules for whoever is looking (their own profile is always full). */
@@ -112,7 +114,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
 
   const employment = (
     <Card className="p-4">
-      <SectionForm employeeId={id} def={def("employment")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<Briefcase className="size-4" />}
+      <SectionForm employeeId={id} def={superAdmin ? { ...def("employment"), fields: def("employment").fields.map((x) => (x.key === "code" ? { ...x, readOnly: false, label: "Employee Code (Super Admin)" } : x)) } : def("employment")} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<Briefcase className="size-4" />}
         before={<div>
           <Row label="Status"><StatusPill name={st.label} colorName={st.color} /></Row>
           {emp.confirmedAt && <Row label="Confirmed on">{fmtDate(emp.confirmedAt)}</Row>}

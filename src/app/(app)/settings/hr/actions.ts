@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { getSetting } from "@/lib/hr";
 import { requireUser } from "@/lib/auth";
 import { scopeFor } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
@@ -51,7 +52,8 @@ export async function saveDesignation(_: FormState, fd: FormData): Promise<FormS
 
 export async function saveHrGeneral(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireHrAdmin();
-  const prefix = str(fd, "codePrefix");
+  // Employee codes are Super Admin only: others keep the current prefix whatever the form sends.
+  const prefix = user.isSuperAdmin ? str(fd, "codePrefix") : await getSetting("hr.codePrefix", "TAA-");
   const months = Math.round(Number(str(fd, "probationMonths")));
   if (!/^[A-Za-z0-9-]{1,10}$/.test(prefix)) return { error: "Code prefix: letters, numbers and dashes, up to 10." };
   if (!(months >= 0 && months <= 24)) return { error: "Probation must be 0–24 months." };

@@ -12,18 +12,18 @@ import { loadProfile, profileOptions } from "@/lib/employee-profile";
 import { fileUrl } from "@/lib/files";
 import { cn, fmtDate } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Badge, Button, Card, Drawer, EmptyState, LinkButton } from "@/components/ui";
+import { Badge, Button, Card, Drawer, EmptyState, Field, LinkButton } from "@/components/ui";
 import { ProfileView } from "@/components/hr/profile-view";
 import { fieldAccess } from "@/lib/field-rules";
 import { BasicProfile } from "@/components/hr/basic-profile";
 import { Row, SectionTitle } from "@/components/hr/profile-parts";
 import { AssignmentForm, DocumentForm, ResignForm } from "../forms";
 import { orgOptions } from "../org-data";
-import { addEmployeeNote, completeExit, createLoginForEmployee, confirmEmployee, deleteDocument, rehireEmployee, toggleChecklistItem } from "../actions";
+import { addEmployeeNote, completeExit, createLoginForEmployee, confirmEmployee, deleteDocument, deleteEmployeePermanently, rehireEmployee, toggleChecklistItem } from "../actions";
 
 export const metadata = { title: "Employee" };
 
-type SP = { tab?: string; assign?: string; resign?: string };
+type SP = { tab?: string; assign?: string; resign?: string; delete?: string };
 
 export default async function EmployeePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SP> }) {
   const user = await requireUser();
@@ -60,6 +60,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
       {emp.status === "left" && (
         <form action={rehireEmployee}><input type="hidden" name="id" value={id} /><Button variant="secondary" className="h-8 text-xs"><RotateCcw className="size-3.5" /> Rehire</Button></form>
       )}
+      {user.isSuperAdmin && emp.userId !== user.id && <LinkButton href={`${path}?delete=1`} variant="ghost" scroll={false} className="h-8 text-xs text-red-600"><Trash2 className="size-3.5" /> Delete</LinkButton>}
     </>
   );
 
@@ -202,7 +203,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
 
       <ProfileView
         fields={emp.userId === user.id ? undefined : await fieldAccess(user)}
-        p={p} options={options} canEdit={canEdit} canSalary={canSalary} showSalary={can(user, "hr.payroll")}
+        p={p} options={options} canEdit={canEdit} canSalary={canSalary} superAdmin={user.isSuperAdmin} showSalary={can(user, "hr.payroll")}
         actions={actions || undefined} banner={banner} initialTab={sp.tab ?? "info"} docsTab={documents} userTab={userTab}
         extraTabs={[
           { key: "history", label: "History", count: emp.events.length, content: history },
@@ -213,6 +214,19 @@ export default async function EmployeePage({ params, searchParams }: { params: P
       {sp.assign && canEdit && org && (
         <Drawer title="Change role or transfer" closeHref={path}>
           <AssignmentForm employee={emp} org={org} cancelHref={path} />
+        </Drawer>
+      )}
+      {sp.delete && user.isSuperAdmin && emp.userId !== user.id && (
+        <Drawer title={`Delete ${emp.fullName}?`} closeHref={path} width="max-w-md">
+          <div className="space-y-4 text-sm">
+            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-900">This <b>permanently deletes</b> the employee and everything attached to them: attendance, leave, requests, payslips, documents and history. It can&apos;t be undone. Use it only for fake or test employees; for real people who left, use <b>Exit…</b> instead.</p>
+            <ActionForm action={deleteEmployeePermanently} className="space-y-3">
+              <input type="hidden" name="id" value={id} />
+              <Field label={`Type ${emp.code} to confirm`}><input name="confirm" required autoComplete="off" className="input font-mono" placeholder={emp.code} /></Field>
+              {emp.userId && <label className="flex items-center gap-2"><input type="checkbox" name="deleteLogin" className="accent-red-600" /> Also delete their login (otherwise it&apos;s switched off)</label>}
+              <SubmitButton variant="danger" pendingText="Deleting…"><Trash2 className="size-4" /> Delete permanently</SubmitButton>
+            </ActionForm>
+          </div>
         </Drawer>
       )}
       {sp.resign && canEdit && (

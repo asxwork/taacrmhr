@@ -23,11 +23,17 @@ export async function getSetting(key: string, fallback = "") {
 }
 
 /** Next code like TAA-0007 (prefix from HR settings). */
+/**
+ * Next employee code: the prefix (HR Settings, Super Admin only; TAA- by default) + the highest number used by ANY
+ * employee code so far + 1 — so after TA109 … TAA-130 the next is TAA-131, whatever format older codes were in.
+ */
 export async function nextEmployeeCode() {
-  const prefix = await getSetting("hr.codePrefix", "EMP-");
-  const codes = await db.employee.findMany({ where: { code: { startsWith: prefix } }, select: { code: true } });
-  const max = codes.reduce((m, c) => Math.max(m, Number(c.code.slice(prefix.length)) || 0), 0);
-  return `${prefix}${String(max + 1).padStart(4, "0")}`;
+  const prefix = await getSetting("hr.codePrefix", "TAA-");
+  const codes = await db.employee.findMany({ select: { code: true } });
+  const used = new Set(codes.map((c) => c.code.toUpperCase()));
+  let n = codes.reduce((m, c) => Math.max(m, Number(/(\d+)\s*$/.exec(c.code)?.[1] ?? 0)), 0) + 1;
+  while (used.has(`${prefix}${String(n).padStart(3, "0")}`.toUpperCase())) n++;
+  return `${prefix}${String(n).padStart(3, "0")}`;
 }
 
 /** Keep the login in step with HR data: manager (for Team scope), branch and job title. */

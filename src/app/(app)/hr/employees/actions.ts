@@ -309,3 +309,30 @@ function exitReasonFrom(fd: FormData) {
   const pick = str(fd, "reasonPick"), more = str(fd, "reason");
   return [pick, more].filter(Boolean).join(" — ") || null;
 }
+
+/**
+ * Super Admin only: permanently delete a fake / test employee and everything attached to them (attendance, leave,
+ * payslips, documents…). Confirmed by typing their employee code. Their login is switched off (or deleted if asked).
+ */
+export async function deleteEmployeePermanently(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!user.isSuperAdmin) return { error: "Only a Super Admin can delete employees." };
+  const emp = await db.employee.findUnique({ where: { id: str(fd, "id") }, select: { id: true, code: true, fullName: true, userId: true, photo: true } });
+  if (!emp) return { error: "Employee not found." };
+  if (str(fd, "confirm").trim().toUpperCase() !== emp.code.toUpperCase()) return { error: `Type ${emp.code} to confirm.` };
+  if (emp.userId === user.id) return { error: "You can't delete your own employee record." };
+  const docs = await db.employeeDocument.findMany({ where: { employeeId: emp.id }, select: { path: true } });
+  await db.employee.delete({ where: { id: emp.id } });
+  for (const p of [emp.photo, ...docs.map((d) => d.path)]) if (p) await deleteUpload(p).catch(() => {});
+  if (emp.userId) {
+    const login = await db.user.findUnique({ where: { id: emp.userId }, select: { isSuperAdmin: true } });
+    if (login && !login.isSuperAdmin) {
+      if (fd.get("deleteLogin") === "on") await db.user.delete({ where: { id: emp.userId } }).catch(() => db.user.update({ where: { id: emp.userId! }, data: { active: false } }));
+      else await db.user.update({ where: { id: emp.userId }, data: { active: false } });
+      await db.session.deleteMany({ where: { userId: emp.userId } }).catch(() => {});
+    }
+  }
+  await audit(user.id, "delete", "employee", emp.id, `Permanently deleted employee ${emp.code} ${emp.fullName}`);
+  revalidatePath("/hr/employees");
+  redirect("/hr/employees");
+}

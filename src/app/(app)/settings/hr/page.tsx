@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { scopeFor } from "@/lib/permissions";
-import { getSetting } from "@/lib/hr";
+import { getSetting, nextEmployeeCode } from "@/lib/hr";
 import type { Step } from "@/lib/approvals";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field, PageHeader } from "@/components/ui";
@@ -34,12 +34,13 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
     db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }),
     db.approvalFlow.findMany({ orderBy: { name: "asc" } }),
     db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
-    getSetting("hr.codePrefix", "EMP-"),
+    getSetting("hr.codePrefix", "TAA-"),
     getSetting("hr.probationMonths", "3"),
     getSetting("hr.onboarding"),
     getSetting("hr.offboarding"),
   ]);
 
+  const nextCode = await nextEmployeeCode();
   return (
     <>
       <PageHeader title="HR Settings" description="Pick a topic. Each one is a short page with only what it needs." />
@@ -104,7 +105,7 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
           <Card className="p-5">
             <ActionForm action={saveHrGeneral} className="space-y-4" successMessage="Saved.">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label="Employee code prefix" hint="Codes look like TAA-0007"><input name="codePrefix" defaultValue={prefix} className="input" /></Field>
+                <Field label="Employee code prefix" hint={user.isSuperAdmin ? `Next new employee gets ${nextCode}; numbers carry on from the highest code.` : `Super Admin only. Next new employee: ${nextCode}`}><input name="codePrefix" defaultValue={prefix} readOnly={!user.isSuperAdmin} className="input read-only:bg-canvas read-only:text-muted" /></Field>
                 <Field label="Probation (months)"><input name="probationMonths" type="number" min={0} max={24} defaultValue={probation} className="input" /></Field>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

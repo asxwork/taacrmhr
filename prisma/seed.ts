@@ -89,6 +89,8 @@ async function main() {
 
   await db.setting.upsert({ where: { key: "company.name" }, update: {}, create: { key: "company.name", value: "The Advisor Associates" } });
   await db.setting.upsert({ where: { key: "company.currency" }, update: {}, create: { key: "company.currency", value: "PKR" } });
+  // Employee codes are TAA-131 style: move an old default prefix over once (a Super Admin can change it later).
+  await db.setting.updateMany({ where: { key: "hr.codePrefix", value: { in: ["EMP-", "TA-"] } }, data: { value: "TAA-" } });
 
   // First real admin from env (created once; later deploys never touch the password).
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
