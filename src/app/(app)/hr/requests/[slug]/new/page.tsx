@@ -15,6 +15,7 @@ export default async function NewRequestPage({ params }: { params: Promise<{ slu
   const t = requestTypeBySlug((await params).slug);
   if (!t) notFound();
   const sources = new Set(t.fields.map((f) => f.source).filter(Boolean));
+  const me = await db.employee.findUnique({ where: { userId: user.id }, select: { id: true } });
   const [employees, branches, departments, designations, shifts, steps] = await Promise.all([
     requestableEmployees(user, t),
     sources.has("branches") ? db.branch.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : [],
@@ -35,11 +36,11 @@ export default async function NewRequestPage({ params }: { params: Promise<{ slu
         ) : (
           <ActionForm action={sendRequest} className="space-y-4">
             <input type="hidden" name="slug" value={t.slug} />
-            {t.forOthers && (
-              <Field label="Employee">
-                <select name="employeeId" required defaultValue={employees.length === 1 ? employees[0]!.id : ""} className="input">
-                  <option value="" disabled>Choose…</option>
-                  {employees.map((e) => <option key={e.id} value={e.id}>{e.fullName}</option>)}
+            {(t.forOthers || employees.length > 1) && (
+              <Field label={t.forOthers ? "Employee" : "Request for"} hint={t.forOthers ? undefined : "HR can file this on behalf of an employee; it goes through their normal approval chain."}>
+                <select name="employeeId" required defaultValue={t.forOthers && employees.length > 1 ? "" : employees[0]!.id} className="input">
+                  {t.forOthers && <option value="" disabled>Choose…</option>}
+                  {employees.map((e, i) => <option key={e.id} value={e.id}>{e.fullName}{!t.forOthers && i === 0 && me?.id === e.id ? " (me)" : ""}</option>)}
                 </select>
               </Field>
             )}

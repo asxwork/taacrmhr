@@ -3,6 +3,8 @@ import { format, isSameDay } from "date-fns";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { balancesFor } from "@/lib/leave";
+import { can } from "@/lib/permissions";
+import { employeeWhere } from "@/lib/hr";
 import { color } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -22,6 +24,7 @@ export default async function MyLeavePage() {
   if (!emp) return (<><PageHeader title="My Leave" /><Card><EmptyState title="No employee record" description="Ask HR to link your login to your employee profile." /></Card></>);
 
   const year = new Date().getFullYear();
+  const others = can(user, "hr.employees", "edit") ? await db.employee.findMany({ where: { AND: [(await employeeWhere(user)) ?? { id: "none" }, { status: { not: "left" }, NOT: { id: emp.id } }] }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }) : [];
   const [balances, requests, encashable, encashments] = await Promise.all([
     balancesFor(emp.id, year),
     db.leaveRequest.findMany({ where: { employeeId: emp.id }, include: { type: true }, orderBy: { from: "desc" }, take: 50 }),
@@ -51,6 +54,14 @@ export default async function MyLeavePage() {
         <Card className="h-fit p-5">
           <h2 className="mb-4 font-medium">Apply for leave</h2>
           <ActionForm action={applyMyLeave} className="space-y-4">
+            {others.length > 0 && (
+              <Field label="Request for" hint="HR can apply on behalf of an employee; it goes through their approval chain.">
+                <select name="employeeId" defaultValue={emp.id} className="input">
+                  <option value={emp.id}>{emp.fullName} (me)</option>
+                  {others.map((o) => <option key={o.id} value={o.id}>{o.fullName}</option>)}
+                </select>
+              </Field>
+            )}
             <Field label="Type">
               <select name="typeId" required className="input">
                 {balances.map((b) => <option key={b.type.id} value={b.type.id}>{b.type.name}{b.unlimited ? "" : ` (${fmtDays(b.available)} left)`}</option>)}

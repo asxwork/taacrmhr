@@ -8,12 +8,21 @@ import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notify";
 import { cancelRequest } from "@/lib/approvals";
 import { applyForLeave } from "@/lib/leave";
+import { employeeWhere } from "@/lib/hr";
 import { str, type FormState } from "@/lib/utils";
 
 /** Self-service: apply for my own leave. */
 export async function applyMyLeave(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
-  const emp = await db.employee.findUnique({ where: { userId: user.id } });
+  const me = await db.employee.findUnique({ where: { userId: user.id } });
+  // HR may apply on behalf of someone in their scope (it still goes through that person's approval chain).
+  const forId = str(fd, "employeeId");
+  let emp = me;
+  if (forId && forId !== me?.id) {
+    const other = can(user, "hr.employees", "edit") ? await db.employee.findFirst({ where: { AND: [{ id: forId, status: { not: "left" } }, (await employeeWhere(user)) ?? { id: "none" }] } }) : null;
+    if (!other) return { error: "You can't apply leave for this person." };
+    emp = other;
+  }
   if (!emp) return { error: "Your login isn't linked to an employee record." };
   const from = new Date(str(fd, "from"));
   const to = new Date(str(fd, "to") || str(fd, "from"));
@@ -21,7 +30,7 @@ export async function applyMyLeave(_: FormState, fd: FormData): Promise<FormStat
   const res = await applyForLeave({ employeeId: emp.id, typeId: str(fd, "typeId"), from, to, halfDay: fd.get("halfDay") === "on", reason: str(fd, "reason") || null, requesterId: user.id });
   if ("error" in res) return { error: res.error };
   revalidatePath("/me/leave");
-  return { ok: true, message: `Requested ${res.days} day(s) — waiting for approval.` };
+  return { ok: true, message: `Requested ${res.days} day(s)${emp.id !== me?.id ? ` for ${emp.fullName}` : ""} — waiting for approval.` };
 }
 
 /** Withdraw my pending request (goes through the approval engine so everyone is updated). */

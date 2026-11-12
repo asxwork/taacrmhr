@@ -7,6 +7,7 @@ import { submitRequest } from "./approvals";
 import { addEvent, employeeWhere, ensureChecklist } from "./hr";
 import { defaultShift, isWorkDay, logAttendance } from "./attendance";
 import { notify } from "./notify";
+import { can } from "./permissions";
 import { requestTypeBySlug, requestTypeByType, type ReqType } from "./request-types";
 import type { SessionUser } from "./auth";
 import type { FormState } from "./utils";
@@ -22,10 +23,14 @@ const dayOf = (v?: string) => {
 /** Employees the user may raise a request for: themselves, plus anyone in their HR view scope for forOthers types. */
 export async function requestableEmployees(user: SessionUser, t: ReqType) {
   const self = await db.employee.findUnique({ where: { userId: user.id }, select: { id: true, fullName: true } });
-  if (!t.forOthers) return self ? [self] : [];
+  // HR (can edit employees) may file any request on behalf of the people in their scope; others only for themselves.
+  const onBehalf = t.forOthers || can(user, "hr.employees", "edit");
+  if (!onBehalf) return self ? [self] : [];
   const scope = await employeeWhere(user);
   const others = scope ? await db.employee.findMany({ where: { ...scope, status: { not: "left" } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }) : [];
-  return others.length ? others : self ? [self] : [];
+  // Me first, so the form still defaults to my own request.
+  const list = self ? [self, ...others.filter((e) => e.id !== self.id)] : others;
+  return list.length ? list : self ? [self] : [];
 }
 
 /** One-line title for lists and notifications. */
@@ -68,7 +73,7 @@ export async function submitTypedRequest(user: SessionUser, slug: string, fd: Fo
   const t = requestTypeBySlug(slug);
   if (!t) return { error: "Unknown request type." };
   const allowed = await requestableEmployees(user, t);
-  const employeeId = t.forOthers ? String(fd.get("employeeId") ?? "") : allowed[0]?.id;
+  const employeeId = String(fd.get("employeeId") ?? "") || allowed[0]?.id;
   const emp = allowed.find((e) => e.id === employeeId);
   if (!emp) return { error: allowed.length ? "Choose the employee." : "Your login isn't linked to an employee record yet. Ask HR." };
 
