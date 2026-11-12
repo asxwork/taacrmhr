@@ -306,7 +306,8 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
               <div className="flex min-w-0 flex-1 flex-col pt-3">
                 {appSwitcher(false)}
                 {searchButton(false)}
-                {shownModule && navList(false, [shownModule])}
+                {/* A one-page module (Dashboard) has no sub-menu: the rail icon is the link. */}
+                {shownModule && shownModule.items.length > 1 ? navList(false, [shownModule]) : <div className="flex-1" />}
                 {footer(false)}
               </div>
             )}

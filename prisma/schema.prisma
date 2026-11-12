@@ -1963,6 +1963,8 @@ model FeedPost {
   title      String?
   body       String // @text
   pinned     Boolean   @default(false)
+  /// Who sees it: "all", "dept:<id>", "branch:<id>" or "people:<employeeId,employeeId>". The author always sees it.
+  audience   String    @default("all")
   likes      String    @default("") // comma-separated user ids
   createdAt  DateTime  @default(now())
 

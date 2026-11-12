@@ -15,6 +15,7 @@ import { hrefWith } from "@/components/crm/bits";
 import { PersonAvatar } from "@/components/person-avatar";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { DrillTiles } from "@/components/drill-tiles";
+import { FeedIcon } from "@/components/feed-icon";
 import { BarList } from "@/components/charts";
 import { LineChart } from "@/components/line-chart";
 import { LiveClock } from "@/components/live-clock";
@@ -70,7 +71,7 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="Dashboard" description={`${format(now, "EEEE d MMMM yyyy")} · ${TZ}`} />
+      <PageHeader title="Dashboard" description={`${format(now, "EEEE d MMMM yyyy")} · ${TZ}`} actions={<FeedIcon />} />
 
       {show("drill") && (<>
       {/* Attendance drill-down */}

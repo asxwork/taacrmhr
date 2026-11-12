@@ -85,13 +85,6 @@ export const SECTIONS: Section[] = [
       { href: "/me/surveys", label: "Surveys" },
     ],
   },
-  {
-    key: "my-company", app: "me",
-    tabs: [
-      { href: "/feed", label: "Feed" },
-      { href: "/org-chart", label: "Org chart", module: "hr.orgchart" },
-    ],
-  },
   // HR
   {
     key: "people",

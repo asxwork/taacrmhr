@@ -10,6 +10,7 @@ import { respondentKey } from "@/lib/engagement";
 import { color, fmtPKR } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
+import { FeedIcon } from "@/components/feed-icon";
 import { PersonAvatar } from "@/components/person-avatar";
 import { CheckInButton } from "../attendance/check-in-button";
 
@@ -65,6 +66,7 @@ export default async function MyHome() {
           <p className="text-sm text-muted">{hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"},</p>
           <h1 className="font-display text-2xl font-semibold">{emp.firstName ?? emp.fullName.split(" ")[0]}</h1>
         </div>
+        <div className="ml-auto"><FeedIcon /></div>
       </div>
 
       <Card className="mb-5 overflow-hidden">
