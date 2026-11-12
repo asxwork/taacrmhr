@@ -166,7 +166,7 @@ async function RequestDetails({ type, payload, employee }: { type: string; paylo
             <span className="text-center"><PersonAvatar name={String(employee.fullName ?? "")} photo={(employee.photo as string | null) ?? null} className="size-14" /><span className="mt-1 block text-xs text-muted">Now</span></span>
             <span className="text-muted">→</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <span className="text-center"><img src={fileUrl(photo)} alt="Requested photo" className="size-14 rounded-full object-cover ring-2 ring-gold-500" /><span className="mt-1 block text-xs font-medium">New photo</span></span>
+            <span className="text-center"><img src={fileUrl(photo)} alt="Requested photo" className="size-14 rounded-full object-cover ring-2 ring-gold-400" /><span className="mt-1 block text-xs font-medium">New photo</span></span>
           </div>
         )}
         {Object.keys(changes).length > 0 && (

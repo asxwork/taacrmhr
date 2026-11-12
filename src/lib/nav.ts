@@ -57,7 +57,7 @@ export const APPS: AppDef[] = [
   },
   {
     key: "hr", name: "HR", description: "People, attendance, payroll, requests", icon: "users", tile: "from-violet-500 to-fuchsia-700",
-    home: "/hr", prefixes: ["/hr", "/reports/hr", "/settings/hr", "/approvals"], layout: "modules",
+    home: "/hr", prefixes: ["/hr", "/reports/hr", "/settings/hr", "/approvals", "/org-chart"], layout: "modules",
     groups: [
       { label: "Dashboard", icon: "layout", items: [{ href: "/hr", label: "HR dashboard", icon: "layout", module: "hr.attendance", anyModule: ["hr.employees"] }] },
       {
