@@ -1,5 +1,23 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { db } from "./db";
+import { memo } from "./memo";
+
+/**
+ * Who may receive email (Settings → Integrations → Outgoing email). While AMS is being tested: "admins" sends only to
+ * Super Admin accounts; everything else is held (logged, not sent). "all" = normal; "off" = nobody.
+ */
+export type EmailMode = "all" | "admins" | "off";
+export async function emailMode(): Promise<EmailMode> {
+  const v = await memo("setting:email.mode", 30_000, async () => (await db.setting.findUnique({ where: { key: "email.mode" } }))?.value ?? "admins");
+  return v === "all" || v === "off" ? v : "admins";
+}
+/** Addresses of active Super Admins: their login email plus the personal / official email on their employee record. */
+async function adminAddresses() {
+  return memo("setting:email.admins", 60_000, async () => {
+    const admins = await db.user.findMany({ where: { isSuperAdmin: true, active: true }, select: { email: true, employee: { select: { personalEmail: true, officialEmail: true } } } });
+    return admins.flatMap((a) => [a.email, a.employee?.personalEmail, a.employee?.officialEmail]).filter((x): x is string => !!x).map((x) => x.trim().toLowerCase());
+  });
+}
 
 // SMTP credentials live in env vars (never in the database):
 //   SMTP_HOST, SMTP_PORT (465 = SSL, 587 = STARTTLS), SMTP_USER, SMTP_PASS, SMTP_FROM ("Name <address>")
@@ -32,7 +50,12 @@ export type MailContext = { userId?: string | null; leadId?: string | null; deal
 export async function sendMail(to: string, subject: string, body: string, ctx: MailContext = {}, replyTo?: string) {
   let status = "skipped";
   let error: string | null = "SMTP is not configured";
-  if (smtpConfigured()) {
+  const mode = await emailMode();
+  const allowed = mode === "all" || (mode === "admins" && (await adminAddresses()).includes(to.trim().toLowerCase()));
+  if (!allowed) {
+    status = "held";
+    error = mode === "off" ? "Held: email sending is off (Settings → Integrations)" : "Held: testing mode, only Super Admins get email (Settings → Integrations)";
+  } else if (smtpConfigured()) {
     try {
       await getTransport().sendMail({
         from: process.env.SMTP_FROM ?? process.env.SMTP_USER,

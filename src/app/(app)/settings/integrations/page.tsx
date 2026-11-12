@@ -3,11 +3,11 @@ import { CheckCircle2, CircleAlert, RefreshCw } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { INTAKE_KEYS, getSetting, newSecret, setSetting } from "@/lib/lead-intake";
-import { smtpConfigured } from "@/lib/mail";
+import { emailMode, smtpConfigured } from "@/lib/mail";
 import { fmtDateTime } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, PageHeader } from "@/components/ui";
-import { createConnection, regenerateSecret, saveAssignees, sendTestEmail, updateConnection } from "./actions";
+import { createConnection, regenerateSecret, saveAssignees, saveEmailMode, sendTestEmail, updateConnection } from "./actions";
 
 export const metadata = { title: "Integrations" };
 
@@ -36,6 +36,7 @@ export default async function IntegrationsPage() {
   const apiUrl = `${origin}/api/v1/leads`;
   const sample = JSON.stringify({ name: "Ali Khan", phone: "0301 2345678", email: "ali@example.com", message: "Interested in a 10 marla plot", location: "DHA Phase 6", budget: "2.5 crore", campaign: "October listing" }, null, 2);
   const smtp = smtpConfigured();
+  const mode = await emailMode();
   const fbReady = !!(process.env.FB_APP_SECRET && process.env.FB_PAGE_TOKEN);
 
   const snippet = `<form action="${origin}/api/webhooks/lead" method="POST">
@@ -66,6 +67,20 @@ export default async function IntegrationsPage() {
               <code className="rounded bg-canvas px-1 text-xs">SMTP_FROM=&quot;The Advisor Associates &lt;crm@yourdomain.com&gt;&quot;</code>. Until then, emails are logged but not sent.
             </p>
           )}
+          <div className={`mt-4 rounded-xl border p-4 ${mode === "all" ? "border-line" : "border-amber-300 bg-amber-50/60"}`}>
+            <p className="font-medium">Who receives emails</p>
+            <p className="mb-3 text-xs text-muted">While AMS is being tested, keep it on Super Admins only so employees don&apos;t get payslips, approvals or notices yet. Held emails still appear in the log below.</p>
+            <ActionForm action={saveEmailMode} className="flex flex-wrap items-end gap-3">
+              <fieldset disabled={!user.isSuperAdmin} className="flex flex-wrap gap-2">
+                {([["admins", "Super Admins only (testing)"], ["all", "Everyone (live)"], ["off", "Nobody (off)"]] as const).map(([v, label]) => (
+                  <label key={v} className="flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm has-[:checked]:border-navy-900 has-[:checked]:ring-1 has-[:checked]:ring-navy-900">
+                    <input type="radio" name="mode" value={v} defaultChecked={mode === v} className="accent-navy-900" /> {label}
+                  </label>
+                ))}
+              </fieldset>
+              {user.isSuperAdmin && <SubmitButton variant="secondary">Save</SubmitButton>}
+            </ActionForm>
+          </div>
           {editable && (
             <ActionForm action={sendTestEmail} className="mt-3">
               <SubmitButton variant="secondary" pendingText="Sending…">Send me a test email</SubmitButton>

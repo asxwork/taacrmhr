@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
+import { requireUser } from "@/lib/auth";
+import { forget } from "@/lib/memo";
 import { INTAKE_KEYS, hashKey, newSecret, setSetting } from "@/lib/lead-intake";
 import { sendMail, smtpConfigured } from "@/lib/mail";
 import { str, type FormState } from "@/lib/utils";
@@ -89,4 +91,17 @@ export async function updateConnection(_: FormState, fd: FormData): Promise<Form
   await audit(user.id, "update", "apiConnection", id, `Updated API connection ${name}`);
   revalidatePath("/settings/integrations");
   return { ok: true, message: "Saved." };
+}
+
+/** Outgoing email: everyone, Super Admins only (testing), or nobody. */
+export async function saveEmailMode(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!user.isSuperAdmin) return { error: "Only a Super Admin can change this." };
+  const v = String(fd.get("mode") ?? "");
+  if (!["all", "admins", "off"].includes(v)) return { error: "Choose an option." };
+  await db.setting.upsert({ where: { key: "email.mode" }, update: { value: v }, create: { key: "email.mode", value: v } });
+  forget("setting:email");
+  await audit(user.id, "update", "setting", "email.mode", `Outgoing email set to: ${v}`);
+  revalidatePath("/settings/integrations");
+  return { ok: true, message: v === "all" ? "Emails now go to everyone." : v === "admins" ? "Testing mode: only Super Admins get emails." : "All email sending is off." };
 }
