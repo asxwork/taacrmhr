@@ -1923,6 +1923,15 @@ model OnboardingInvite {
   createdById String?
   expiresAt   DateTime
   submittedAt DateTime?
+  /// open (waiting for the new hire) | submitted (waiting for HR) | approved | rejected (sent back to fix)
+  status      String    @default("open")
+  /// What the new hire sent (JSON, files as stored paths). Applied to the employee only when HR approves.
+  payload     String? // @text
+  /// Fields HR marked as wrong when sending it back (comma-separated), and HR's note.
+  wrongFields String?
+  reviewNote  String?
+  reviewedById String?
+  reviewedAt  DateTime?
   createdAt   DateTime  @default(now())
 }
 

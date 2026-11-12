@@ -332,12 +332,13 @@ export const TUTORIALS: Tutorial[] = [
     key: "onboarding", group: "HR", module: "hr.onboarding", title: "Onboarding links for new hires", who: "HR", href: "/hr/onboarding",
     summary: "New hires fill in their own details, CNIC and photo from a link — no typing for HR.",
     steps: [
-      "Add the person in HR → People → Employee (name, joining date, department).",
-      "Open HR → People → Onboarding, choose them and press Create link.",
-      "Copy the link or tap WhatsApp to send it. It works for 14 days, once, without a login.",
-      "When they submit, HR gets a notification; their details are on the profile and the CNIC pictures wait for HR to verify.",
+      "Open HR → People → Onboarding. For someone new, type their first and last name (New employee); for someone already added, pick them (Existing employee). Press Create link.",
+      "Copy the link, or tap WhatsApp / Email to send it. No login needed; it works for 14 days.",
+      "They fill in every field (all are required), with CNIC pictures and a photo, and see “Your info is submitted”.",
+      "HR gets a notification. Press Review: if everything is right, Approve and it goes onto their profile.",
+      "If something is wrong, tick those fields, add a note and Send back. Send them the same link again: the wrong fields are marked in red for them to fix, then it comes back to you.",
     ],
-    tips: ["Roles → Onboarding links: Read shows the list, Add creates links."],
+    tips: ["Nothing they type touches the profile until HR approves.", "Roles → Onboarding links: Read shows the list, Add creates links, Edit reviews them."],
   },
   {
     key: "leave-planner", group: "HR", module: "hr.leaveplanner", title: "Leave planner and clash warnings", who: "HR, managers", href: "/hr/leave/planner",
