@@ -11,8 +11,12 @@ import { audienceUsers, badgeLabel } from "@/lib/feed";
 
 /** Reads the audience picker: everyone, one department, one branch or chosen people. */
 function readAudience(fd: FormData): string | { error: string } {
+  // Chosen people win; otherwise the one dropdown: all, dept:<id> or branch:<id>.
+  const chosen = fd.getAll("people").map(String).filter(Boolean);
+  if (chosen.length) return `people:${chosen.join(",")}`;
   const to = str(fd, "audience") || "all";
   if (to === "all") return "all";
+  if (/^(dept|branch):[a-z0-9]+$/i.test(to)) return to;
   if (to === "dept") return str(fd, "deptId") ? `dept:${str(fd, "deptId")}` : { error: "Choose the department." };
   if (to === "branch") return str(fd, "branchId") ? `branch:${str(fd, "branchId")}` : { error: "Choose the branch." };
   const people = fd.getAll("people").map(String).filter(Boolean);
