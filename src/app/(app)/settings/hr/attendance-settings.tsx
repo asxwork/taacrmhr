@@ -9,7 +9,8 @@ import { Badge, Card, Field } from "@/components/ui";
 import { deleteHoliday, saveGeofence, saveHoliday, saveLeaveType, saveShift } from "./actions";
 
 /** Attendance & leave configuration blocks for the HR settings page. */
-export async function AttendanceSettings() {
+/** show = which blocks this HR Settings tab shows (shifts, geofence, holidays, leave-types). */
+export async function AttendanceSettings({ show }: { show: string[] }) {
   const year = new Date().getFullYear();
   const [shifts, holidays, branches, mode, types] = await Promise.all([
     db.shift.findMany({ include: { _count: { select: { employees: true } } }, orderBy: { name: "asc" } }),
@@ -21,7 +22,7 @@ export async function AttendanceSettings() {
 
   return (
     <>
-      <Block id="shifts" title="Shifts" hint="Late after start + grace. Fewer worked hours than the half-day threshold counts as a half day.">
+      {show.includes("shifts") && <Block id="shifts" title="Shifts" hint="Late after start + grace. Fewer worked hours than the half-day threshold counts as a half day.">
         <Card className="divide-y divide-line">
           {[...shifts, null].map((s) => (
             <ActionForm key={s?.id ?? "new"} action={saveShift} className={`grid gap-3 p-4 sm:grid-cols-[1.4fr_repeat(4,1fr)] ${s ? "" : "bg-canvas/50"}`}>
@@ -45,9 +46,9 @@ export async function AttendanceSettings() {
             </ActionForm>
           ))}
         </Card>
-      </Block>
+      </Block>}
 
-      <Block id="holidays" title={`Public holidays ${year}`} hint="Islamic holidays move each year — check them against the official notification.">
+      {show.includes("holidays") && <Block id="holidays" title={`Public holidays ${year}`} hint="Islamic holidays move each year — check them against the official notification.">
         <Card className="divide-y divide-line">
           {holidays.map((h) => (
             <div key={h.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
@@ -69,9 +70,9 @@ export async function AttendanceSettings() {
             <SubmitButton>Add holiday</SubmitButton>
           </ActionForm>
         </Card>
-      </Block>
+      </Block>}
 
-      <Block id="geofence" title="Check-in location (geo-fence)" hint="Web check-ins are compared with the branch location. Stand in the office and press “Use my location”, or right-click the office in Google Maps to copy its coordinates. Choose Enforce to block check-ins from anywhere else.">
+      {show.includes("geofence") && <Block id="geofence" title="Check-in location (geo-fence)" hint="Web check-ins are compared with the branch location. Stand in the office and press “Use my location”, or right-click the office in Google Maps to copy its coordinates. Choose Enforce to block check-ins from anywhere else.">
         <Card className="p-5">
           <ActionForm action={saveGeofence} className="space-y-4" successMessage="Saved.">
             <Field label="Mode" className="max-w-sm">
@@ -95,9 +96,9 @@ export async function AttendanceSettings() {
             <SubmitButton>Save</SubmitButton>
           </ActionForm>
         </Card>
-      </Block>
+      </Block>}
 
-      <Block id="leave-types" title="Leave types" hint="Quota is days per year. Unpaid with quota 0 = unlimited. Annual = granted up-front (pro-rated for new joiners); monthly = earned each month.">
+      {show.includes("leave-types") && <Block id="leave-types" title="Leave types" hint="Quota is days per year. Unpaid with quota 0 = unlimited. Annual = granted up-front (pro-rated for new joiners); monthly = earned each month.">
         <Card className="divide-y divide-line">
           {[...types, null].map((t) => (
             <ActionForm key={t?.id ?? "new"} action={saveLeaveType} className={`grid gap-3 p-4 sm:grid-cols-6 ${t ? "" : "bg-canvas/50"}`}>
@@ -126,7 +127,7 @@ export async function AttendanceSettings() {
             </ActionForm>
           ))}
         </Card>
-      </Block>
+      </Block>}
     </>
   );
 }

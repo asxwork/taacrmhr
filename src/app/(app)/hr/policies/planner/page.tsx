@@ -41,7 +41,7 @@ export default async function PolicyPlanner() {
           <ul className="mt-3 space-y-1 text-xs text-muted">
             {shifts.map((s) => <li key={s.id}>{s.name}: late after {s.graceMin} min · half day under {Math.round(s.halfDayMin / 6) / 10} h</li>)}
           </ul>
-          <Link href="/settings/hr#shifts" className="mt-1 inline-block text-xs text-navy-700 hover:underline">Edit shifts</Link>
+          <Link href="/settings/hr?tab=shifts" className="mt-1 inline-block text-xs text-navy-700 hover:underline">Edit shifts</Link>
         </Section>
         <Section icon={<AlarmClock className="size-5 text-emerald-600" />} title="Overtime Policy" text="Time after the shift end, and all hours on off days and holidays.">
           <div className="flex flex-wrap gap-4">

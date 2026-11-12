@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "@/components/link";
+import { cn } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { scopeFor } from "@/lib/permissions";
@@ -11,7 +13,18 @@ import { AttendanceSettings } from "./attendance-settings";
 
 export const metadata = { title: "HR Settings" };
 
-export default async function HrSettingsPage() {
+const TABS = [
+  ["general", "General", "Employee codes, probation and checklists"],
+  ["org", "Departments & designations", "Your company structure"],
+  ["shifts", "Shifts & check-in", "Working hours and office location"],
+  ["leave", "Leave & holidays", "Leave types and public holidays"],
+  ["approvals", "Approvals", "Who approves each request"],
+] as const;
+type Tab = (typeof TABS)[number][0];
+
+export default async function HrSettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const want = (await searchParams).tab;
+  const tab: Tab = (TABS.find(([t]) => t === want)?.[0] ?? "general") as Tab;
   const user = await requireUser();
   if (!user.isSuperAdmin && scopeFor(user, "hr.employees", "edit") !== "all") redirect("/no-access");
 
@@ -29,9 +42,18 @@ export default async function HrSettingsPage() {
 
   return (
     <>
-      <PageHeader title="HR Settings" description="Organisation, shifts, holidays, leave types, checklists and approval chains." />
+      <PageHeader title="HR Settings" description="Pick a topic. Each one is a short page with only what it needs." />
+      <nav aria-label="HR settings" className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {TABS.map(([t, label, sub]) => (
+          <Link key={t} href={t === "general" ? "/settings/hr" : `/settings/hr?tab=${t}`}
+            className={cn("rounded-xl border px-3.5 py-3 transition hover:-translate-y-0.5 hover:shadow-sm", tab === t ? "border-navy-900 bg-navy-900 text-white" : "border-line bg-surface")}>
+            <span className="block text-sm font-medium">{label}</span>
+            <span className={cn("mt-0.5 block text-xs", tab === t ? "text-white/70" : "text-muted")}>{sub}</span>
+          </Link>
+        ))}
+      </nav>
       <div className="space-y-8">
-        <Section id="departments" title="Departments">
+        {tab === "org" && <Section id="departments" title="Departments">
           <Card className="divide-y divide-line">
             {departments.map((d) => (
               <ActionForm key={d.id} action={saveDepartment} className="flex flex-wrap items-center gap-2 p-3">
@@ -55,9 +77,9 @@ export default async function HrSettingsPage() {
               <SubmitButton>Add</SubmitButton>
             </ActionForm>
           </Card>
-        </Section>
+        </Section>}
 
-        <Section id="designations" title="Designations">
+        {tab === "org" && <Section id="designations" title="Designations">
           <Card className="divide-y divide-line">
             {designations.map((d) => (
               <ActionForm key={d.id} action={saveDesignation} className="flex flex-wrap items-center gap-2 p-3">
@@ -76,9 +98,9 @@ export default async function HrSettingsPage() {
               <SubmitButton>Add</SubmitButton>
             </ActionForm>
           </Card>
-        </Section>
+        </Section>}
 
-        <Section id="checklists" title="Employee defaults & checklists" hint="One checklist item per line. New hires get the onboarding list; recording a resignation creates the exit list.">
+        {tab === "general" && <Section id="checklists" title="Employee defaults & checklists" hint="One checklist item per line. New hires get the onboarding list; recording a resignation creates the exit list.">
           <Card className="p-5">
             <ActionForm action={saveHrGeneral} className="space-y-4" successMessage="Saved.">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -92,11 +114,11 @@ export default async function HrSettingsPage() {
               <SubmitButton>Save</SubmitButton>
             </ActionForm>
           </Card>
-        </Section>
+        </Section>}
 
-        <AttendanceSettings />
+        {(tab === "shifts" || tab === "leave") && <AttendanceSettings show={tab === "shifts" ? ["shifts", "geofence"] : ["leave-types", "holidays"]} />}
 
-        <Section id="approvals" title="Approval chains" hint="Who approves each kind of request, in order. “Manager” is the employee’s reporting manager (falls back to HR if they have none).">
+        {tab === "approvals" && <Section id="approvals" title="Approval chains" hint="Who approves each kind of request, in order. “Manager” is the employee’s reporting manager (falls back to HR if they have none).">
           <Card className="divide-y divide-line">
             {flows.map((f) => {
               let steps: Step[] = [];
@@ -128,7 +150,7 @@ export default async function HrSettingsPage() {
               );
             })}
           </Card>
-        </Section>
+        </Section>}
       </div>
     </>
   );

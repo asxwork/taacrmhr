@@ -48,7 +48,7 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
       people: staff.filter((e) => e.branchId === b.id), href: `/hr/employees?branch=${b.id}`,
     }));
   } else if (tab === "departments") {
-    manageHref = "/settings/hr#departments";
+    manageHref = "/settings/hr?tab=org";
     rows = departments.map((d, i) => {
       const head = d.headId ? byId.get(d.headId) : null;
       return {
@@ -60,13 +60,13 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
     const none = staff.filter((e) => !e.departmentId);
     if (none.length) rows.push({ key: "none", code: "—", name: "No department", sub: "Assign these people a department", people: none, href: "/hr/employees" });
   } else if (tab === "designations") {
-    manageHref = "/settings/hr#designations";
+    manageHref = "/settings/hr?tab=org";
     rows = designations.map((d, i) => ({
       key: d.id, code: pad("DSG", i), name: d.name, extra: d.grade ? <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs text-violet-800">Grade {d.grade}</span> : <span className="text-xs text-muted">No grade</span>,
       people: staff.filter((e) => e.designationId === d.id), href: `/hr/employees?desig=${d.id}`,
     }));
   } else {
-    manageHref = "/settings/hr#designations";
+    manageHref = "/settings/hr?tab=org";
     const grades = [...new Set(designations.map((d) => d.grade).filter((g): g is string => !!g))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     rows = grades.map((g) => {
       const ds = designations.filter((d) => d.grade === g);

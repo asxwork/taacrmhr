@@ -75,8 +75,8 @@ export const APPS: AppDef[] = [
           sub("Compliance", [
             { href: "/hr/policies", label: "Policy Documents", icon: "filecheck", module: "hr.employees" },
             { href: "/hr/policies/planner", label: "Policy Planner", icon: "calendar", module: "hr.employees" },
-            { href: "/settings/hr#shifts", label: "Attendance Policy", icon: "clock", module: "hr.employees" },
-            { href: "/settings/hr#approvals", label: "Request Policy", icon: "check", module: "hr.employees" },
+            { href: "/settings/hr?tab=shifts", label: "Attendance Policy", icon: "clock", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Request Policy", icon: "check", module: "hr.employees" },
             { href: "/hr/employees?tab=documents", label: "Renewals", icon: "refresh", module: "hr.employees" },
           ], "clipboard"),
           sub("End Of Employment", [
@@ -87,11 +87,11 @@ export const APPS: AppDef[] = [
           sub("Settings", [
             { href: "/settings/hr", label: "General", icon: "sliders", module: "hr.employees" },
             { href: "/settings/roles", label: "Privileges", icon: "shield", module: "settings.roles" },
-            { href: "/settings/hr#checklists", label: "Checklist", icon: "clipboard", module: "hr.employees" },
+            { href: "/settings/hr", label: "Checklist", icon: "clipboard", module: "hr.employees" },
             { href: "/hr/letters", label: "Letter Management", icon: "mail", module: "hr.employees" },
-            { href: "/settings/hr#departments", label: "Manage Employee", icon: "usercog", module: "hr.employees" },
+            { href: "/settings/hr?tab=org", label: "Manage Employee", icon: "usercog", module: "hr.employees" },
             { href: "/hr/policies/manage", label: "Policy Management", icon: "filecheck", module: "hr.employees" },
-            { href: "/settings/hr#designations", label: "Manage Employments", icon: "briefcase", module: "hr.employees" },
+            { href: "/settings/hr?tab=org", label: "Manage Employments", icon: "briefcase", module: "hr.employees" },
             { href: "/hr/engagement", label: "Employee Engagement", icon: "heart", module: "hr.employees" },
             { href: "/hr/settings/custom-fields", label: "Custom Fields", icon: "list", module: "hr.employees" },
             { href: "/settings/hr-import", label: "Import HR Data", icon: "fileplus", superAdmin: true },
@@ -143,10 +143,10 @@ export const APPS: AppDef[] = [
             { href: "/hr/attendance/reports/travel", label: "Travel", icon: "plane", module: "hr.attendance" },
           ], "pie"),
           sub("Settings", [
-            { href: "/settings/hr#shifts", label: "General", icon: "sliders", module: "hr.employees" },
-            { href: "/settings/hr#leave-types", label: "Types", icon: "list", module: "hr.employees" },
-            { href: "/settings/hr#geofence", label: "Restrictions", icon: "ban", module: "hr.employees" },
-            { href: "/settings/hr#holidays", label: "Holidays", icon: "calendar", module: "hr.employees" },
+            { href: "/settings/hr?tab=shifts", label: "General", icon: "sliders", module: "hr.employees" },
+            { href: "/settings/hr?tab=leave", label: "Types", icon: "list", module: "hr.employees" },
+            { href: "/settings/hr?tab=shifts", label: "Restrictions", icon: "ban", module: "hr.employees" },
+            { href: "/settings/hr?tab=leave", label: "Holidays", icon: "calendar", module: "hr.employees" },
           ], "settings"),
         ],
       },
@@ -157,7 +157,7 @@ export const APPS: AppDef[] = [
           sub("General Tickets", [
             { href: "/hr/requests/tickets/new", label: "Request", icon: "chatplus" },
             { href: "/approvals?type=ticket", label: "Assigned", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Settings", icon: "settings", module: "hr.employees" },
           ], "ticket"),
           sub("Punch", [
             { href: "/me/attendance", label: "Request", icon: "chatplus" },
@@ -166,17 +166,17 @@ export const APPS: AppDef[] = [
           sub("Expense", [
             { href: "/me/expenses", label: "Request", icon: "chatplus" },
             { href: "/approvals?type=expense", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Settings", icon: "settings", module: "hr.employees" },
           ], "receipt"),
           sub("Leave", [
             { href: "/me/leave", label: "Request", icon: "chatplus" },
             { href: "/approvals?type=leave", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#leave-types", label: "Settings", icon: "settings", module: "hr.employees" },
+            { href: "/settings/hr?tab=leave", label: "Settings", icon: "settings", module: "hr.employees" },
           ], "plane"),
           sub("Loans & Advances", [
             { href: "/me/expenses#loans", label: "Request", icon: "chatplus" },
             { href: "/approvals?type=loan", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Settings", icon: "settings", module: "hr.employees" },
           ], "banknote"),
           sub("WFH", [
             { href: "/hr/requests/wfh/new", label: "Request", icon: "chatplus" },
@@ -197,7 +197,7 @@ export const APPS: AppDef[] = [
           sub("Relaxation", [
             { href: "/hr/requests/relaxation/new", label: "Request", icon: "chatplus" },
             { href: "/approvals?type=relaxation", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Settings", icon: "settings", module: "hr.employees" },
           ], "coffee"),
           sub("Transfer", [
             { href: "/hr/requests/transfer/new", label: "Request", icon: "chatplus" },
@@ -206,12 +206,12 @@ export const APPS: AppDef[] = [
           sub("Travel", [
             { href: "/hr/requests/travel/new", label: "Request", icon: "chatplus" },
             { href: "/approvals?type=travel", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Settings", icon: "settings", module: "hr.employees" },
           ], "plane"),
           sub("Requisition", [
             { href: "/hr/requests/requisition/new", label: "Request", icon: "chatplus" },
             { href: "/approvals?type=requisition", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Settings", icon: "settings", module: "hr.employees" },
           ], "users"),
           sub("Resignation", [
             { href: "/hr/requests/resignation/new", label: "Request", icon: "chatplus" },
@@ -220,14 +220,14 @@ export const APPS: AppDef[] = [
           sub("Shift Adjustment", [
             { href: "/hr/requests/shift-adjustment/new", label: "Request", icon: "chatplus" },
             { href: "/approvals?type=shift_adjustment", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Settings", icon: "settings", module: "hr.employees" },
           ], "clock"),
           sub("CPL", [
             { href: "/hr/requests/cpl/new", label: "Request", icon: "chatplus" },
             { href: "/approvals?type=cpl", label: "Approvals", icon: "filecheck" },
-            { href: "/settings/hr#approvals", label: "Settings", icon: "settings", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Settings", icon: "settings", module: "hr.employees" },
           ], "calendar"),
-          sub("Settings", [{ href: "/settings/hr#approvals", label: "General", icon: "sliders", module: "hr.employees" }], "settings"),
+          sub("Settings", [{ href: "/settings/hr?tab=approvals", label: "General", icon: "sliders", module: "hr.employees" }], "settings"),
         ],
       },
       {
@@ -242,7 +242,7 @@ export const APPS: AppDef[] = [
           { href: "/hr/performance/reports", label: "Reports", icon: "pie", module: "hr.performance" },
           sub("Settings", [
             { href: "/hr/performance/general", label: "General", icon: "sliders", module: "hr.performance" },
-            { href: "/settings/hr#checklists", label: "Probation", icon: "chatplus", module: "hr.employees" },
+            { href: "/settings/hr", label: "Probation", icon: "chatplus", module: "hr.employees" },
             { href: "/hr/performance/settings", label: "Performance", icon: "gauge", module: "hr.performance" },
           ], "settings"),
         ],
