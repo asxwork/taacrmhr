@@ -1,4 +1,5 @@
-import { profileSection } from "@/lib/profile-fields";
+import { selfFields } from "@/lib/profile-requests";
+import { PersonAvatar } from "@/components/person-avatar";
 import { CLASH_MIN, CLASH_SHARE, leaveClashes } from "@/lib/leave-planner";
 import Link from "@/components/link";
 import type { Prisma } from "@prisma/client";
@@ -154,19 +155,37 @@ async function RequestDetails({ type, payload, employee }: { type: string; paylo
 
   if (type === "profile_update") {
     const changes = (data.changes ?? {}) as Record<string, string | null>;
+    const photo = typeof data.photo === "string" ? data.photo : null;
+    const relatives = (data.relatives ?? []) as { name: string; relation: string; phone?: string | null }[];
+    const quals = (data.qualifications ?? []) as { kind: string; title: string; institution?: string | null }[];
+    const label = (k: string) => SELF_EDITABLE.find((f) => f.key === k)?.label ?? selfFields().find((f) => f.key === k)?.label ?? k;
     return (
-      <table className="w-full text-sm">
-        <thead><tr><th className="pb-1 text-left text-xs font-medium text-muted">Field</th><th className="pb-1 text-left text-xs font-medium text-muted">Now</th><th className="pb-1 text-left text-xs font-medium text-muted">Requested</th></tr></thead>
-        <tbody className="divide-y divide-line">
-          {Object.entries(changes).map(([k, v]) => (
-            <tr key={k}>
-              <td className="py-1.5 pr-2 text-muted">{SELF_EDITABLE.find((f) => f.key === k)?.label ?? ["cnic", "passport", "license"].flatMap((s) => profileSection(s)?.fields ?? []).find((f) => f.key === k)?.label ?? k}</td>
-              <td className="py-1.5 pr-2 text-muted line-through">{employee[k] instanceof Date ? (employee[k] as Date).toISOString().slice(0, 10) : String(employee[k] ?? "—")}</td>
-              <td className="py-1.5 font-medium">{v || "—"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="space-y-3">
+        {photo && (
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-center"><PersonAvatar name={String(employee.fullName ?? "")} photo={(employee.photo as string | null) ?? null} className="size-14" /><span className="mt-1 block text-xs text-muted">Now</span></span>
+            <span className="text-muted">→</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <span className="text-center"><img src={fileUrl(photo)} alt="Requested photo" className="size-14 rounded-full object-cover ring-2 ring-gold-500" /><span className="mt-1 block text-xs font-medium">New photo</span></span>
+          </div>
+        )}
+        {Object.keys(changes).length > 0 && (
+          <table className="w-full text-sm">
+            <thead><tr><th className="pb-1 text-left text-xs font-medium text-muted">Field</th><th className="pb-1 text-left text-xs font-medium text-muted">Now</th><th className="pb-1 text-left text-xs font-medium text-muted">Requested</th></tr></thead>
+            <tbody className="divide-y divide-line">
+              {Object.entries(changes).map(([k, v]) => (
+                <tr key={k}>
+                  <td className="py-1.5 pr-2 text-muted">{label(k)}</td>
+                  <td className="py-1.5 pr-2 text-muted line-through">{employee[k] instanceof Date ? (employee[k] as Date).toISOString().slice(0, 10) : String(employee[k] ?? "—")}</td>
+                  <td className="py-1.5 font-medium">{v || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {relatives.length > 0 && <div className="text-sm"><p className="text-xs font-medium text-muted">Add relatives</p><ul className="list-disc pl-5">{relatives.map((r, i) => <li key={i}>{r.name} ({r.relation}){r.phone ? ` · ${r.phone}` : ""}</li>)}</ul></div>}
+        {quals.length > 0 && <div className="text-sm"><p className="text-xs font-medium text-muted">Add qualifications</p><ul className="list-disc pl-5">{quals.map((q, i) => <li key={i}>{q.title}{q.institution ? `, ${q.institution}` : ""} <span className="text-muted">({q.kind})</span></li>)}</ul></div>}
+      </div>
     );
   }
   if (type === "leave" && typeof data.leaveRequestId === "string") {

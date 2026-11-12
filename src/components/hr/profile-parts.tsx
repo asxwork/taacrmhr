@@ -70,7 +70,9 @@ const display = (f: ProfileField, v: string, options: Partial<Record<OptionSourc
  * A profile section as rows. Editors get inputs and a Save button (one server action per section); everyone else
  * sees plain values. `before`/`after` add custom rows such as the photo or ID attachments.
  */
-export function SectionForm({ employeeId, def, values, options, canEdit, action, title, icon, before, after }: {
+export function SectionForm({ employeeId, def, values, options, canEdit, action, title, icon, before, after, viaHr }: {
+  /** The employee's own profile: the button sends the change to HR instead of saving. */
+  viaHr?: boolean;
   employeeId: string; def: ProfileSectionDef; values: Record<string, string>; options: Partial<Record<OptionSource, [string, string][]>>;
   canEdit: boolean; action: (s: FormState, fd: FormData) => Promise<FormState>; title?: string; icon?: React.ReactNode;
   before?: React.ReactNode; after?: React.ReactNode;
@@ -90,7 +92,7 @@ export function SectionForm({ employeeId, def, values, options, canEdit, action,
           <input type="hidden" name="section" value={def.key} />
           {rows}
           {after}
-          <div className="flex justify-end px-3 pt-3"><SubmitButton variant="secondary">Save {(title ?? def.title).toLowerCase()}</SubmitButton></div>
+          <div className="flex justify-end px-3 pt-3"><SubmitButton variant="secondary">{viaHr ? "Send to HR for approval" : `Save ${(title ?? def.title).toLowerCase()}`}</SubmitButton></div>
         </ActionForm>
       ) : (
         <>{rows}{after}</>

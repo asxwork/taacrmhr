@@ -77,7 +77,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
   // ── Tabs
   const employeeInfo = (
     <Card className="p-4">
-      <SectionForm employeeId={id} def={personalDef} values={values} options={options} canEdit={mine} action={secAction} icon={<User className="size-4" />}
+      <SectionForm employeeId={id} def={personalDef} values={values} options={options} canEdit={mine} action={secAction} viaHr={!canEdit} icon={<User className="size-4" />}
         before={
           <Row label="Profile Pic">
             {mine ? (
@@ -85,24 +85,24 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
                 <input type="hidden" name="id" value={id} />
                 <PersonAvatar name={emp.fullName} photo={emp.photo} className="size-14 text-base" />
                 <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required aria-label="Profile picture" className="min-w-0 flex-1 text-xs file:mr-2 file:rounded file:border-0 file:bg-navy-900 file:px-2 file:py-1 file:text-white" />
-                <SubmitButton variant="secondary" pendingText="Uploading…" className="h-8 px-3 text-xs">Upload</SubmitButton>
-                <span className="w-full text-xs text-muted">{emp.photo ? emp.photo.split("/").pop() : "No picture yet"} · JPG, PNG or WebP · max 4MB.</span>
+                <SubmitButton variant="secondary" pendingText="Uploading…" className="h-8 px-3 text-xs">{canEdit ? "Upload" : "Send to HR"}</SubmitButton>
+                <span className="w-full text-xs text-muted">{canEdit ? (emp.photo ? emp.photo.split("/").pop() : "No picture yet") : "A new picture shows once HR approves it"} · JPG, PNG or WebP · max 4MB.</span>
               </ActionForm>
             ) : emp.photo ? emp.photo.split("/").pop() : <span className="text-muted">—</span>}
           </Row>
         } />
       {p.customDef && <SectionForm employeeId={id} def={p.customDef} values={values} options={options} canEdit={canEdit} action={saveProfileSection} icon={<User className="size-4" />} />}
-      <SectionForm employeeId={id} def={def("quick")} values={values} options={options} canEdit={mine} action={secAction} icon={<Phone className="size-4" />} />
+      <SectionForm employeeId={id} def={def("quick")} values={values} options={options} canEdit={mine} action={secAction} viaHr={!canEdit} icon={<Phone className="size-4" />} />
       {f.cnic !== "hidden" && (
         <>
-          <SectionForm employeeId={id} def={def("cnic")} values={values} options={options} canEdit={mine && f.cnic === "full"} action={secAction} icon={<IdCard className="size-4" />}
+          <SectionForm employeeId={id} def={def("cnic")} values={values} options={options} canEdit={mine && f.cnic === "full"} action={secAction} viaHr={!canEdit} icon={<IdCard className="size-4" />}
             after={f.cnic === "full" && f.docs === "full" ? attachment("CNIC Attachment", "CNIC") : undefined} />
           {f.cnic === "full" && attachForm("CNIC (front)", "CNIC front")}
           {f.cnic === "full" && attachForm("CNIC (back)", "CNIC back")}
-          <SectionForm employeeId={id} def={def("passport")} values={values} options={options} canEdit={mine && f.cnic === "full"} action={secAction} title="PASSPORT" icon={<IdCard className="size-4" />}
+          <SectionForm employeeId={id} def={def("passport")} values={values} options={options} canEdit={mine && f.cnic === "full"} action={secAction} viaHr={!canEdit} title="PASSPORT" icon={<IdCard className="size-4" />}
             after={f.cnic === "full" && f.docs === "full" ? attachment("Passport Attachment", "Passport") : undefined} />
           {f.cnic === "full" && attachForm("Passport", "passport")}
-          <SectionForm employeeId={id} def={def("license")} values={values} options={options} canEdit={mine && f.cnic === "full"} action={secAction} title="DRIVING LICENSE" icon={<IdCard className="size-4" />}
+          <SectionForm employeeId={id} def={def("license")} values={values} options={options} canEdit={mine && f.cnic === "full"} action={secAction} viaHr={!canEdit} title="DRIVING LICENSE" icon={<IdCard className="size-4" />}
             after={f.cnic === "full" && f.docs === "full" ? attachment("Driving License Attachment", "Driving license") : undefined} />
           {f.cnic === "full" && attachForm("Driving license", "driving license")}
         </>
@@ -187,8 +187,8 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
 
   const contact = (
     <Card className="p-4">
-      {f.personal !== "hidden" && <SectionForm employeeId={id} def={def("addresses")} values={values} options={options} canEdit={mine} action={secAction} icon={<MapPin className="size-4" />} />}
-      <SectionForm employeeId={id} def={canEdit ? def("contacts") : { ...def("contacts"), fields: def("contacts").fields.map((x) => (x.key === "officialEmail" ? { ...x, readOnly: true } : x)) }} values={values} options={options} canEdit={mine} action={secAction} icon={<Phone className="size-4" />} />
+      {f.personal !== "hidden" && <SectionForm employeeId={id} def={def("addresses")} values={values} options={options} canEdit={mine} action={secAction} viaHr={!canEdit} icon={<MapPin className="size-4" />} />}
+      <SectionForm employeeId={id} def={canEdit ? def("contacts") : { ...def("contacts"), fields: def("contacts").fields.map((x) => (x.key === "officialEmail" ? { ...x, readOnly: true } : x)) }} values={values} options={options} canEdit={mine} action={secAction} viaHr={!canEdit} icon={<Phone className="size-4" />} />
     </Card>
   );
 
@@ -200,9 +200,9 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
     </Card>
   );
 
-  const del = (kind: string, rowId: string) => (kind === "bank" ? canEdit : mine) && (
+  const del = (_kind: string, rowId: string) => canEdit && (
     <form action={deleteProfileRow}>
-      <input type="hidden" name="kind" value={kind} /><input type="hidden" name="rowId" value={rowId} />
+      <input type="hidden" name="kind" value={_kind} /><input type="hidden" name="rowId" value={rowId} />
       <button title="Remove" aria-label="Remove" className="rounded p-1 text-muted hover:text-red-600"><Trash2 className="size-3.5" /></button>
     </form>
   );
@@ -225,7 +225,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
             <label className="flex items-center gap-1.5"><input type="checkbox" name="dependent" /> Dependent</label>
             <label className="flex items-center gap-1.5"><input type="checkbox" name="emergency" /> Emergency contact</label>
           </div>
-          <div className="sm:col-span-3"><SubmitButton variant="secondary"><Plus className="size-4" /> Add relative</SubmitButton></div>
+          <div className="sm:col-span-3"><SubmitButton variant="secondary"><Plus className="size-4" /> {canEdit ? "Add relative" : "Send to HR"}</SubmitButton></div>
         </ActionForm>
       )}
     </Card>
@@ -251,7 +251,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
           <Field label="To (empty = present)"><input name="to" type="date" className="input h-9" /></Field>
           <Field label="Grade"><input name="grade" className="input h-9" /></Field>
           <Field label="Notes" className="sm:col-span-3"><input name="notes" className="input h-9" /></Field>
-          <div className="sm:col-span-3"><SubmitButton variant="secondary"><Plus className="size-4" /> Add</SubmitButton></div>
+          <div className="sm:col-span-3"><SubmitButton variant="secondary"><Plus className="size-4" /> {canEdit ? "Add" : "Send to HR"}</SubmitButton></div>
         </ActionForm>
       )}
     </Card>

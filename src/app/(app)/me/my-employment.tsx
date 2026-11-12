@@ -33,8 +33,8 @@ export async function MyEmployment({ userId, tab }: { userId: string; tab?: stri
         self
         banner={
           <p className="mb-4 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm text-muted">
-            Edit your picture and details right here. Personal, contact and address changes save straight away; CNIC, passport and licence changes go to HR for approval.
-            {pending && <> A change is waiting for HR — <Link href={`/approvals?tab=mine&open=${pending.id}`} className="font-medium text-navy-900 underline">view request</Link>.</>}
+            Your profile shows what HR has on record. To change your picture or any detail, edit it and press “Send to HR for approval”; it updates once HR approves.
+            {pending && <> Changes waiting for HR (anything else you send is added to them) — <Link href={`/approvals?tab=mine&open=${pending.id}`} className="font-medium text-navy-900 underline">view request</Link>.</>}
           </p>
         }
         docsTab={

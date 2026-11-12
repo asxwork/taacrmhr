@@ -3,7 +3,7 @@ import { notify } from "./notify";
 import { renderTemplate } from "./notify-templates";
 import { deleteUpload } from "./files";
 import { addEvent } from "./hr";
-import { APPROVAL_TYPES, SELF_EDITABLE } from "./hr-shared";
+import { APPROVAL_TYPES } from "./hr-shared";
 import type { SessionUser } from "./auth";
 
 // Generic multi-step approvals. A flow (per request type) is an ordered list of steps; each step is
@@ -119,15 +119,37 @@ const parse = <T,>(s: string) => { try { return JSON.parse(s) as T; } catch { re
 async function onApproved(req: Req, actorId: string) {
   switch (req.type) {
     case "profile_update": {
-      const { changes } = parse<{ changes: Record<string, string | null> }>(req.payload);
-      // Older requests carry SELF_EDITABLE keys; My profile also sends CNIC / passport / licence numbers and dates.
-      const allowed = new Set<string>([...SELF_EDITABLE.map((f) => f.key), ...ID_KEYS]);
-      const data = Object.fromEntries(Object.entries(changes ?? {}).filter(([k]) => allowed.has(k))
-        .map(([k, v]) => [k, v && /Issued|Expiry$/.test(k) ? new Date(`${v}T00:00:00`) : v]));
-      if (Object.keys(data).length) {
-        await db.employee.update({ where: { id: req.employeeId }, data });
-        await addEvent(req.employeeId, "note", "Profile updated (approved request)", { details: Object.keys(data).join(", "), byId: actorId });
+      const p = parse<import("./profile-requests").ProfilePayload>(req.payload);
+      const { SELF_KEYS, selfFields } = await import("./profile-requests");
+      const allowed = new Set<string>([...SELF_KEYS(), ...ID_KEYS]);
+      const dates = new Set(selfFields().filter((f) => f.kind === "date").map((f) => f.key));
+      const bools = new Set(selfFields().filter((f) => f.kind === "bool").map((f) => f.key));
+      const data: Record<string, unknown> = Object.fromEntries(Object.entries(p.changes ?? {}).filter(([k]) => allowed.has(k))
+        .map(([k, v]) => [k, v && (dates.has(k) || /Issued|Expiry$/.test(k)) ? new Date(`${v}T00:00:00`) : bools.has(k) ? v === "true" : v]));
+      const emp = await db.employee.findUnique({ where: { id: req.employeeId } });
+      if (!emp) break;
+      if (["firstName", "middleName", "lastName"].some((k) => k in data)) {
+        const pick = (k: "firstName" | "middleName" | "lastName") => (k in data ? (data[k] as string | null) : emp[k]);
+        const fullName = [pick("firstName"), pick("middleName"), pick("lastName")].filter(Boolean).join(" ");
+        if (fullName) data.fullName = fullName;
       }
+      if (p.photo) {
+        if (emp.photo && emp.photo !== p.photo) await deleteUpload(emp.photo).catch(() => {});
+        data.photo = p.photo;
+      }
+      if (Object.keys(data).length) await db.employee.update({ where: { id: emp.id }, data: data as never });
+      if (emp.userId && (data.fullName || "phone" in data)) {
+        await db.user.update({ where: { id: emp.userId }, data: { ...(data.fullName ? { name: data.fullName as string } : {}), ...("phone" in data ? { phone: (data.phone as string | null) ?? null } : {}) } });
+      }
+      const day = (v?: string | null) => (v ? new Date(`${v}T00:00:00`) : null);
+      for (const r of p.relatives ?? []) {
+        await db.employeeRelative.create({ data: { employeeId: emp.id, name: r.name, relation: r.relation, dob: day(r.dob), cnic: r.cnic ?? null, phone: r.phone ?? null, dependent: !!r.dependent, emergency: !!r.emergency } });
+        if (r.emergency) await db.employee.update({ where: { id: emp.id }, data: { emergencyName: r.name, emergencyRelation: r.relation, emergencyPhone: r.phone ?? null } });
+      }
+      for (const q of p.qualifications ?? []) {
+        await db.employeeQualification.create({ data: { employeeId: emp.id, kind: q.kind, title: q.title, institution: q.institution ?? null, from: day(q.from), to: day(q.to), grade: q.grade ?? null, notes: q.notes ?? null } });
+      }
+      await addEvent(emp.id, "note", "Profile updated (approved request)", { details: [...Object.keys(data), ...(p.relatives?.length ? ["relatives"] : []), ...(p.qualifications?.length ? ["qualifications"] : [])].join(", "), byId: actorId });
       break;
     }
     case "leave": {
@@ -176,6 +198,10 @@ async function onApproved(req: Req, actorId: string) {
 }
 
 async function onRejected(req: Req, status: "rejected" | "cancelled") {
+  if (req.type === "profile_update") {
+    const { photo } = parse<{ photo?: string }>(req.payload);
+    if (photo) await deleteUpload(photo).catch(() => {}); // the uploaded photo was never used
+  }
   if (req.type === "loan" || req.type === "expense") {
     const p = parse<{ loanId?: string; expenseId?: string }>(req.payload);
     if (p.loanId) await db.loan.updateMany({ where: { id: p.loanId, status: "pending" }, data: { status } });
