@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { saveUpload } from "@/lib/files";
-import { financeApproverIds, financeConfig, isClosed, pkr, saveFinanceConfig } from "@/lib/finance";
+import { checkBudget, financeApproverIds, financeConfig, isClosed, pkr, saveFinanceConfig } from "@/lib/finance";
 import { notify } from "@/lib/notify";
 import { str, type FormState } from "@/lib/utils";
 
@@ -56,6 +56,7 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
   };
   const e = id ? await db.finEntry.update({ where: { id }, data }) : await db.finEntry.create({ data: { ...data, createdById: user.id } });
   if (saved.length) await db.finProof.createMany({ data: saved.map((p) => ({ ...p, entryId: e.id, createdById: user.id })) });
+  if (status === "approved" && kind === "expense" && !personal) await checkBudget(e.categoryId, e.date).catch(() => {});
   if (status === "pending" && before?.status !== "pending") {
     for (const uid of await financeApproverIds()) await notify(uid, `Approve expense: ${pkr(amount)}`, { body: `${description} — entered by ${user.name}`, link: `/finance/entries/${e.id}` });
   }
@@ -206,9 +207,25 @@ export async function decideEntry(fd: FormData) {
   const approve = str(fd, "op") === "approve";
   const reason = str(fd, "reason").slice(0, 300) || null;
   await db.finEntry.update({ where: { id: e.id }, data: approve ? { status: "approved", approvedById: user.id, approvedAt: new Date(), rejectReason: null } : { status: "rejected", approvedById: user.id, approvedAt: new Date(), rejectReason: reason } });
+  if (approve && !e.personal) await checkBudget(e.categoryId, e.date).catch(() => {});
   await audit(user.id, approve ? "approve" : "reject", "finEntry", e.id, `${approve ? "Approved" : "Rejected"} ${e.description} (${pkr(e.amount)})${reason ? `: ${reason}` : ""}`);
   if (e.createdById && e.createdById !== user.id) await notify(e.createdById, `${approve ? "Approved" : "Rejected"}: ${e.description} (${pkr(e.amount)})`, { body: reason ?? undefined, link: `/finance/entries/${e.id}` });
   revalidatePath("/finance/approvals");
   revalidatePath(`/finance/entries/${e.id}`);
   refresh();
+}
+
+/** Monthly budgets per main category (blank = no budget). */
+export async function saveBudgets(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance.settings", "edit");
+  const cats = await db.finCategory.findMany({ where: { parentId: null, personal: false } });
+  for (const c of cats) {
+    if (!fd.has(`b_${c.id}`)) continue;
+    const amount = parseFloat(str(fd, `b_${c.id}`).replace(/,/g, "")) || 0;
+    if (amount > 0) await db.finBudget.upsert({ where: { categoryId: c.id }, update: { amount }, create: { categoryId: c.id, amount } });
+    else await db.finBudget.deleteMany({ where: { categoryId: c.id } });
+  }
+  await audit(user.id, "update", "finCategory", null, "Updated monthly budgets");
+  revalidatePath("/finance/budgets");
+  return { ok: true, message: "Budgets saved." };
 }

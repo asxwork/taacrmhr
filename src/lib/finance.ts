@@ -133,3 +133,24 @@ export function findDuplicates<T extends { id: string; accountId: string; amount
   }
   return [...groups.values()].filter((g) => g.length > 1);
 }
+
+/** After an expense: warn the approvers once when its main category reaches 80% and 100% of the monthly budget. */
+export async function checkBudget(categoryId: string | null, date: Date) {
+  if (!categoryId) return;
+  const cat = await db.finCategory.findUnique({ where: { id: categoryId }, include: { children: { select: { id: true } } } });
+  const main = cat?.parentId ? await db.finCategory.findUnique({ where: { id: cat.parentId }, include: { children: { select: { id: true } } } }) : cat;
+  if (!main) return;
+  const budget = await db.finBudget.findUnique({ where: { categoryId: main.id } });
+  if (!budget || budget.amount <= 0) return;
+  const m = date.toISOString().slice(0, 7);
+  const from = new Date(`${m}-01T00:00:00`), to = new Date(from.getFullYear(), from.getMonth() + 1, 0, 23, 59, 59);
+  const spent = (await db.finEntry.aggregate({ where: { ...companyExpense(), categoryId: { in: [main.id, ...main.children.map((c) => c.id)] }, date: { gte: from, lte: to } }, _sum: { amount: true } }))._sum.amount ?? 0;
+  const pct = (spent / budget.amount) * 100;
+  const level = pct >= 100 ? 100 : pct >= 80 ? 80 : 0;
+  if (!level) return;
+  const done = budget.alerted?.startsWith(m) ? Number(budget.alerted.slice(8)) : 0;
+  if (done >= level) return;
+  await db.finBudget.update({ where: { id: budget.id }, data: { alerted: `${m}:${level}` } });
+  const { notify } = await import("./notify");
+  for (const uid of await financeApproverIds()) await notify(uid, level === 100 ? `${main.name} is over budget` : `${main.name} has used ${Math.round(pct)}% of its budget`, { body: `${pkr(spent)} of ${pkr(budget.amount)} in ${m}`, link: "/finance/budgets", email: level === 100 });
+}
