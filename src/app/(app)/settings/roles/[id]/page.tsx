@@ -13,7 +13,7 @@ import { deleteRole, saveRolePermissions } from "../actions";
 
 export const metadata = { title: "Edit role" };
 
-const GROUPS = ["CRM", "Inventory", "Calls", "HR", "Reports", "Settings"] as const;
+const GROUPS = ["CRM", "Inventory", "Calls", "HR", "Finance", "Reports", "Settings"] as const;
 
 export default async function RoleEditPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePermission("settings.roles");

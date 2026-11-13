@@ -11,7 +11,7 @@ import { saveUserAccess } from "./actions";
 
 export const metadata = { title: "User access" };
 
-const GROUPS = ["CRM", "Inventory", "Calls", "HR", "Reports", "Settings"] as const;
+const GROUPS = ["CRM", "Inventory", "Calls", "HR", "Finance", "Reports", "Settings"] as const;
 
 /** Settings → Users → Access: what this person's roles give, and per-permission exceptions on top. */
 export default async function UserAccessPage({ params }: { params: Promise<{ id: string }> }) {

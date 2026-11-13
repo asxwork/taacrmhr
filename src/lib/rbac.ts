@@ -23,7 +23,7 @@ export const ACTION_LABELS: Record<Action, string> = {
 export type ModuleDef = {
   key: string;
   label: string;
-  group: "CRM" | "Inventory" | "Calls" | "HR" | "Reports" | "Settings";
+  group: "CRM" | "Inventory" | "Calls" | "HR" | "Finance" | "Reports" | "Settings";
   actions: readonly Action[];
   /** Records in this module have an owner/branch, so own/team/branch scopes apply. */
   scoped: boolean;
@@ -61,6 +61,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "hr.orgchart", label: "Org chart", group: "HR", actions: ["view"], scoped: false },
   { key: "hr.exit", label: "Exit interviews", group: "HR", actions: ["view", "edit"], scoped: true },
   { key: "calls", label: "Calling centre", group: "Calls", actions: [...CRUD, "assign", "listen"], scoped: true },
+  { key: "finance", label: "Finance & expenses", group: "Finance", actions: [...CRUD, "import", "export"], scoped: false },
   { key: "reports.crm", label: "CRM Reports", group: "Reports", actions: ["view", "export"], scoped: true },
   { key: "reports.activity", label: "Person activity feed", group: "Reports", actions: ["view"], scoped: true },
   { key: "reports.weekly", label: "Boss weekly email", group: "Reports", actions: ["view"], scoped: false },

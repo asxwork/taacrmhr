@@ -5,6 +5,7 @@ export const ACTIVITY_CATEGORIES = [
   { key: "attendance", label: "Attendance", entities: ["attendance", "attendancePunch", "attendanceLog", "attendanceMachine", "shift", "roster", "holiday", "checkinDevice", "shiftswap"] },
   { key: "payroll", label: "Payroll", entities: ["payroll", "payrollRun", "payslip", "salary", "loan", "installment", "payItem", "taxSlab", "finalSettlement"] },
   { key: "crm", label: "CRM", entities: ["lead", "leads", "deal", "contact", "company", "unit", "activity", "stage", "salesTarget", "automation", "template"] },
+  { key: "finance", label: "Finance", entities: ["finEntry", "finAccount", "finCategory", "finImport"] },
   { key: "calls", label: "Calls", entities: ["callBatch", "callRecording", "callTarget", "sipAccount"] },
   { key: "users", label: "Users & sign-ins", entities: ["user", "role"] },
   { key: "system", label: "System & settings", entities: ["setting", "settings", "backup", "apiConnection"] },

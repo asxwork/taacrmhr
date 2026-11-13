@@ -2097,3 +2097,65 @@ model AttendanceBreak {
 
   @@index([employeeId, start])
 }
+
+// ─── Finance (expenses & petty cash) ─────────────────────────
+
+/// Who holds or spends money: a petty-cash holder (Bushra), a person paying for the company (Samad, Muhammad),
+/// the owner (Mubeen sir), a bank account or card. Balance = opening + money in + transfers in − spent − transfers out.
+/// kind: petty | person | owner | bank | card
+model FinAccount {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  kind       String      @default("person")
+  employeeId String?
+  opening    Float       @default(0)
+  notes      String?
+  active     Boolean     @default(true)
+  sortOrder  Int         @default(0)
+  createdAt  DateTime    @default(now())
+  entries    FinEntry[]  @relation("FinFrom")
+  incoming   FinEntry[]  @relation("FinTo")
+}
+
+/// Expense categories with sub-categories (parentId). personal = the owner's own spending, kept out of company totals.
+model FinCategory {
+  id        String        @id @default(cuid())
+  name      String
+  parentId  String?
+  parent    FinCategory?  @relation("FinCatTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  FinCategory[] @relation("FinCatTree")
+  personal  Boolean       @default(false)
+  active    Boolean       @default(true)
+  sortOrder Int           @default(0)
+  entries   FinEntry[]
+
+  @@index([parentId])
+}
+
+/// One money movement. kind: expense (spent from accountId) | in (received into accountId) | transfer (accountId →
+/// toAccountId; not an expense, so an internal transfer is never counted twice).
+model FinEntry {
+  id          String       @id @default(cuid())
+  date        DateTime
+  kind        String       @default("expense")
+  amount      Float
+  accountId   String
+  account     FinAccount   @relation("FinFrom", fields: [accountId], references: [id])
+  toAccountId String?
+  toAccount   FinAccount?  @relation("FinTo", fields: [toAccountId], references: [id], onDelete: SetNull)
+  categoryId  String?
+  category    FinCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  description String
+  party       String?
+  personal    Boolean      @default(false)
+  receipt     String?
+  notes       String? // @text
+  importKey   String?      @unique
+  createdById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([date])
+  @@index([accountId])
+  @@index([categoryId])
+}

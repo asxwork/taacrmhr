@@ -19,7 +19,7 @@ export type NavGroup = { label?: string; icon?: string; items: NavItem[] };
 /** A collapsible sub-menu (e.g. Compliance ▸): opens on its first child's page. */
 const sub = (label: string, children: NavItem[], icon = children[0]!.icon): NavItem => ({ href: children[0]!.href, label, icon, children });
 
-export type AppKey = "crm" | "hr" | "me" | "boss" | "settings" | "learn";
+export type AppKey = "crm" | "hr" | "finance" | "me" | "boss" | "settings" | "learn";
 export type AppDef = {
   key: AppKey;
   name: string;
@@ -301,6 +301,22 @@ export const APPS: AppDef[] = [
           { href: "/me/assets", label: "Assets", icon: "laptop" },
           { href: "/feed", label: "Feed", icon: "award", also: ["/org-chart"] },
           { href: "/me", label: "My profile", icon: "user", also: ["/me/performance", "/me/check-ins", "/me/exit-interview", "/me/surveys"] },
+        ],
+      },
+    ],
+  },
+  {
+    key: "finance", name: "Finance", description: "Expenses, petty cash and who paid what", icon: "wallet", tile: "from-emerald-600 to-lime-700",
+    home: "/finance", prefixes: ["/finance"], layout: "list",
+    groups: [
+      {
+        items: [
+          { href: "/finance", label: "Dashboard", icon: "chart", module: "finance" },
+          { href: "/finance/entries", label: "Entries", icon: "receipt", module: "finance" },
+          { href: "/finance/holders", label: "Money holders", icon: "wallet", module: "finance" },
+          { href: "/finance/personal", label: "Sir personal", icon: "crown", module: "finance" },
+          { href: "/finance/categories", label: "Categories", icon: "list", module: "finance", action: "edit" },
+          { href: "/finance/import", label: "Import Excel", icon: "sheet", module: "finance", action: "import" },
         ],
       },
     ],
