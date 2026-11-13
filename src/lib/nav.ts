@@ -315,6 +315,7 @@ export const APPS: AppDef[] = [
           { href: "/finance", label: "Dashboard", icon: "chart", module: "finance" },
           { href: "/finance/entries", label: "Entries", icon: "receipt", module: "finance" },
           { href: "/finance/holders", label: "Money holders", icon: "wallet", module: "finance" },
+          { href: "/finance/bills", label: "Monthly bills", icon: "calendar", module: "finance" },
           { href: "/finance/approvals", label: "Approvals", icon: "check", module: "finance", action: "approve" },
           { href: "/finance/personal", label: "Sir personal", icon: "crown", module: "finance.personal" },
           { href: "/finance/budgets", label: "Budgets", icon: "gauge", module: "finance.settings" },

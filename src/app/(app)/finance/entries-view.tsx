@@ -13,7 +13,7 @@ import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ConfirmButton } from "@/components/confirm-button";
 import { deleteEntry, saveEntry } from "./actions";
 
-export type EntrySP = { copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
+export type EntrySP = { bill?: string; copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
 const PAGE = 100;
 
 /** The entries list (all, or Sir personal) with filters, totals and the add/edit panel. */
@@ -41,8 +41,9 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
   const editing = sp.edit ? await db.finEntry.findUnique({ where: { id: sp.edit } }) : null;
   // Duplicate: a copy of an entry (e.g. last month's K-Electric bill) with today's date and no proof.
   const copy = !editing && sp.copy ? await db.finEntry.findUnique({ where: { id: sp.copy } }) : null;
-  const src = editing ?? copy;
-  const newKind = copy ? copy.kind : sp.new === "in" || sp.new === "transfer" ? sp.new : sp.new ? "expense" : null;
+  const bill = !editing && sp.bill ? await db.finRecurring.findUnique({ where: { id: sp.bill } }) : null;
+  const src = editing ?? copy ?? (bill && { kind: "expense", amount: bill.amount, accountId: bill.accountId ?? "", toAccountId: null, categoryId: bill.categoryId, description: `${bill.name} · ${format(new Date(), "MMMM yyyy")}`, party: bill.party, notes: null, date: new Date() });
+  const newKind = copy ? copy.kind : bill ? "expense" : sp.new === "in" || sp.new === "transfer" ? sp.new : sp.new ? "expense" : null;
   const formKind = editing?.kind ?? newKind;
   const cfg = await financeConfig();
   const proofRequired = cfg.proofAbove > 0 ? `Required for ${pkr(cfg.proofAbove)} and above` : "Bill, receipt or transfer screenshot. Your boss sees it on the entry.";
@@ -129,10 +130,12 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
       {formKind && (canAdd || canEdit) && (
         <Drawer title={editing ? "Edit entry" : copy ? "Duplicate entry" : formKind === "in" ? "Money in" : formKind === "transfer" ? "Transfer between holders" : personal ? "Sir personal expense" : "New expense"} closeHref={href({})} width="max-w-md">
           {formKind === "transfer" && <p className="mb-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900">Money moving inside the company, e.g. Bushra gives Samad Rs 6,000. It changes both balances but isn&apos;t spending: Samad then adds the actual expense.</p>}
+          {bill && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">Paying the monthly bill “{bill.name}”. Check the amount on this month&apos;s bill and attach it.</p>}
           {copy && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">Copied from “{copy.description}” ({format(copy.date, "d MMM yyyy")}). Change the date, amount and attach this month&apos;s bill.</p>}
           <ActionForm action={saveEntry} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
             <input type="hidden" name="kind" value={formKind} />
+            {bill && <input type="hidden" name="recurringId" value={bill.id} />}
             <input type="hidden" name="back" value={href({})} />
             <div className="grid grid-cols-2 gap-3">
               <Field label="Date"><input name="date" type="date" required defaultValue={format(editing?.date ?? new Date(), "yyyy-MM-dd")} className="input" /></Field>

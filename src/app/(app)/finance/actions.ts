@@ -53,8 +53,10 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
     kind, amount, date, accountId, toAccountId: toAccountId || null, categoryId: categoryId || null, description,
     party: str(fd, "party").slice(0, 120) || null, personal, notes: str(fd, "notes").slice(0, 1000) || null,
     status, ...(status === "pending" && { approvedAt: null, approvedById: null, rejectReason: null }),
+    ...(str(fd, "recurringId") && { recurringId: str(fd, "recurringId") }),
   };
   const e = id ? await db.finEntry.update({ where: { id }, data }) : await db.finEntry.create({ data: { ...data, createdById: user.id } });
+  if (data.recurringId) await db.finRecurring.update({ where: { id: data.recurringId }, data: { lastPaid: date.toISOString().slice(0, 7) } }).catch(() => {});
   if (saved.length) await db.finProof.createMany({ data: saved.map((p) => ({ ...p, entryId: e.id, createdById: user.id })) });
   if (status === "approved" && kind === "expense" && !personal) await checkBudget(e.categoryId, e.date).catch(() => {});
   if (status === "pending" && before?.status !== "pending") {
@@ -228,4 +230,38 @@ export async function saveBudgets(_: FormState, fd: FormData): Promise<FormState
   await audit(user.id, "update", "finCategory", null, "Updated monthly budgets");
   revalidatePath("/finance/budgets");
   return { ok: true, message: "Budgets saved." };
+}
+
+/** Add / edit / stop a monthly bill. */
+export async function saveBill(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "create");
+  const id = str(fd, "id");
+  if (str(fd, "op") === "delete") {
+    await db.finRecurring.delete({ where: { id } }).catch(() => {});
+    await audit(user.id, "delete", "finCategory", id, "Removed a monthly bill");
+    revalidatePath("/finance/bills");
+    redirect("/finance/bills");
+  }
+  const name = str(fd, "name").slice(0, 80);
+  const amount = parseFloat(str(fd, "amount").replace(/,/g, "")) || 0;
+  const day = Math.min(31, Math.max(1, parseInt(str(fd, "dayOfMonth")) || 1));
+  if (name.length < 2) return { error: "Name the bill, e.g. K-Electric (DHA office)." };
+  if (!(amount > 0)) return { error: "Enter the usual amount." };
+  const data = { name, amount, dayOfMonth: day, categoryId: str(fd, "categoryId") || null, accountId: str(fd, "accountId") || null, party: str(fd, "party").slice(0, 120) || null, notes: str(fd, "notes") || null, active: id ? fd.get("active") === "on" : true };
+  if (id) await db.finRecurring.update({ where: { id }, data });
+  else await db.finRecurring.create({ data });
+  await audit(user.id, id ? "update" : "create", "finCategory", id || null, `${id ? "Updated" : "Added"} monthly bill ${name} (${pkr(amount)})`);
+  revalidatePath("/finance/bills");
+  redirect("/finance/bills");
+}
+
+/** Turn an existing entry into a monthly bill. */
+export async function makeBill(fd: FormData) {
+  const user = await requirePermission("finance", "create");
+  const e = await db.finEntry.findUnique({ where: { id: str(fd, "id") } });
+  if (!e) return;
+  const b = await db.finRecurring.create({ data: { name: e.party || e.description.slice(0, 80), amount: e.amount, dayOfMonth: e.date.getDate(), categoryId: e.categoryId, accountId: e.accountId, party: e.party, lastPaid: e.date.toISOString().slice(0, 7) } });
+  await db.finEntry.update({ where: { id: e.id }, data: { recurringId: b.id } });
+  await audit(user.id, "create", "finCategory", b.id, `Made ${b.name} a monthly bill`);
+  redirect(`/finance/bills?edit=${b.id}`);
 }

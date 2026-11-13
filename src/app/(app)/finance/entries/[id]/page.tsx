@@ -11,7 +11,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, PageHeader } from "@/components/ui";
 import { ConfirmButton } from "@/components/confirm-button";
 import { ProofInputs } from "../../proof-inputs";
-import { addProof, decideEntry, deleteProof, verifyEntry } from "../../actions";
+import { addProof, decideEntry, deleteProof, makeBill, verifyEntry } from "../../actions";
 
 export const metadata = { title: "Entry · Finance" };
 const isImage = (p: string) => /\.(jpe?g|png|webp|gif|heic)$/i.test(p);
@@ -44,7 +44,7 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
   return (
     <>
       <PageHeader eyebrow={format(e.date, "EEEE d MMMM yyyy")} title={e.description}
-        actions={<div className="flex gap-2"><Link href={`${back}?copy=${e.id}`} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Duplicate</Link><Link href={`${back}?edit=${e.id}`} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Edit</Link></div>} />
+        actions={<div className="flex gap-2">{e.kind === "expense" && !e.recurringId && <form action={makeBill}><input type="hidden" name="id" value={e.id} /><button className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas" title="Comes every month, like K-Electric or rent">Make it a monthly bill</button></form>}<Link href={`${back}?copy=${e.id}`} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Duplicate</Link><Link href={`${back}?edit=${e.id}`} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Edit</Link></div>} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-6">

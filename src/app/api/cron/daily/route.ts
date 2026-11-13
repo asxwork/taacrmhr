@@ -76,6 +76,9 @@ export async function GET(req: Request) {
   // 7. Remind employees before their own CNIC / passport / licence / documents expire.
   const docReminders = await sendDocumentReminders().catch(() => 0);
 
+  // 7b. Finance: monthly bills due within 3 days.
+  const bills = await (await import("@/lib/finance")).sendBillReminders().catch(() => 0);
+
   // 8. Mondays: the boss weekly email (add &weekly=1 to send it today).
   const weekly = await sendWeeklyEmail(new URL(req.url).searchParams.get("weekly") === "1").catch(() => 0);
 
@@ -86,5 +89,5 @@ export async function GET(req: Request) {
   const holdsReleased = await releaseExpiredHolds().catch(() => 0);
 
   await beat("daily");
-  return Response.json({ ok: true, summaries, docReminders, weekly, holdsReleased, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
+  return Response.json({ ok: true, summaries, docReminders, weekly, bills, holdsReleased, missingCheckouts: missing, probationEnding: probation.length, expiringDocuments: expiring, wishes, recordingsPurged });
 }

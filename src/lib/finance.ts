@@ -154,3 +154,29 @@ export async function checkBudget(categoryId: string | null, date: Date) {
   const { notify } = await import("./notify");
   for (const uid of await financeApproverIds()) await notify(uid, level === 100 ? `${main.name} is over budget` : `${main.name} has used ${Math.round(pct)}% of its budget`, { body: `${pkr(spent)} of ${pkr(budget.amount)} in ${m}`, link: "/finance/budgets", email: level === 100 });
 }
+
+/** Monthly bills: due date and whether this month's payment is recorded. */
+export async function billsForMonth(month: Date) {
+  const m = month.toISOString().slice(0, 7);
+  const bills = await db.finRecurring.findMany({ where: { active: true }, include: { category: { include: { parent: true } }, account: true }, orderBy: { dayOfMonth: "asc" } });
+  const from = new Date(month.getFullYear(), month.getMonth(), 1), to = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59);
+  const paid = await db.finEntry.findMany({ where: { recurringId: { in: bills.map((b) => b.id) }, date: { gte: from, lte: to } }, select: { id: true, recurringId: true, amount: true, date: true } });
+  return bills.map((b) => {
+    const p = paid.find((x) => x.recurringId === b.id);
+    const due = new Date(month.getFullYear(), month.getMonth(), Math.min(b.dayOfMonth, to.getDate()));
+    return { ...b, due, paidEntry: p ?? null, paid: !!p || b.lastPaid === m };
+  });
+}
+
+/** Daily: remind approvers about bills due within 3 days (or overdue) and not yet paid. Once per bill per month. */
+export async function sendBillReminders(today = new Date()) {
+  const m = today.toISOString().slice(0, 7);
+  const soon = new Date(today.getTime() + 3 * 86400000);
+  const due = (await billsForMonth(today)).filter((b) => !b.paid && b.due <= soon && b.reminded !== m);
+  if (!due.length) return 0;
+  const { notify } = await import("./notify");
+  const body = due.map((b) => `${b.name}: ${pkr(b.amount)} due ${b.due.toDateString().slice(4, 10)}`).join("\n");
+  for (const uid of await financeApproverIds()) await notify(uid, `${due.length} bill${due.length === 1 ? "" : "s"} due`, { body, link: "/finance/bills" });
+  await db.finRecurring.updateMany({ where: { id: { in: due.map((b) => b.id) } }, data: { reminded: m } });
+  return due.length;
+}
