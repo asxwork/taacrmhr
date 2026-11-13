@@ -1,5 +1,5 @@
 import Link from "@/components/link";
-import { Briefcase, Building2, ChartBar, Plus, Search, Settings2, ShieldCheck, Target } from "lucide-react";
+import { Briefcase, Building2, ChartBar, Phone, Plus, Search, Settings2, ShieldCheck, Target, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { ACTION_LABELS, MODULES, type ModuleDef } from "@/lib/rbac";
@@ -13,13 +13,17 @@ import { createRole, setRoleMembers } from "./actions";
 
 export const metadata = { title: "Access permissions" };
 
-const GROUPS: { key: ModuleDef["group"]; icon: typeof Target; tone: string }[] = [
+const KNOWN_GROUPS: { key: ModuleDef["group"]; icon: typeof Target; tone: string }[] = [
   { key: "CRM", icon: Target, tone: "bg-emerald-500" },
   { key: "Inventory", icon: Building2, tone: "bg-sky-500" },
+  { key: "Calls", icon: Phone, tone: "bg-rose-500" },
   { key: "HR", icon: Briefcase, tone: "bg-violet-500" },
+  { key: "Finance", icon: Wallet, tone: "bg-lime-600" },
   { key: "Reports", icon: ChartBar, tone: "bg-amber-500" },
   { key: "Settings", icon: Settings2, tone: "bg-slate-500" },
 ];
+// Every app's permissions show here: a new app's group appears automatically even before it gets its own icon.
+const GROUPS = [...KNOWN_GROUPS, ...[...new Set(MODULES.map((m) => m.group))].filter((g) => !KNOWN_GROUPS.some((k) => k.key === g)).map((key) => ({ key, icon: Settings2, tone: "bg-slate-400" }))];
 // Bitrix's five first, then the original roles, then custom ones A–Z.
 const ORDER = ["Administrator", "Supervisor", "Deputy supervisor", "Agent", "Observer", "Sales Manager", "HR Manager", "Employee"];
 

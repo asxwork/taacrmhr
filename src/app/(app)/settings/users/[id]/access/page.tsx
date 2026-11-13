@@ -11,7 +11,9 @@ import { saveUserAccess } from "./actions";
 
 export const metadata = { title: "User access" };
 
-const GROUPS = ["CRM", "Inventory", "Calls", "HR", "Finance", "Reports", "Settings"] as const;
+const ORDERED = ["CRM", "Inventory", "Calls", "HR", "Finance", "Reports", "Settings"];
+// Every app's permissions: groups not in the list above are added at the end automatically.
+const GROUPS = [...ORDERED, ...[...new Set(MODULES.map((m) => m.group))].filter((g) => !ORDERED.includes(g))];
 
 /** Settings → Users → Access: what this person's roles give, and per-permission exceptions on top. */
 export default async function UserAccessPage({ params }: { params: Promise<{ id: string }> }) {

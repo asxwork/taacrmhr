@@ -13,7 +13,9 @@ import { deleteRole, saveRolePermissions } from "../actions";
 
 export const metadata = { title: "Edit role" };
 
-const GROUPS = ["CRM", "Inventory", "Calls", "HR", "Finance", "Reports", "Settings"] as const;
+const ORDERED = ["CRM", "Inventory", "Calls", "HR", "Finance", "Reports", "Settings"];
+// Every app's permissions: groups not in the list above are added at the end automatically.
+const GROUPS = [...ORDERED, ...[...new Set(MODULES.map((m) => m.group))].filter((g) => !ORDERED.includes(g))];
 
 export default async function RoleEditPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePermission("settings.roles");
