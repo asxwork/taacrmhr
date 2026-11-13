@@ -21,6 +21,7 @@ export default async function FinanceImport() {
               <span className="text-sm font-medium">Choose the expense workbook (.xlsx)</span>
               <input type="file" name="file" accept=".xlsx" required className="text-sm" />
             </label>
+            {imported > 0 && <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="replace" className="mt-0.5" /> <span>Replace the earlier import <span className="block text-xs text-muted">Removes the {imported.toLocaleString()} imported entries first (entries typed in by hand and their proofs stay). Use this if the sheet was corrected.</span></span></label>}
             <SubmitButton>Import</SubmitButton>
           </ActionForm>
           {imported > 0 && <p className="mt-3 text-xs text-muted">{imported.toLocaleString()} entries came from earlier imports.</p>}
@@ -32,6 +33,7 @@ export default async function FinanceImport() {
             <li><b className="text-ink">SAMAD ENTRIES</b>: marketing spending by Samad.</li>
             <li><b className="text-ink">OTHER ENTRIES</b>: paid by someone else (“Paid by” e.g. Mubeen sir, Muhammad). Each becomes a money holder.</li>
             <li><b className="text-ink">Sir Personal Expense</b>: goes to Sir personal, never counted as company spending.</li>
+            <li>Petty cash sent to <b className="text-ink">Affan, Riaz, Faizan</b> becomes a transfer to their Bahadurabad branch cash. It counts as spending once they enter what they spent, with the bill.</li>
             <li><b className="text-ink">Internal Transfer</b> rows become transfers between holders, so the money is counted once, when it is actually spent.</li>
             <li>Category spellings are tidied (Conveyence → Conveyance, Miscellenious → Miscellaneous, …).</li>
             <li>The Summary sheet is skipped: the dashboard works it out from the entries.</li>

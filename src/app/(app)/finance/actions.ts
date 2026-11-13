@@ -64,7 +64,7 @@ export async function saveHolder(_: FormState, fd: FormData): Promise<FormState>
   if (name.length < 2) return { error: "Enter a name." };
   const clash = await db.finAccount.findUnique({ where: { name } });
   if (clash && clash.id !== id) return { error: `“${name}” already exists.` };
-  const data = { name, kind: str(fd, "kind") || "person", opening: parseFloat(str(fd, "opening").replace(/,/g, "")) || 0, notes: str(fd, "notes") || null, active: id ? fd.get("active") === "on" : true };
+  const data = { name, kind: str(fd, "kind") || "person", opening: parseFloat(str(fd, "opening").replace(/,/g, "")) || 0, notes: str(fd, "notes") || null, branch: str(fd, "branch").slice(0, 40) || null, active: id ? fd.get("active") === "on" : true };
   if (id) await db.finAccount.update({ where: { id }, data });
   else await db.finAccount.create({ data });
   await audit(user.id, id ? "update" : "create", "finAccount", id || null, `${id ? "Updated" : "Added"} money holder ${name}`);
@@ -115,11 +115,11 @@ export async function importWorkbook(_: FormState, fd: FormData): Promise<FormSt
   if (file.size > 20_000_000) return { error: "File is larger than 20 MB." };
   try {
     const { importExpenseWorkbook } = await import("@/lib/finance-import");
-    const r = await importExpenseWorkbook(await file.arrayBuffer(), user.id);
+    const r = await importExpenseWorkbook(await file.arrayBuffer(), user.id, { replace: fd.get("replace") === "on" });
     await audit(user.id, "import", "finImport", null, `Imported ${r.added} finance entries from ${file.name} (${r.skipped} already there)`);
     revalidatePath("/finance");
     const per = Object.entries(r.perSheet).map(([k, v]) => `${k}: ${v}`).join(", ");
-    return { ok: true, message: `Added ${r.added} entries${per ? ` (${per})` : ""}. ${r.skipped} were already imported and skipped.${r.holders.length ? ` New money holders: ${r.holders.join(", ")}.` : ""}` };
+    return { ok: true, message: `${r.removed ? `Removed ${r.removed} entries from the earlier import. ` : ""}Added ${r.added} entries${per ? ` (${per})` : ""}. ${r.skipped} were already imported and skipped.${r.holders.length ? ` New money holders: ${r.holders.join(", ")}.` : ""}` };
   } catch (e) {
     return { error: `Could not read the file: ${e instanceof Error ? e.message : "unknown error"}` };
   }

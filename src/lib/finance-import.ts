@@ -33,17 +33,23 @@ const cellDate = (v: ExcelJS.CellValue) => (v instanceof Date ? v : typeof v ===
 
 export type ImportResult = { added: number; skipped: number; perSheet: Record<string, number>; holders: string[] };
 
-export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string): Promise<ImportResult> {
+/** People who handle the Bahadurabad branch's cash (petty cash Bushra sends them is a transfer to the branch). */
+const BRANCH_PEOPLE: [RegExp, string][] = [[/affan/i, "Affan"], [/riaz|riyaz/i, "Riaz"], [/faizan/i, "Faizan"]];
+export const BRANCH_NAME = "Bahadurabad";
+
+export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string, opts: { replace?: boolean } = {}): Promise<ImportResult & { removed: number }> {
   await ensureFinanceDefaults();
+  // Replace: remove what earlier imports added (entries typed in by hand stay).
+  const removed = opts.replace ? (await db.finEntry.deleteMany({ where: { importKey: { not: null } } })).count : 0;
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer);
 
   // Caches for holders and categories (created on first use).
   const holders = new Map((await db.finAccount.findMany()).map((a) => [a.name.toLowerCase(), a.id]));
   const created: string[] = [];
-  const holder = async (name: string, kind: string) => {
+  const holder = async (name: string, kind: string, branch?: string) => {
     const key = name.toLowerCase();
-    if (!holders.has(key)) { holders.set(key, (await db.finAccount.create({ data: { name, kind } })).id); created.push(name); }
+    if (!holders.has(key)) { holders.set(key, (await db.finAccount.create({ data: { name, kind, branch } })).id); created.push(name); }
     return holders.get(key)!;
   };
   const cats = await db.finCategory.findMany();
@@ -68,7 +74,7 @@ export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string)
     seen.set(base, n);
     return createHash("sha1").update(`${base}|${n}`).digest("hex");
   };
-  const res: ImportResult = { added: 0, skipped: 0, perSheet: {}, holders: created };
+  const res = { added: 0, skipped: 0, perSheet: {} as Record<string, number>, holders: created, removed };
   const add = async (sheet: string, data: Parameters<typeof db.finEntry.create>[0]["data"], key: string) => {
     if (await db.finEntry.findUnique({ where: { importKey: key } })) { res.skipped++; return; }
     await db.finEntry.create({ data: { ...data, importKey: key, createdById: userId } });
@@ -115,15 +121,21 @@ export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string)
       const isTransfer = /internal transfer/i.test(cat) || /petty ?cash/i.test(desc) || /^petty cash$/i.test(cat);
       if (isTransfer && paidTo && /samad|bushra/i.test(paidTo)) {
         const to = /samad/i.test(paidTo) ? await holder("Samad (marketing)", "person") : await holder("Bushra (petty cash)", "petty");
-        if (to !== from) { await add(ws.name, { date, kind: "transfer", amount, accountId: from, toAccountId: to, description: desc, notes }, fingerprint(ws.name, ["t", date, amount, desc, paidTo])); continue; }
+        if (to !== from) { await add(ws.name, { date, kind: "transfer", amount, accountId: from, toAccountId: to, description: desc, notes }, fingerprint(ws.name, ["r", date, amount, desc, paidTo])); continue; }
+      }
+      const branchPerson = isTransfer && !sub ? BRANCH_PEOPLE.find(([re]) => re.test(paidTo) || re.test(desc)) : undefined;
+      if (branchPerson && !personal) {
+        const to = await holder(`${branchPerson[1]} (${BRANCH_NAME})`, "petty", BRANCH_NAME);
+        await add(ws.name, { date, kind: "transfer", amount, accountId: from, toAccountId: to, description: desc, notes }, fingerprint(ws.name, ["r", date, amount, desc, paidTo]));
+        continue;
       }
       if (isTransfer && !personal) {
-        const c = sub ? await catId("Marketing", sub) : await catId("Miscellaneous", "Petty cash to staff");
-        await add(ws.name, { date, kind: "expense", amount, accountId: from, categoryId: c.id, description: desc, party: paidTo || null, notes }, fingerprint(ws.name, ["e", date, amount, desc, paidTo]));
+        const c = sub ? await catId("Marketing", sub) : /\bapp\b|software|cloud|meta|ad.?s\b/i.test(desc) ? await catId("Marketing", "IT & Software") : await catId("Miscellaneous", "Petty cash to staff");
+        await add(ws.name, { date, kind: "expense", amount, accountId: from, categoryId: c.id, description: desc, party: paidTo || null, notes }, fingerprint(ws.name, ["r", date, amount, desc, paidTo]));
         continue;
       }
       const c = personal ? await catId("Personal Expense", "") : await catId(cat, sub);
-      await add(ws.name, { date, kind: "expense", amount, accountId: from, categoryId: c.id, description: desc, party: paidTo || null, notes, personal: personal || c.personal }, fingerprint(ws.name, ["e", date, amount, desc, paidTo]));
+      await add(ws.name, { date, kind: "expense", amount, accountId: from, categoryId: c.id, description: desc, party: paidTo || null, notes, personal: personal || c.personal }, fingerprint(ws.name, ["r", date, amount, desc, paidTo]));
     }
   }
   return res;

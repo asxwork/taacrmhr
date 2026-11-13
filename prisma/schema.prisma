@@ -2112,7 +2112,13 @@ model FinAccount {
   notes      String?
   active     Boolean     @default(true)
   sortOrder  Int         @default(0)
+  /// Which office's money this person handles (e.g. Bahadurabad branch).
+  branch     String?
+  /// Warn when the balance drops below this.
+  lowAlert   Float?
   createdAt  DateTime    @default(now())
+  topups     FinTopup[]
+  recurring  FinRecurring[]
   entries    FinEntry[]  @relation("FinFrom")
   incoming   FinEntry[]  @relation("FinTo")
 }
@@ -2128,6 +2134,8 @@ model FinCategory {
   active    Boolean       @default(true)
   sortOrder Int           @default(0)
   entries   FinEntry[]
+  budget    FinBudget?
+  recurring FinRecurring[]
 
   @@index([parentId])
 }
@@ -2151,6 +2159,16 @@ model FinEntry {
   receipt     String?
   notes       String? // @text
   importKey   String?      @unique
+  /// approved (counts) | pending (waiting for the boss, above the approval limit) | rejected
+  status      String       @default("approved")
+  approvedById String?
+  approvedAt  DateTime?
+  rejectReason String?
+  /// Proof checked by the boss / accounts.
+  verifiedById String?
+  verifiedAt  DateTime?
+  recurringId String?
+  proofs      FinProof[]
   createdById String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -2158,4 +2176,63 @@ model FinEntry {
   @@index([date])
   @@index([accountId])
   @@index([categoryId])
+}
+
+/// Proof of a finance entry: bill, receipt, bank/JazzCash screenshot. Many per entry.
+model FinProof {
+  id          String   @id @default(cuid())
+  entryId     String
+  entry       FinEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  path        String
+  name        String
+  size        Int      @default(0)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([entryId])
+}
+
+/// Monthly budget for a main category. alerted = "yyyy-MM:80" / "yyyy-MM:100", the last alert sent.
+model FinBudget {
+  id         String      @id @default(cuid())
+  categoryId String      @unique
+  category   FinCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  amount     Float
+  alerted    String?
+  updatedAt  DateTime    @updatedAt
+}
+
+/// A bill that comes every month (rent, K-Electric, hosting, Meta ads). lastPaid = "yyyy-MM".
+model FinRecurring {
+  id         String       @id @default(cuid())
+  name       String
+  amount     Float
+  dayOfMonth Int          @default(1)
+  categoryId String?
+  category   FinCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  accountId  String?
+  account    FinAccount?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  party      String?
+  notes      String?
+  active     Boolean      @default(true)
+  lastPaid   String?
+  reminded   String?
+  createdAt  DateTime     @default(now())
+}
+
+/// A request to top up a money holder's cash. status: pending | approved | rejected
+model FinTopup {
+  id            String     @id @default(cuid())
+  accountId     String
+  account       FinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount        Float
+  note          String?
+  status        String     @default("pending")
+  requestedById String?
+  decidedById   String?
+  decidedAt     DateTime?
+  entryId       String?
+  createdAt     DateTime   @default(now())
+
+  @@index([status])
 }
