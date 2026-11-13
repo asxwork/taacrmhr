@@ -4,7 +4,7 @@
 import { createHash } from "node:crypto";
 import ExcelJS from "exceljs";
 import { db } from "./db";
-import { ensureFinanceDefaults } from "./finance";
+import { ensureFinanceDefaults, payeeKey } from "./finance";
 
 const MAIN: Record<string, string> = {
   entertainment: "Entertainment", "facilities & office": "Facilities & Office", groceries: "Groceries", "employee & hr": "Employee & HR",
@@ -75,8 +75,15 @@ export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string,
     return createHash("sha1").update(`${base}|${n}`).digest("hex");
   };
   const res = { added: 0, skipped: 0, perSheet: {} as Record<string, number>, holders: created, removed };
+  // One spelling per payee: "qasim", "Qasim " and "QASIM" all become the first one seen.
+  const payees = new Map<string, string>();
   const add = async (sheet: string, data: Parameters<typeof db.finEntry.create>[0]["data"], key: string) => {
     if (await db.finEntry.findUnique({ where: { importKey: key } })) { res.skipped++; return; }
+    if (typeof data.party === "string" && data.party) {
+      const k = payeeKey(data.party);
+      if (!payees.has(k)) payees.set(k, data.party.length > 2 && data.party === data.party.toLowerCase() ? title(data.party) : data.party);
+      data = { ...data, party: payees.get(k) };
+    }
     await db.finEntry.create({ data: { ...data, importKey: key, createdById: userId } });
     res.added++; res.perSheet[sheet] = (res.perSheet[sheet] ?? 0) + 1;
   };

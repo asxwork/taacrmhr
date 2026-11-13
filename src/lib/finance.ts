@@ -73,7 +73,7 @@ export async function financeApproverIds() {
 export const pkr = (n: number) => `Rs ${Math.round(n).toLocaleString("en-PK")}`;
 
 /** Filters shared by the entries list and its Excel export. */
-export function entryWhere(sp: { month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string }, personal: boolean, tree: Awaited<ReturnType<typeof categoryTree>>): Prisma.FinEntryWhereInput {
+export function entryWhere(sp: { month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; party?: string; tag?: string }, personal: boolean, tree: Awaited<ReturnType<typeof categoryTree>>): Prisma.FinEntryWhereInput {
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? parse(sp.month, "yyyy-MM", new Date()) : null;
   const q = sp.q?.trim();
   const catIds = sp.cat ? [sp.cat, ...(tree.find((c) => c.id === sp.cat)?.subs.map((s) => s.id) ?? [])] : null;
@@ -85,6 +85,8 @@ export function entryWhere(sp: { month?: string; holder?: string; cat?: string; 
     ...(sp.kind && { kind: sp.kind }),
     ...(sp.proof && PROOF_WHERE[sp.proof]),
     ...(sp.status && { status: sp.status }),
+    ...(sp.party && { party: sp.party }),
+    ...(sp.tag && { tags: { contains: sp.tag } }),
     ...(q && { AND: [{ OR: [{ description: { contains: q } }, { party: { contains: q } }, { notes: { contains: q } }] }] }),
   };
 }
@@ -180,3 +182,9 @@ export async function sendBillReminders(today = new Date()) {
   await db.finRecurring.updateMany({ where: { id: { in: due.map((b) => b.id) } }, data: { reminded: m } });
   return due.length;
 }
+
+/** Tidy tags: comma separated, trimmed, unique, max 6. */
+export const cleanTags = (raw: string) => [...new Set(raw.split(",").map((t) => t.trim().replace(/\s+/g, " ")).filter(Boolean).map((t) => t.slice(0, 30)))].slice(0, 6).join(", ") || null;
+export const tagList = (tags: string | null) => (tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : []);
+/** Same payee written differently: "K-Electric", "k electric", "KElectric " all match. */
+export const payeeKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");

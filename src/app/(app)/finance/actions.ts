@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { saveUpload } from "@/lib/files";
-import { balances, checkBudget, financeApproverIds, financeConfig, isClosed, pkr, saveFinanceConfig } from "@/lib/finance";
+import { balances, checkBudget, cleanTags, payeeKey, financeApproverIds, financeConfig, isClosed, pkr, saveFinanceConfig } from "@/lib/finance";
 import { notify } from "@/lib/notify";
 import { str, type FormState } from "@/lib/utils";
 
@@ -51,7 +51,7 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
   }
   const data = {
     kind, amount, date, accountId, toAccountId: toAccountId || null, categoryId: categoryId || null, description,
-    party: str(fd, "party").slice(0, 120) || null, personal, notes: str(fd, "notes").slice(0, 1000) || null,
+    party: await samePayee(str(fd, "party").slice(0, 120)), tags: cleanTags(str(fd, "tags")), personal, notes: str(fd, "notes").slice(0, 1000) || null,
     status, ...(status === "pending" && { approvedAt: null, approvedById: null, rejectReason: null }),
     ...(str(fd, "recurringId") && { recurringId: str(fd, "recurringId") }),
   };
@@ -321,4 +321,27 @@ export async function settleHolder(_: FormState, fd: FormData): Promise<FormStat
   await audit(user.id, "create", "finEntry", e.id, `Paid back ${pkr(amount)} to ${to.name}`);
   refresh();
   redirect(`/finance/entries/${e.id}`);
+}
+
+/** Use the payee's existing spelling when the same name is typed differently. */
+async function samePayee(name: string) {
+  if (!name) return null;
+  const key = payeeKey(name);
+  const known = await db.finEntry.findMany({ where: { party: { not: null } }, select: { party: true }, distinct: ["party"], take: 5000 });
+  return known.find((k) => k.party && payeeKey(k.party) === key)?.party ?? name;
+}
+
+/** Payees: rename one or merge several spellings into one name. */
+export async function mergePayees(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "edit");
+  const names = fd.getAll("names").map(String).filter(Boolean);
+  const to = str(fd, "to").slice(0, 120);
+  if (!names.length) return { error: "Tick the names to merge." };
+  if (to.length < 2) return { error: "Write the correct name." };
+  const r = await db.finEntry.updateMany({ where: { party: { in: names } }, data: { party: to } });
+  await db.finRecurring.updateMany({ where: { party: { in: names } }, data: { party: to } });
+  await audit(user.id, "update", "finEntry", null, `Payees ${names.join(", ")} → ${to} (${r.count} entries)`);
+  refresh();
+  revalidatePath("/finance/payees");
+  return { ok: true, message: `${r.count} entries now say “${to}”.` };
 }

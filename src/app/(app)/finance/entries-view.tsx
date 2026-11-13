@@ -5,7 +5,7 @@ import { ProofInputs } from "./proof-inputs";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import type { SessionUser } from "@/lib/auth";
-import { categoryTree, ensureFinanceDefaults, entryWhere, financeConfig, pkr } from "@/lib/finance";
+import { categoryTree, ensureFinanceDefaults, entryWhere, financeConfig, pkr, tagList } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, EmptyState, Field, PageHeader } from "@/components/ui";
@@ -13,7 +13,7 @@ import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ConfirmButton } from "@/components/confirm-button";
 import { deleteEntry, saveEntry } from "./actions";
 
-export type EntrySP = { bill?: string; copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
+export type EntrySP = { party?: string; tag?: string; bill?: string; copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
 const PAGE = 100;
 
 /** The entries list (all, or Sir personal) with filters, totals and the add/edit panel. */
@@ -24,14 +24,17 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? parse(sp.month, "yyyy-MM", new Date()) : null;
   const q = sp.q?.trim();
   const page = Math.max(1, Number(sp.page) || 1);
-  const [entries, count, sums, holders] = await Promise.all([
+  const [entries, count, sums, holders, payees, tagRows] = await Promise.all([
     db.finEntry.findMany({ where, include: { account: true, toAccount: true, category: { include: { parent: true } }, _count: { select: { proofs: true } } }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], skip: (page - 1) * PAGE, take: PAGE }),
     db.finEntry.count({ where }),
     db.finEntry.groupBy({ by: ["kind"], where: { AND: [where, { status: "approved" }] }, _sum: { amount: true } }),
     db.finAccount.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    db.finEntry.groupBy({ by: ["party"], where: { party: { not: null } }, _count: true, orderBy: { _count: { party: "desc" } }, take: 400 }),
+    db.finEntry.findMany({ where: { tags: { not: null } }, select: { tags: true }, distinct: ["tags"], take: 500 }),
   ]);
+  const allTags = [...new Set(tagRows.flatMap((t) => tagList(t.tags)))].sort();
   const total = (k: string) => sums.find((s) => s.kind === k)?._sum.amount ?? 0;
-  const keep = { month: sp.month, holder: sp.holder, cat: sp.cat, kind: sp.kind, q: sp.q, proof: sp.proof, status: sp.status };
+  const keep = { month: sp.month, holder: sp.holder, cat: sp.cat, kind: sp.kind, q: sp.q, proof: sp.proof, status: sp.status, party: sp.party, tag: sp.tag };
   const href = (patch: Partial<EntrySP>) => {
     const p = new URLSearchParams(Object.entries({ ...keep, ...patch }).filter(([, v]) => v) as [string, string][]);
     return `${base}${p.size ? `?${p}` : ""}`;
@@ -74,9 +77,12 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
         <select name="holder" defaultValue={sp.holder ?? ""} aria-label="Money holder" className="input w-auto min-w-40"><option value="">Everyone</option>{holders.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select>
         {!personal && <select name="cat" defaultValue={sp.cat ?? ""} aria-label="Category" className="input w-auto min-w-44"><option value="">All categories</option>{tree.filter((c) => !c.personal).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
         {!personal && <select name="kind" defaultValue={sp.kind ?? ""} aria-label="Type" className="input w-auto"><option value="">All types</option><option value="expense">Expenses</option><option value="in">Money in</option><option value="transfer">Transfers</option></select>}
+        {allTags.length > 0 && <select name="tag" defaultValue={sp.tag ?? ""} aria-label="Tag" className="input w-auto"><option value="">Any tag</option>{allTags.map((t) => <option key={t} value={t}>#{t}</option>)}</select>}
+        {sp.party && <input type="hidden" name="party" value={sp.party} />}
         <select name="proof" defaultValue={sp.proof ?? ""} aria-label="Proof" className="input w-auto"><option value="">Any proof</option><option value="missing">No proof yet</option><option value="unverified">Proof not checked</option><option value="verified">Checked ✓</option></select>
       </AutoFilterForm>
 
+      {sp.party && <p className="mb-3 text-sm">Paid to <b>{sp.party}</b> · <Link href={href({ party: undefined })} className="text-navy-900 hover:underline">show everyone</Link></p>}
       <Card className="overflow-hidden">
         {entries.length === 0 ? <EmptyState title="No entries" description={canAdd ? "Add an expense, money in or a transfer above, or import your Excel sheet." : undefined} /> : (
           <div className="overflow-x-auto">
@@ -96,10 +102,11 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
                         {e.status === "rejected" && <span className="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">Rejected</span>}
                       </span>
                       {e.notes && <span className="block truncate text-xs text-muted" title={e.notes}>{e.notes}</span>}
+                      {e.tags && <span className="mt-0.5 flex flex-wrap gap-1">{tagList(e.tags).map((t) => <Link key={t} href={href({ tag: t })} className="rounded bg-canvas px-1.5 py-0.5 text-[10px] text-muted hover:text-ink">#{t}</Link>)}</span>}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-muted">{e.kind === "expense" ? catName(e.category) : e.kind === "in" ? "Money in" : "Transfer"}</td>
                     <td className="px-4 py-2.5">{e.account.name}</td>
-                    <td className="px-4 py-2.5 text-muted">{e.kind === "transfer" ? <span className="text-sky-700">→ {e.toAccount?.name ?? "—"}</span> : e.party ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-muted">{e.kind === "transfer" ? <span className="text-sky-700">→ {e.toAccount?.name ?? "—"}</span> : e.party ? <Link href={href({ party: e.party })} className="hover:text-ink hover:underline">{e.party}</Link> : "—"}</td>
                     <td className={cn("whitespace-nowrap px-4 py-2.5 text-right font-medium tabular-nums", e.kind === "in" ? "text-emerald-700" : e.kind === "transfer" ? "text-sky-700" : "")}>{e.kind === "in" ? "+" : ""}{pkr(e.amount)}</td>
                     <td className="whitespace-nowrap px-3 py-2.5">
                       {(() => { const n = e._count.proofs + (e.receipt ? 1 : 0); return n === 0
@@ -161,7 +168,8 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
               </Field>
             )}
             <Field label={formKind === "in" ? "What for" : "Description"}><input name="description" required defaultValue={src?.description} className="input" placeholder={formKind === "in" ? "e.g. Petty cash top-up" : "e.g. Lunch for guest"} /></Field>
-            {formKind !== "transfer" && <Field label={formKind === "in" ? "Received from" : "Paid to"}><input name="party" defaultValue={src?.party ?? ""} className="input" placeholder={formKind === "in" ? "e.g. Mubeen sir" : "e.g. Karachi Haleem"} /></Field>}
+            {formKind !== "transfer" && <Field label={formKind === "in" ? "Received from" : "Paid to (payee)"} hint="Pick from the list so the same payee is always spelled the same"><input name="party" list="fin-payees" autoComplete="off" defaultValue={src?.party ?? ""} className="input" placeholder={formKind === "in" ? "e.g. Mubeen sir" : "e.g. K-Electric, Meta, Imtiaz"} /><datalist id="fin-payees">{payees.map((p) => <option key={p.party} value={p.party!} />)}</datalist></Field>}
+            <Field label="Tags (optional)" hint={allTags.length ? `Comma separated. Used: ${allTags.slice(0, 8).join(", ")}` : "Comma separated, e.g. DHA office, Skyline project"}><input name="tags" defaultValue={(src && "tags" in src ? src.tags : null) ?? ""} className="input" /></Field>
             <Field label="Notes (optional)"><input name="notes" defaultValue={src?.notes ?? ""} className="input" /></Field>
             <ProofInputs required={proofRequired} />
             {personal && <input type="hidden" name="personal" value="on" />}

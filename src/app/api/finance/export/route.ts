@@ -21,12 +21,12 @@ export async function GET(req: Request) {
   ws.columns = [
     { header: "Date", key: "date", width: 12 }, { header: "Type", key: "kind", width: 10 }, { header: "Category", key: "cat", width: 20 }, { header: "Sub category", key: "sub", width: 22 },
     { header: "Description", key: "desc", width: 40 }, { header: "Amount (PKR)", key: "amount", width: 14, style: { numFmt: "#,##0" } }, { header: "Paid by / holder", key: "from", width: 20 },
-    { header: "Paid to", key: "to", width: 22 }, { header: "Notes", key: "notes", width: 30 }, { header: "Status", key: "status", width: 12 }, { header: "Proof files", key: "proof", width: 11 }, { header: "Proof checked", key: "checked", width: 13 },
+    { header: "Paid to", key: "to", width: 22 }, { header: "Notes", key: "notes", width: 30 }, { header: "Tags", key: "tags", width: 20 }, { header: "Status", key: "status", width: 12 }, { header: "Proof files", key: "proof", width: 11 }, { header: "Proof checked", key: "checked", width: 13 },
   ];
   ws.getRow(1).font = { bold: true };
   for (const e of rows) {
     const main = e.category?.parent ?? e.category, sub = e.category?.parent ? e.category : null;
-    ws.addRow({ date: e.date, kind: e.kind === "in" ? "Money in" : e.kind === "transfer" ? "Transfer" : "Expense", cat: main?.name ?? "", sub: sub?.name ?? "", desc: e.description, amount: e.amount, from: e.account.name, to: e.kind === "transfer" ? e.toAccount?.name ?? "" : e.party ?? "", notes: e.notes ?? "", status: e.status, proof: e._count.proofs + (e.receipt ? 1 : 0), checked: e.verifiedAt ? "Yes" : "" });
+    ws.addRow({ date: e.date, kind: e.kind === "in" ? "Money in" : e.kind === "transfer" ? "Transfer" : "Expense", cat: main?.name ?? "", sub: sub?.name ?? "", desc: e.description, amount: e.amount, from: e.account.name, to: e.kind === "transfer" ? e.toAccount?.name ?? "" : e.party ?? "", notes: e.notes ?? "", tags: e.tags ?? "", status: e.status, proof: e._count.proofs + (e.receipt ? 1 : 0), checked: e.verifiedAt ? "Yes" : "" });
   }
   ws.getColumn("date").numFmt = "dd-mmm-yyyy";
   ws.views = [{ state: "frozen", ySplit: 1 }];
