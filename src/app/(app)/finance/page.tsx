@@ -74,6 +74,11 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
         ))}
       </div>
 
+      {holders.filter((h) => h.active && h.lowAlert != null && h.balance < h.lowAlert).map((h) => (
+        <Link key={h.id} href="/finance/holders" className="mb-3 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 hover:bg-red-100">
+          <Wallet className="size-5 shrink-0" /><span className="flex-1"><b>{h.name} is low on cash: {pkr(h.balance)}</b> (alert below {pkr(h.lowAlert!)}). Request or approve a top-up.</span><ChevronRight className="size-4" />
+        </Link>
+      ))}
       {pendingApproval._count > 0 && (
         <Link href="/finance/approvals" className="mb-3 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 hover:bg-amber-100">
           <Clock className="size-5 shrink-0" /><span className="flex-1"><b>{pendingApproval._count} expense{pendingApproval._count === 1 ? "" : "s"} ({pkr(pendingApproval._sum.amount ?? 0)}) waiting for approval.</b> They don&apos;t count until approved.</span><ChevronRight className="size-4" />

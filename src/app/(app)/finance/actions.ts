@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { saveUpload } from "@/lib/files";
-import { checkBudget, financeApproverIds, financeConfig, isClosed, pkr, saveFinanceConfig } from "@/lib/finance";
+import { balances, checkBudget, financeApproverIds, financeConfig, isClosed, pkr, saveFinanceConfig } from "@/lib/finance";
 import { notify } from "@/lib/notify";
 import { str, type FormState } from "@/lib/utils";
 
@@ -58,6 +58,7 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
   const e = id ? await db.finEntry.update({ where: { id }, data }) : await db.finEntry.create({ data: { ...data, createdById: user.id } });
   if (data.recurringId) await db.finRecurring.update({ where: { id: data.recurringId }, data: { lastPaid: date.toISOString().slice(0, 7) } }).catch(() => {});
   if (saved.length) await db.finProof.createMany({ data: saved.map((p) => ({ ...p, entryId: e.id, createdById: user.id })) });
+  if (status === "approved" && kind !== "in") await checkLowCash(accountId, amount).catch(() => {});
   if (status === "approved" && kind === "expense" && !personal) await checkBudget(e.categoryId, e.date).catch(() => {});
   if (status === "pending" && before?.status !== "pending") {
     for (const uid of await financeApproverIds()) await notify(uid, `Approve expense: ${pkr(amount)}`, { body: `${description} — entered by ${user.name}`, link: `/finance/entries/${e.id}` });
@@ -85,7 +86,7 @@ export async function saveHolder(_: FormState, fd: FormData): Promise<FormState>
   if (name.length < 2) return { error: "Enter a name." };
   const clash = await db.finAccount.findUnique({ where: { name } });
   if (clash && clash.id !== id) return { error: `“${name}” already exists.` };
-  const data = { name, kind: str(fd, "kind") || "person", opening: parseFloat(str(fd, "opening").replace(/,/g, "")) || 0, notes: str(fd, "notes") || null, branch: str(fd, "branch").slice(0, 40) || null, active: id ? fd.get("active") === "on" : true };
+  const data = { name, kind: str(fd, "kind") || "person", opening: parseFloat(str(fd, "opening").replace(/,/g, "")) || 0, notes: str(fd, "notes") || null, branch: str(fd, "branch").slice(0, 40) || null, lowAlert: parseFloat(str(fd, "lowAlert").replace(/,/g, "")) || null, active: id ? fd.get("active") === "on" : true };
   if (id) await db.finAccount.update({ where: { id }, data });
   else await db.finAccount.create({ data });
   await audit(user.id, id ? "update" : "create", "finAccount", id || null, `${id ? "Updated" : "Added"} money holder ${name}`);
@@ -264,4 +265,60 @@ export async function makeBill(fd: FormData) {
   await db.finEntry.update({ where: { id: e.id }, data: { recurringId: b.id } });
   await audit(user.id, "create", "finCategory", b.id, `Made ${b.name} a monthly bill`);
   redirect(`/finance/bills?edit=${b.id}`);
+}
+
+/** Warn approvers when this payment takes a holder below their low-cash level. */
+async function checkLowCash(accountId: string, amount: number) {
+  const h = (await balances()).find((a) => a.id === accountId);
+  if (!h?.lowAlert || h.balance >= h.lowAlert || h.balance + amount < h.lowAlert) return;
+  for (const uid of await financeApproverIds()) await notify(uid, `${h.name} is low on cash: ${pkr(h.balance)}`, { body: `Below the ${pkr(h.lowAlert)} level. Top it up from Money holders.`, link: "/finance/holders" });
+}
+
+/** Ask for more cash for a holder (e.g. Bushra's petty cash running low). */
+export async function requestTopup(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "create");
+  const amount = parseFloat(str(fd, "amount").replace(/,/g, "")) || 0;
+  const a = await db.finAccount.findUnique({ where: { id: str(fd, "accountId") } });
+  if (!a) return { error: "Choose the holder." };
+  if (!(amount > 0)) return { error: "Enter the amount needed." };
+  const t = await db.finTopup.create({ data: { accountId: a.id, amount, note: str(fd, "note").slice(0, 300) || null, requestedById: user.id } });
+  for (const uid of await financeApproverIds()) if (uid !== user.id) await notify(uid, `Top-up request: ${pkr(amount)} for ${a.name}`, { body: `${user.name}${t.note ? `: ${t.note}` : ""}`, link: "/finance/holders" });
+  await audit(user.id, "create", "finAccount", a.id, `Requested a ${pkr(amount)} top-up for ${a.name}`);
+  revalidatePath("/finance/holders");
+  redirect("/finance/holders");
+}
+
+/** Approve (money goes from the chosen holder, or comes in from outside) or reject a top-up request. */
+export async function decideTopup(fd: FormData) {
+  const user = await requirePermission("finance", "approve");
+  const t = await db.finTopup.findUnique({ where: { id: str(fd, "id") }, include: { account: true } });
+  if (!t || t.status !== "pending") return;
+  if (str(fd, "op") === "reject") {
+    await db.finTopup.update({ where: { id: t.id }, data: { status: "rejected", decidedById: user.id, decidedAt: new Date() } });
+    if (t.requestedById) await notify(t.requestedById, `Top-up of ${pkr(t.amount)} for ${t.account.name} was not approved`, { link: "/finance/holders" });
+  } else {
+    const amount = parseFloat(str(fd, "amount").replace(/,/g, "")) || t.amount;
+    const from = str(fd, "fromId");
+    const e = await db.finEntry.create({ data: from
+      ? { kind: "transfer", amount, date: new Date(), accountId: from, toAccountId: t.accountId, description: `Top-up for ${t.account.name}`, createdById: user.id, approvedById: user.id, approvedAt: new Date() }
+      : { kind: "in", amount, date: new Date(), accountId: t.accountId, description: "Top-up approved", party: str(fd, "party") || null, createdById: user.id, approvedById: user.id, approvedAt: new Date() } });
+    await db.finTopup.update({ where: { id: t.id }, data: { status: "approved", decidedById: user.id, decidedAt: new Date(), entryId: e.id, amount } });
+    if (t.requestedById) await notify(t.requestedById, `Top-up approved: ${pkr(amount)} for ${t.account.name}`, { body: "Attach the transfer screenshot on the entry.", link: `/finance/entries/${e.id}` });
+  }
+  await audit(user.id, "update", "finAccount", t.accountId, `${str(fd, "op") === "reject" ? "Rejected" : "Approved"} top-up of ${pkr(t.amount)} for ${t.account.name}`);
+  refresh();
+}
+
+/** Pay back someone the company owes (negative balance): a transfer from the chosen holder. */
+export async function settleHolder(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "create");
+  const to = await db.finAccount.findUnique({ where: { id: str(fd, "id") } });
+  const from = str(fd, "fromId");
+  const amount = parseFloat(str(fd, "amount").replace(/,/g, "")) || 0;
+  if (!to || !from || from === to.id) return { error: "Choose who pays them back." };
+  if (!(amount > 0)) return { error: "Enter the amount." };
+  const e = await db.finEntry.create({ data: { kind: "transfer", amount, date: new Date(), accountId: from, toAccountId: to.id, description: `Paid back to ${to.name}`, notes: str(fd, "note") || null, createdById: user.id } });
+  await audit(user.id, "create", "finEntry", e.id, `Paid back ${pkr(amount)} to ${to.name}`);
+  refresh();
+  redirect(`/finance/entries/${e.id}`);
 }
