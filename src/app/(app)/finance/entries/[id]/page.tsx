@@ -11,7 +11,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, PageHeader } from "@/components/ui";
 import { ConfirmButton } from "@/components/confirm-button";
 import { ProofInputs } from "../../proof-inputs";
-import { addProof, deleteProof, verifyEntry } from "../../actions";
+import { addProof, decideEntry, deleteProof, verifyEntry } from "../../actions";
 
 export const metadata = { title: "Entry · Finance" };
 const isImage = (p: string) => /\.(jpe?g|png|webp|gif|heic)$/i.test(p);
@@ -64,6 +64,12 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
                   : <span className="rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-800">{proofs.length} proof file{proofs.length === 1 ? "" : "s"}, not checked yet</span>}
               </div>
             </div>
+            {canVerify && e.status === "pending" && (
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-4">
+                <form action={decideEntry}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="op" value="approve" /><button className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">Approve expense</button></form>
+                <form action={decideEntry} className="flex gap-1"><input type="hidden" name="id" value={e.id} /><input type="hidden" name="op" value="reject" /><input name="reason" placeholder="Reason" className="input w-40 py-1.5 text-sm" /><button className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700 hover:bg-red-50">Reject</button></form>
+              </div>
+            )}
             {canVerify && proofs.length > 0 && (
               <form action={verifyEntry} className="mt-4 border-t border-line pt-4">
                 <input type="hidden" name="id" value={e.id} />

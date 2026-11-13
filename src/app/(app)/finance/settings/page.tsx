@@ -23,6 +23,23 @@ export default async function FinanceSettings() {
             <SubmitButton>Save</SubmitButton>
           </ActionForm>
         </Card>
+        <Card className="p-5">
+          <h2 className="mb-1 font-semibold">Approval for big expenses</h2>
+          <p className="mb-4 text-sm text-muted">Expenses of this amount or more wait under Finance → Approvals and don&apos;t count until the boss approves. People with Finance → Approve skip it.</p>
+          <ActionForm action={saveFinanceSettings} className="flex flex-wrap items-end gap-3">
+            <Field label="Needs approval from (Rs)" hint="0 = no approval needed"><input name="approvalAbove" inputMode="decimal" defaultValue={cfg.approvalAbove} className="input w-48" /></Field>
+            <SubmitButton>Save</SubmitButton>
+          </ActionForm>
+        </Card>
+        <Card className="p-5">
+          <h2 className="mb-1 font-semibold">Close a month</h2>
+          <p className="mb-4 text-sm text-muted">After the month&apos;s accounts are checked, close it: entries in that month and earlier can&apos;t be added, changed or deleted (proof can still be attached). Clear the box to reopen.</p>
+          <ActionForm action={saveFinanceSettings} className="flex flex-wrap items-end gap-3">
+            <Field label="Closed up to and including"><input name="closedThrough" type="month" defaultValue={cfg.closedThrough} className="input w-48" /></Field>
+            <SubmitButton>Save</SubmitButton>
+          </ActionForm>
+          {cfg.closedThrough && <p className="mt-3 text-sm text-emerald-700">Closed through {cfg.closedThrough}.</p>}
+        </Card>
       </div>
     </>
   );

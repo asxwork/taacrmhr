@@ -1,6 +1,6 @@
 import Link from "@/components/link";
 import { addMonths, endOfMonth, format, parse, startOfMonth, startOfYear, subMonths } from "date-fns";
-import { ArrowDownLeft, ChevronLeft, ChevronRight, Crown, FileWarning, TrendingDown, Wallet } from "lucide-react";
+import { ArrowDownLeft, Clock, ChevronLeft, ChevronRight, Crown, FileWarning, TrendingDown, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { balances, categoryTree, ensureFinanceDefaults, pkr, PROOF_WHERE } from "@/lib/finance";
@@ -25,15 +25,16 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
 
   const [tree, monthByCat, yearByCat, inMonth, personalMonth, byHolder, byParty, trend, holders] = await Promise.all([
     categoryTree(),
-    db.finEntry.groupBy({ by: ["categoryId"], where: { kind: "expense", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
-    db.finEntry.groupBy({ by: ["categoryId"], where: { kind: "expense", personal: false, date: range(yFrom, mTo) }, _sum: { amount: true } }),
-    db.finEntry.aggregate({ where: { kind: "in", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
-    db.finEntry.aggregate({ where: { kind: "expense", personal: true, date: range(mFrom, mTo) }, _sum: { amount: true } }),
-    db.finEntry.groupBy({ by: ["accountId"], where: { kind: "expense", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
-    db.finEntry.groupBy({ by: ["party"], where: { kind: "expense", personal: false, date: range(mFrom, mTo), party: { not: null } }, _sum: { amount: true }, orderBy: { _sum: { amount: "desc" } }, take: 8 }),
-    db.finEntry.findMany({ where: { kind: "expense", date: range(trendFrom, mTo) }, select: { date: true, amount: true, personal: true } }),
+    db.finEntry.groupBy({ by: ["categoryId"], where: { status: "approved", kind: "expense", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
+    db.finEntry.groupBy({ by: ["categoryId"], where: { status: "approved", kind: "expense", personal: false, date: range(yFrom, mTo) }, _sum: { amount: true } }),
+    db.finEntry.aggregate({ where: { status: "approved", kind: "in", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
+    db.finEntry.aggregate({ where: { status: "approved", kind: "expense", personal: true, date: range(mFrom, mTo) }, _sum: { amount: true } }),
+    db.finEntry.groupBy({ by: ["accountId"], where: { status: "approved", kind: "expense", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
+    db.finEntry.groupBy({ by: ["party"], where: { status: "approved", kind: "expense", personal: false, date: range(mFrom, mTo), party: { not: null } }, _sum: { amount: true }, orderBy: { _sum: { amount: "desc" } }, take: 8 }),
+    db.finEntry.findMany({ where: { status: "approved", kind: "expense", date: range(trendFrom, mTo) }, select: { date: true, amount: true, personal: true } }),
     balances(),
   ]);
+  const pendingApproval = await db.finEntry.aggregate({ where: { status: "pending" }, _count: true, _sum: { amount: true } });
   const [noProof, noProofYear] = await Promise.all([
     db.finEntry.aggregate({ where: { ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(mFrom, mTo) }, _count: true, _sum: { amount: true } }),
     db.finEntry.count({ where: { ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(yFrom, mTo) } }),
@@ -73,6 +74,11 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
         ))}
       </div>
 
+      {pendingApproval._count > 0 && (
+        <Link href="/finance/approvals" className="mb-3 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 hover:bg-amber-100">
+          <Clock className="size-5 shrink-0" /><span className="flex-1"><b>{pendingApproval._count} expense{pendingApproval._count === 1 ? "" : "s"} ({pkr(pendingApproval._sum.amount ?? 0)}) waiting for approval.</b> They don&apos;t count until approved.</span><ChevronRight className="size-4" />
+        </Link>
+      )}
       {noProof._count > 0 && (
         <Link href={`/finance/entries?proof=missing&kind=expense&month=${mk(month)}`} className="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 hover:bg-red-100">
           <FileWarning className="size-5 shrink-0" />

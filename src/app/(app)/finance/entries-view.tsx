@@ -27,7 +27,7 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
   const [entries, count, sums, holders] = await Promise.all([
     db.finEntry.findMany({ where, include: { account: true, toAccount: true, category: { include: { parent: true } }, _count: { select: { proofs: true } } }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], skip: (page - 1) * PAGE, take: PAGE }),
     db.finEntry.count({ where }),
-    db.finEntry.groupBy({ by: ["kind"], where, _sum: { amount: true } }),
+    db.finEntry.groupBy({ by: ["kind"], where: { AND: [where, { status: "approved" }] }, _sum: { amount: true } }),
     db.finAccount.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
   ]);
   const total = (k: string) => sums.find((s) => s.kind === k)?._sum.amount ?? 0;
@@ -87,7 +87,9 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
                     <td className="max-w-80 px-4 py-2.5">
                       <span className="flex items-center gap-1.5">
                         {e.kind === "in" ? <ArrowDownLeft className="size-3.5 shrink-0 text-emerald-600" /> : e.kind === "transfer" ? <ArrowRight className="size-3.5 shrink-0 text-sky-600" /> : <ArrowUpRight className="size-3.5 shrink-0 text-red-500" />}
-                        <Link href={`/finance/entries/${e.id}`} className="truncate hover:underline" title={e.description}>{e.description}</Link>
+                        <Link href={`/finance/entries/${e.id}`} className={cn("truncate hover:underline", e.status === "rejected" && "line-through opacity-60")} title={e.description}>{e.description}</Link>
+                        {e.status === "pending" && <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">Waiting approval</span>}
+                        {e.status === "rejected" && <span className="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">Rejected</span>}
                       </span>
                       {e.notes && <span className="block truncate text-xs text-muted" title={e.notes}>{e.notes}</span>}
                     </td>

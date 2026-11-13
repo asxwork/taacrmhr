@@ -40,9 +40,9 @@ export async function balances(until?: Date) {
   const date = until ? { lte: until } : undefined;
   const [accounts, out, inn, tin] = await Promise.all([
     db.finAccount.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-    db.finEntry.groupBy({ by: ["accountId"], where: { kind: { in: ["expense", "transfer"] }, ...(date && { date }) }, _sum: { amount: true } }),
-    db.finEntry.groupBy({ by: ["accountId"], where: { kind: "in", ...(date && { date }) }, _sum: { amount: true } }),
-    db.finEntry.groupBy({ by: ["toAccountId"], where: { kind: "transfer", ...(date && { date }) }, _sum: { amount: true } }),
+    db.finEntry.groupBy({ by: ["accountId"], where: { status: "approved", kind: { in: ["expense", "transfer"] }, ...(date && { date }) }, _sum: { amount: true } }),
+    db.finEntry.groupBy({ by: ["accountId"], where: { status: "approved", kind: "in", ...(date && { date }) }, _sum: { amount: true } }),
+    db.finEntry.groupBy({ by: ["toAccountId"], where: { status: "approved", kind: "transfer", ...(date && { date }) }, _sum: { amount: true } }),
   ]);
   const sum = (rows: { _sum: { amount: number | null } }[]) => rows.reduce((s, r) => s + (r._sum.amount ?? 0), 0);
   return accounts.map((a) => {
@@ -59,7 +59,16 @@ export async function categoryTree() {
 }
 
 /** Company spending only (not personal, not transfers). */
-export const companyExpense = (extra: Prisma.FinEntryWhereInput = {}): Prisma.FinEntryWhereInput => ({ kind: "expense", personal: false, ...extra });
+export const companyExpense = (extra: Prisma.FinEntryWhereInput = {}): Prisma.FinEntryWhereInput => ({ kind: "expense", personal: false, status: "approved", ...extra });
+
+/** Who approves big expenses and gets finance alerts: Super Admins and roles with Finance → Approve. */
+export async function financeApproverIds() {
+  const users = await db.user.findMany({
+    where: { active: true, OR: [{ isSuperAdmin: true }, { roles: { some: { role: { permissions: { some: { module: "finance", action: "approve", scope: { not: "none" } } } } } } }] },
+    select: { id: true },
+  });
+  return users.map((u) => u.id);
+}
 
 export const pkr = (n: number) => `Rs ${Math.round(n).toLocaleString("en-PK")}`;
 

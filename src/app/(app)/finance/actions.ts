@@ -6,7 +6,8 @@ import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { saveUpload } from "@/lib/files";
-import { financeConfig, pkr, saveFinanceConfig } from "@/lib/finance";
+import { financeApproverIds, financeConfig, isClosed, pkr, saveFinanceConfig } from "@/lib/finance";
+import { notify } from "@/lib/notify";
 import { str, type FormState } from "@/lib/utils";
 
 const refresh = () => ["/finance", "/finance/entries", "/finance/holders", "/finance/categories"].forEach((p) => revalidatePath(p));
@@ -33,6 +34,11 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
   const personal = !!(cat?.personal || cat?.parent?.personal || fd.get("personal") === "on");
   if (personal && !can(user, "finance.personal", id ? "edit" : "create")) return { error: "You don't have access to Sir personal expenses." };
   const cfg = await financeConfig();
+  const before = id ? await db.finEntry.findUnique({ where: { id } }) : null;
+  if (isClosed(date, cfg) || (before && isClosed(before.date, cfg))) return { error: `${cfg.closedThrough} and earlier months are closed. Ask a Super Admin to reopen the month in Finance → Settings.` };
+  // Big expenses wait for the boss (unless the person saving can approve).
+  const needsApproval = kind === "expense" && cfg.approvalAbove > 0 && amount >= cfg.approvalAbove && !can(user, "finance", "approve");
+  const status = needsApproval && (!before || before.status !== "approved" || amount > before.amount) ? "pending" : before?.status ?? "approved";
   // Proof: any number of bills / receipts / transfer screenshots, from files or the phone camera.
   const files = [...fd.getAll("proofs"), ...fd.getAll("photo")].filter((f): f is File => f instanceof File && f.size > 0);
   const hadProof = id ? (await db.finProof.count({ where: { entryId: id } })) + ((await db.finEntry.findUnique({ where: { id }, select: { receipt: true } }))?.receipt ? 1 : 0) : 0;
@@ -46,9 +52,13 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
   const data = {
     kind, amount, date, accountId, toAccountId: toAccountId || null, categoryId: categoryId || null, description,
     party: str(fd, "party").slice(0, 120) || null, personal, notes: str(fd, "notes").slice(0, 1000) || null,
+    status, ...(status === "pending" && { approvedAt: null, approvedById: null, rejectReason: null }),
   };
   const e = id ? await db.finEntry.update({ where: { id }, data }) : await db.finEntry.create({ data: { ...data, createdById: user.id } });
   if (saved.length) await db.finProof.createMany({ data: saved.map((p) => ({ ...p, entryId: e.id, createdById: user.id })) });
+  if (status === "pending" && before?.status !== "pending") {
+    for (const uid of await financeApproverIds()) await notify(uid, `Approve expense: ${pkr(amount)}`, { body: `${description} — entered by ${user.name}`, link: `/finance/entries/${e.id}` });
+  }
   await audit(user.id, id ? "update" : "create", "finEntry", e.id, `${id ? "Edited" : "Added"} ${kind === "in" ? "money in" : kind} ${pkr(amount)}: ${description}`);
   refresh();
   redirect(str(fd, "back") || "/finance/entries");
@@ -58,6 +68,7 @@ export async function deleteEntry(fd: FormData) {
   const e = await db.finEntry.findUnique({ where: { id: str(fd, "id") } });
   if (!e) return;
   const user = await requirePermission(e.personal ? "finance.personal" : "finance", "delete");
+  if (isClosed(e.date, await financeConfig())) return;
   await db.finEntry.delete({ where: { id: e.id } });
   await audit(user.id, "delete", "finEntry", e.id, `Deleted ${e.kind} ${pkr(e.amount)}: ${e.description}`);
   refresh();
@@ -185,4 +196,19 @@ export async function saveFinanceSettings(_: FormState, fd: FormData): Promise<F
   await audit(user.id, "update", "setting", "finance.config", `Finance settings: ${JSON.stringify(patch)}`);
   revalidatePath("/finance/settings");
   return { ok: true, message: "Saved." };
+}
+
+/** Boss: approve or reject an expense waiting for approval. */
+export async function decideEntry(fd: FormData) {
+  const user = await requirePermission("finance", "approve");
+  const e = await db.finEntry.findUnique({ where: { id: str(fd, "id") } });
+  if (!e || e.status !== "pending") return;
+  const approve = str(fd, "op") === "approve";
+  const reason = str(fd, "reason").slice(0, 300) || null;
+  await db.finEntry.update({ where: { id: e.id }, data: approve ? { status: "approved", approvedById: user.id, approvedAt: new Date(), rejectReason: null } : { status: "rejected", approvedById: user.id, approvedAt: new Date(), rejectReason: reason } });
+  await audit(user.id, approve ? "approve" : "reject", "finEntry", e.id, `${approve ? "Approved" : "Rejected"} ${e.description} (${pkr(e.amount)})${reason ? `: ${reason}` : ""}`);
+  if (e.createdById && e.createdById !== user.id) await notify(e.createdById, `${approve ? "Approved" : "Rejected"}: ${e.description} (${pkr(e.amount)})`, { body: reason ?? undefined, link: `/finance/entries/${e.id}` });
+  revalidatePath("/finance/approvals");
+  revalidatePath(`/finance/entries/${e.id}`);
+  refresh();
 }
