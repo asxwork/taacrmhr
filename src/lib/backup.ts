@@ -1,6 +1,7 @@
 // Daily backup to Google Drive: the whole database as gzipped JSON (works the same on MySQL and SQLite), plus the
 // uploaded files as a zip when switched on. Keeps the last N days (default 30) in an "AMS backups" Drive folder.
 // Google access uses the admin's own account (OAuth, scope drive.file: AMS only sees files it created).
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -16,6 +17,14 @@ import { UPLOAD_ROOT } from "./files";
 import { openSecret, sealSecret } from "./softphone";
 
 const SETTING = "backup.google";
+
+// Server keys: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (/ GOOGLE_REFRESH_TOKEN), or the short names G_CLIENT_ID /
+// G_CLIENT_SECRET (/ G_REFRESH_TOKEN). Either works.
+const env = {
+  id: (): string => process.env.GOOGLE_CLIENT_ID || process.env.G_CLIENT_ID || "",
+  secret: (): string => process.env.GOOGLE_CLIENT_SECRET || process.env.G_CLIENT_SECRET || "",
+  refresh: (): string => process.env.GOOGLE_REFRESH_TOKEN || process.env.G_REFRESH_TOKEN || "",
+};
 export type BackupConfig = {
   clientId?: string; clientSecret?: string | null; refreshToken?: string | null; email?: string | null;
   folderId?: string | null; includeFiles?: boolean; keepDays?: number;
@@ -24,6 +33,30 @@ type Stored = Omit<BackupConfig, "clientSecret" | "refreshToken"> & { secretSeal
 
 export const redirectUri = () => `${APP_URL()}/api/backup/google/callback`;
 
+// The Google sign-in (refresh token) is locked with a key made from GOOGLE_CLIENT_SECRET, which stays the same across
+// redeploys, so the connection survives. Without server keys it falls back to the app secret (SIP_SECRET_KEY / CRON_SECRET).
+const driveKey = () => (env.secret() ? createHash("sha256").update(`gdrive:${env.secret()}`).digest() : null);
+function sealToken(plain: string) {
+  const k = driveKey();
+  if (!k) return sealSecret(plain);
+  const iv = randomBytes(12);
+  const c = createCipheriv("aes-256-gcm", k, iv);
+  const enc = Buffer.concat([c.update(plain, "utf8"), c.final()]);
+  return `g1.${[iv, c.getAuthTag(), enc].map((b) => b.toString("base64")).join(".")}`;
+}
+function openToken(sealed: string | null | undefined) {
+  if (!sealed) return null;
+  if (!sealed.startsWith("g1.")) return openSecret(sealed);
+  const k = driveKey();
+  if (!k) return null;
+  try {
+    const [iv, tag, enc] = sealed.slice(3).split(".").map((p) => Buffer.from(p, "base64"));
+    const d = createDecipheriv("aes-256-gcm", k, iv!);
+    d.setAuthTag(tag!);
+    return Buffer.concat([d.update(enc!), d.final()]).toString("utf8");
+  } catch { return null; }
+}
+
 export async function backupConfig(): Promise<BackupConfig> {
   const row = await db.setting.findUnique({ where: { key: SETTING } });
   let s: Stored = {};
@@ -31,21 +64,25 @@ export async function backupConfig(): Promise<BackupConfig> {
   // The app's Google keys normally come from the server (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET), so the Backup page
   // is just "Sign in with Google", like a WordPress backup plugin. Keys typed on the page are the fallback.
   return {
-    ...s, clientId: process.env.GOOGLE_CLIENT_ID || s.clientId, clientSecret: process.env.GOOGLE_CLIENT_SECRET || openSecret(s.secretSealed ?? null),
-    refreshToken: openSecret(s.tokenSealed ?? null), keepDays: s.keepDays || 30, includeFiles: !!s.includeFiles,
+    ...s, clientId: env.id() || s.clientId, clientSecret: env.secret() || openSecret(s.secretSealed ?? null),
+    // GOOGLE_REFRESH_TOKEN on the server = connected for good, no sign-in on the page needed.
+    refreshToken: env.refresh() || openToken(s.tokenSealed), keepDays: s.keepDays || 30, includeFiles: !!s.includeFiles,
   };
 }
 
+/** Where the Drive connection comes from, for the Backup page. */
+export const driveFromServer = () => !!env.refresh();
+
 /** True when the Google keys are set on the server, so nobody has to type them on the Backup page. */
-export const googleKeysOnServer = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+export const googleKeysOnServer = () => !!(env.id() && env.secret());
 
 export async function saveBackupConfig(patch: BackupConfig) {
   const cur = await backupConfig();
   const next = { ...cur, ...patch };
   const stored: Stored = {
     // Keys that come from the server are never copied into the database.
-    clientId: next.clientId === process.env.GOOGLE_CLIENT_ID ? undefined : next.clientId, email: next.email, folderId: next.folderId, includeFiles: next.includeFiles, keepDays: next.keepDays,
-    secretSealed: next.clientSecret && next.clientSecret !== process.env.GOOGLE_CLIENT_SECRET ? sealSecret(next.clientSecret) : null, tokenSealed: next.refreshToken ? sealSecret(next.refreshToken) : null,
+    clientId: next.clientId === env.id() ? undefined : next.clientId, email: next.email, folderId: next.folderId, includeFiles: next.includeFiles, keepDays: next.keepDays,
+    secretSealed: next.clientSecret && next.clientSecret !== env.secret() ? sealSecret(next.clientSecret) : null, tokenSealed: next.refreshToken && next.refreshToken !== env.refresh() ? sealToken(next.refreshToken) : null,
   };
   await db.setting.upsert({ where: { key: SETTING }, update: { value: JSON.stringify(stored) }, create: { key: SETTING, value: JSON.stringify(stored) } });
 }
@@ -117,6 +154,14 @@ async function ensureFolder(token: string, c: BackupConfig) {
   return id;
 }
 
+async function subFolder(token: string, parent: string, name: string) {
+  const res = await drive(token, "https://www.googleapis.com/drive/v3/files?fields=id", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: [parent] }),
+  });
+  return ((await res.json()) as { id: string }).id;
+}
+
 async function upload(token: string, folderId: string, file: string, name: string, mime: string) {
   const size = (await stat(file)).size;
   const start = await drive(token, "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id", {
@@ -145,13 +190,25 @@ async function prune(token: string, folderId: string, keepDays: number) {
 
 // ─── The dump ────────────────────────────────────────────────
 
-/** Writes every table to a gzipped JSON file, 2,000 rows at a time. */
-export async function dumpDatabase(file: string) {
+/** One backup file per app. Every table belongs to exactly one, so together they are the whole database. */
+export const BACKUP_GROUPS = [
+  { key: "crm", label: "CRM", models: ["LeadSource", "LeadStatus", "Pipeline", "Stage", "Lead", "Company", "Contact", "Deal", "Activity", "DealUnit", "PaymentPlan", "Installment", "SalesTarget", "PropertyMatch", "Automation", "SavedFilter", "MessageTemplate", "ApiConnection", "WebhookLog"] },
+  { key: "inventory", label: "Inventory", models: ["Project", "ProjectImage", "Block", "Unit", "UnitImage"] },
+  { key: "calls", label: "Calls", models: ["CallCampaign", "CallBatch", "CallTarget", "CallLog", "DncNumber", "SipAccount", "CallRecording"] },
+  { key: "hr", label: "HR & payroll", models: ["Department", "Designation", "Employee", "EmployeeRelative", "EmployeeQualification", "EmployeeBank", "Policy", "PolicyAck", "LetterTemplate", "EmployeeLetter", "CustomField", "EngagementSurvey", "EngagementResponse", "HrPost", "EmployeeEvent", "EmployeeDocument", "ChecklistItem", "ApprovalFlow", "ApprovalRequest", "ApprovalAction", "Shift", "RosterDay", "CheckinDevice", "Holiday", "AttendancePunch", "PunchOriginal", "AttendanceLog", "AttendanceDay", "AttendanceBreak", "AttendanceMachine", "LeaveType", "LeaveBalance", "LeaveRequest", "SalaryProfile", "SalaryRevision", "LeaveEncashment", "PayComponent", "TaxSlab", "PayrollRun", "Payslip", "PayslipLine", "PayrollAdjustment", "PayItem", "CompanyBank", "FinalSettlement", "Loan", "LoanRepayment", "Expense", "JobOpening", "Candidate", "Interview", "AppraisalCycle", "ProbationReview", "Appraisal", "Asset", "AssetLog", "OnboardingInvite", "ShiftSwap", "PayrollCheck", "CheckIn", "FeedPost", "ExitInterview"] },
+  { key: "system", label: "Users, roles & settings", models: [] as string[] }, // everything else
+] as const;
+export type BackupGroup = (typeof BACKUP_GROUPS)[number]["key"];
+const LISTED = new Set<string>(BACKUP_GROUPS.flatMap((g) => [...g.models]));
+const inGroup = (model: string, g: BackupGroup) => (g === "system" ? !LISTED.has(model) : (BACKUP_GROUPS.find((x) => x.key === g)!.models as readonly string[]).includes(model));
+
+/** Writes the tables (all, or one app's) to a gzipped JSON file, 2,000 rows at a time. */
+export async function dumpDatabase(file: string, group?: BackupGroup) {
   const out = createGzip();
   const done = new Promise<void>((ok, fail) => { out.pipe(createWriteStream(file)).on("finish", ok).on("error", fail); });
   const write = (s: string) => new Promise<void>((ok) => { if (out.write(s)) ok(); else out.once("drain", ok); });
-  await write(`{"version":1,"createdAt":${JSON.stringify(new Date().toISOString())},"models":{`);
-  const models = Prisma.dmmf.datamodel.models;
+  await write(`{"version":1,"app":${JSON.stringify(group ?? "all")},"createdAt":${JSON.stringify(new Date().toISOString())},"models":{`);
+  const models = Prisma.dmmf.datamodel.models.filter((m) => !group || inGroup(m.name, group));
   for (const [i, m] of models.entries()) {
     const delegate = (db as unknown as Record<string, { findMany: (a: object) => Promise<object[]> }>)[m.name[0]!.toLowerCase() + m.name.slice(1)];
     const keys = m.primaryKey?.fields ?? m.fields.filter((f) => f.isId).map((f) => f.name);
@@ -190,19 +247,28 @@ export async function runBackup(trigger: "auto" | "manual") {
     const c = await backupConfig();
     if (!c.clientId || !c.clientSecret || !c.refreshToken) throw new Error("Google Drive isn't connected (Settings → Backup).");
     const stamp = format(new Date(), "yyyy-MM-dd_HHmm");
-    const dbFile = path.join(dir, `ams-database-${stamp}.json.gz`);
-    await dumpDatabase(dbFile);
     const token = await accessToken(c);
-    const folderId = await ensureFolder(token, c);
-    const up = await upload(token, folderId, dbFile, path.basename(dbFile), "application/gzip");
-    let size = up.size;
-    if (c.includeFiles) {
-      const zipFile = path.join(dir, `ams-uploads-${stamp}.zip`);
-      await zipUploads(zipFile);
-      size += (await upload(token, folderId, zipFile, path.basename(zipFile), "application/zip")).size;
+    const root = await ensureFolder(token, c);
+    // One dated folder per backup with a file per app: crm, inventory, calls, hr, system (+ files.zip).
+    const folderId = await subFolder(token, root, `AMS ${stamp}`);
+    let size = 0;
+    const names: string[] = [];
+    for (const g of BACKUP_GROUPS) {
+      const file = path.join(dir, `${g.key}.json.gz`);
+      await dumpDatabase(file, g.key);
+      size += (await upload(token, folderId, file, `${g.key}-${stamp}.json.gz`, "application/gzip")).size;
+      names.push(g.key);
     }
-    await prune(token, folderId, c.keepDays ?? 30);
-    await db.backupRun.update({ where: { id: run.id }, data: { status: "ok", fileName: path.basename(dbFile), sizeBytes: size, driveFileId: up.id, finishedAt: new Date() } });
+    if (c.includeFiles) {
+      const zipFile = path.join(dir, "files.zip");
+      await zipUploads(zipFile);
+      size += (await upload(token, folderId, zipFile, `files-${stamp}.zip`, "application/zip")).size;
+      names.push("files");
+    }
+    const up = { id: folderId };
+    const dbFile = `folder:${names.join(",")}`;
+    await prune(token, root, c.keepDays ?? 30);
+    await db.backupRun.update({ where: { id: run.id }, data: { status: "ok", fileName: dbFile, sizeBytes: size, driveFileId: up.id, finishedAt: new Date() } });
     await (await import("./heartbeat")).beat("backup");
     return { ok: true };
   } catch (e) {

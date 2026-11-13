@@ -3,7 +3,7 @@ import { format, formatDistanceToNowStrict } from "date-fns";
 import { CheckCircle2, CloudUpload, XCircle } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { backupConfig, googleKeysOnServer, redirectUri } from "@/lib/backup";
+import { BACKUP_GROUPS, backupConfig, driveFromServer, googleKeysOnServer, redirectUri } from "@/lib/backup";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Button, Card, EmptyState, Field, PageHeader } from "@/components/ui";
 import { backupNow, disconnectDrive, saveBackupSettings } from "./actions";
@@ -24,7 +24,7 @@ export default async function BackupPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Backup" description={`Every day AMS saves a full copy of the database${c.includeFiles ? " and all uploaded files" : ""} to Google Drive and keeps the last ${c.keepDays} days. Only Super Admins see this page.`} />
+      <PageHeader title="Backup" description={`Every day AMS saves a separate backup of each app (${BACKUP_GROUPS.map((g) => g.label).join(", ")})${c.includeFiles ? " and all uploaded files" : ""} to Google Drive and keeps the last ${c.keepDays} days. Only Super Admins see this page.`} />
       {sp.ok && <p className="mb-4 rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-800">Google Drive connected.</p>}
       {sp.err && <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800">{sp.err}</p>}
 
@@ -34,10 +34,10 @@ export default async function BackupPage({ searchParams }: { searchParams: Promi
             <CheckCircle2 className="size-7 text-emerald-600" />
             <div className="min-w-0 flex-1">
               <p className="font-medium">Connected to {c.email ?? "Google Drive"}</p>
-              <p className="text-xs text-muted">Backups go to the “AMS backups” folder in this Google Drive.</p>
+              <p className="text-xs text-muted">Backups go to the “AMS backups” folder in this Google Drive, one dated folder per backup.{onServer && " Google keys are read from the server's environment variables."}{driveFromServer() && " Connected through G_REFRESH_TOKEN on the server."}</p>
             </div>
             <form action={backupNow}><Button disabled={running}><CloudUpload className="size-4" /> {running ? "Backing up…" : "Back up now"}</Button></form>
-            <form action={disconnectDrive}><button className="text-sm text-muted hover:text-red-600">Disconnect</button></form>
+            {!driveFromServer() && <form action={disconnectDrive}><button className="text-sm text-muted hover:text-red-600">Disconnect</button></form>}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 py-4 text-center">
@@ -51,7 +51,7 @@ export default async function BackupPage({ searchParams }: { searchParams: Promi
                 Sign in with Google
               </a>
             ) : (
-              <p className="max-w-md rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">One-time setup needed by your developer: add <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> to the server (steps below), then this button appears.</p>
+              <p className="max-w-md rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">One-time setup: add <code>G_CLIENT_ID</code> and <code>G_CLIENT_SECRET</code> (or <code>GOOGLE_CLIENT_ID</code> / <code>GOOGLE_CLIENT_SECRET</code>) to the server&apos;s environment variables and Redeploy; then this button appears.</p>
             )}
           </div>
         )}
@@ -77,7 +77,7 @@ export default async function BackupPage({ searchParams }: { searchParams: Promi
           </ActionForm>
         </Card>
         {onServer ? (
-          <Card className="p-5 text-sm"><h2 className="mb-2 font-medium">How it works</h2><ul className="list-disc space-y-1 pl-5 text-muted"><li>Every night AMS saves a full copy to the “AMS backups” folder in the connected Google Drive.</li><li>Backups older than the days you choose are deleted automatically.</li><li>To use a different Google account, Disconnect and sign in again.</li></ul></Card>
+          <Card className="p-5 text-sm"><h2 className="mb-2 font-medium">How it works</h2><ul className="list-disc space-y-1 pl-5 text-muted"><li>Google keys come from the server (G_CLIENT_ID / G_CLIENT_SECRET): nothing to type here. Sign in once; the connection stays across redeploys.</li><li>Every night AMS saves a dated folder in “AMS backups” with one file per app: {BACKUP_GROUPS.map((g) => g.label).join(", ")}{c.includeFiles ? ", plus uploaded files" : ""}.</li><li>Backups older than the days you choose are deleted automatically.</li><li>To use a different Google account, Disconnect and sign in again.</li></ul></Card>
         ) : (
           <Card className="p-5 text-sm">
           <h2 className="mb-3 font-medium">One-time setup for the developer (10 minutes, never again)</h2>
@@ -87,7 +87,7 @@ export default async function BackupPage({ searchParams }: { searchParams: Promi
             <li><span className="font-medium text-ink">OAuth consent screen</span>: External, app name “AMS Backup”, your email. Then press <span className="font-medium text-ink">Publish app</span> (otherwise Google stops backups after 7 days).</li>
             <li><span className="font-medium text-ink">Credentials → Create credentials → OAuth client ID</span>, type <span className="font-medium text-ink">Web application</span>, and add this redirect URI:
               <input readOnly value={redirectUri()} aria-label="Redirect URI" className="input mt-1 h-8 w-full font-mono text-xs" /></li>
-            <li>In hPanel → your Node.js app → <span className="font-medium text-ink">Environment variables</span>, add <code className="text-ink">GOOGLE_CLIENT_ID</code> and <code className="text-ink">GOOGLE_CLIENT_SECRET</code>, then Redeploy. From then on this page is just “Sign in with Google”.</li>
+            <li>In hPanel → your Node.js app → <span className="font-medium text-ink">Environment variables</span>, add <code className="text-ink">G_CLIENT_ID</code> and <code className="text-ink">G_CLIENT_SECRET</code>, then Redeploy. From then on this page is just “Sign in with Google”.</li>
             <li>Add a daily cron in hPanel: <code className="break-all text-xs text-ink">/api/cron/backup?key=YOUR_CRON_SECRET</code> (the daily job also backs up as a fallback).</li>
           </ol>
           <p className="mt-3 text-xs text-muted">AMS can only see the files it creates in your Drive, nothing else.</p>
@@ -106,7 +106,8 @@ export default async function BackupPage({ searchParams }: { searchParams: Promi
                 <span className="text-xs text-muted">{r.trigger === "manual" ? "by hand" : "daily"} · {formatDistanceToNowStrict(r.startedAt, { addSuffix: true })}</span>
                 <span className="flex-1" />
                 {r.status === "ok" && <span className="text-xs text-muted">{mb(r.sizeBytes)}</span>}
-                {r.status === "ok" && r.driveFileId && <a href={`https://drive.google.com/file/d/${r.driveFileId}/view`} target="_blank" rel="noreferrer" className="text-xs font-medium text-navy-900 hover:underline">Open in Drive</a>}
+                {r.status === "ok" && r.fileName?.startsWith("folder:") && <span className="flex flex-wrap gap-1">{r.fileName.slice(7).split(",").map((k) => <span key={k} className="rounded bg-canvas px-1.5 py-0.5 text-[11px] text-muted">{BACKUP_GROUPS.find((g) => g.key === k)?.label ?? "Files"}</span>)}</span>}
+                {r.status === "ok" && r.driveFileId && <a href={r.fileName?.startsWith("folder:") ? `https://drive.google.com/drive/folders/${r.driveFileId}` : `https://drive.google.com/file/d/${r.driveFileId}/view`} target="_blank" rel="noreferrer" className="text-xs font-medium text-navy-900 hover:underline">Open in Drive</a>}
                 {r.error && <span className="w-full text-xs text-red-600">{r.error}</span>}
               </li>
             ))}
