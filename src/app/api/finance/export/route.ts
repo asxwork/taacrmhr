@@ -10,9 +10,9 @@ import { categoryTree, entryWhere } from "@/lib/finance";
 export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
-  if (!can(user, "finance", "export")) return new Response("Forbidden", { status: 403 });
   const sp = Object.fromEntries(new URL(req.url).searchParams);
   const personal = sp.personal === "1";
+  if (!can(user, personal ? "finance.personal" : "finance", "export")) return new Response("Forbidden", { status: 403 });
   const where = entryWhere(sp, personal, await categoryTree());
   const rows = await db.finEntry.findMany({ where, include: { account: true, toAccount: true, category: { include: { parent: true } } }, orderBy: [{ date: "asc" }, { createdAt: "asc" }], take: 50000 });
 

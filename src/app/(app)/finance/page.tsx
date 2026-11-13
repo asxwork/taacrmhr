@@ -1,9 +1,9 @@
 import Link from "@/components/link";
 import { addMonths, endOfMonth, format, parse, startOfMonth, startOfYear, subMonths } from "date-fns";
-import { ArrowDownLeft, ChevronLeft, ChevronRight, Crown, TrendingDown, Wallet } from "lucide-react";
+import { ArrowDownLeft, ChevronLeft, ChevronRight, Crown, FileWarning, TrendingDown, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
-import { balances, categoryTree, ensureFinanceDefaults, pkr } from "@/lib/finance";
+import { can, requirePermission } from "@/lib/permissions";
+import { balances, categoryTree, ensureFinanceDefaults, pkr, PROOF_WHERE } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { Card, PageHeader } from "@/components/ui";
 import { BarList } from "@/components/charts";
@@ -13,7 +13,8 @@ export const metadata = { title: "Finance" };
 
 /** Finance dashboard: where the money went this month and this year, who spent it, and who holds what. */
 export default async function FinanceDashboard({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
-  await requirePermission("finance");
+  const user = await requirePermission("finance");
+  const seePersonal = can(user, "finance.personal");
   await ensureFinanceDefaults();
   const sp = await searchParams;
   const now = new Date();
@@ -32,6 +33,10 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
     db.finEntry.groupBy({ by: ["party"], where: { kind: "expense", personal: false, date: range(mFrom, mTo), party: { not: null } }, _sum: { amount: true }, orderBy: { _sum: { amount: "desc" } }, take: 8 }),
     db.finEntry.findMany({ where: { kind: "expense", date: range(trendFrom, mTo) }, select: { date: true, amount: true, personal: true } }),
     balances(),
+  ]);
+  const [noProof, noProofYear] = await Promise.all([
+    db.finEntry.aggregate({ where: { ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(mFrom, mTo) }, _count: true, _sum: { amount: true } }),
+    db.finEntry.count({ where: { ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(yFrom, mTo) } }),
   ]);
   const sumFor = (rows: { categoryId: string | null; _sum: { amount: number | null } }[], ids: string[]) => rows.filter((r) => r.categoryId && ids.includes(r.categoryId)).reduce((s, r) => s + (r._sum.amount ?? 0), 0);
   const spentMonth = monthByCat.reduce((s, r) => s + (r._sum.amount ?? 0), 0);
@@ -57,7 +62,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
           ["Company spent", spentMonth, format(month, "MMMM"), TrendingDown, "text-red-600", "/finance/entries?kind=expense&month=" + mk(month)],
           ["Spent this year", spentYear, `Since ${format(yFrom, "d MMM")}`, TrendingDown, "", "/finance/entries?kind=expense"],
           ["Money received", inMonth._sum.amount ?? 0, format(month, "MMMM"), ArrowDownLeft, "text-emerald-600", "/finance/entries?kind=in&month=" + mk(month)],
-          ["Sir personal", personalMonth._sum.amount ?? 0, format(month, "MMMM"), Crown, "text-amber-600", "/finance/personal?month=" + mk(month)],
+          ...(seePersonal ? [["Sir personal", personalMonth._sum.amount ?? 0, format(month, "MMMM"), Crown, "text-amber-600", "/finance/personal?month=" + mk(month)] as const] : []),
           ["Petty cash in hand", pettyInHand, owed ? `${pkr(owed)} owed to holders` : "All holders", Wallet, pettyInHand < 0 ? "text-red-600" : "text-navy-900", "/finance/holders"],
         ] as const).map(([label, v, sub, Icon, tone, href]) => (
           <Link key={label} href={href} className="rounded-xl border border-line bg-surface p-4 transition hover:-translate-y-0.5 hover:shadow-md">
@@ -67,6 +72,14 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
           </Link>
         ))}
       </div>
+
+      {noProof._count > 0 && (
+        <Link href={`/finance/entries?proof=missing&kind=expense&month=${mk(month)}`} className="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 hover:bg-red-100">
+          <FileWarning className="size-5 shrink-0" />
+          <span className="flex-1"><b>{noProof._count} expenses ({pkr(noProof._sum.amount ?? 0)}) in {format(month, "MMMM")} have no bill or receipt.</b> {noProofYear} this year. Open the list and attach the proof.</span>
+          <ChevronRight className="size-4" />
+        </Link>
+      )}
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
         <Card className="overflow-hidden">
@@ -114,7 +127,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
         <LineChart labels={months.map((d) => format(d, "MMM yy"))} format={(v) => `${Math.round(v / 1000)}k`}
           series={[
             { name: "Company", color: "#c2410c", values: months.map((d) => trend.filter((t) => !t.personal && mk(t.date) === mk(d)).reduce((s, t) => s + t.amount, 0)) },
-            { name: "Sir personal", color: "#d4a94a", values: months.map((d) => trend.filter((t) => t.personal && mk(t.date) === mk(d)).reduce((s, t) => s + t.amount, 0)) },
+            ...(seePersonal ? [{ name: "Sir personal", color: "#d4a94a", values: months.map((d) => trend.filter((t) => t.personal && mk(t.date) === mk(d)).reduce((s, t) => s + t.amount, 0)) }] : []),
           ]} />
       </Card>
 

@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import { can, requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { saveUpload } from "@/lib/files";
-import { pkr } from "@/lib/finance";
+import { financeConfig, pkr, saveFinanceConfig } from "@/lib/finance";
 import { str, type FormState } from "@/lib/utils";
 
 const refresh = () => ["/finance", "/finance/entries", "/finance/holders", "/finance/categories"].forEach((p) => revalidatePath(p));
@@ -14,7 +14,8 @@ const refresh = () => ["/finance", "/finance/entries", "/finance/holders", "/fin
 /** Add or edit one entry: an expense, money received, or a transfer between holders. */
 export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> {
   const id = str(fd, "id");
-  const user = await requirePermission("finance", id ? "edit" : "create");
+  const wasPersonal = id ? (await db.finEntry.findUnique({ where: { id }, select: { personal: true } }))?.personal : false;
+  const user = await requirePermission(fd.get("personal") === "on" || wasPersonal ? "finance.personal" : "finance", id ? "edit" : "create");
   const kind = ["expense", "in", "transfer"].includes(str(fd, "kind")) ? str(fd, "kind") : "expense";
   const amount = parseFloat(str(fd, "amount").replace(/,/g, ""));
   const date = new Date(`${str(fd, "date")}T12:00:00`);
@@ -30,27 +31,33 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
   if (!description) return { error: "Write what it was for." };
   const cat = categoryId ? await db.finCategory.findUnique({ where: { id: categoryId }, include: { parent: true } }) : null;
   const personal = !!(cat?.personal || cat?.parent?.personal || fd.get("personal") === "on");
-  let receipt: string | undefined;
-  const file = fd.get("receipt");
-  if (file instanceof File && file.size) {
-    const res = await saveUpload(file, "finance", { maxBytes: 10_000_000, allowPdf: true });
-    if ("error" in res) return { error: `Receipt: ${res.error}` };
-    receipt = res.path;
+  if (personal && !can(user, "finance.personal", id ? "edit" : "create")) return { error: "You don't have access to Sir personal expenses." };
+  const cfg = await financeConfig();
+  // Proof: any number of bills / receipts / transfer screenshots, from files or the phone camera.
+  const files = [...fd.getAll("proofs"), ...fd.getAll("photo")].filter((f): f is File => f instanceof File && f.size > 0);
+  const hadProof = id ? (await db.finProof.count({ where: { entryId: id } })) + ((await db.finEntry.findUnique({ where: { id }, select: { receipt: true } }))?.receipt ? 1 : 0) : 0;
+  if (cfg.proofAbove > 0 && amount >= cfg.proofAbove && !files.length && !hadProof) return { error: `Attach the bill, receipt or transfer screenshot: proof is required for ${pkr(cfg.proofAbove)} and above.` };
+  const saved: { path: string; name: string; size: number }[] = [];
+  for (const f of files.slice(0, 10)) {
+    const res = await saveUpload(f, "finance", { maxBytes: 10_000_000, allowPdf: true });
+    if ("error" in res) return { error: `Proof: ${res.error}` };
+    saved.push({ path: res.path, name: f.name.slice(0, 120), size: res.size });
   }
   const data = {
     kind, amount, date, accountId, toAccountId: toAccountId || null, categoryId: categoryId || null, description,
-    party: str(fd, "party").slice(0, 120) || null, personal, notes: str(fd, "notes").slice(0, 1000) || null, ...(receipt && { receipt }),
+    party: str(fd, "party").slice(0, 120) || null, personal, notes: str(fd, "notes").slice(0, 1000) || null,
   };
   const e = id ? await db.finEntry.update({ where: { id }, data }) : await db.finEntry.create({ data: { ...data, createdById: user.id } });
+  if (saved.length) await db.finProof.createMany({ data: saved.map((p) => ({ ...p, entryId: e.id, createdById: user.id })) });
   await audit(user.id, id ? "update" : "create", "finEntry", e.id, `${id ? "Edited" : "Added"} ${kind === "in" ? "money in" : kind} ${pkr(amount)}: ${description}`);
   refresh();
   redirect(str(fd, "back") || "/finance/entries");
 }
 
 export async function deleteEntry(fd: FormData) {
-  const user = await requirePermission("finance", "delete");
   const e = await db.finEntry.findUnique({ where: { id: str(fd, "id") } });
   if (!e) return;
+  const user = await requirePermission(e.personal ? "finance.personal" : "finance", "delete");
   await db.finEntry.delete({ where: { id: e.id } });
   await audit(user.id, "delete", "finEntry", e.id, `Deleted ${e.kind} ${pkr(e.amount)}: ${e.description}`);
   refresh();
@@ -85,7 +92,7 @@ export async function deleteHolder(_: FormState, fd: FormData): Promise<FormStat
 
 /** Add, rename or remove a category / sub-category. */
 export async function saveCategory(_: FormState, fd: FormData): Promise<FormState> {
-  const user = await requirePermission("finance", "edit");
+  const user = await requirePermission("finance.settings", "edit");
   const op = str(fd, "op");
   const id = str(fd, "id");
   if (op === "delete") {
@@ -123,4 +130,59 @@ export async function importWorkbook(_: FormState, fd: FormData): Promise<FormSt
   } catch (e) {
     return { error: `Could not read the file: ${e instanceof Error ? e.message : "unknown error"}` };
   }
+}
+
+/** Add more proof to an entry (bill, receipt, screenshot). */
+export async function addProof(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "create");
+  const e = await db.finEntry.findUnique({ where: { id: str(fd, "id") } });
+  if (!e) return { error: "Entry not found." };
+  const files = [...fd.getAll("proofs"), ...fd.getAll("photo")].filter((f): f is File => f instanceof File && f.size > 0);
+  if (!files.length) return { error: "Choose a file or take a photo." };
+  for (const f of files.slice(0, 10)) {
+    const res = await saveUpload(f, "finance", { maxBytes: 10_000_000, allowPdf: true });
+    if ("error" in res) return { error: res.error };
+    await db.finProof.create({ data: { entryId: e.id, path: res.path, name: f.name.slice(0, 120), size: res.size, createdById: user.id } });
+  }
+  // New proof needs checking again.
+  if (e.verifiedAt) await db.finEntry.update({ where: { id: e.id }, data: { verifiedAt: null, verifiedById: null } });
+  await audit(user.id, "update", "finEntry", e.id, `Added ${files.length} proof file(s) to ${e.description} (${pkr(e.amount)})`);
+  revalidatePath(`/finance/entries/${e.id}`);
+  refresh();
+  return { ok: true, message: "Proof added." };
+}
+
+export async function deleteProof(fd: FormData) {
+  const user = await requirePermission("finance", "delete");
+  const p = await db.finProof.findUnique({ where: { id: str(fd, "id") }, include: { entry: true } });
+  if (!p) return;
+  await db.finProof.delete({ where: { id: p.id } });
+  await audit(user.id, "update", "finEntry", p.entryId, `Removed proof ${p.name} from ${p.entry.description}`);
+  revalidatePath(`/finance/entries/${p.entryId}`);
+}
+
+/** Boss / accounts: mark the proof as checked (or undo). */
+export async function verifyEntry(fd: FormData) {
+  const user = await requirePermission("finance", "approve");
+  const e = await db.finEntry.findUnique({ where: { id: str(fd, "id") } });
+  if (!e) return;
+  const undo = str(fd, "undo") === "1";
+  await db.finEntry.update({ where: { id: e.id }, data: undo ? { verifiedAt: null, verifiedById: null } : { verifiedAt: new Date(), verifiedById: user.id } });
+  await audit(user.id, "update", "finEntry", e.id, `${undo ? "Un-verified" : "Verified"} proof of ${e.description} (${pkr(e.amount)})`);
+  revalidatePath(`/finance/entries/${e.id}`);
+  refresh();
+}
+
+/** Finance settings (Super Admin): proof limit, approval limit, month close. */
+export async function saveFinanceSettings(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance.settings", "edit");
+  const num = (k: string) => Math.max(0, parseFloat(str(fd, k).replace(/,/g, "")) || 0);
+  const patch: Record<string, number | string> = {};
+  if (fd.has("proofAbove")) patch.proofAbove = num("proofAbove");
+  if (fd.has("approvalAbove")) patch.approvalAbove = num("approvalAbove");
+  if (fd.has("closedThrough")) patch.closedThrough = /^\d{4}-\d{2}$/.test(str(fd, "closedThrough")) ? str(fd, "closedThrough") : "";
+  await saveFinanceConfig(patch);
+  await audit(user.id, "update", "setting", "finance.config", `Finance settings: ${JSON.stringify(patch)}`);
+  revalidatePath("/finance/settings");
+  return { ok: true, message: "Saved." };
 }

@@ -11,7 +11,7 @@ export const metadata = { title: "Categories · Finance" };
 
 /** Finance → Categories: main categories and their sub-categories. */
 export default async function CategoriesPage() {
-  await requirePermission("finance", "edit");
+  await requirePermission("finance.settings", "edit");
   await ensureFinanceDefaults();
   const [tree, used] = await Promise.all([categoryTree(), db.finEntry.groupBy({ by: ["categoryId"], _count: true })]);
   const n = (id: string) => used.find((u) => u.categoryId === id)?._count ?? 0;

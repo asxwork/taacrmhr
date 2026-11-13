@@ -64,7 +64,7 @@ export const companyExpense = (extra: Prisma.FinEntryWhereInput = {}): Prisma.Fi
 export const pkr = (n: number) => `Rs ${Math.round(n).toLocaleString("en-PK")}`;
 
 /** Filters shared by the entries list and its Excel export. */
-export function entryWhere(sp: { month?: string; holder?: string; cat?: string; kind?: string; q?: string }, personal: boolean, tree: Awaited<ReturnType<typeof categoryTree>>): Prisma.FinEntryWhereInput {
+export function entryWhere(sp: { month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string }, personal: boolean, tree: Awaited<ReturnType<typeof categoryTree>>): Prisma.FinEntryWhereInput {
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? parse(sp.month, "yyyy-MM", new Date()) : null;
   const q = sp.q?.trim();
   const catIds = sp.cat ? [sp.cat, ...(tree.find((c) => c.id === sp.cat)?.subs.map((s) => s.id) ?? [])] : null;
@@ -74,6 +74,35 @@ export function entryWhere(sp: { month?: string; holder?: string; cat?: string; 
     ...(sp.holder && { OR: [{ accountId: sp.holder }, { toAccountId: sp.holder }] }),
     ...(catIds && { categoryId: { in: catIds } }),
     ...(sp.kind && { kind: sp.kind }),
+    ...(sp.proof && PROOF_WHERE[sp.proof]),
+    ...(sp.status && { status: sp.status }),
     ...(q && { AND: [{ OR: [{ description: { contains: q } }, { party: { contains: q } }, { notes: { contains: q } }] }] }),
   };
 }
+
+/** Proof filters: no bill/receipt yet, proof added but not checked, checked by the boss / accounts. */
+export const PROOF_WHERE: Record<string, Prisma.FinEntryWhereInput> = {
+  missing: { receipt: null, proofs: { none: {} } },
+  unverified: { verifiedAt: null, OR: [{ receipt: { not: null } }, { proofs: { some: {} } }] },
+  verified: { verifiedAt: { not: null } },
+};
+
+export type FinConfig = {
+  /** Entries of this amount or more can't be saved without a bill/receipt (0 = never blocked, only flagged). */
+  proofAbove: number;
+  /** Expenses of this amount or more wait for the boss's approval before they count (0 = no approval). */
+  approvalAbove: number;
+  /** Months up to and including this one ("yyyy-MM") are closed: entries can't be added, edited or deleted. */
+  closedThrough: string;
+};
+const FIN_DEFAULTS: FinConfig = { proofAbove: 0, approvalAbove: 0, closedThrough: "" };
+export async function financeConfig(): Promise<FinConfig> {
+  const row = await db.setting.findUnique({ where: { key: "finance.config" } });
+  try { return { ...FIN_DEFAULTS, ...(row ? JSON.parse(row.value) : {}) }; } catch { return FIN_DEFAULTS; }
+}
+export async function saveFinanceConfig(patch: Partial<FinConfig>) {
+  const value = JSON.stringify({ ...(await financeConfig()), ...patch });
+  await db.setting.upsert({ where: { key: "finance.config" }, update: { value }, create: { key: "finance.config", value } });
+}
+/** True when the date falls in a closed month. */
+export const isClosed = (date: Date, cfg: FinConfig) => !!cfg.closedThrough && date.toISOString().slice(0, 7) <= cfg.closedThrough;
