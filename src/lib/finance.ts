@@ -115,3 +115,21 @@ export async function saveFinanceConfig(patch: Partial<FinConfig>) {
 }
 /** True when the date falls in a closed month. */
 export const isClosed = (date: Date, cfg: FinConfig) => !!cfg.closedThrough && date.toISOString().slice(0, 7) <= cfg.closedThrough;
+
+/** Short Pakistani format for big numbers: Rs 15.3 lac, Rs 1.27 crore; smaller amounts in full. */
+export const lakh = (n: number) => {
+  const a = Math.abs(n), sign = n < 0 ? "−" : "";
+  if (a >= 1e7) return `${sign}Rs ${(a / 1e7).toFixed(2).replace(/\.?0+$/, "")} crore`;
+  if (a >= 1e5) return `${sign}Rs ${(a / 1e5).toFixed(1).replace(/\.0$/, "")} lac`;
+  return `${sign}Rs ${Math.round(a).toLocaleString("en-PK")}`;
+};
+
+/** Possible duplicates: same holder, same amount, same day and the same description. */
+export function findDuplicates<T extends { id: string; accountId: string; amount: number; date: Date; description: string }>(rows: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const r of rows) {
+    const k = `${r.accountId}|${r.amount}|${r.date.toISOString().slice(0, 10)}|${r.description.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+    groups.set(k, [...(groups.get(k) ?? []), r]);
+  }
+  return [...groups.values()].filter((g) => g.length > 1);
+}

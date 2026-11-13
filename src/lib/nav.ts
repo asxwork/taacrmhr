@@ -311,6 +311,7 @@ export const APPS: AppDef[] = [
     groups: [
       {
         items: [
+          { href: "/finance/boss", label: "Boss view", icon: "crown", module: "finance.boss" },
           { href: "/finance", label: "Dashboard", icon: "chart", module: "finance" },
           { href: "/finance/entries", label: "Entries", icon: "receipt", module: "finance" },
           { href: "/finance/holders", label: "Money holders", icon: "wallet", module: "finance" },
@@ -326,7 +327,7 @@ export const APPS: AppDef[] = [
   {
     key: "boss", name: "Boss dashboard", description: "The whole business at a glance", icon: "crown", tile: "from-amber-400 to-orange-600",
     home: "/boss", prefixes: ["/boss"], layout: "list",
-    groups: [{ items: [{ href: "/boss", label: "Boss dashboard", icon: "crown", boss: true }] }],
+    groups: [{ items: [{ href: "/boss", label: "Boss dashboard", icon: "crown", boss: true }, { href: "/finance/boss", label: "Finance", icon: "wallet", module: "finance.boss" }] }],
   },
   {
     // Tutorials app: everyone sees the tutorials for what their role can use; Super Admins see all of it.

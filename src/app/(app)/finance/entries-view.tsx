@@ -1,6 +1,6 @@
 import Link from "@/components/link";
 import { format, parse } from "date-fns";
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Download, Paperclip, Plus, Search, ShieldCheck, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Download, Paperclip, Plus, Search, ShieldCheck, Trash2, Copy } from "lucide-react";
 import { ProofInputs } from "./proof-inputs";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
@@ -13,7 +13,7 @@ import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ConfirmButton } from "@/components/confirm-button";
 import { deleteEntry, saveEntry } from "./actions";
 
-export type EntrySP = { month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
+export type EntrySP = { copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
 const PAGE = 100;
 
 /** The entries list (all, or Sir personal) with filters, totals and the add/edit panel. */
@@ -39,7 +39,10 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
   const mod = personal ? "finance.personal" : "finance";
   const canAdd = can(user, mod, "create"), canEdit = can(user, mod, "edit"), canDel = can(user, mod, "delete");
   const editing = sp.edit ? await db.finEntry.findUnique({ where: { id: sp.edit } }) : null;
-  const newKind = sp.new === "in" || sp.new === "transfer" ? sp.new : sp.new ? "expense" : null;
+  // Duplicate: a copy of an entry (e.g. last month's K-Electric bill) with today's date and no proof.
+  const copy = !editing && sp.copy ? await db.finEntry.findUnique({ where: { id: sp.copy } }) : null;
+  const src = editing ?? copy;
+  const newKind = copy ? copy.kind : sp.new === "in" || sp.new === "transfer" ? sp.new : sp.new ? "expense" : null;
   const formKind = editing?.kind ?? newKind;
   const cfg = await financeConfig();
   const proofRequired = cfg.proofAbove > 0 ? `Required for ${pkr(cfg.proofAbove)} and above` : "Bill, receipt or transfer screenshot. Your boss sees it on the entry.";
@@ -105,6 +108,7 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
                     <td className="px-2 py-2.5 text-right">
                       <span className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100">
                         {canEdit && <Link href={href({ edit: e.id })} scroll={false} className="rounded px-2 py-1 text-xs font-medium text-navy-900 hover:bg-canvas">Edit</Link>}
+                        {canAdd && <Link href={href({ copy: e.id })} scroll={false} title="Duplicate (same details, new date / amount / bill)" className="rounded p-1 text-muted hover:text-ink"><Copy className="size-3.5" /></Link>}
                         {canDel && <form action={deleteEntry}><input type="hidden" name="id" value={e.id} /><ConfirmButton message={`Delete “${e.description}” (${pkr(e.amount)})?`} title="Delete" className="rounded p-1 text-muted hover:text-red-600"><Trash2 className="size-3.5" /></ConfirmButton></form>}
                       </span>
                     </td>
@@ -123,25 +127,26 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
       </Card>
 
       {formKind && (canAdd || canEdit) && (
-        <Drawer title={editing ? "Edit entry" : formKind === "in" ? "Money in" : formKind === "transfer" ? "Transfer between holders" : personal ? "Sir personal expense" : "New expense"} closeHref={href({})} width="max-w-md">
+        <Drawer title={editing ? "Edit entry" : copy ? "Duplicate entry" : formKind === "in" ? "Money in" : formKind === "transfer" ? "Transfer between holders" : personal ? "Sir personal expense" : "New expense"} closeHref={href({})} width="max-w-md">
           {formKind === "transfer" && <p className="mb-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900">Money moving inside the company, e.g. Bushra gives Samad Rs 6,000. It changes both balances but isn&apos;t spending: Samad then adds the actual expense.</p>}
+          {copy && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">Copied from “{copy.description}” ({format(copy.date, "d MMM yyyy")}). Change the date, amount and attach this month&apos;s bill.</p>}
           <ActionForm action={saveEntry} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
             <input type="hidden" name="kind" value={formKind} />
             <input type="hidden" name="back" value={href({})} />
             <div className="grid grid-cols-2 gap-3">
               <Field label="Date"><input name="date" type="date" required defaultValue={format(editing?.date ?? new Date(), "yyyy-MM-dd")} className="input" /></Field>
-              <Field label="Amount (Rs)"><input name="amount" inputMode="decimal" required defaultValue={editing?.amount ?? ""} className="input" autoFocus /></Field>
+              <Field label="Amount (Rs)"><input name="amount" inputMode="decimal" required defaultValue={src?.amount ?? ""} className="input" autoFocus /></Field>
             </div>
             <Field label={formKind === "in" ? "Received by" : formKind === "transfer" ? "From" : "Paid by"}>
-              <select name="accountId" required defaultValue={editing?.accountId ?? sp.holder ?? ""} className="input"><option value="">Choose…</option>{holders.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select>
+              <select name="accountId" required defaultValue={src?.accountId ?? sp.holder ?? ""} className="input"><option value="">Choose…</option>{holders.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select>
             </Field>
             {formKind === "transfer" && (
-              <Field label="To"><select name="toAccountId" required defaultValue={editing?.toAccountId ?? ""} className="input"><option value="">Choose…</option>{holders.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select></Field>
+              <Field label="To"><select name="toAccountId" required defaultValue={src?.toAccountId ?? ""} className="input"><option value="">Choose…</option>{holders.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select></Field>
             )}
             {formKind === "expense" && (
               <Field label="Category">
-                <select name="categoryId" required defaultValue={editing?.categoryId ?? ""} className="input">
+                <select name="categoryId" required defaultValue={src?.categoryId ?? ""} className="input">
                   <option value="">Choose…</option>
                   {tree.filter((c) => c.personal === personal || (!personal && !c.personal)).map((c) => (
                     <optgroup key={c.id} label={c.name}>
@@ -152,9 +157,9 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
                 </select>
               </Field>
             )}
-            <Field label={formKind === "in" ? "What for" : "Description"}><input name="description" required defaultValue={editing?.description} className="input" placeholder={formKind === "in" ? "e.g. Petty cash top-up" : "e.g. Lunch for guest"} /></Field>
-            {formKind !== "transfer" && <Field label={formKind === "in" ? "Received from" : "Paid to"}><input name="party" defaultValue={editing?.party ?? ""} className="input" placeholder={formKind === "in" ? "e.g. Mubeen sir" : "e.g. Karachi Haleem"} /></Field>}
-            <Field label="Notes (optional)"><input name="notes" defaultValue={editing?.notes ?? ""} className="input" /></Field>
+            <Field label={formKind === "in" ? "What for" : "Description"}><input name="description" required defaultValue={src?.description} className="input" placeholder={formKind === "in" ? "e.g. Petty cash top-up" : "e.g. Lunch for guest"} /></Field>
+            {formKind !== "transfer" && <Field label={formKind === "in" ? "Received from" : "Paid to"}><input name="party" defaultValue={src?.party ?? ""} className="input" placeholder={formKind === "in" ? "e.g. Mubeen sir" : "e.g. Karachi Haleem"} /></Field>}
+            <Field label="Notes (optional)"><input name="notes" defaultValue={src?.notes ?? ""} className="input" /></Field>
             <ProofInputs required={proofRequired} />
             {personal && <input type="hidden" name="personal" value="on" />}
             <SubmitButton>{editing ? "Save" : "Add"}</SubmitButton>

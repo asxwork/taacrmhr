@@ -44,7 +44,7 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
   return (
     <>
       <PageHeader eyebrow={format(e.date, "EEEE d MMMM yyyy")} title={e.description}
-        actions={<Link href={`${back}?edit=${e.id}`} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Edit</Link>} />
+        actions={<div className="flex gap-2"><Link href={`${back}?copy=${e.id}`} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Duplicate</Link><Link href={`${back}?edit=${e.id}`} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Edit</Link></div>} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-6">
