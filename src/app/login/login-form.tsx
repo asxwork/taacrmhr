@@ -25,7 +25,7 @@ export function LoginForm({ action, resetAction }: { action: (s: FormState, fd: 
 
   if (forgot) return (
     <form action={resetFormAction} className="space-y-4">
-      <p className="text-sm text-muted">Enter your work email. Your administrator gets a request to reset your password and will send you a new one.</p>
+      <p className="text-sm text-muted">Enter your work email and we&apos;ll send you a link to choose a new password.</p>
       <label className="relative block">
         <span className="sr-only">Email</span>
         <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" />
@@ -33,7 +33,7 @@ export function LoginForm({ action, resetAction }: { action: (s: FormState, fd: 
       </label>
       {resetState?.message && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{resetState.message}</p>}
       {resetState?.error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{resetState.error}</p>}
-      <SubmitButton className="h-12 w-full" pendingText="Sending…"><KeyRound className="size-4" /> Ask for a new password</SubmitButton>
+      <SubmitButton className="h-12 w-full" pendingText="Sending…"><KeyRound className="size-4" /> Send reset link</SubmitButton>
       <button type="button" onClick={() => setForgot(false)} className="w-full text-center text-sm text-muted hover:text-ink">← Back to sign in</button>
     </form>
   );

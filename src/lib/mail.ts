@@ -1,6 +1,9 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { db } from "./db";
 import { memo } from "./memo";
+import { brandedEmail } from "./email-template";
+
+const companyName = () => memo("setting:company.name", 300_000, async () => (await db.setting.findUnique({ where: { key: "company.name" } }))?.value || "The Advisor Associates");
 
 /**
  * Who may receive email (Settings → Integrations → Outgoing email). While AMS is being tested: "admins" sends only to
@@ -63,7 +66,8 @@ export async function sendMail(to: string, subject: string, body: string, ctx: M
         replyTo,
         subject,
         text: body || subject,
-        html: ctx.html ?? `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#0f1a2a">${escapeHtml(body).replace(/\n/g, "<br>")}</div>`,
+        // Every email gets the branded template unless it brings its own HTML (e.g. payslips).
+        html: ctx.html ?? brandedEmail(subject, body, { company: await companyName() }),
       });
       status = "sent";
       error = null;
@@ -78,6 +82,3 @@ export async function sendMail(to: string, subject: string, body: string, ctx: M
   return { status, error };
 }
 
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-}
