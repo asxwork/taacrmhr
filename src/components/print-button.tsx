@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, Loader2, Printer } from "lucide-react";
 import { buttonClass } from "./ui";
 
@@ -8,8 +8,9 @@ import { buttonClass } from "./ui";
  * Two buttons on every printable page: Print (the browser's print dialog) and Download PDF (an A4 PDF file, made in the
  * browser from the page). `target` = CSS selector of what goes in the PDF (default: [data-print-area], else <main>, else the page).
  */
-export function PrintButton({ fileName = "document", target, dark = false }: { fileName?: string; target?: string; dark?: boolean; label?: string }) {
+export function PrintButton({ fileName = "document", target, dark = false, auto }: { fileName?: string; target?: string; dark?: boolean; label?: string; auto?: "print" | "pdf" }) {
   const [busy, setBusy] = useState(false);
+  const started = useRef(false);
   const cls = dark ? "inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium" : "";
   const download = async () => {
     setBusy(true);
@@ -40,6 +41,14 @@ export function PrintButton({ fileName = "document", target, dark = false }: { f
       setBusy(false);
     }
   };
+  // Opened from a "Print report" / "Download PDF" button: do it straight away (after images load).
+  useEffect(() => {
+    if (!auto || started.current) return;
+    started.current = true;
+    const go = () => setTimeout(() => (auto === "print" ? window.print() : void download()), 400);
+    if (document.readyState === "complete") go(); else window.addEventListener("load", go, { once: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto]);
   return (
     <span className="inline-flex flex-wrap gap-2 print:hidden">
       <button type="button" onClick={() => window.print()} className={dark ? `${cls} border border-[#0a223c] text-[#0a223c]` : buttonClass("secondary")}>

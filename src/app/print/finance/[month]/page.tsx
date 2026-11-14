@@ -11,7 +11,8 @@ export const metadata = { title: "Monthly finance report" };
 const isImage = (p: string) => /\.(jpe?g|png|webp|gif)$/i.test(p);
 
 /** Printable monthly report (Print, or Download PDF): summary, categories, offices, holders, Sir personal, bill images. */
-export default async function FinanceReport({ params }: { params: Promise<{ month: string }> }) {
+export default async function FinanceReport({ params, searchParams }: { params: Promise<{ month: string }>; searchParams: Promise<{ auto?: string }> }) {
+  const auto = (await searchParams).auto;
   const user = await requirePermission("finance");
   const { month: m } = await params;
   if (!/^\d{4}-\d{2}$/.test(m)) notFound();
@@ -41,7 +42,7 @@ export default async function FinanceReport({ params }: { params: Promise<{ mont
 
   return (
     <div data-print-area className="mx-auto max-w-[210mm] bg-white p-8 text-[13px] text-gray-900 print:p-0">
-      <div className="mb-6 flex items-center justify-between print:hidden"><Link href="/finance" className="text-sm text-gray-500 hover:underline">← Finance</Link><PrintButton target="[data-print-area]" fileName={`Finance report ${m}`} /></div>
+      <div className="mb-6 flex items-center justify-between print:hidden"><Link href="/finance" className="text-sm text-gray-500 hover:underline">← Finance</Link><PrintButton target="[data-print-area]" fileName={`Finance report ${m}`} auto={auto === "print" || auto === "pdf" ? auto : undefined} /></div>
       <header className="mb-6 border-b-2 border-gray-900 pb-3">
         <p className="text-xs uppercase tracking-widest text-gray-500">{company?.value || "The Advisor Associates"}</p>
         <h1 className="text-2xl font-semibold">Finance report · {format(month, "MMMM yyyy")}</h1>

@@ -11,6 +11,8 @@ export type NavItem = {
   also?: string[];
   /** Also shown when the user can view any of these modules (a section spanning several modules). */
   anyModule?: string[];
+  /** Shown when allowed, but doesn't by itself make the app appear (e.g. Hierarchy, which everyone may see in My Space). */
+  ungated?: boolean;
   /** Sub-menu (e.g. Compliance ▸, Settings ▸). The parent's href is its first child's. */
   children?: NavItem[];
 };
@@ -119,7 +121,7 @@ export const APPS: AppDef[] = [
         label: "People", icon: "users",
         items: [
           { href: "/profile", label: "Profile", icon: "user" },
-          { href: "/org-chart", label: "Hierarchy", icon: "hierarchy", module: "hr.orgchart" },
+          { href: "/org-chart", label: "Hierarchy", icon: "hierarchy", module: "hr.orgchart", ungated: true },
           { href: "/hr/employees", label: "Employee", icon: "users", module: "hr.employees" },
           { href: "/hr/organization", label: "Organization", icon: "landmark", module: "hr.employees" },
           { href: "/hr/organization/reporting", label: "Reporting Lines", icon: "hierarchy", module: "hr.employees" },
@@ -354,7 +356,8 @@ export const APPS: AppDef[] = [
           { href: "/me/payslips", label: "Payslips", icon: "banknote" },
           { href: "/me/documents", label: "Documents", icon: "filecheck", also: ["/me/policies"] },
           { href: "/me/assets", label: "Assets", icon: "laptop" },
-          { href: "/feed", label: "Feed", icon: "award", also: ["/org-chart"] },
+          { href: "/feed", label: "Feed", icon: "award" },
+          { href: "/org-chart", label: "Hierarchy", icon: "hierarchy", module: "hr.orgchart" },
           { href: "/me", label: "My profile", icon: "user", also: ["/me/performance", "/me/check-ins", "/me/exit-interview", "/me/surveys"] },
         ],
       },

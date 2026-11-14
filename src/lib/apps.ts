@@ -9,7 +9,8 @@ export type UserApp = AppDef & { /** Where the app opens: its home if the user m
 
 const allowed = (user: SessionUser, i: NavItem) =>
   (!i.module || can(user, i.module, i.action ?? "view") || !!i.anyModule?.some((m) => can(user, m))) && (!i.superAdmin || user.isSuperAdmin) && (!i.boss || user.isBoss || user.isSuperAdmin);
-const gated = (i: NavItem): boolean => !!(i.module || i.superAdmin || i.boss) || !!i.children?.some(gated);
+// An app shows when the user can open at least one real page of it (items marked `ungated`, like Hierarchy, don't count).
+const gated = (i: NavItem): boolean => (!i.ungated && !!(i.module || i.superAdmin || i.boss)) || !!i.children?.some(gated);
 
 /** Items the user may open; a sub-menu keeps only its allowed entries and disappears when none are left. */
 function trim(user: SessionUser, items: NavItem[]): NavItem[] {
