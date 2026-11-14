@@ -21,26 +21,42 @@ const TONES: Record<string, { tile: string; bar: string; num: string }> = {
 
 export type DrillTile = { key: string; label: string; tone: string; value: string | number; sub?: string; href?: string };
 
-export function DrillTiles({ tiles, className }: { tiles: DrillTile[]; className?: string }) {
+/** hideZero: tiles showing 0 fold into "Show N more" so the numbers that matter come first. */
+export function DrillTiles({ tiles, className, hideZero }: { tiles: DrillTile[]; className?: string; hideZero?: boolean }) {
+  const isZero = (t: DrillTile) => t.value === 0 || t.value === "0";
+  const shown = hideZero ? tiles.filter((t) => !isZero(t)) : tiles;
+  const folded = hideZero ? tiles.filter(isZero) : [];
+  const grid = cn("stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6", className);
   return (
-    <div className={cn("stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6", className)}>
-      {tiles.map((t) => {
-        const tone = TONES[t.tone] ?? TONES.slate!;
-        const zero = t.value === 0 || t.value === "0";
-        const body = (
-          <>
-            <span className={cn("mb-3 block h-0.5 w-6 rounded-full", tone.bar)} />
-            <span className="flex items-start justify-between gap-2">
-              <span className="text-sm font-medium leading-tight">{t.label}</span>
-              {t.href && <ChevronRight className="size-4 shrink-0 text-muted transition group-hover:translate-x-0.5" />}
-            </span>
-            <span className={cn("mt-1 block truncate text-2xl font-semibold tabular-nums", zero ? "text-muted" : tone.num)}>{t.value}</span>
-            {t.sub && <span className="mt-0.5 block truncate text-xs text-muted">{t.sub}</span>}
-          </>
-        );
-        const cls = cn("group relative overflow-hidden rounded-xl border p-4", tone.tile, t.href && "transition hover:-translate-y-0.5 hover:shadow-md");
-        return t.href ? <Link key={t.key} href={t.href} className={cls}>{body}</Link> : <div key={t.key} className={cls}>{body}</div>;
-      })}
-    </div>
+    <>
+      {shown.length > 0 && <div className={grid}>{shown.map(tile)}</div>}
+      {folded.length > 0 && (
+        <details className={cn("group/more", shown.length > 0 && "mt-3")}>
+          <summary className="cursor-pointer list-none text-sm text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+            <span className="group-open/more:hidden">Show {folded.length} more at 0 ({folded.map((t) => t.label).slice(0, 4).join(", ")}{folded.length > 4 ? "…" : ""})</span>
+            <span className="hidden group-open/more:inline">Hide the ones at 0</span>
+          </summary>
+          <div className={cn(grid, "mt-3")}>{folded.map(tile)}</div>
+        </details>
+      )}
+    </>
   );
+}
+
+function tile(t: DrillTile) {
+  const tone = TONES[t.tone] ?? TONES.slate!;
+  const zero = t.value === 0 || t.value === "0";
+  const body = (
+    <>
+      <span className={cn("mb-3 block h-0.5 w-6 rounded-full", tone.bar)} />
+      <span className="flex items-start justify-between gap-2">
+        <span className="text-sm font-medium leading-tight">{t.label}</span>
+        {t.href && <ChevronRight className="size-4 shrink-0 text-muted transition group-hover:translate-x-0.5" />}
+      </span>
+      <span className={cn("mt-1 block truncate text-2xl font-semibold tabular-nums", zero ? "text-muted" : tone.num)}>{t.value}</span>
+      {t.sub && <span className="mt-0.5 block truncate text-xs text-muted">{t.sub}</span>}
+    </>
+  );
+  const cls = cn("group relative overflow-hidden rounded-xl border p-4", tone.tile, t.href && "transition hover:-translate-y-0.5 hover:shadow-md");
+  return t.href ? <Link key={t.key} href={t.href} className={cls}>{body}</Link> : <div key={t.key} className={cls}>{body}</div>;
 }

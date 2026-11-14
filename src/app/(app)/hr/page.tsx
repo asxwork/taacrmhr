@@ -89,7 +89,7 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
             <input type="date" name="date" defaultValue={dateKey} max={format(now, "yyyy-MM-dd")} className="input h-8 w-36 text-xs" aria-label="Date" />
           </AutoFilterForm>
         }>
-        <DrillTiles tiles={tiles} className="xl:grid-cols-4 2xl:grid-cols-5" />
+        <DrillTiles tiles={tiles} className="xl:grid-cols-4 2xl:grid-cols-5" hideZero />
       </Widget>
     </>),
     risers: (<>

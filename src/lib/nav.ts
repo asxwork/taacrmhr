@@ -386,20 +386,27 @@ export const APPS: AppDef[] = [
   },
   {
     key: "finance", name: "Finance", description: "Expenses, petty cash and who paid what", icon: "wallet", tile: "from-emerald-600 to-lime-700",
-    home: "/finance", prefixes: ["/finance"], layout: "list",
+    home: "/finance", prefixes: ["/finance"], layout: "modules",
+    // Like CRM and HR: each area is an icon on the rail, its screens in the panel.
     groups: [
       {
+        label: "Home", icon: "chart",
         items: [
-          { href: "/finance/boss", label: "Boss view", icon: "crown", module: "finance.boss" },
           { href: "/finance", label: "Dashboard", icon: "chart", module: "finance" },
           { href: "/finance/quick", label: "Add expense (phone)", icon: "plus", module: "finance", action: "create" },
           { href: "/finance/entries", label: "Entries", icon: "receipt", module: "finance" },
           { href: "/finance/approvals", label: "Approvals", icon: "check", module: "finance", action: "approve" },
+        ],
+      },
+      {
+        label: "Boss", icon: "crown",
+        items: [
+          { href: "/finance/boss", label: "Boss view", icon: "crown", module: "finance.boss" },
           { href: "/finance/personal", label: "Sir personal", icon: "crown", module: "finance.personal" },
         ],
       },
       {
-        label: "Cash & people",
+        label: "Cash", icon: "wallet",
         items: [
           { href: "/finance/holders", label: "Money holders", icon: "wallet", module: "finance" },
           { href: "/finance/cash-count", label: "Cash count", icon: "check", module: "finance" },
@@ -409,7 +416,7 @@ export const APPS: AppDef[] = [
         ],
       },
       {
-        label: "Bills & suppliers",
+        label: "Bills", icon: "file",
         items: [
           { href: "/finance/bills", label: "Monthly bills", icon: "calendar", module: "finance" },
           { href: "/finance/vendors", label: "Supplier bills", icon: "file", module: "finance" },
@@ -417,17 +424,20 @@ export const APPS: AppDef[] = [
         ],
       },
       {
-        label: "Control",
+        label: "Control", icon: "shield",
         items: [
           { href: "/finance/checks", label: "Checks", icon: "shield", module: "finance" },
           { href: "/finance/bank", label: "Bank matching", icon: "landmark", module: "finance" },
           { href: "/finance/budgets", label: "Budgets", icon: "gauge", module: "finance.settings" },
-          sub("Setup", [
-            { href: "/finance/settings", label: "Settings", icon: "settings", module: "finance.settings", action: "edit" },
-            { href: "/finance/categories", label: "Categories", icon: "list", module: "finance.settings", action: "edit" },
-            { href: "/finance/import", label: "Import Excel", icon: "sheet", module: "finance", action: "import" },
-            { href: "/finance/layouts", label: "Layouts", icon: "layout", superAdmin: true },
-          ], "settings"),
+        ],
+      },
+      {
+        label: "Setup", icon: "settings",
+        items: [
+          { href: "/finance/settings", label: "Settings", icon: "settings", module: "finance.settings", action: "edit" },
+          { href: "/finance/categories", label: "Categories", icon: "list", module: "finance.settings", action: "edit" },
+          { href: "/finance/import", label: "Import Excel", icon: "sheet", module: "finance", action: "import" },
+          { href: "/finance/layouts", label: "Layouts", icon: "layout", superAdmin: true },
         ],
       },
     ],

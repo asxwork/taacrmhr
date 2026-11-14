@@ -47,9 +47,21 @@ export function Sidebar({ apps, initialApp, user, unread, urgent = 0, initiallyC
   // Only the closest item lights up (e.g. /hr/attendance/logs, not also /hr/attendance). Among links to the
   // same page, the one whose ?query matches the URL wins, then the plain link.
   const query = params.toString();
+  // Section links (/settings/crm#deal-pipelines): the URL's #hash picks among them. Next.js doesn't fire
+  // hashchange for its own links, so it's re-read after every click too.
+  const [hash, setHash] = useState("");
+  useEffect(() => {
+    const read = () => setHash(window.location.hash);
+    read();
+    const onClick = () => setTimeout(read, 60);
+    window.addEventListener("hashchange", read);
+    document.addEventListener("click", onClick, true);
+    return () => { window.removeEventListener("hashchange", read); document.removeEventListener("click", onClick, true); };
+  }, [pathname, params]);
   const score = (href: string) => {
-    const [, q = ""] = href.split("#")[0]!.split("?");
-    return pathOf(href).length * 4 + (q && query.includes(q) ? 2 : 0) + (q || href.includes("#") ? 0 : 1) - (q && !query.includes(q) ? 4 : 0);
+    const [base, h = ""] = href.split("#");
+    const [, q = ""] = base!.split("?");
+    return pathOf(href).length * 4 + (q && query.includes(q) ? 2 : 0) + (q || h ? 0 : 1) - (q && !query.includes(q) ? 4 : 0) + (h ? (hash === `#${h}` ? 3 : -2) : 0);
   };
   // A section entry (e.g. Leads) also lights up on the other screens of its section (`also`, e.g. /crm/follow-ups).
   const matchScore = (i: NavItem) => (isActive(pathname, i.href) ? score(i.href) : Math.max(-1, ...(i.also ?? []).filter((p) => isActive(pathname, p)).map((p) => p.length * 4)));

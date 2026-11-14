@@ -267,9 +267,45 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                 <p className="font-medium">No leads here</p>
                 <p className="mt-1 text-sm text-muted">{Object.keys(filters).length ? "Nothing matches this filter. Try another preset or reset the filter." : "Create your first lead or import a file."}</p>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+            ) : (<>
+              {/* Phones: one card per lead with big Call / WhatsApp buttons instead of a wide table. */}
+              <ul className="divide-y divide-line sm:hidden">
+                {data.rows.map((l) => {
+                  const st = stageOf(l.statusId);
+                  const canChange = perms.canEdit && l.editable;
+                  return (
+                    <li key={l.id} className={cn("flex gap-3 px-4 py-3", (forAll || selected.has(l.id)) && "bg-navy-900/[0.03]")}>
+                      {perms.canEdit && perms.canBulk && l.editable && (
+                        <input type="checkbox" checked={forAll || selected.has(l.id)} disabled={forAll} onChange={() => toggle(l.id)} className="mt-1.5 size-4 shrink-0 accent-navy-900" aria-label={`Select ${l.name}`} />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-2">
+                          <Link href={`/crm/leads/${l.id}`} className="min-w-0 flex-1 truncate font-medium text-navy-900">{l.name}</Link>
+                          {l.score >= 35 && <span className={cn("shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold", l.score >= 60 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700")}>{scoreLabel(l.score)}</span>}
+                          <span className="shrink-0 text-xs tabular-nums text-muted">#{l.number ?? "—"}</span>
+                        </div>
+                        <p className="truncate text-xs text-muted">{[l.source, l.project, l.created].filter(Boolean).join(" · ")}</p>
+                        <div className="mt-2">
+                          {canChange ? (
+                            <button type="button" onClick={(e) => openMenu("stage", l, e.currentTarget)} className="-m-1 w-full rounded-md p-1 text-left hover:bg-canvas" title="Change stage">
+                              <StageProgress steps={openStages} currentId={l.statusId} name={`${st?.name ?? "—"} ▾`} colorName={st?.color ?? "slate"} kind={st?.kind} />
+                            </button>
+                          ) : <StageProgress steps={openStages} currentId={l.statusId} name={st?.name ?? "—"} colorName={st?.color ?? "slate"} kind={st?.kind} />}
+                        </div>
+                        {l.next && <p className="mt-1.5 truncate text-xs"><span className={cn("font-medium", l.next.late ? "text-red-600" : "text-ink/80")}>{l.next.due}</span> · {l.next.subject}</p>}
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          {l.phone && l.phoneTel && <a href={l.phoneTel} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium text-navy-900 active:bg-canvas"><Phone className="size-4" /> Call</a>}
+                          {l.phone && l.phoneWa && <a href={l.phoneWa} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#25D366]/40 px-3 text-sm font-medium text-[#128C7E] active:bg-[#25D366]/10" aria-label={`WhatsApp ${l.name}`}><MessageCircle className="size-4" /> WhatsApp</a>}
+                          {perms.canAddActivity && <button type="button" onClick={(e) => openMenu("activity", l, e.currentTarget)} className="inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm text-muted active:bg-canvas">+ Activity</button>}
+                          {l.owner && <span className="ml-auto" title={l.owner}><Avatar name={l.owner} className="size-7 text-[10px]" /></span>}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full [&_td]:px-3 [&_th]:px-3 2xl:[&_td]:px-4 2xl:[&_th]:px-4">
                   <thead className="border-b border-line bg-canvas/60">
                     <tr>
                       {perms.canEdit && perms.canBulk && (
@@ -278,13 +314,13 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                             onChange={(e) => { setForAll(false); setSelected(e.target.checked ? new Set(pageIds) : new Set()); }} />
                         </th>
                       )}
-                      <th className="th w-16">ID</th>
+                      <th className="th w-12">ID</th>
                       <th className="th">Lead</th>
                       <th className="th">Stage</th>
                       <th className="th">Phone</th>
                       <th className="th">Activity</th>
-                      <th className="th">Created</th>
-                      <th className="th">Responsible</th>
+                      <th className="th hidden 2xl:table-cell">Created</th>
+                      <th className="th"><span className="hidden 2xl:inline">Responsible</span><span className="2xl:hidden">Owner</span></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -314,7 +350,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                               <StageProgress steps={openStages} currentId={l.statusId} name={st?.name ?? "—"} colorName={st?.color ?? "slate"} kind={st?.kind} />
                             )}
                           </td>
-                          <td className="td whitespace-nowrap">
+                          <td className="td whitespace-nowrap text-sm">
                             {l.phone ? (
                               <span className="inline-flex items-center gap-2">
                                 <a href={l.phoneTel ?? "#"} className="inline-flex items-center gap-1.5 hover:text-navy-900 hover:underline"><Phone className="size-3.5 text-muted" />{l.phone.includes("•") ? l.phone : fmtPhone(l.phone)}</a>
@@ -324,7 +360,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                               </span>
                             ) : <span className="text-muted">—</span>}
                           </td>
-                          <td className="td min-w-44 max-w-60">
+                          <td className="td min-w-32 max-w-60">
                             {l.next ? (
                               <>
                                 <p className={cn("text-xs font-medium", l.next.late ? "text-red-600" : "text-ink/80")}>{l.next.due}</p>
@@ -336,9 +372,9 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                               <button type="button" onClick={(e) => openMenu("activity", l, e.currentTarget)} className="mt-0.5 text-xs text-muted hover:text-navy-900 hover:underline">+ Add activity</button>
                             )}
                           </td>
-                          <td className="td whitespace-nowrap text-sm text-muted">{l.created}</td>
+                          <td className="td hidden whitespace-nowrap text-sm text-muted 2xl:table-cell">{l.created}</td>
                           <td className="td whitespace-nowrap">
-                            {l.owner ? <span className="flex items-center gap-2 text-sm"><Avatar name={l.owner} className="size-7 text-[10px]" />{l.owner}</span> : <span className="text-muted">—</span>}
+                            {l.owner ? <span className="flex items-center gap-2 text-sm" title={l.owner}><Avatar name={l.owner} className="size-7 text-[10px]" /><span className="hidden 2xl:inline">{l.owner}</span></span> : <span className="text-muted">—</span>}
                           </td>
                         </tr>
                       );
@@ -346,8 +382,8 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                   </tbody>
                 </table>
               </div>
-            )}
-            <div className="flex items-center justify-between px-4 py-3 text-xs text-muted">
+            </>)}
+            <div className="flex items-center justify-between border-t border-line px-4 py-3 text-xs text-muted sm:border-t-0">
               <span>{data.total ? `${(data.page - 1) * PAGE_SIZE + 1}–${Math.min(data.page * PAGE_SIZE, data.total)} of ${data.total}` : "0 records"}</span>
               {pages > 1 && (
                 <div className="flex items-center gap-1">

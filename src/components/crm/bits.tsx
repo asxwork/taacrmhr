@@ -72,7 +72,7 @@ export function StageProgress({ steps, currentId, name, colorName, kind }: { ste
   const filled = finished ? steps.length : index + 1;
   const bar = color(kind === "junk" || kind === "lost" ? "red" : kind === "converted" || kind === "won" ? "green" : colorName).bar;
   return (
-    <div className="w-40">
+    <div className="w-36 2xl:w-40">
       <div className="flex gap-0.5" aria-hidden>
         {steps.map((s, i) => (
           <span key={s.id} className={cn("h-1.5 flex-1 first:rounded-l-full last:rounded-r-full", i < filled ? bar : "bg-black/[0.07]")} />
