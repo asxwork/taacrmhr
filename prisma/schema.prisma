@@ -1211,6 +1211,8 @@ model AttendancePunch {
   accuracy    Float?
   distanceM   Int?
   outside     Boolean  @default(false)
+  /// Selfie taken at web check-in (when HR Settings → Shifts → Selfie at check-in is on).
+  photo       String?
   createdById String?
   createdAt   DateTime @default(now())
 

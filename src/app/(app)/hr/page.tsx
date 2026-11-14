@@ -3,7 +3,7 @@ import { differenceInMinutes, format, isToday, parse, startOfDay } from "date-fn
 import { Award, Cake, FileCheck2, FileWarning, Gift, Mail, Newspaper, Quote, Sunrise, Timer, Trash2, UserPlus, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeFor } from "@/lib/permissions";
-import { ATTENDANCE_DRILL, DAY_STATUSES, attendanceEmployeeWhere, fmtMinutes, geofenceMode, loadAttendance, type DayResult } from "@/lib/attendance";
+import { ATTENDANCE_DRILL, DAY_STATUSES, attendanceEmployeeWhere, fmtMinutes, geofenceMode, selfieMode, loadAttendance, type DayResult } from "@/lib/attendance";
 import { companyWidgets, myWidgets } from "@/lib/hr-dashboard";
 import { policiesFor } from "@/lib/policies";
 import { hiddenWidgets, myDashboardLayout, quoteOfTheDay, type WidgetKey } from "@/lib/hr-dashboard-widgets";
@@ -120,7 +120,7 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
               <p className="text-center font-display text-2xl tabular-nums">
                 {mine.punches.length ? fmtMinutes(differenceInMinutes(mine.punches.length % 2 ? now : mine.punches.at(-1)!.at, mine.punches[0]!.at)) : "00:00"}
               </p>
-              <CheckInButton checkedIn={mine.punches.length % 2 === 1} needsLocation={mode !== "off" && mine.needsLocation} />
+              <CheckInButton checkedIn={mine.punches.length % 2 === 1} needsLocation={mode !== "off" && mine.needsLocation} selfie={await selfieMode()} />
               {breaksOn && (mine.punches.length % 2 === 1 || mine.onBreakSince || mine.breakMin > 0) && (
                 <BreakButton onBreakSince={mine.onBreakSince} todayMin={mine.breakMin} disabled={mine.punches.length % 2 === 0 && !mine.onBreakSince} />
               )}

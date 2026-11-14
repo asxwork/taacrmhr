@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { format, startOfDay } from "date-fns";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { distanceMeters, geofenceMode, logAttendance } from "@/lib/attendance";
+import { distanceMeters, geofenceMode, logAttendance, selfieMode } from "@/lib/attendance";
+import { saveUpload } from "@/lib/files";
 import { submitRequest } from "@/lib/approvals";
 import { checkDevice } from "@/lib/devices";
 import { str, type FormState } from "@/lib/utils";
@@ -38,16 +39,26 @@ export async function punchNow(_: FormState, fd: FormData): Promise<FormState> {
     return { error: hasFix ? `You're about ${distance} m from ${emp.branch!.name} office — check-in only works on site.` : "Allow location access to check in." };
   }
 
+  // Selfie (HR Settings → Shifts): saved with the punch so HR can see who checked in.
+  const sMode = await selfieMode();
+  const shot = fd.get("selfie");
+  let photo: string | null = null;
+  if (sMode !== "off" && shot instanceof File && shot.size) {
+    const r = await saveUpload(shot, "attendance", { maxBytes: 6_000_000 });
+    if ("error" in r) return { error: `Selfie: ${r.error}` };
+    photo = r.path;
+  }
   const today = await db.attendancePunch.count({ where: { employeeId: emp.id, at: { gte: startOfDay(now), lte: now } } });
+  if (sMode === "required" && !photo && today % 2 === 0) return { error: "Take a selfie to check in." };
   await db.attendancePunch.create({
-    data: { employeeId: emp.id, at: now, source: "web", lat: hasFix ? lat : null, lng: hasFix ? lng : null, accuracy: Number.isFinite(accuracy) ? accuracy : null, distanceM: distance, outside: mode !== "off" && outside, createdById: user.id },
+    data: { employeeId: emp.id, at: now, source: "web", lat: hasFix ? lat : null, lng: hasFix ? lng : null, accuracy: Number.isFinite(accuracy) ? accuracy : null, distanceM: distance, outside: mode !== "off" && outside, photo, createdById: user.id },
   });
   const verb = today % 2 === 0 ? "Checked in" : "Checked out";
   // Checking out ends a break that's still open.
   if (verb === "Checked out") await db.attendanceBreak.updateMany({ where: { employeeId: emp.id, end: null }, data: { end: now } });
   await logAttendance({
     employeeId: emp.id, date: now, kind: "checkin", source: "web", byId: user.id,
-    summary: `${verb} at ${format(now, "h:mm a")} from the web${distance != null ? ` · ~${distance} m from office` : hasFix ? "" : " · no location"}${mode !== "off" && outside ? " · OUTSIDE office" : ""}`,
+    summary: `${verb} at ${format(now, "h:mm a")} from the web${photo ? " · with selfie" : ""}${distance != null ? ` · ~${distance} m from office` : hasFix ? "" : " · no location"}${mode !== "off" && outside ? " · OUTSIDE office" : ""}`,
   });
   revalidatePath("/me/attendance");
   revalidatePath("/dashboard");

@@ -3,7 +3,7 @@ import { format, isToday, startOfDay, startOfMonth } from "date-fns";
 import { CalendarPlus, ClipboardCheck, FileCheck2, HeartHandshake, MessageSquarePlus, Palmtree, Receipt, User, Wallet } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { DAY_STATUSES, geofenceMode, loadAttendance, summarize } from "@/lib/attendance";
+import { DAY_STATUSES, geofenceMode, selfieMode, loadAttendance, summarize } from "@/lib/attendance";
 import { balancesFor } from "@/lib/leave";
 import { policiesFor } from "@/lib/policies";
 import { respondentKey } from "@/lib/engagement";
@@ -78,7 +78,7 @@ export default async function MyHome() {
             </div>
             {today && today.status !== "upcoming" && <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", color(DAY_STATUSES[today.status].color).pill)}>{DAY_STATUSES[today.status].label}</span>}
           </div>
-          <CheckInButton checkedIn={punches.length % 2 === 1} needsLocation={mode !== "off" && emp.branch?.lat != null} />
+          <CheckInButton checkedIn={punches.length % 2 === 1} needsLocation={mode !== "off" && emp.branch?.lat != null} selfie={await selfieMode()} />
           <p className="mt-3 text-center text-xs text-muted">
             {emp.shift ? `Shift ${emp.shift.start}–${emp.shift.end}` : ""}{punches.length ? ` · ${punches.map((p, i) => `${i % 2 ? "out" : "in"} ${format(p.at, "h:mm a")}`).join(" · ")}` : ""}
           </p>

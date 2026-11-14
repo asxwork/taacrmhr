@@ -1,4 +1,5 @@
 "use client";
+import { DrawerPortal } from "@/components/drawer-portal";
 
 import Link from "@/components/link";
 import { useId, useOptimistic, useState, useTransition } from "react";
@@ -141,6 +142,7 @@ function Card({ card }: { card: KanbanCard }) {
 function ReasonDialog({ onSubmit, onCancel }: { onSubmit: (reason: string) => void; onCancel: () => void }) {
   const [reason, setReason] = useState("");
   return (
+    <DrawerPortal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/30 p-4">
       <form
         className="w-full max-w-sm rounded-xl bg-surface p-5 shadow-2xl"
@@ -157,5 +159,6 @@ function ReasonDialog({ onSubmit, onCancel }: { onSubmit: (reason: string) => vo
         </div>
       </form>
     </div>
+    </DrawerPortal>
   );
 }

@@ -5,12 +5,26 @@ import { LogIn, LogOut, MapPin } from "lucide-react";
 import type { FormState } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { punchNow } from "./actions";
+import { SelfieCamera } from "./selfie-camera";
 
 /** Big check-in/out button. Asks the browser for location first (needed for the office geo-fence). */
-export function CheckInButton({ checkedIn, needsLocation }: { checkedIn: boolean; needsLocation: boolean }) {
+export function CheckInButton({ checkedIn, needsLocation, selfie = "off" }: { checkedIn: boolean; needsLocation: boolean; selfie?: "off" | "optional" | "required" }) {
   const [state, action, pending] = useActionState<FormState, FormData>(punchNow, undefined);
   const [locating, setLocating] = useState(false);
   const form = useRef<HTMLFormElement>(null);
+  const [camera, setCamera] = useState(false);
+
+  // Check-in with a selfie (HR Settings): camera first, then location and save.
+  function begin() {
+    if (selfie !== "off" && !checkedIn) return setCamera(true);
+    start();
+  }
+  function withSelfie(file: File | null) {
+    setCamera(false);
+    const input = form.current!.elements.namedItem("selfie") as HTMLInputElement;
+    if (file) { const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; } else input.value = "";
+    start();
+  }
 
   function start() {
     const f = form.current!;
@@ -39,9 +53,11 @@ export function CheckInButton({ checkedIn, needsLocation }: { checkedIn: boolean
       <input type="hidden" name="lat" />
       <input type="hidden" name="lng" />
       <input type="hidden" name="accuracy" />
+      <input type="file" name="selfie" accept="image/*" className="hidden" tabIndex={-1} aria-hidden />
+      {camera && <SelfieCamera required={selfie === "required"} onDone={withSelfie} onCancel={() => setCamera(false)} />}
       <button
         type="button"
-        onClick={start}
+        onClick={begin}
         disabled={busy}
         className={cn(
           "flex h-14 w-full items-center justify-center gap-2 rounded-xl text-base font-semibold text-white shadow-sm transition-colors disabled:opacity-60",

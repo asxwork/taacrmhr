@@ -219,6 +219,12 @@ export function distanceMeters(a: { lat: number; lng: number }, b: { lat: number
   return Math.round(2 * R * Math.asin(Math.sqrt(h)));
 }
 
+/** Selfie at web check-in: off | optional | required. */
+export async function selfieMode(): Promise<"off" | "optional" | "required"> {
+  const v = (await db.setting.findUnique({ where: { key: "attendance.selfie" } }))?.value;
+  return v === "optional" || v === "required" ? v : "off";
+}
+
 export async function geofenceMode(): Promise<"off" | "warn" | "enforce"> {
   const v = (await db.setting.findUnique({ where: { key: "attendance.geofence" } }))?.value;
   return v === "enforce" || v === "off" ? v : "warn";

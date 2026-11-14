@@ -141,6 +141,8 @@ export async function saveGeofence(_: FormState, fd: FormData): Promise<FormStat
   const user = await requireHrAdmin();
   const mode = ["off", "warn", "enforce"].includes(str(fd, "mode")) ? str(fd, "mode") : "warn";
   await db.setting.upsert({ where: { key: "attendance.geofence" }, update: { value: mode }, create: { key: "attendance.geofence", value: mode } });
+  const selfie = ["off", "optional", "required"].includes(str(fd, "selfie")) ? str(fd, "selfie") : "off";
+  await db.setting.upsert({ where: { key: "attendance.selfie" }, update: { value: selfie }, create: { key: "attendance.selfie", value: selfie } });
   const branches = await db.branch.findMany();
   for (const b of branches) {
     const lat = parseFloat(str(fd, `lat:${b.id}`));

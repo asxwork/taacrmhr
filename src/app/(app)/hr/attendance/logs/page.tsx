@@ -5,6 +5,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Drawer, Field } from "@/components/ui";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { fileUrl } from "@/lib/files";
 import { can, requirePermission, scopeFor } from "@/lib/permissions";
 import { attendanceEmployeeWhere } from "@/lib/attendance";
 import { cn } from "@/lib/utils";
@@ -120,7 +121,12 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
                           <span className={cn("inline-flex items-center gap-1", p.outside && "text-red-600")}>
                             <MapPin className="size-3.5" />{p.distanceM != null ? `${p.distanceM} m from office` : p.lat != null ? "Located" : "No location"}{p.outside && " · outside"}
                           </span>
-                        ) : <span className="text-muted">—</span>}
+                        ) : null}
+                        {p.photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <a href={fileUrl(p.photo)} target="_blank" rel="noreferrer" title="Selfie" className="ml-2 inline-block align-middle"><img src={fileUrl(p.photo)} alt="Selfie" className="size-9 rounded-full object-cover ring-2 ring-emerald-200" /></a>
+                        ) : null}
+                        {p.source !== "web" && !p.photo && <span className="text-muted">—</span>}
                       </td>
                       <td className="td text-sm">{p.createdById ? adders.get(p.createdById) ?? "—" : "—"}</td>
                       <td className="td whitespace-nowrap text-xs text-muted">{format(p.createdAt, "d MMM, h:mm a")}</td>

@@ -2,7 +2,7 @@ import { UseLocationButton } from "@/components/use-location-button";
 import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { db } from "@/lib/db";
-import { WEEKDAYS, geofenceMode } from "@/lib/attendance";
+import { WEEKDAYS, geofenceMode, selfieMode } from "@/lib/attendance";
 import { COLOR_NAMES } from "@/lib/crm-shared";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field } from "@/components/ui";
@@ -12,11 +12,11 @@ import { deleteHoliday, saveGeofence, saveHoliday, saveLeaveType, saveShift } fr
 /** show = which blocks this HR Settings tab shows (shifts, geofence, holidays, leave-types). */
 export async function AttendanceSettings({ show }: { show: string[] }) {
   const year = new Date().getFullYear();
-  const [shifts, holidays, branches, mode, types] = await Promise.all([
+  const [shifts, holidays, branches, mode, selfie, types] = await Promise.all([
     db.shift.findMany({ include: { _count: { select: { employees: true } } }, orderBy: { name: "asc" } }),
     db.holiday.findMany({ where: { date: { gte: new Date(year, 0, 1) } }, orderBy: { date: "asc" } }),
     db.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    geofenceMode(),
+    geofenceMode(), selfieMode(),
     db.leaveType.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
 
@@ -80,6 +80,13 @@ export async function AttendanceSettings({ show }: { show: string[] }) {
                 <option value="off">Off — location not checked</option>
                 <option value="warn">Warn — allow, but flag check-ins outside the office</option>
                 <option value="enforce">Enforce — block check-ins outside the office</option>
+              </select>
+            </Field>
+            <Field label="Selfie at check-in" hint="Stops people checking in for someone else: the photo is saved with the check-in and shown in Attendance → Logs." className="max-w-sm">
+              <select name="selfie" defaultValue={selfie} className="input">
+                <option value="off">Off</option>
+                <option value="optional">Optional — camera opens, can be skipped</option>
+                <option value="required">Required — no check-in without a selfie</option>
               </select>
             </Field>
             <div className="space-y-2">

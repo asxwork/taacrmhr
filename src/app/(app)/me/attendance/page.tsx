@@ -3,7 +3,7 @@ import { addMonths, endOfMonth, format, isSameMonth, parse, startOfDay, startOfM
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { DAY_STATUSES, fmtMinutes, geofenceMode, loadAttendance, summarize } from "@/lib/attendance";
+import { DAY_STATUSES, fmtMinutes, geofenceMode, selfieMode, loadAttendance, summarize } from "@/lib/attendance";
 import { color } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -56,7 +56,7 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
               <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", color(DAY_STATUSES[today.status].color).pill)}>{DAY_STATUSES[today.status].label}</span>
             )}
           </div>
-          <CheckInButton checkedIn={todayPunches.length % 2 === 1} needsLocation={mode !== "off" && emp.branch?.lat != null} />
+          <CheckInButton checkedIn={todayPunches.length % 2 === 1} needsLocation={mode !== "off" && emp.branch?.lat != null} selfie={await selfieMode()} />
           {!off.has("breaks") && (todayPunches.length % 2 === 1 || openBreak || breakMin > 0) && (
             <div className="mt-2"><BreakButton onBreakSince={openBreak ? openBreak.start.toISOString() : null} todayMin={breakMin} disabled={todayPunches.length % 2 === 0 && !openBreak} /></div>
           )}

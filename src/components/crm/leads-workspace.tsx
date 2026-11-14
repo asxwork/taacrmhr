@@ -1,4 +1,5 @@
 "use client";
+import { DrawerPortal } from "@/components/drawer-portal";
 
 import Link from "@/components/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -586,6 +587,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
     return () => document.removeEventListener("keydown", key);
   }, [onClose]);
   return (
+    <DrawerPortal>
     <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/40 p-4 sm:items-center" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-label={title} className="anim-fade w-full max-w-lg rounded-2xl bg-surface p-5 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -595,6 +597,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         {children}
       </div>
     </div>
+    </DrawerPortal>
   );
 }
 
