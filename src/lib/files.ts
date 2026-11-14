@@ -23,7 +23,9 @@ export async function saveUpload(file: File, dir: string, opts: { maxBytes?: num
   if (file.size === 0) return { error: "Empty file." };
   if (file.size > maxBytes) return { error: `${file.name} is larger than ${Math.round(maxBytes / 1e6)} MB.` };
   const buf = Buffer.from(await file.arrayBuffer());
-  const ext = IMAGE_SIGNATURES.find(([, sig]) => sig.every((b, i) => buf[i] === b))?.[0];
+  let ext = IMAGE_SIGNATURES.find(([, sig]) => sig.every((b, i) => buf[i] === b))?.[0];
+  // Many invoice systems put a few bytes (BOM, blank lines, a header) before "%PDF-"; the PDF format allows it in the first 1 KB.
+  if (!ext && buf.subarray(0, 1024).includes("%PDF-")) ext = "pdf";
   if (!ext || (ext === "webp" && buf.subarray(8, 12).toString() !== "WEBP") || (ext === "pdf" && !opts.allowPdf)) {
     return { error: `${file.name} is not a ${opts.allowPdf ? "PDF, JPG, PNG or WebP file" : "JPG, PNG or WebP image"}.` };
   }

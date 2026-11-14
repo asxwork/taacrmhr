@@ -12,10 +12,11 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, EmptyState, Field, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ConfirmButton } from "@/components/confirm-button";
-import { deleteEntry, saveEntry, setDefaultHolder } from "./actions";
+import { deleteEntry, saveEntry, setDefaultView } from "./actions";
+import { SORTS, defaultViewFor, viewQuery } from "./entry-view-prefs";
 import { QuickProof } from "./quick-proof";
 
-export type EntrySP = { party?: string; tag?: string; bill?: string; copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
+export type EntrySP = { sort?: string; party?: string; tag?: string; bill?: string; copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
 const PAGE = 100;
 
 /** The entries list (all, or Sir personal) with filters, totals and the add/edit panel. */
@@ -28,7 +29,7 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
   const q = sp.q?.trim();
   const page = Math.max(1, Number(sp.page) || 1);
   const [entries, count, sums, holders, payees, tagRows] = await Promise.all([
-    db.finEntry.findMany({ where, include: { account: true, toAccount: true, category: { include: { parent: true } }, _count: { select: { proofs: true } } }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], skip: (page - 1) * PAGE, take: PAGE }),
+    db.finEntry.findMany({ where, include: { account: true, toAccount: true, category: { include: { parent: true } }, _count: { select: { proofs: true } } }, orderBy: SORTS[sp.sort ?? ""]?.[1] ?? SORTS[""]![1], skip: (page - 1) * PAGE, take: PAGE }),
     db.finEntry.count({ where }),
     db.finEntry.groupBy({ by: ["kind"], where: { AND: [where, { status: "approved" }] }, _sum: { amount: true } }),
     db.finAccount.findMany({ where: { active: true, ...hLimit }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
@@ -37,7 +38,7 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
   ]);
   const allTags = [...new Set(tagRows.flatMap((t) => tagList(t.tags)))].sort();
   const total = (k: string) => sums.find((s) => s.kind === k)?._sum.amount ?? 0;
-  const keep = { month: sp.month, holder: sp.holder, cat: sp.cat, kind: sp.kind, q: sp.q, proof: sp.proof, status: sp.status, party: sp.party, tag: sp.tag };
+  const keep = { sort: sp.sort, month: sp.month, holder: sp.holder, cat: sp.cat, kind: sp.kind, q: sp.q, proof: sp.proof, status: sp.status, party: sp.party, tag: sp.tag };
   const href = (patch: Partial<EntrySP>) => {
     const p = new URLSearchParams(Object.entries({ ...keep, ...patch }).filter(([, v]) => v) as [string, string][]);
     return `${base}${p.size ? `?${p}` : ""}`;
@@ -45,7 +46,10 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
   const mod = personal ? "finance.personal" : "finance";
   const canAdd = can(user, mod, "create"), canEdit = can(user, mod, "edit"), canDel = can(user, mod, "delete");
   const editing = sp.edit ? await db.finEntry.findUnique({ where: { id: sp.edit } }) : null;
-  const defaultHolder = (await db.setting.findUnique({ where: { key: `fin.defaultHolder.${user.id}` } }))?.value ?? null;
+  // Default view (holder, sort, filters) the Entries list opens on for this user.
+  const defaultView = await defaultViewFor(user.id);
+  const defaultHolder = new URLSearchParams(defaultView ?? "").get("holder");
+  const currentView = viewQuery(sp);
   // Duplicate: a copy of an entry (e.g. last month's K-Electric bill) with today's date and no proof.
   const copy = !editing && sp.copy ? await db.finEntry.findUnique({ where: { id: sp.copy } }) : null;
   const bill = !editing && sp.bill ? await db.finRecurring.findUnique({ where: { id: sp.bill } }) : null;
@@ -83,12 +87,13 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
         {!personal && <select name="kind" defaultValue={sp.kind ?? ""} aria-label="Type" className="input w-auto"><option value="">All types</option><option value="expense">Expenses</option><option value="in">Money in</option><option value="transfer">Transfers</option></select>}
         {allTags.length > 0 && <select name="tag" defaultValue={sp.tag ?? ""} aria-label="Tag" className="input w-auto"><option value="">Any tag</option>{allTags.map((t) => <option key={t} value={t}>#{t}</option>)}</select>}
         {sp.party && <input type="hidden" name="party" value={sp.party} />}
+        <select name="sort" defaultValue={sp.sort ?? ""} aria-label="Sort" className="input w-auto">{Object.entries(SORTS).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select>
         <select name="proof" defaultValue={sp.proof ?? ""} aria-label="Proof" className="input w-auto"><option value="">Any proof</option><option value="missing">No proof yet</option><option value="unverified">Proof not checked</option><option value="verified">Checked ✓</option></select>
       </AutoFilterForm>
-      {!personal && (sp.holder && sp.holder !== "all" ? sp.holder !== defaultHolder : !!defaultHolder) && (
-        <form action={setDefaultHolder} className="-mt-1 mb-3 text-xs">
-          <input type="hidden" name="holder" value={sp.holder && sp.holder !== "all" ? sp.holder : ""} />
-          <button className="text-navy-900 hover:underline">{sp.holder && sp.holder !== "all" ? `★ Always open Entries on ${holders.find((h) => h.id === sp.holder)?.name ?? "this holder"}` : `Stop opening on ${holders.find((h) => h.id === defaultHolder)?.name ?? "the default holder"}`}</button>
+      {!personal && (currentView ? currentView !== defaultView : !!defaultView) && (
+        <form action={setDefaultView} className="-mt-1 mb-3 text-xs">
+          <input type="hidden" name="view" value={currentView} />
+          <button className="text-navy-900 hover:underline">{currentView ? "★ Make this my default view (Entries always opens like this)" : "Remove my default view"}</button>
         </form>
       )}
 

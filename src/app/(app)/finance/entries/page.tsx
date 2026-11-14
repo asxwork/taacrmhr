@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
+import { defaultViewFor } from "../entry-view-prefs";
 import { requirePermission } from "@/lib/permissions";
 import { EntriesView, type EntrySP } from "../entries-view";
 
@@ -10,8 +10,8 @@ export default async function EntriesPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   // Opened plainly (menu, after saving an edit from an entry page): go to the user's default money holder.
   if (!Object.keys(sp).length) {
-    const def = (await db.setting.findUnique({ where: { key: `fin.defaultHolder.${user.id}` } }))?.value;
-    if (def) redirect(`/finance/entries?holder=${def}`);
+    const def = await defaultViewFor(user.id);
+    if (def) redirect(`/finance/entries?${def}`);
   }
   return <EntriesView user={user} sp={sp} personal={false} base="/finance/entries" />;
 }
