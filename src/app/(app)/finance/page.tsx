@@ -4,7 +4,7 @@ import { ArrowDownLeft, Clock, ChevronLeft, ChevronRight, Crown, FileWarning, Tr
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import type { Prisma } from "@prisma/client";
-import { balances, categoryTree, ensureFinanceDefaults, financeLimit, holderLimit, officeNames, officeWhere, pkr, PROOF_WHERE } from "@/lib/finance";
+import { balances, categoryTree, ensureFinanceDefaults, financeLimit, holderLimit, officeNames, officeWhere, owedWhenNegative, pkr, PROOF_WHERE } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { Card, PageHeader } from "@/components/ui";
 import { BarList } from "@/components/charts";
@@ -58,7 +58,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
   const months = Array.from({ length: 12 }, (_, i) => startOfMonth(subMonths(month, 11 - i)));
   const mk = (d: Date) => format(d, "yyyy-MM");
   const pettyInHand = holders.filter((h) => h.kind === "petty").reduce((s, h) => s + h.balance, 0);
-  const owed = holders.filter((h) => h.balance < 0 && h.kind !== "owner").reduce((s, h) => s - h.balance, 0);
+  const owed = holders.filter((h) => h.balance < 0 && owedWhenNegative(h.kind)).reduce((s, h) => s - h.balance, 0);
   const nav = (d: Date) => `/finance?month=${format(d, "yyyy-MM")}${sp.office ? `&office=${encodeURIComponent(sp.office)}` : ""}`;
 
   return (
@@ -160,7 +160,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
           {holders.filter((h) => h.active).map((h) => (
             <Link key={h.id} href={`/finance/entries?holder=${h.id}`} className="p-4 hover:bg-canvas/50">
               <p className="truncate text-sm font-medium">{h.name}</p>
-              <p className={cn("text-lg font-semibold tabular-nums", h.balance < 0 ? "text-red-600" : "")}>{pkr(h.balance)}</p>
+              <p className={cn("text-lg font-semibold tabular-nums", h.balance < 0 && owedWhenNegative(h.kind) ? "text-red-600" : "")}>{h.kind === "card" ? `${pkr(Math.max(0, -h.balance))} on card` : pkr(h.balance)}</p>
             </Link>
           ))}
           {holders.length === 0 && <p className="col-span-full p-4 text-sm text-muted">No money holders yet. Add them on Money holders, or import your Excel sheet.</p>}

@@ -3,7 +3,7 @@ import { addMonths, differenceInCalendarMonths, endOfMonth, format, parse, start
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Copy, FileText, Landmark, Megaphone, ShieldCheck, Users, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
-import { balances, categoryTree, financeChecks, findDuplicates, lakh, officeNames, officeWhere, pkr } from "@/lib/finance";
+import { balances, categoryTree, financeChecks, findDuplicates, lakh, officeNames, officeWhere, owedWhenNegative, pkr } from "@/lib/finance";
 import { OfficeSwitch } from "../office-switch";
 import { ReportButtons } from "../report-buttons";
 import { fileUrl } from "@/lib/files";
@@ -58,9 +58,9 @@ export default async function BossFinance({ searchParams }: { searchParams: Prom
   const dups = findDuplicates(monthYearRows);
   const checks = await financeChecks(mFrom, mTo);
 
-  const cashInHand = holders.filter((h) => h.kind !== "owner" && !h.branch && h.balance > 0).reduce((s, h) => s + h.balance, 0);
+  const cashInHand = holders.filter((h) => h.kind !== "owner" && h.kind !== "card" && !h.branch && h.balance > 0).reduce((s, h) => s + h.balance, 0);
   const branchCash = holders.filter((h) => h.branch && h.balance > 0).reduce((s, h) => s + h.balance, 0);
-  const owedToStaff = holders.filter((h) => h.kind !== "owner" && h.balance < 0).reduce((s, h) => s - h.balance, 0);
+  const owedToStaff = holders.filter((h) => owedWhenNegative(h.kind) && h.balance < 0).reduce((s, h) => s - h.balance, 0);
   const byOwner = holders.filter((h) => h.kind === "owner").reduce((s, h) => s + Math.max(0, -h.balance), 0);
   const mainIds = (c: (typeof tree)[number]) => [c.id, ...c.subs.map((x) => x.id)];
   const salaryIds = tree.flatMap((c) => c.subs.filter((s) => /salar/i.test(s.name)).map((s) => s.id));
@@ -175,7 +175,7 @@ export default async function BossFinance({ searchParams }: { searchParams: Prom
             <div className="border-b border-line px-4 py-3"><h2 className="font-semibold">Money holders</h2></div>
             <ul className="divide-y divide-line text-sm">{holders.filter((h) => h.active).map((h) => (
               <li key={h.id} className="flex items-center justify-between px-4 py-2.5"><Link href={`/finance/entries?holder=${h.id}`} className="hover:underline">{h.name}{h.branch && <span className="text-xs text-muted"> · {h.branch}</span>}</Link>
-                <span className={cn("tabular-nums", h.kind === "owner" ? "text-muted" : h.balance < 0 ? "text-red-600" : "")}>{h.kind === "owner" ? `${lakh(Math.max(0, -h.balance))} put in` : h.balance < 0 ? `owed ${lakh(-h.balance)}` : lakh(h.balance)}</span></li>
+                <span className={cn("tabular-nums", h.kind === "owner" ? "text-muted" : h.kind === "card" ? "text-muted" : h.balance < 0 ? "text-red-600" : "")}>{h.kind === "owner" ? `${lakh(Math.max(0, -h.balance))} put in` : h.kind === "card" ? `${lakh(Math.max(0, -h.balance))} on card` : h.balance < 0 ? `owed ${lakh(-h.balance)}` : lakh(h.balance)}</span></li>
             ))}</ul>
           </Card>
         </div>

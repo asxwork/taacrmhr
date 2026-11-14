@@ -65,7 +65,7 @@ export default async function FinanceReport({ params, searchParams }: { params: 
       </section>
       <section className="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div><h2 className="mb-2 font-semibold">By office</h2><div className="overflow-x-auto print:overflow-visible"><table className="w-full"><tbody>{[...byOffice].map(([o, v]) => <tr key={o}><td className={td}>{o}</td><td className={`${td} text-right`}>{pkr(v)}</td></tr>)}</tbody></table></div></div>
-        <div><h2 className="mb-2 font-semibold">Balances on {format(mTo, "d MMM")}</h2><div className="overflow-x-auto print:overflow-visible"><table className="w-full"><tbody>{holders.filter((h) => h.active).map((h) => <tr key={h.id}><td className={td}>{h.name}</td><td className={`${td} text-right`}>{h.kind === "owner" && h.balance < 0 ? `${pkr(-h.balance)} put in` : pkr(h.balance)}</td></tr>)}</tbody></table></div></div>
+        <div><h2 className="mb-2 font-semibold">Balances on {format(mTo, "d MMM")}</h2><div className="overflow-x-auto print:overflow-visible"><table className="w-full"><tbody>{holders.filter((h) => h.active).map((h) => <tr key={h.id}><td className={td}>{h.name}</td><td className={`${td} text-right`}>{h.kind === "owner" && h.balance < 0 ? `${pkr(-h.balance)} put in` : h.kind === "card" ? `${pkr(Math.max(0, -h.balance))} on card` : pkr(h.balance)}</td></tr>)}</tbody></table></div></div>
       </section>
       <section className="mb-6">
         <h2 className="mb-2 font-semibold">Biggest expenses</h2>

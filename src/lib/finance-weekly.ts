@@ -18,7 +18,7 @@ export async function financeWeekly(today = new Date()) {
   ]);
   const spent = week._sum.amount ?? 0, before = prev._sum.amount ?? 0;
   const change = before ? Math.round(((spent - before) / before) * 100) : null;
-  const cash = holders.filter((h) => h.kind !== "owner" && h.balance > 0).reduce((s, h) => s + h.balance, 0);
+  const cash = holders.filter((h) => h.kind !== "owner" && h.kind !== "card" && h.balance > 0).reduce((s, h) => s + h.balance, 0);
   const due = bills.filter((b) => !b.paid && b.due <= addDays(to, 7));
   const lines = [
     `Week of ${format(from, "d MMM")} – ${format(subDays(to, 1), "d MMM yyyy")}`,

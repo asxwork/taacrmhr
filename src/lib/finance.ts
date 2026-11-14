@@ -11,8 +11,10 @@ export const ACCOUNT_KINDS = [
   ["person", "Person paying for the company"],
   ["owner", "Owner"],
   ["bank", "Bank account"],
-  ["card", "Card"],
+  ["card", "Company card (e.g. TAA card)"],
 ] as const;
+/** Only cash holders are "owed" when they spend more than they got; a company card or bank going below zero is just spending. */
+export const owedWhenNegative = (kind: string) => kind === "petty" || kind === "person";
 export const kindLabel = (k: string) => ACCOUNT_KINDS.find(([v]) => v === k)?.[1] ?? k;
 
 export const ENTRY_KINDS = [["expense", "Expense"], ["in", "Money in"], ["transfer", "Transfer"]] as const;

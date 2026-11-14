@@ -108,7 +108,7 @@ export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string,
       }
     });
     if (!header || !col.date || !col.amount) continue;
-    const sheetHolder = type === "bushra" ? await holder("Bushra (petty cash)", "petty") : type === "samad" ? await holder("Samad (marketing)", "person") : type === "personal" ? await holder("Sir personal cash", "petty") : null;
+    const sheetHolder = type === "bushra" ? await holder("Bushra (petty cash)", "petty") : type === "samad" ? await holder("Samad (marketing)", "card") : type === "personal" ? await holder("Sir personal cash", "petty") : null;
 
     for (let r = header + 1; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
@@ -128,7 +128,7 @@ export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string,
       // once when they spend it. Petty cash handed to staff who don't keep a sheet (Affan, Faizan, …) is spending.
       const isTransfer = /internal transfer/i.test(cat) || /petty ?cash/i.test(desc) || /^petty cash$/i.test(cat);
       if (isTransfer && paidTo && /samad|bushra/i.test(paidTo)) {
-        const to = /samad/i.test(paidTo) ? await holder("Samad (marketing)", "person") : await holder("Bushra (petty cash)", "petty");
+        const to = /samad/i.test(paidTo) ? await holder("Samad (marketing)", "card") : await holder("Bushra (petty cash)", "petty");
         if (to !== from) { await add(ws.name, { date, kind: "transfer", amount, accountId: from, toAccountId: to, description: desc, notes }, fingerprint(ws.name, ["r", date, amount, desc, paidTo])); continue; }
       }
       const branchPerson = isTransfer && !sub ? BRANCH_PEOPLE.find(([re]) => re.test(paidTo) || re.test(desc)) : undefined;

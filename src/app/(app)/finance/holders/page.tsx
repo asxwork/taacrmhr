@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { Banknote, CreditCard, Crown, Landmark, Plus, Trash2, User, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
-import { ACCOUNT_KINDS, balances, holderLimit, kindLabel, pkr } from "@/lib/finance";
+import { ACCOUNT_KINDS, balances, holderLimit, kindLabel, owedWhenNegative, pkr } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, EmptyState, Field, PageHeader } from "@/components/ui";
@@ -72,13 +72,13 @@ export default async function HoldersPage({ searchParams }: { searchParams: Prom
                   <div className="min-w-0 flex-1"><p className="truncate font-semibold">{a.name}</p><p className="text-xs text-muted">{kindLabel(a.kind)}{!a.active && " · hidden"}</p></div>
                   {canEdit && <Link href={`/finance/holders?edit=${a.id}`} scroll={false} className="text-xs font-medium text-navy-900 hover:underline">Edit</Link>}
                 </div>
-                <p className={cn("mt-4 text-3xl font-semibold tabular-nums", a.kind !== "owner" && a.balance < 0 ? "text-red-600" : "")}>{a.kind === "owner" && a.balance < 0 ? pkr(-a.balance) : pkr(a.balance)}</p>
-                <p className="flex items-center gap-2 text-xs text-muted">{a.kind === "owner" && a.balance < 0 ? "Own money put into the company" : a.balance < 0 ? "Spent more than received: the company owes them" : "Balance in hand"}
+                <p className={cn("mt-4 text-3xl font-semibold tabular-nums", owedWhenNegative(a.kind) && a.balance < 0 ? "text-red-600" : "")}>{(a.kind === "owner" || a.kind === "card") && a.balance < 0 ? pkr(-a.balance) : pkr(a.balance)}</p>
+                <p className="flex items-center gap-2 text-xs text-muted">{a.kind === "owner" && a.balance < 0 ? "Own money put into the company" : a.kind === "card" ? "Spent on the company card" : a.balance < 0 && owedWhenNegative(a.kind) ? "Spent more than received: the company owes them" : "Balance in hand"}
                   {a.lowAlert != null && a.balance < a.lowAlert && <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-700">Low cash</span>}</p>
                 {canAdd && a.active && a.kind !== "owner" && (
                   <div className="mt-3 flex gap-2 text-xs">
                     {a.kind === "petty" && <Link href={`/finance/holders?topup=${a.id}`} scroll={false} className="rounded-md border border-line px-2.5 py-1 hover:bg-canvas">Request top-up</Link>}
-                    {a.balance < 0 && <Link href={`/finance/holders?settle=${a.id}`} scroll={false} className="rounded-md border border-line px-2.5 py-1 hover:bg-canvas">Pay back {pkr(-a.balance)}</Link>}
+                    {a.balance < 0 && owedWhenNegative(a.kind) && <Link href={`/finance/holders?settle=${a.id}`} scroll={false} className="rounded-md border border-line px-2.5 py-1 hover:bg-canvas">Pay back {pkr(-a.balance)}</Link>}
                   </div>
                 )}
                 <div className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-3 text-xs">

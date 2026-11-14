@@ -48,6 +48,11 @@ async function main() {
     await keep("payroll.commissionBasis", "won");
     await db.setting.create({ data: { key: "fix.golive-defaults", value: "done" } });
   }
+  // Samad's marketing spending is paid on the TAA company card, so the company never owes him for it.
+  if (!(await db.setting.findUnique({ where: { key: "fix.samad-card" } }))) {
+    await db.finAccount.updateMany({ where: { name: { contains: "Samad" }, kind: "person" }, data: { kind: "card", notes: "Paid on the TAA company card" } });
+    await db.setting.create({ data: { key: "fix.samad-card", value: "done" } });
+  }
   // Notifications got a category and priority: sort the existing ones once (most recent 20,000).
   if (!(await db.setting.findUnique({ where: { key: "fix.notify-category" } }))) {
     const { categoryOf, priorityOf } = await import("../src/lib/notify");
