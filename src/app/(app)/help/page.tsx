@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { visibleTutorials } from "@/lib/tutorial-access";
 import { PageHeader } from "@/components/ui";
 import { TutorialsView, type Chapter } from "@/components/tutorials-view";
+import { sectionVideos } from "@/lib/section-videos";
 
 export const metadata = { title: "Tutorials" };
 
@@ -32,7 +33,7 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
   return (
     <>
       <PageHeader title={group ? `${group} tutorials` : "Tutorials"} description={user.isSuperAdmin ? "Everything in AMS: the full video tour and every guide. Each topic can jump to its part of the video." : "The guides for what your role can use. Open a topic for steps, or jump to its part of the video."} />
-      <TutorialsView tutorials={shown} chapters={chapters} video={video} ranges={ranges} />
+      <TutorialsView tutorials={shown} chapters={chapters} video={video} ranges={ranges} clips={await sectionVideos()} />
     </>
   );
 }

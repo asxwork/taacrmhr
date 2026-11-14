@@ -425,6 +425,7 @@ export const APPS: AppDef[] = [
           { href: "/help?g=crm", label: "CRM", icon: "target", module: "crm.leads", anyModule: ["crm.deals", "crm.contacts"] },
           { href: "/help?g=calls", label: "Calls", icon: "phonecall", module: "calls" },
           { href: "/help?g=hr", label: "HR", icon: "users", module: "hr.employees", anyModule: ["hr.attendance", "hr.leave", "hr.payroll"] },
+          { href: "/help?g=finance", label: "Finance", icon: "wallet", module: "finance" },
           { href: "/help?g=me", label: "My Space", icon: "user" },
           { href: "/help?g=admin", label: "Admin", icon: "usercog", module: "settings.users", anyModule: ["settings.roles", "settings.company"] },
         ],
