@@ -217,9 +217,10 @@ export default async function IntegrationsPage() {
   );
 }
 
+const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 function SectionTitle({ title, ok, okText, notText }: { title: string; ok: boolean; okText: string; notText: string }) {
   return (
-    <div className="mb-2 flex items-center gap-2">
+    <div id={slug(title)} className="mb-2 flex scroll-mt-20 items-center gap-2">
       <h2 className="font-medium">{title}</h2>
       {ok ? <span className="inline-flex items-center gap-1 text-xs text-emerald-700"><CheckCircle2 className="size-3.5" /> {okText}</span>
         : <span className="inline-flex items-center gap-1 text-xs text-amber-700"><CircleAlert className="size-3.5" /> {notText}</span>}

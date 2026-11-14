@@ -443,25 +443,87 @@ export const APPS: AppDef[] = [
   },
   {
     key: "settings", name: "Settings", description: "Users, roles, company, integrations", icon: "usercog", tile: "from-slate-500 to-slate-800",
-    home: "/settings", prefixes: ["/settings"], layout: "list",
+    home: "/settings", prefixes: ["/settings"], layout: "modules",
+    // Like CRM and HR: each area is an icon on the rail, its screens (and sub-menus) in the panel.
     groups: [
       {
-        label: "Settings",
+        label: "Access", icon: "shield",
         items: [
           { href: "/settings/users", label: "Users", icon: "usercog", module: "settings.users" },
           { href: "/settings/roles", label: "Roles & Permissions", icon: "shield", module: "settings.roles" },
+          { href: "/settings/security", label: "Security", icon: "lock", superAdmin: true },
+        ],
+      },
+      {
+        label: "Company", icon: "landmark",
+        items: [
+          { href: "/settings/company", label: "Company & Branches", icon: "landmark", module: "settings.company" },
           { href: "/settings/features", label: "Features", icon: "sliders", module: "settings.company" },
-          { href: "/settings/security", label: "Security", icon: "shield", superAdmin: true },
+          sub("Integrations", [
+            { href: "/settings/integrations", label: "Overview", icon: "plug", module: "settings.company" },
+            { href: "/settings/integrations#outgoing-email", label: "Outgoing email", icon: "mail", module: "settings.company" },
+            { href: "/settings/integrations#who-gets-new-leads", label: "Who gets new leads", icon: "users", module: "settings.company" },
+            { href: "/settings/integrations#api-connections", label: "API connections", icon: "plug", module: "settings.company" },
+            { href: "/settings/integrations#website-form", label: "Website form", icon: "file", module: "settings.company" },
+            { href: "/settings/integrations#facebook-instagram-lead-ads", label: "Facebook & Instagram", icon: "target", module: "settings.company" },
+          ], "plug"),
+        ],
+      },
+      {
+        label: "CRM", icon: "target",
+        items: [
+          sub("CRM settings", [
+            { href: "/settings/crm", label: "Lead statuses", icon: "list", module: "settings.company" },
+            { href: "/settings/crm#unit-holds", label: "Unit holds", icon: "building", module: "settings.company" },
+            { href: "/settings/crm#on-hold-rules", label: "On-hold rules", icon: "timer", module: "settings.company" },
+            { href: "/settings/crm#deal-pipelines", label: "Deal pipelines", icon: "handshake", module: "settings.company" },
+            { href: "/settings/crm#lead-sources", label: "Lead sources", icon: "target", module: "settings.company" },
+          ], "sliders"),
+          { href: "/crm/automations", label: "Lead automations", icon: "workflow", superAdmin: true },
+          { href: "/settings/layouts?app=crm", label: "CRM layouts", icon: "layout", superAdmin: true },
+        ],
+      },
+      {
+        label: "HR", icon: "users",
+        items: [
+          sub("HR settings", [
+            { href: "/settings/hr", label: "General", icon: "clipboard", module: "hr.employees" },
+            { href: "/settings/hr?tab=org", label: "Departments & designations", icon: "hierarchy", module: "hr.employees" },
+            { href: "/settings/hr?tab=shifts", label: "Check-in location", icon: "fingerprint", module: "hr.employees" },
+            { href: "/settings/hr?tab=leave", label: "Leave & holidays", icon: "plane", module: "hr.employees" },
+            { href: "/settings/hr?tab=approvals", label: "Approvals", icon: "check", module: "hr.employees" },
+          ], "clipboard"),
+          { href: "/settings/hr-import", label: "Import HR data", icon: "sheet", superAdmin: true },
+          { href: "/settings/layouts?app=hr", label: "HR layouts", icon: "layout", superAdmin: true },
+          { href: "/settings/layouts?app=me", label: "My Space layouts", icon: "layout", superAdmin: true },
+        ],
+      },
+      {
+        label: "Finance", icon: "wallet",
+        items: [
+          { href: "/finance/settings", label: "Finance settings", icon: "settings", module: "finance.settings", action: "edit" },
+          { href: "/settings/layouts?app=finance", label: "Finance layouts", icon: "layout", superAdmin: true },
+        ],
+      },
+      {
+        label: "Layouts", icon: "layout",
+        items: [
+          { href: "/settings/layouts", label: "All layouts", icon: "layout", superAdmin: true },
+          { href: "/settings/layouts?app=home", label: "Start page & app tiles", icon: "apps", superAdmin: true },
+          { href: "/settings/layouts?app=crm", label: "CRM", icon: "target", superAdmin: true },
+          { href: "/settings/layouts?app=hr", label: "HR", icon: "users", superAdmin: true },
+          { href: "/settings/layouts?app=me", label: "My Space", icon: "user", superAdmin: true },
+          { href: "/settings/layouts?app=finance", label: "Finance", icon: "wallet", superAdmin: true },
+          { href: "/settings/layouts?app=boss", label: "Boss", icon: "crown", superAdmin: true },
+          { href: "/settings/layouts?app=settings", label: "Settings", icon: "settings", superAdmin: true },
+        ],
+      },
+      {
+        label: "System", icon: "gauge",
+        items: [
+          { href: "/settings/audit", label: "Activity Log", icon: "history", module: "settings.audit" },
           { href: "/settings/health", label: "System health", icon: "gauge", superAdmin: true },
           { href: "/settings/backup", label: "Backup", icon: "archive", superAdmin: true },
-          { href: "/settings/hr-import", label: "Import HR data", icon: "clipboard", superAdmin: true },
-          { href: "/settings/company", label: "Company & Branches", icon: "landmark", module: "settings.company" },
-          { href: "/settings/crm", label: "CRM Settings", icon: "sliders", module: "settings.company" },
-          { href: "/crm/automations", label: "Lead automations", icon: "workflow", superAdmin: true },
-          { href: "/settings/hr", label: "HR Settings", icon: "clipboard", module: "hr.employees" },
-          { href: "/settings/integrations", label: "Integrations", icon: "plug", module: "settings.company" },
-          { href: "/settings/audit", label: "Activity Log", icon: "history", module: "settings.audit" },
-          { href: "/settings/layouts", label: "Layouts", icon: "layout", superAdmin: true },
         ],
       },
     ],

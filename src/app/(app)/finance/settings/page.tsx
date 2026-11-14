@@ -2,17 +2,18 @@ import { requirePermission } from "@/lib/permissions";
 import { financeConfig } from "@/lib/finance";
 import { receiptReadingOn } from "@/lib/finance-receipt";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Card, Field, PageHeader } from "@/components/ui";
+import { Card, Field, LinkButton, PageHeader } from "@/components/ui";
+import { LayoutTemplate } from "lucide-react";
 import { saveFinanceSettings } from "../actions";
 
 export const metadata = { title: "Settings · Finance" };
 
 export default async function FinanceSettings() {
-  await requirePermission("finance.settings", "edit");
+  const user = await requirePermission("finance.settings", "edit");
   const cfg = await financeConfig();
   return (
     <>
-      <PageHeader title="Finance settings" description="Rules for proof, approvals and closing months." />
+      <PageHeader title="Finance settings" description="Rules for proof, approvals and closing months." actions={user.isSuperAdmin && <LinkButton href="/settings/layouts?app=finance" variant="secondary"><LayoutTemplate className="size-4" /> Finance layouts</LinkButton>} />
       <div className="grid max-w-3xl grid-cols-1 gap-6">
         <Card className="p-5">
           <h2 className="mb-1 font-semibold">Receipt reading {receiptReadingOn() ? <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">On</span> : <span className="ml-2 rounded-full bg-canvas px-2 py-0.5 text-xs font-medium text-muted">Off</span>}</h2>

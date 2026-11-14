@@ -4,7 +4,8 @@ import { can, requirePermission } from "@/lib/permissions";
 import { COLOR_NAMES, color } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Badge, Card, PageHeader } from "@/components/ui";
+import { Badge, Card, LinkButton, PageHeader } from "@/components/ui";
+import { LayoutTemplate } from "lucide-react";
 import { holdConfig } from "@/lib/lead-hold";
 import { deleteStage, saveHoldRules, saveLeadSource, saveLeadStatus, savePipeline, saveStage, saveUnitHoldDays } from "./actions";
 
@@ -51,7 +52,7 @@ export default async function CrmSettingsPage() {
 
   return (
     <>
-      <PageHeader title="CRM Settings" description="Lead statuses, deal pipelines and lead sources. Lower order numbers come first. “Unit →” sets linked property units when a deal enters that stage; Lost always releases them." />
+      <PageHeader title="CRM Settings" description="Lead statuses, deal pipelines and lead sources. Lower order numbers come first. “Unit →” sets linked property units when a deal enters that stage; Lost always releases them."  actions={user.isSuperAdmin && <LinkButton href="/settings/layouts?app=crm" variant="secondary"><LayoutTemplate className="size-4" /> CRM layouts</LinkButton>} />
       <fieldset disabled={!editable} className="min-w-0 space-y-10">
         <Section title="Lead statuses" hint="Open = active work. Converted = set automatically on convert. Junk = closed without a deal.">
           <Card className="divide-y divide-line">
@@ -212,9 +213,10 @@ export default async function CrmSettingsPage() {
   );
 }
 
+const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section>
+    <section id={slug(title)} className="scroll-mt-20">
       <h2 className="font-medium">{title}</h2>
       {hint && <p className="mb-3 mt-0.5 text-sm text-muted">{hint}</p>}
       {children}

@@ -11,7 +11,7 @@ import { deleteLayout, saveLayout } from "./actions";
 
 export const metadata = { title: "Layouts" };
 
-type SP = { new?: string; edit?: string; app?: string };
+type SP = { new?: string; edit?: string; app?: string; aud?: string; role?: string };
 const AUD = { superadmin: "Super Admin", role: "Role", everyone: "Everyone" } as const;
 
 /**
@@ -24,7 +24,11 @@ export default async function LayoutsPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const [layouts, roles] = await Promise.all([db.layoutProfile.findMany({ orderBy: [{ appKey: "asc" }, { sortOrder: "asc" }] }), db.role.findMany({ orderBy: { name: "asc" } })]);
   const editing = sp.edit ? layouts.find((l) => l.id === sp.edit) : null;
-  const appKey = editing?.appKey ?? sp.app ?? "crm";
+  const filter = sp.app && (sp.app === "home" || APPS.some((a) => a.key === sp.app)) ? sp.app : null;
+  const appKey = editing?.appKey ?? filter ?? "crm";
+  const back = filter ? `/settings/layouts?app=${filter}` : "/settings/layouts";
+  const shown = filter ? layouts.filter((l) => l.appKey === filter) : layouts;
+  const audiences = [{ aud: "superadmin", role: "", label: "Super Admins", hint: "Everyone with Super Admin" }, ...roles.map((r) => ({ aud: "role", role: r.id, label: r.name, hint: "Everyone with this role" })), { aud: "everyone", role: "", label: "Everyone else", hint: "Anyone without a layout above" }];
   const app = APPS.find((a) => a.key === appKey);
   const hidden = new Set((editing?.hidden ?? "").split(","));
   const order = (editing?.order ?? "").split(",");
@@ -34,15 +38,37 @@ export default async function LayoutsPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader title="Layouts" description="Give Super Admins, each role and everyone else their own look per app: the sidebar style, which menu items show, the module order and the start page. The most specific layout wins: Super Admin, then role, then everyone. Permissions still decide what each person can open."
-        actions={<LinkButton href="/settings/layouts?new=1" scroll={false}><Plus className="size-4" /> New layout</LinkButton>} />
+        actions={<LinkButton href={`/settings/layouts?new=1${filter ? `&app=${filter}` : ""}`} scroll={false}><Plus className="size-4" /> New layout</LinkButton>} />
+      <div className="mb-4 flex max-w-full gap-1.5 overflow-x-auto pb-1">
+        {[["", "All layouts"], ...["home", ...APPS.map((a) => a.key)].map((k) => [k, appName(k)])].map(([k, l]) => (
+          <Link key={k} href={k ? `/settings/layouts?app=${k}` : "/settings/layouts"} className={(filter ?? "") === k ? "shrink-0 whitespace-nowrap rounded-full bg-navy-900 px-3 py-1.5 text-xs text-white" : "shrink-0 whitespace-nowrap rounded-full border border-line px-3 py-1.5 text-xs hover:bg-canvas"}>{l}</Link>
+        ))}
+      </div>
+      {filter && (
+        <Card className="mb-4 overflow-hidden">
+          <div className="border-b border-line px-4 py-3"><h2 className="font-medium">{appName(filter)}: who sees which layout</h2><p className="text-xs text-muted">Each role can have its own menu, order, sidebar style and start page. Super Admin wins over a role; a role wins over “Everyone else”. No layout = the standard menu.</p></div>
+          <ul className="divide-y divide-line">
+            {audiences.map((a) => {
+              const l = layouts.find((x) => x.appKey === filter && x.audience === a.aud && (x.roleId ?? "") === a.role);
+              return (
+                <li key={a.aud + a.role} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
+                  <div className="min-w-0 flex-1"><p className="font-medium">{a.label}</p><p className="text-xs text-muted">{a.hint}</p></div>
+                  {l ? <><Badge tone="navy">{l.name}</Badge><span className="text-xs text-muted">{LAYOUT_STYLES.find((s) => s.value === (l.style ?? ""))?.label}{l.hidden ? ` · ${l.hidden.split(",").length} hidden` : ""}</span><Link href={`/settings/layouts?app=${filter}&edit=${l.id}`} scroll={false} className="rounded-md border border-line px-2.5 py-1 text-xs hover:bg-canvas">Edit</Link></>
+                    : <><span className="text-xs text-muted">Standard menu</span><Link href={`/settings/layouts?app=${filter}&new=1&aud=${a.aud}${a.role ? `&role=${a.role}` : ""}`} scroll={false} className="rounded-md border border-line px-2.5 py-1 text-xs hover:bg-canvas">Make layout</Link></>}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
       <Card className="overflow-x-auto">
-        {layouts.length === 0 ? <EmptyState title="No layouts yet" description="Everyone sees the standard menus. Try “HR for Employees” with a simple list, or a start page for agents." /> : (
+        {shown.length === 0 ? <EmptyState title="No layouts yet" description="Everyone sees the standard menus. Try “HR for Employees” with a simple list, or a start page for agents." /> : (
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Layout</th><th className="px-4 py-2.5">App</th><th className="px-4 py-2.5">For</th><th className="px-4 py-2.5">Style</th><th className="px-4 py-2.5" /></tr></thead>
             <tbody className="divide-y divide-line">
-              {layouts.map((l) => (
+              {shown.map((l) => (
                 <tr key={l.id}>
-                  <td className="px-4 py-2.5"><Link href={`/settings/layouts?edit=${l.id}`} scroll={false} className="font-medium hover:underline">{l.name}</Link>{l.landing && <span className="block text-xs text-muted">opens {l.landing}</span>}</td>
+                  <td className="px-4 py-2.5"><Link href={`/settings/layouts?${filter ? `app=${filter}&` : ""}edit=${l.id}`} scroll={false} className="font-medium hover:underline">{l.name}</Link>{l.landing && <span className="block text-xs text-muted">opens {l.landing}</span>}</td>
                   <td className="px-4 py-2.5">{appName(l.appKey)}</td>
                   <td className="px-4 py-2.5"><Badge tone={l.audience === "superadmin" ? "gold" : l.audience === "role" ? "navy" : "neutral"}>{l.audience === "role" ? roles.find((r) => r.id === l.roleId)?.name ?? "Role" : AUD[l.audience as keyof typeof AUD]}</Badge></td>
                   <td className="px-4 py-2.5 text-xs">{LAYOUT_STYLES.find((s) => s.value === (l.style ?? ""))?.label}</td>
@@ -55,11 +81,11 @@ export default async function LayoutsPage({ searchParams }: { searchParams: Prom
       </Card>
 
       {(sp.new || editing) && (
-        <Drawer title={editing ? `Edit ${editing.name}` : "New layout"} closeHref="/settings/layouts" width="max-w-2xl">
+        <Drawer title={editing ? `Edit ${editing.name}` : "New layout"} closeHref={back} width="max-w-2xl">
           {!editing && (
             <div className="mb-4 flex flex-wrap gap-1.5">
               {["home", ...APPS.map((a) => a.key)].map((k) => (
-                <Link key={k} href={`/settings/layouts?new=1&app=${k}`} scroll={false} className={k === appKey ? "rounded-full bg-navy-900 px-3 py-1 text-xs text-white" : "rounded-full border border-line px-3 py-1 text-xs hover:bg-canvas"}>{appName(k)}</Link>
+                <Link key={k} href={`/settings/layouts?new=1&app=${k}${sp.aud ? `&aud=${sp.aud}` : ""}${sp.role ? `&role=${sp.role}` : ""}`} scroll={false} className={k === appKey ? "rounded-full bg-navy-900 px-3 py-1 text-xs text-white" : "rounded-full border border-line px-3 py-1 text-xs hover:bg-canvas"}>{appName(k)}</Link>
               ))}
             </div>
           )}
@@ -67,14 +93,14 @@ export default async function LayoutsPage({ searchParams }: { searchParams: Prom
             {editing && <input type="hidden" name="id" value={editing.id} />}
             <input type="hidden" name="appKey" value={appKey} />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Name"><input name="name" required defaultValue={editing?.name ?? `${appName(appKey)} layout`} className="input" /></Field>
+              <Field label="Name"><input name="name" required defaultValue={editing?.name ?? `${appName(appKey)} for ${sp.aud === "superadmin" ? "Super Admins" : sp.aud === "everyone" ? "everyone" : roles.find((r) => r.id === sp.role)?.name ?? "a role"}`} className="input" /></Field>
               <Field label="For">
-                <select name="audience" defaultValue={editing?.audience ?? "role"} className="input">
+                <select name="audience" defaultValue={editing?.audience ?? (["superadmin", "role", "everyone"].includes(sp.aud ?? "") ? sp.aud : "role")} className="input">
                   <option value="superadmin">Super Admins</option><option value="role">A role…</option><option value="everyone">Everyone else</option>
                 </select>
               </Field>
               <Field label="Role (when “A role”)">
-                <select name="roleId" defaultValue={editing?.roleId ?? ""} className="input"><option value="">—</option>{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
+                <select name="roleId" defaultValue={editing?.roleId ?? sp.role ?? ""} className="input"><option value="">—</option>{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
               </Field>
               {appKey !== "home" && <Field label="Sidebar style"><select name="style" defaultValue={editing?.style ?? ""} className="input">{LAYOUT_STYLES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></Field>}
             </div>
