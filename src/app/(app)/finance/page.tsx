@@ -52,11 +52,11 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
   return (
     <>
       <PageHeader title="Finance" description="Where the money went, who spent it, and who holds what."
-        actions={<div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1">
+        actions={<div className="flex flex-wrap items-center gap-2"><a href={`/print/finance/${mk(month)}`} target="_blank" rel="noreferrer" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Monthly report (PDF)</a><div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1">
           <Link href={nav(subMonths(month, 1))} aria-label="Previous month" className="rounded-md p-1.5 text-muted hover:bg-canvas"><ChevronLeft className="size-4" /></Link>
           <span className="min-w-28 text-center text-sm font-medium">{format(month, "MMMM yyyy")}</span>
           <Link href={nav(addMonths(month, 1))} aria-label="Next month" className="rounded-md p-1.5 text-muted hover:bg-canvas"><ChevronRight className="size-4" /></Link>
-        </div>} />
+        </div></div>} />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
         {([

@@ -9,7 +9,7 @@ export const FINANCE_TUTORIALS: Tutorial[] = [
     steps: ["Opens on the last complete month; use the arrows to change month.", "Top row: cash in hand, cash with branches, what the company owes staff, what you put in.", "Proof score shows how much spending has a bill. Click it to see the entries without one.", "Needs your attention lists big expenses without a bill and possible double entries.", "In the 10 biggest expenses, look at the bill and click Mark checked."] }),
   F({ key: "fin-dashboard", title: "Finance dashboard", who: "Finance team", href: "/finance",
     summary: "Spending by category for the month and the year, who spent, who was paid, and every money holder's balance.",
-    steps: ["Change the month with the arrows.", "Click a category to see its entries.", "Red banners warn about low cash, approvals waiting and expenses without a bill."] }),
+    steps: ["Change the month with the arrows.", "Click a category to see its entries.", "Monthly report (PDF) opens a printable report with bill images: click Print / Save as PDF.", "Red banners warn about low cash, approvals waiting and expenses without a bill."] }),
   F({ key: "fin-entries", title: "Add an expense, money in or transfer", who: "Finance team", href: "/finance/entries", paths: ["/finance/entries", "/finance/personal"],
     summary: "Every rupee in one list. Expense = spent, Money in = received, Transfer = moved between two people (not spending).",
     steps: ["Click Expense, Money in or Transfer.", "Enter date, amount, who paid, category and paid to.", "Take a photo of the bill or choose the file.", "Save. The entry shows No proof until a bill is attached.", "To repeat last month's bill, click the copy icon on that row and change date, amount and bill."],

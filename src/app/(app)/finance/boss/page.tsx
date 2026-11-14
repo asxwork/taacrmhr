@@ -72,11 +72,11 @@ export default async function BossFinance({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader title="Boss view" description="Company money at a glance: where it is, where it went, and whether there is a bill for it."
-        actions={<div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1">
+        actions={<div className="flex flex-wrap items-center gap-2"><a href={`/print/finance/${mk}`} target="_blank" rel="noreferrer" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Monthly report (PDF)</a><div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1">
           <Link href={nav(subMonths(month, 1))} aria-label="Previous month" className="rounded-md p-1.5 text-muted hover:bg-canvas"><ChevronLeft className="size-4" /></Link>
           <span className="min-w-28 text-center text-sm font-medium">{format(month, "MMMM yyyy")}</span>
           <Link href={nav(addMonths(month, 1))} aria-label="Next month" className="rounded-md p-1.5 text-muted hover:bg-canvas"><ChevronRight className="size-4" /></Link>
-        </div>} />
+        </div></div>} />
 
       {/* Cash position */}
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Where the money is now</h2>
