@@ -53,6 +53,11 @@ async function main() {
     await db.finAccount.updateMany({ where: { name: { contains: "Samad" }, kind: "person" }, data: { kind: "card", notes: "Paid on the TAA company card" } });
     await db.setting.create({ data: { key: "fix.samad-card", value: "done" } });
   }
+  // Muhammad's spending is also paid on the TAA company card.
+  if (!(await db.setting.findUnique({ where: { key: "fix.muhammad-card" } }))) {
+    await db.finAccount.updateMany({ where: { name: "Muhammad", kind: "person" }, data: { kind: "card", notes: "Paid on the TAA company card" } });
+    await db.setting.create({ data: { key: "fix.muhammad-card", value: "done" } });
+  }
   // Notifications got a category and priority: sort the existing ones once (most recent 20,000).
   if (!(await db.setting.findUnique({ where: { key: "fix.notify-category" } }))) {
     const { categoryOf, priorityOf } = await import("../src/lib/notify");

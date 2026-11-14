@@ -66,7 +66,7 @@ export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string,
     if (!sub) { sub = await db.finCategory.create({ data: { name: subName, parentId: main.id, personal: main.personal, sortOrder: 50 } }); cats.push(sub); }
     return { id: sub.id, personal: main.personal };
   };
-  const ownerName = (s: string) => { const t = clean(s); if (/mubeen/i.test(t)) return { name: "Mubeen sir", kind: "owner" }; return { name: title(t.toLowerCase()) || "Unknown", kind: "person" }; };
+  const ownerName = (s: string) => { const t = clean(s); if (/mubeen/i.test(t)) return { name: "Mubeen sir", kind: "owner" }; if (/^muhammad$/i.test(t)) return { name: "Muhammad", kind: "card" }; return { name: title(t.toLowerCase()) || "Unknown", kind: "person" }; };
 
   const seen = new Map<string, number>();
   const fingerprint = (sheet: string, parts: unknown[]) => {
