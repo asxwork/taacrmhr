@@ -68,3 +68,23 @@ export async function logout() {
   if (user) await audit(user.id, "logout", "user", user.id, `${user.name} signed out`);
   redirect("/login");
 }
+
+/** "Forgot password?": tells the Super Admins someone asked for a reset. Same answer whether or not the email exists. */
+export async function requestPasswordReset(_: FormState, fd: FormData): Promise<FormState> {
+  const email = str(fd, "email").toLowerCase().slice(0, 200);
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "Enter your work email." };
+  const h = await headers();
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
+  if (loginBlockedFor(`reset:${email}`, ip)) return { ok: true, message: "Request sent. Your administrator will contact you." };
+  recordLoginFailure(`reset:${email}`, ip); // counts requests, so the same email can't flood the admins
+  try {
+    const user = await db.user.findUnique({ where: { email } });
+    if (user?.active) {
+      const { notify } = await import("@/lib/notify");
+      const admins = await db.user.findMany({ where: { isSuperAdmin: true, active: true }, select: { id: true } });
+      for (const a of admins) await notify(a.id, `Password reset requested: ${user.name}`, { body: `${email} asked for a new password from the sign-in page.`, link: `/settings/users/${user.id}`, email: true });
+      await audit(user.id, "password_reset_request", "user", user.id, `Asked for a password reset from ${ip}`);
+    }
+  } catch {}
+  return { ok: true, message: "Request sent. Your administrator will reset your password and let you know." };
+}
