@@ -12,7 +12,8 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, EmptyState, Field, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ConfirmButton } from "@/components/confirm-button";
-import { deleteEntry, saveEntry } from "./actions";
+import { deleteEntry, saveEntry, setDefaultHolder } from "./actions";
+import { QuickProof } from "./quick-proof";
 
 export type EntrySP = { party?: string; tag?: string; bill?: string; copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
 const PAGE = 100;
@@ -44,6 +45,7 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
   const mod = personal ? "finance.personal" : "finance";
   const canAdd = can(user, mod, "create"), canEdit = can(user, mod, "edit"), canDel = can(user, mod, "delete");
   const editing = sp.edit ? await db.finEntry.findUnique({ where: { id: sp.edit } }) : null;
+  const defaultHolder = (await db.setting.findUnique({ where: { key: `fin.defaultHolder.${user.id}` } }))?.value ?? null;
   // Duplicate: a copy of an entry (e.g. last month's K-Electric bill) with today's date and no proof.
   const copy = !editing && sp.copy ? await db.finEntry.findUnique({ where: { id: sp.copy } }) : null;
   const bill = !editing && sp.bill ? await db.finRecurring.findUnique({ where: { id: sp.bill } }) : null;
@@ -76,13 +78,19 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
       <AutoFilterForm className="mb-3 flex flex-wrap gap-2">
         <label className="relative min-w-52 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" /><input name="q" defaultValue={q} placeholder="Search what, paid to, notes" aria-label="Search" className="input pl-9" /></label>
         <input name="month" type="month" defaultValue={sp.month} aria-label="Month" className="input w-auto" />
-        <select name="holder" defaultValue={sp.holder ?? ""} aria-label="Money holder" className="input w-auto min-w-40"><option value="">Everyone</option>{holders.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select>
+        <select name="holder" defaultValue={sp.holder ?? ""} aria-label="Money holder" className="input w-auto min-w-40"><option value={defaultHolder ? "all" : ""}>Everyone</option>{holders.map((h) => <option key={h.id} value={h.id}>{h.name}{h.id === defaultHolder ? " ★" : ""}</option>)}</select>
         {!personal && <select name="cat" defaultValue={sp.cat ?? ""} aria-label="Category" className="input w-auto min-w-44"><option value="">All categories</option>{tree.filter((c) => !c.personal).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
         {!personal && <select name="kind" defaultValue={sp.kind ?? ""} aria-label="Type" className="input w-auto"><option value="">All types</option><option value="expense">Expenses</option><option value="in">Money in</option><option value="transfer">Transfers</option></select>}
         {allTags.length > 0 && <select name="tag" defaultValue={sp.tag ?? ""} aria-label="Tag" className="input w-auto"><option value="">Any tag</option>{allTags.map((t) => <option key={t} value={t}>#{t}</option>)}</select>}
         {sp.party && <input type="hidden" name="party" value={sp.party} />}
         <select name="proof" defaultValue={sp.proof ?? ""} aria-label="Proof" className="input w-auto"><option value="">Any proof</option><option value="missing">No proof yet</option><option value="unverified">Proof not checked</option><option value="verified">Checked ✓</option></select>
       </AutoFilterForm>
+      {!personal && (sp.holder && sp.holder !== "all" ? sp.holder !== defaultHolder : !!defaultHolder) && (
+        <form action={setDefaultHolder} className="-mt-1 mb-3 text-xs">
+          <input type="hidden" name="holder" value={sp.holder && sp.holder !== "all" ? sp.holder : ""} />
+          <button className="text-navy-900 hover:underline">{sp.holder && sp.holder !== "all" ? `★ Always open Entries on ${holders.find((h) => h.id === sp.holder)?.name ?? "this holder"}` : `Stop opening on ${holders.find((h) => h.id === defaultHolder)?.name ?? "the default holder"}`}</button>
+        </form>
+      )}
 
       {sp.party && <p className="mb-3 text-sm">Paid to <b>{sp.party}</b> · <Link href={href({ party: undefined })} className="text-navy-900 hover:underline">show everyone</Link></p>}
       <Card className="overflow-hidden">
@@ -112,7 +120,7 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
                     <td className={cn("whitespace-nowrap px-4 py-2.5 text-right font-medium tabular-nums", e.kind === "in" ? "text-emerald-700" : e.kind === "transfer" ? "text-sky-700" : "")}>{e.kind === "in" ? "+" : ""}{pkr(e.amount)}</td>
                     <td className="whitespace-nowrap px-3 py-2.5">
                       {(() => { const n = e._count.proofs + (e.receipt ? 1 : 0); return n === 0
-                        ? <Link href={`/finance/entries/${e.id}`} className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-100">No proof</Link>
+                        ? (canAdd ? <QuickProof id={e.id} /> : <Link href={`/finance/entries/${e.id}`} className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-100">No proof</Link>)
                         : <Link href={`/finance/entries/${e.id}`} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium", e.verifiedAt ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>{e.verifiedAt ? <ShieldCheck className="size-3" /> : <Paperclip className="size-3" />}{n}{e.verifiedAt ? " checked" : ""}</Link>; })()}
                     </td>
                     <td className="px-2 py-2.5 text-right">

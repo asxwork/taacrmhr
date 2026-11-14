@@ -81,7 +81,7 @@ export function entryWhere(sp: { month?: string; holder?: string; cat?: string; 
   return {
     personal,
     ...(month && { date: { gte: startOfMonth(month), lte: endOfMonth(month) } }),
-    ...(sp.holder && { OR: [{ accountId: sp.holder }, { toAccountId: sp.holder }] }),
+    ...(sp.holder && sp.holder !== "all" && { OR: [{ accountId: sp.holder }, { toAccountId: sp.holder }] }),
     ...(catIds && { categoryId: { in: catIds } }),
     ...(sp.kind && { kind: sp.kind }),
     ...(sp.proof && PROOF_WHERE[sp.proof]),

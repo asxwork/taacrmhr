@@ -532,3 +532,18 @@ export async function bankLineAction(fd: FormData) {
   }
   revalidatePath("/finance/bank");
 }
+
+/** "Add bill" straight from the entries list (one file or photo). */
+export async function quickProof(fd: FormData) {
+  await addProof(undefined, fd);
+}
+
+/** The money holder the Entries list opens on for this user (e.g. Samad (marketing)); empty = everyone. */
+export async function setDefaultHolder(fd: FormData) {
+  const user = await requirePermission("finance");
+  const key = `fin.defaultHolder.${user.id}`;
+  const id = str(fd, "holder");
+  if (id) await db.setting.upsert({ where: { key }, update: { value: id }, create: { key, value: id } });
+  else await db.setting.deleteMany({ where: { key } });
+  revalidatePath("/finance/entries");
+}

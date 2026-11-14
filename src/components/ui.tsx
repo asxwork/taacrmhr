@@ -1,3 +1,4 @@
+import { DrawerPortal } from "./drawer-portal";
 import Link from "@/components/link";
 import { Inbox, X } from "lucide-react";
 import { cn, initials } from "@/lib/utils";
@@ -107,6 +108,7 @@ export function Avatar({ name, className }: { name: string; className?: string }
 /** Bitrix-style side panel. Opened via a search param; closing navigates to `closeHref`. */
 export function Drawer({ title, closeHref, children, width = "max-w-lg" }: { title: string; closeHref: string; children: React.ReactNode; width?: string }) {
   return (
+    <DrawerPortal>
     <div className="fixed inset-0 z-40 flex justify-end overflow-hidden">
       <Link href={closeHref} scroll={false} aria-label="Close" className="anim-fade absolute inset-0 bg-navy-950/35" />
       <aside role="dialog" aria-modal="true" aria-label={title} className={cn("anim-slide-right relative flex h-full w-full flex-col bg-surface shadow-2xl", width)}>
@@ -116,8 +118,9 @@ export function Drawer({ title, closeHref, children, width = "max-w-lg" }: { tit
             <X className="size-4" />
           </Link>
         </header>
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">{children}</div>
       </aside>
     </div>
+    </DrawerPortal>
   );
 }
