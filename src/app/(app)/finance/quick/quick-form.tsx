@@ -15,7 +15,7 @@ export function QuickForm({ top, all, holders, defaultHolder, payees }: { top: C
   const { pending } = useFormStatus();
   return (
     <>
-      <label className={cn("flex h-36 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed text-sm", photo ? "border-emerald-400" : "border-line bg-surface")}>
+      <label className={cn("relative flex h-36 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed text-sm", photo ? "border-emerald-400" : "border-line bg-surface")}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {photo ? <img src={photo} alt="Bill" className="h-full w-full object-cover" /> : <><Camera className="size-9 text-emerald-600" /><span className="font-medium">Take a photo of the bill</span></>}
         <input type="file" name="photo" accept="image/*" capture="environment" className="sr-only" onChange={(e) => {

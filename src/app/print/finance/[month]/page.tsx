@@ -41,14 +41,14 @@ export default async function FinanceReport({ params, searchParams }: { params: 
   const td = "border-b border-gray-100 px-2 py-1.5";
 
   return (
-    <div data-print-area className="mx-auto max-w-[210mm] bg-white p-8 text-[13px] text-gray-900 print:p-0">
+    <div data-print-area className="mx-auto max-w-[210mm] bg-white p-4 text-[13px] sm:p-8 text-gray-900 print:p-0">
       <div className="mb-6 flex items-center justify-between print:hidden"><Link href="/finance" className="text-sm text-gray-500 hover:underline">← Finance</Link><PrintButton target="[data-print-area]" fileName={`Finance report ${m}`} auto={auto === "print" || auto === "pdf" ? auto : undefined} /></div>
       <header className="mb-6 border-b-2 border-gray-900 pb-3">
         <p className="text-xs uppercase tracking-widest text-gray-500">{company?.value || "The Advisor Associates"}</p>
         <h1 className="text-2xl font-semibold">Finance report · {format(month, "MMMM yyyy")}</h1>
         <p className="text-xs text-gray-500">Prepared {format(new Date(), "d MMM yyyy, h:mm a")} by {user.name}</p>
       </header>
-      <section className="mb-6 grid grid-cols-4 gap-3">
+      <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[["Company spent", pkr(total)], [`vs ${format(pFrom, "MMMM")}`, prev ? `${total >= prev ? "+" : "−"}${Math.abs(Math.round(((total - prev) / prev) * 100))}%` : "—"], ["Entries", String(entries.length)], ["With a bill", `${proofPct}%`]].map(([l, v]) => (
           <div key={l} className="rounded border border-gray-300 p-3"><p className="text-[11px] text-gray-500">{l}</p><p className="text-lg font-semibold">{v}</p></div>
         ))}
@@ -63,7 +63,7 @@ export default async function FinanceReport({ params, searchParams }: { params: 
               ...c.subs.filter((s) => sum(byCat, [s.id]) || sum(byCatYear, [s.id])).map((s) => <tr key={s.id} className="text-gray-600"><td className={`${td} pl-6`}>{s.name}</td><td className={`${td} text-right`}>{pkr(sum(byCat, [s.id]))}</td><td className={`${td} text-right`}>{pkr(sum(byCatYear, [s.id]))}</td></tr>)];
           })}<tr className="font-semibold"><td className="px-2 py-2">Total</td><td className="px-2 py-2 text-right">{pkr(total)}</td><td className="px-2 py-2 text-right">{pkr(byCatYear.reduce((s, r) => s + (r._sum.amount ?? 0), 0))}</td></tr></tbody></table>
       </section>
-      <section className="mb-6 grid grid-cols-2 gap-6">
+      <section className="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div><h2 className="mb-2 font-semibold">By office</h2><table className="w-full"><tbody>{[...byOffice].map(([o, v]) => <tr key={o}><td className={td}>{o}</td><td className={`${td} text-right`}>{pkr(v)}</td></tr>)}</tbody></table></div>
         <div><h2 className="mb-2 font-semibold">Balances on {format(mTo, "d MMM")}</h2><table className="w-full"><tbody>{holders.filter((h) => h.active).map((h) => <tr key={h.id}><td className={td}>{h.name}</td><td className={`${td} text-right`}>{h.kind === "owner" && h.balance < 0 ? `${pkr(-h.balance)} put in` : pkr(h.balance)}</td></tr>)}</tbody></table></div>
       </section>

@@ -167,9 +167,9 @@ export default async function HierarchyPage({ searchParams }: { searchParams: Pr
     <>
       <PageHeader title="Hierarchy" description="Your company as a tree: branches, who reports to whom, and departments. Click a box to open it; click the number under it to fold." />
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex rounded-xl bg-black/5 p-1">
+        <div className="flex max-w-full overflow-x-auto rounded-xl bg-black/5 p-1">
           {TABS.map(([t, label, Icon]) => (
-            <Link key={t} href={t === "org" ? "/org-chart" : `/org-chart?tab=${t}`} className={cn("flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
+            <Link key={t} href={t === "org" ? "/org-chart" : `/org-chart?tab=${t}`} className={cn("flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
               <Icon className="size-4" /> {label}
             </Link>
           ))}

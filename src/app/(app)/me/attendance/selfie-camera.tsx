@@ -32,7 +32,7 @@ export function SelfieCamera({ required, onDone, onCancel }: { required: boolean
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {shot ? <img src={shot.url} alt="Your selfie" className="size-full object-cover" />
             : failed ? <div className="flex size-full flex-col items-center justify-center gap-3 p-6 text-center text-sm text-white/80"><Camera className="size-8" />Camera not available. Use your phone&apos;s camera instead:
-              <label className="cursor-pointer rounded-lg bg-gold-400 px-3 py-2 font-medium text-navy-950">Open camera<input type="file" accept="image/*" capture="user" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) setShot({ url: URL.createObjectURL(f), file: f }); }} /></label></div>
+              <label className="relative cursor-pointer rounded-lg bg-gold-400 px-3 py-2 font-medium text-navy-950">Open camera<input type="file" accept="image/*" capture="user" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) setShot({ url: URL.createObjectURL(f), file: f }); }} /></label></div>
             : <video ref={video} playsInline muted className="size-full -scale-x-100 object-cover" />}
         </div>
         <div className="flex gap-2 p-4">

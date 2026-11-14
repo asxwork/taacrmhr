@@ -35,9 +35,9 @@ export default async function PayrollChecklistPage({ searchParams }: { searchPar
     { key: "items", title: "Enter commission, bonuses and deductions", hint: "Commission, rewards and one-off pay items for this month.", href: "/hr/payroll/items/commission" },
     { key: "loans", title: "Confirm loan and advance deductions", hint: "Check installments due this month.", href: "/hr/expenses" },
     { key: "run", title: "Run payroll", hint: run ? `Run created · ${run._count.payslips} payslip(s)` : "Not run yet", href: run ? `/hr/payroll/${m}` : "/hr/payroll", auto: !!run },
-    { key: "approve", title: "Approve the run", hint: run?.approvedAt ? `Approved ${format(run.approvedAt, "d MMM")}` : "Not approved yet", href: `/hr/payroll/${m}`, auto: !!run?.approvedAt },
+    { key: "approve", title: "Approve the run", hint: run?.approvedAt ? `Approved ${format(run.approvedAt, "d MMM")}` : "Not approved yet", href: run ? `/hr/payroll/${m}` : "/hr/payroll", auto: !!run?.approvedAt },
     { key: "bank", title: "Send the bank file / vouchers", hint: "Download the bank advice and send it to the bank.", href: "/hr/payroll/vouchers" },
-    { key: "paid", title: "Mark as paid and share payslips", hint: run?.paidAt ? `Paid ${format(run.paidAt, "d MMM")}` : "Not paid yet", href: `/hr/payroll/${m}`, auto: !!run?.paidAt },
+    { key: "paid", title: "Mark as paid and share payslips", hint: run?.paidAt ? `Paid ${format(run.paidAt, "d MMM")}` : "Not paid yet", href: run ? `/hr/payroll/${m}` : "/hr/payroll", auto: !!run?.paidAt },
   ];
   const canEdit = can(user, "hr.payrollchecklist", "edit");
   const complete = steps.filter((s) => s.auto || done.has(s.key)).length;

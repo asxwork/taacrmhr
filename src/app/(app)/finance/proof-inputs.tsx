@@ -27,11 +27,11 @@ export function ProofInputs({ required }: { required?: string }) {
     <div>
       <p className="mb-1.5 text-sm font-medium">Proof <span className="font-normal text-muted">(bill · receipt · screenshot)</span></p>
       <div className="grid grid-cols-2 gap-2">
-        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-line px-3 py-3 text-sm hover:bg-canvas">
+        <label className="relative flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-line px-3 py-3 text-sm hover:bg-canvas">
           <Camera className="size-4 text-emerald-600" /> Take photo
           <input type="file" name="photo" accept="image/*" capture="environment" className="sr-only" onChange={(e) => pick(e, true)} />
         </label>
-        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-line px-3 py-3 text-sm hover:bg-canvas">
+        <label className="relative flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-line px-3 py-3 text-sm hover:bg-canvas">
           <Paperclip className="size-4 text-navy-900" /> Choose files
           <input type="file" name="proofs" multiple accept="image/*,application/pdf" className="sr-only" onChange={(e) => pick(e, true)} />
         </label>

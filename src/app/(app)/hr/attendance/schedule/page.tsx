@@ -36,9 +36,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader title="Scheduling" description="Plan who works which shift each day. Days off and shift changes here are what attendance is judged against; approved shift-adjustment requests appear automatically." />
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <Link href={wk(addWeeks(monday, -1))} aria-label="Previous week" className="rounded-md border border-line p-2 hover:bg-surface"><ChevronLeft className="size-4" /></Link>
-          <span className="min-w-56 text-center text-sm font-medium">{format(monday, "d MMM")} – {format(addDays(monday, 6), "d MMM yyyy")}</span>
+          <span className="min-w-0 text-center text-sm font-medium sm:min-w-56">{format(monday, "d MMM")} – {format(addDays(monday, 6), "d MMM yyyy")}</span>
           <Link href={wk(addWeeks(monday, 1))} aria-label="Next week" className="rounded-md border border-line p-2 hover:bg-surface"><ChevronRight className="size-4" /></Link>
           <Link href={wk(new Date())} className="ml-1 rounded-md px-2 py-1.5 text-sm text-navy-700 hover:bg-surface">This week</Link>
         </div>

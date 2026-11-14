@@ -52,9 +52,9 @@ export default async function ExitsPage({ searchParams }: { searchParams: Promis
     <>
       <PageHeader title="End of employment" description="Everyone resigning, terminated or gone: notice, last day, exit checklist and reason. Record an exit from the employee's page (Actions → Resign / exit)." />
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex rounded-xl bg-black/5 p-1">
+        <div className="flex max-w-full overflow-x-auto rounded-xl bg-black/5 p-1">
           {tabs.map(([t, label, n]) => (
-            <Link key={t} href={t === "all" ? "/hr/exits" : `/hr/exits?tab=${t}`} className={cn("flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
+            <Link key={t} href={t === "all" ? "/hr/exits" : `/hr/exits?tab=${t}`} className={cn("flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
               {label} <span className={cn("rounded-md px-1.5 text-xs tabular-nums", t === "pending" && n ? "bg-amber-100 text-amber-800" : t === "completed" ? "bg-emerald-100 text-emerald-800" : "bg-black/5")}>{n}</span>
             </Link>
           ))}
