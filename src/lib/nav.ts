@@ -32,6 +32,8 @@ export type AppDef = {
   home: string;
   /** Paths that belong to this app; the longest match wins. */
   prefixes: string[];
+  /** Pages of other apps its own pages link to (e.g. HR → your own leave form): opening one from this app keeps this menu. */
+  keeps?: string[];
   /** "list": one column of items. "modules": icon rail of modules + panel (ResourceInn-style). */
   layout: "list" | "modules";
   groups: NavGroup[];
@@ -41,6 +43,7 @@ export const APPS: AppDef[] = [
   {
     key: "crm", name: "CRM", description: "Leads, deals, contacts, calls, inventory", icon: "target", tile: "from-sky-500 to-blue-700",
     home: "/dashboard", prefixes: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents", "/reports/targets", "/reports/lost", "/reports/activity"], layout: "modules",
+    keeps: ["/me/attendance"],
     // Like HR: each module is an icon on the rail, its screens (and sub-menus) in the panel.
     groups: [
       { label: "Home", icon: "home", items: [{ href: "/dashboard", label: "CRM home", icon: "home" }] },
@@ -116,6 +119,7 @@ export const APPS: AppDef[] = [
   {
     key: "hr", name: "HR", description: "People, attendance, payroll, requests", icon: "users", tile: "from-violet-500 to-fuchsia-700",
     home: "/hr", prefixes: ["/hr", "/reports/hr", "/settings/hr", "/approvals", "/org-chart"], layout: "modules",
+    keeps: ["/me/attendance", "/me/leave", "/me/expenses", "/me/swaps", "/me/policies", "/feed", "/settings/company"],
     groups: [
       { label: "Dashboard", icon: "layout", items: [{ href: "/hr", label: "HR dashboard", icon: "layout", module: "hr.attendance", anyModule: ["hr.employees"] }] },
       {
@@ -347,6 +351,7 @@ export const APPS: AppDef[] = [
   {
     key: "me", name: "My Space", description: "Your profile, attendance, leave and payslips", icon: "user", tile: "from-emerald-500 to-teal-700",
     home: "/me/home", prefixes: ["/me", "/feed", "/org-chart"], layout: "list",
+    keeps: ["/hr/requests", "/approvals"],
     groups: [
       {
         // Everything about me; requests and profile pages are tabs (lib/sections.ts).
@@ -482,12 +487,13 @@ export function appForPath<T extends Pick<AppDef, "key" | "prefixes">>(apps: T[]
  * appForPath, but a page the last-used app also links to (e.g. My Space → New request under /hr) stays in that app,
  * so the menu doesn't jump to another app.
  */
-export function appForPathFrom<T extends Pick<AppDef, "key" | "prefixes" | "groups">>(apps: T[], pathname: string, lastKey?: string): T | null {
+export function appForPathFrom<T extends Pick<AppDef, "key" | "prefixes" | "groups" | "keeps">>(apps: T[], pathname: string, lastKey?: string): T | null {
   const last = apps.find((a) => a.key === lastKey);
-  const pathOf = (h: string) => h.split(/[?#]/)[0];
-  // Stay in the app you came from when this page is in its menu, sub-menus included (HR → Leave → Request opens
-  // /me/leave but keeps the HR menu).
-  if (last?.groups.some((g) => g.items.some((i) => [i, ...(i.children ?? [])].some((c) => pathOf(c.href) === pathname || c.also?.includes(pathname))))) return last;
+  const pathOf = (h: string) => h.split(/[?#]/)[0]!;
+  const under = (p: string) => p !== "/" && (pathname === p || pathname.startsWith(p + "/"));
+  // Stay in the app you came from when this page (or a page under it) is in its menu, sub-menus included, or one
+  // it keeps (HR → Leave → Request opens /me/leave but keeps the HR menu; My Space → New request keeps My Space).
+  if (last && (last.keeps?.some(under) || last.groups.some((g) => g.items.some((i) => [i, ...(i.children ?? [])].some((c) => under(pathOf(c.href)) || c.also?.some(under)))))) return last;
   return appForPath(apps, pathname);
 }
 

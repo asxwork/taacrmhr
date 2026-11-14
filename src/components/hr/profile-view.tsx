@@ -134,7 +134,7 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
         <>
           <SectionTitle icon={<Users className="size-4" />}>Team</SectionTitle>
           <div className="flex flex-wrap gap-2 px-3 py-2">
-            {emp.reports.map((r) => <Link key={r.id} href={`/hr/employees/${r.id}`} className="rounded-full border border-line px-3 py-1 text-xs hover:bg-surface">{r.fullName}</Link>)}
+            {emp.reports.map((r) => self ? <span key={r.id} className="rounded-full border border-line px-3 py-1 text-xs">{r.fullName}</span> : <Link key={r.id} href={`/hr/employees/${r.id}`} className="rounded-full border border-line px-3 py-1 text-xs hover:bg-surface">{r.fullName}</Link>)}
           </div>
         </>
       )}
