@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { Camera, Check } from "lucide-react";
+import { Camera, Check, Loader2, Sparkles } from "lucide-react";
+import { fillForm, readReceipt } from "../read-receipt";
 import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/utils";
 
@@ -10,14 +11,27 @@ type Cat = { id: string; name: string; group: string };
 export function QuickForm({ top, all, holders, defaultHolder, payees }: { top: Cat[]; all: Cat[]; holders: { id: string; name: string }[]; defaultHolder: string; payees: string[] }) {
   const [cat, setCat] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
+  const [reading, setReading] = useState<string | null>(null);
   const { pending } = useFormStatus();
   return (
     <>
       <label className={cn("flex h-36 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed text-sm", photo ? "border-emerald-400" : "border-line bg-surface")}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {photo ? <img src={photo} alt="Bill" className="h-full w-full object-cover" /> : <><Camera className="size-9 text-emerald-600" /><span className="font-medium">Take a photo of the bill</span></>}
-        <input type="file" name="photo" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; setPhoto(f ? URL.createObjectURL(f) : null); }} />
+        <input type="file" name="photo" accept="image/*" capture="environment" className="sr-only" onChange={(e) => {
+          const f = e.target.files?.[0]; const form = e.target.form;
+          setPhoto(f ? URL.createObjectURL(f) : null);
+          if (!f) return;
+          setReading("Reading the bill…");
+          readReceipt(f).then((r) => {
+            if (!r) return setReading(null);
+            if ("error" in r) return setReading(r.error);
+            fillForm(form, r); if (r.categoryId) setCat(r.categoryId);
+            setReading("Filled from the bill. Check the amount, then save.");
+          });
+        }} />
       </label>
+      {reading && <p className="-mt-2 flex items-center gap-1.5 text-sm text-emerald-700">{reading.startsWith("Reading") ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{reading}</p>}
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Amount</span>
         <span className="flex items-center rounded-2xl border border-line bg-surface px-4"><span className="text-xl text-muted">Rs</span><input name="amount" required inputMode="decimal" placeholder="0" className="w-full bg-transparent px-3 py-4 text-3xl font-semibold tabular-nums outline-none" /></span>

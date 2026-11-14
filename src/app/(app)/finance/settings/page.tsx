@@ -1,5 +1,6 @@
 import { requirePermission } from "@/lib/permissions";
 import { financeConfig } from "@/lib/finance";
+import { receiptReadingOn } from "@/lib/finance-receipt";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Field, PageHeader } from "@/components/ui";
 import { saveFinanceSettings } from "../actions";
@@ -13,6 +14,10 @@ export default async function FinanceSettings() {
     <>
       <PageHeader title="Finance settings" description="Rules for proof, approvals and closing months." />
       <div className="grid max-w-3xl grid-cols-1 gap-6">
+        <Card className="p-5">
+          <h2 className="mb-1 font-semibold">Receipt reading {receiptReadingOn() ? <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">On</span> : <span className="ml-2 rounded-full bg-canvas px-2 py-0.5 text-xs font-medium text-muted">Off</span>}</h2>
+          <p className="text-sm text-muted">{receiptReadingOn() ? "When someone takes a photo of a bill, AMS reads the amount, date, shop and category and fills the form. They check it and save." : "To turn it on, add ANTHROPIC_API_KEY (from console.anthropic.com) to the environment variables in hPanel and redeploy. Each bill read costs a few rupees."}</p>
+        </Card>
         <Card className="p-5">
           <h2 className="mb-1 font-semibold">Proof (bills & receipts)</h2>
           <p className="mb-4 text-sm text-muted">Every entry shows whether it has proof. Entries without it appear under “No proof yet” and on the dashboard.</p>
