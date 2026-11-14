@@ -1,0 +1,5 @@
+build/
+AMS.apk
+*.p12
+*.jks
+*.keystore
