@@ -415,3 +415,34 @@ export async function saveCashCount(_: FormState, fd: FormData): Promise<FormSta
   revalidatePath("/finance/cash-count");
   return { ok: true, message: diff === 0 ? "Matches exactly." : `Saved with a difference of ${pkr(Math.abs(diff))}.` };
 }
+
+/** Give an advance / loan to an employee: creates the HR loan (installments come off salary) and the Finance payout. */
+export async function giveAdvance(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "create");
+  const loanId = str(fd, "loanId");
+  const accountId = str(fd, "accountId");
+  if (!accountId) return { error: "Choose who pays it out." };
+  let loan;
+  if (loanId) {
+    loan = await db.loan.findUnique({ where: { id: loanId }, include: { employee: true } });
+    if (!loan || loan.status !== "active") return { error: "This loan is not approved / active." };
+  } else {
+    const emp = await db.employee.findUnique({ where: { id: str(fd, "employeeId") } });
+    const amount = parseFloat(str(fd, "amount").replace(/,/g, "")) || 0;
+    const installment = parseFloat(str(fd, "installment").replace(/,/g, "")) || amount;
+    const startMonth = /^\d{4}-\d{2}$/.test(str(fd, "startMonth")) ? str(fd, "startMonth") : "";
+    if (!emp) return { error: "Choose the employee." };
+    if (!(amount > 0)) return { error: "Enter the amount." };
+    if (!startMonth) return { error: "Choose the first salary month to deduct from." };
+    loan = await db.loan.create({ data: { employeeId: emp.id, kind: str(fd, "kind") === "loan" ? "loan" : "advance", amount, installment: Math.min(installment, amount), startMonth, reason: str(fd, "reason") || null, status: "active" }, include: { employee: true } });
+  }
+  if (await db.finEntry.findFirst({ where: { sourceType: "loan", sourceId: loan.id } })) return { error: "Already paid out." };
+  const main = await db.finCategory.findFirst({ where: { parentId: null, name: "Employee & HR" } });
+  const sub = main && (await db.finCategory.findFirst({ where: { parentId: main.id, name: "Advance/Loan" } }));
+  const e = await db.finEntry.create({ data: { kind: "expense", amount: loan.amount, date: new Date(), accountId, categoryId: sub?.id ?? main?.id ?? null, description: `${loan.kind === "loan" ? "Loan" : "Advance"} to ${loan.employee.fullName}${loan.reason ? ` — ${loan.reason}` : ""}`, party: loan.employee.fullName, sourceType: "loan", sourceId: loan.id, createdById: user.id } });
+  await audit(user.id, "create", "finEntry", e.id, `Paid ${loan.kind} of ${pkr(loan.amount)} to ${loan.employee.fullName}`);
+  if (loan.employee.userId) await notify(loan.employee.userId, `Your ${loan.kind} of ${pkr(loan.amount)} was paid`, { body: `${pkr(loan.installment)} per month from your ${loan.startMonth} salary.`, link: "/me/expenses" });
+  refresh();
+  revalidatePath("/finance/advances");
+  return { ok: true, message: `Paid ${pkr(loan.amount)} to ${loan.employee.fullName}.` };
+}

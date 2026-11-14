@@ -44,4 +44,7 @@ export const FINANCE_TUTORIALS: Tutorial[] = [
   F({ key: "fin-cashcount", title: "Day-end cash count", who: "Bushra, branch cash holders", href: "/finance/cash-count",
     summary: "Count the cash at the end of the day and compare it with what AMS calculated.",
     steps: ["Count the cash in the drawer.", "Type the amount on your card and Save count.", "If it's different, write the reason; tick Book the difference to record it.", "Differences of Rs 1,000+ notify the approvers."] }),
+  F({ key: "fin-advances", title: "Advances and loans to staff", who: "Finance team", href: "/finance/advances",
+    summary: "Give an advance, see what's repaid and what's left. Installments come off salary automatically.",
+    steps: ["Choose the employee, amount, monthly installment and the first salary month.", "Choose who pays it out and click Give advance.", "Loans approved in HR show here: click Pay to record the payout.", "Repaid and Left update after each payroll."] }),
 ];
