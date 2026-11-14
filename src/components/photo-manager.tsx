@@ -33,13 +33,13 @@ export function PhotoManager({ photos, title, path, selectedId, canEdit, owner, 
         {main ? (
           <>
             { }
-            <SafeImg src={fileUrl(main.path)} alt={title} className="aspect-[16/10] w-full bg-canvas object-cover" />
+            <SafeImg src={fileUrl(main.path, 1200)} alt={title} className="aspect-[16/10] w-full bg-canvas object-cover" />
             {photos.length > 1 && (
               <div className="flex gap-2 overflow-x-auto p-2">
                 {photos.map((p, i) => (
                   <Link key={p.id} href={`${path}?photo=${p.id}`} scroll={false} className={cn("relative shrink-0 rounded-md", p.id === main.id && "ring-2 ring-navy-900")}>
                     { }
-                    <SafeImg src={fileUrl(p.path)} alt="" className="size-16 rounded-md object-cover" loading="lazy" />
+                    <SafeImg src={fileUrl(p.path, 160)} alt="" className="size-16 rounded-md object-cover" loading="lazy" />
                     {i === 0 && <span className="absolute bottom-0.5 left-0.5 rounded bg-black/60 px-1 text-[9px] font-medium text-white">Cover</span>}
                   </Link>
                 ))}

@@ -17,7 +17,7 @@ import { SORTS, defaultViewFor, viewQuery } from "./entry-view-prefs";
 import { QuickProof } from "./quick-proof";
 
 export type EntrySP = { sort?: string; party?: string; tag?: string; bill?: string; copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
-const PAGE = 100;
+const PAGE = 50;
 
 /** The entries list (all, or Sir personal) with filters, totals and the add/edit panel. */
 export async function EntriesView({ user, sp, personal, base }: { user: SessionUser; sp: EntrySP; personal: boolean; base: string }) {

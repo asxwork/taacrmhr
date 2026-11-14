@@ -6,7 +6,8 @@ import Link from "next/link";
 import { ChevronDown, CircleHelp, PlayCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type HelpItem = { key: string; title: string; summary: string; steps: string[]; tips?: string[]; paths: string[]; video?: string };
+export type HelpItem = { key: string; title: string; summary: string; paths: string[]; video?: string };
+type Steps = Record<string, { steps: string[]; tips: string[] }>;
 
 const clean = (p: string) => p.split("?")[0]!.split("#")[0]!.replace(/\/+$/, "") || "/";
 
@@ -19,6 +20,7 @@ export function PageHelp({ items }: { items: HelpItem[] }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [showSteps, setShowSteps] = useState(false);
+  const [steps, setSteps] = useState<Steps>({});
   // Best match: exact page first, then the closest parent page (/hr/payroll/payslips → /hr/payroll).
   const matches = useMemo(() => {
     let best = -1;
@@ -40,6 +42,13 @@ export function PageHelp({ items }: { items: HelpItem[] }) {
     document.addEventListener("keydown", key);
     return () => document.removeEventListener("keydown", key);
   }, [open]);
+  // Written steps are fetched when they're shown (not sent with every page).
+  const needSteps = open && (showSteps || !matches.some((t) => t.video));
+  const missing = matches.filter((t) => !steps[t.key]).map((t) => t.key).join(",");
+  useEffect(() => {
+    if (!needSteps || !missing) return;
+    fetch(`/api/help?keys=${missing}`).then((r) => (r.ok ? r.json() : [])).then((rows: { key: string; steps: string[]; tips: string[] }[]) => setSteps((s) => ({ ...s, ...Object.fromEntries(rows.map((r) => [r.key, { steps: r.steps, tips: r.tips }])) }))).catch(() => {});
+  }, [needSteps, missing]);
   if (!matches.length) return null;
 
   return (
@@ -87,8 +96,10 @@ export function PageHelp({ items }: { items: HelpItem[] }) {
                   <section key={t.key}>
                     <h3 className="font-medium">{t.title}</h3>
                     <p className="mb-2 text-sm text-muted">{t.summary}</p>
-                    <ol className="list-decimal space-y-1.5 pl-5 text-sm">{t.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
-                    {t.tips?.length ? <ul className="mt-2 space-y-1 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{t.tips.map((s, i) => <li key={i}>💡 {s}</li>)}</ul> : null}
+                    {steps[t.key] ? <>
+                      <ol className="list-decimal space-y-1.5 pl-5 text-sm">{steps[t.key]!.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
+                      {steps[t.key]!.tips.length ? <ul className="mt-2 space-y-1 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{steps[t.key]!.tips.map((s, i) => <li key={i}>💡 {s}</li>)}</ul> : null}
+                    </> : <p className="text-xs text-muted">Loading…</p>}
                   </section>
                 ))}
               </div>

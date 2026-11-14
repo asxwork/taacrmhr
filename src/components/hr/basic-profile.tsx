@@ -27,7 +27,7 @@ export function BasicProfile({ emp, back }: { emp: Emp; back: { href: string; la
         <div className="flex flex-wrap items-center gap-4">
           {emp.photo
              
-            ? <SafeImg src={fileUrl(emp.photo)} alt="" className="size-16 rounded-full object-cover" />
+            ? <SafeImg src={fileUrl(emp.photo, 160)} alt="" className="size-16 rounded-full object-cover" />
             : <span className="flex size-16 items-center justify-center rounded-full bg-navy-900 text-lg font-semibold text-white">{initials}</span>}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-semibold">{emp.fullName}</h1>

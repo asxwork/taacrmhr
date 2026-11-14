@@ -144,7 +144,7 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
                   <a href={fileUrl(p.path)} target="_blank" rel="noreferrer" className="block">
                     {isImage(p.path)
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={fileUrl(p.path)} alt={p.name} className="h-36 w-full bg-canvas object-cover" />
+                      ? <img loading="lazy" src={fileUrl(p.path, 400)} alt={p.name} className="h-36 w-full bg-canvas object-cover" />
                       : <span className="flex h-36 flex-col items-center justify-center gap-1 bg-canvas text-muted"><FileText className="size-8" /><span className="text-xs">PDF</span></span>}
                     <span className="block truncate px-2 py-1.5 text-xs">{p.name}</span>
                     <span className="block px-2 pb-1.5 text-[10px] text-muted">{who(p.createdById ?? null)} · {format(p.createdAt, "d MMM")}</span>

@@ -118,6 +118,11 @@ body {
   border-radius: 6px;
 }
 
+/* Phones: every text box 16px, even ones styled smaller, so iPhones never zoom the page when you tap a field. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, textarea { font-size: 16px !important; }
+}
+
 /* Touch screens: controls grow to ~44px so they're easy to hit. */
 @media (pointer: coarse) {
   .input { min-height: 2.75rem; }

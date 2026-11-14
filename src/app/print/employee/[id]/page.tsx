@@ -52,7 +52,7 @@ export default async function ProfileCard({ params }: { params: Promise<{ id: st
           </div>
           {emp.photo ? (
              
-            <SafeImg src={fileUrl(emp.photo)} alt="" className="-mb-1 mt-4 size-24 rounded-full border-4 border-[#d4b26a] object-cover" />
+            <SafeImg src={fileUrl(emp.photo, 400)} alt="" className="-mb-1 mt-4 size-24 rounded-full border-4 border-[#d4b26a] object-cover" />
           ) : (
             <div className="mt-4 flex size-24 items-center justify-center rounded-full border-4 border-[#d4b26a] bg-slate-100 text-2xl font-semibold">{emp.fullName.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>
           )}

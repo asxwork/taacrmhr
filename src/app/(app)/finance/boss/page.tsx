@@ -191,7 +191,7 @@ export default async function BossFinance({ searchParams }: { searchParams: Prom
             <li key={e.id} className="flex items-center gap-4 px-4 py-3">
               <Link href={`/finance/entries/${e.id}`} className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-canvas">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {proof ? isImage(proof) ? <img src={fileUrl(proof)} alt="" className="size-full object-cover" /> : <FileText className="size-6 text-muted" /> : <span className="text-center text-[10px] leading-tight text-red-600">No<br />bill</span>}
+                {proof ? isImage(proof) ? <img loading="lazy" src={fileUrl(proof, 160)} alt="" className="size-full object-cover" /> : <FileText className="size-6 text-muted" /> : <span className="text-center text-[10px] leading-tight text-red-600">No<br />bill</span>}
               </Link>
               <div className="min-w-0 flex-1"><Link href={`/finance/entries/${e.id}`} className="block truncate font-medium hover:underline">{e.description}</Link><p className="truncate text-xs text-muted">{format(e.date, "d MMM")} · {e.account.name} → {e.party || "—"} · {e.category ? (e.category.parent?.name ?? e.category.name) : ""}</p></div>
               <span className="text-right font-semibold tabular-nums">{pkr(e.amount)}</span>

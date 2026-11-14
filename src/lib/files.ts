@@ -48,4 +48,5 @@ export function resolveUpload(rel: string) {
   return abs.startsWith(UPLOAD_ROOT + path.sep) ? abs : null;
 }
 
-export const fileUrl = (rel: string) => `/api/files/${rel}`;
+/** Link to an upload; `w` asks for a smaller copy of a photo (64, 160, 400, 800 or 1200 px wide). */
+export const fileUrl = (rel: string, w?: number) => `/api/files/${rel}${w ? `?w=${w}` : ""}`;

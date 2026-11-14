@@ -124,7 +124,7 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
                         ) : null}
                         {p.photo ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <a href={fileUrl(p.photo)} target="_blank" rel="noreferrer" title="Selfie" className="ml-2 inline-block align-middle"><img src={fileUrl(p.photo)} alt="Selfie" className="size-9 rounded-full object-cover ring-2 ring-emerald-200" /></a>
+                          <a href={fileUrl(p.photo)} target="_blank" rel="noreferrer" title="Selfie" className="ml-2 inline-block align-middle"><img src={fileUrl(p.photo, 160)} loading="lazy" alt="Selfie" className="size-9 rounded-full object-cover ring-2 ring-emerald-200" /></a>
                         ) : null}
                         {p.source !== "web" && !p.photo && <span className="text-muted">—</span>}
                       </td>

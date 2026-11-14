@@ -62,7 +62,7 @@ export async function MyEmployment({ userId, tab }: { userId: string; tab?: stri
                       <a href={fileUrl(doc.path)} target="_blank" rel="noreferrer" className="mb-2 block">
                         {/\.(jpe?g|png|webp)$/i.test(doc.path)
                            
-                          ? <SafeImg src={fileUrl(doc.path)} alt={label} className="h-24 w-full rounded-md object-cover" />
+                          ? <SafeImg src={fileUrl(doc.path, 400)} alt={label} className="h-24 w-full rounded-md object-cover" />
                           : <span className="flex h-24 items-center justify-center rounded-md bg-canvas text-xs text-muted"><FileText className="mr-1 size-4" /> PDF</span>}
                       </a>
                     ) : <p className="mb-2 flex h-24 items-center justify-center rounded-md bg-canvas text-xs text-muted">Not uploaded</p>}

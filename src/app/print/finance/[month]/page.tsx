@@ -84,7 +84,7 @@ export default async function FinanceReport({ params, searchParams }: { params: 
           <div className="grid grid-cols-3 gap-3">{images.map(({ e, path }) => (
             <figure key={e.id} className="break-inside-avoid rounded border border-gray-200 p-1.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={fileUrl(path)} alt="" className="h-40 w-full object-contain" />
+              <img src={fileUrl(path, 800)} alt="" className="h-40 w-full object-contain" />
               <figcaption className="mt-1 text-[10px] leading-tight text-gray-600">{format(e.date, "d MMM")} · {pkr(e.amount)} · {e.description.slice(0, 60)}</figcaption>
             </figure>
           ))}</div>

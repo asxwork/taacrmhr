@@ -62,11 +62,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="app-wallpaper min-h-screen" data-sidebar={sidebarMode(current.layout, collapsed)}>
       <NavProgress />
       {/* "?" help button: the guide for the page you're on, from the sections you use. */}
-      <PageHelp items={visibleTutorials(user).filter((t) => t.href || t.paths?.length).map((t) => ({ key: t.key, title: t.title, summary: t.summary, steps: t.steps, tips: t.tips, paths: [...(t.href ? [t.href] : []), ...(t.paths ?? [])], video: videos[t.key] ? videoUrl(t.key) : undefined }))} />
+      <PageHelp items={visibleTutorials(user).filter((t) => t.href || t.paths?.length).map((t) => ({ key: t.key, title: t.title, summary: t.summary, paths: [...(t.href ? [t.href] : []), ...(t.paths ?? [])], video: videos[t.key] ? videoUrl(t.key) : undefined }))} />
       <Sidebar
         apps={apps}
         initialApp={current.key as AppKey}
-        user={{ name: user.name, roles: user.roleNames.join(", ") || "No role", branch: user.branchName, photo: myPhoto ? fileUrl(myPhoto) : null }}
+        user={{ name: user.name, roles: user.roleNames.join(", ") || "No role", branch: user.branchName, photo: myPhoto ? fileUrl(myPhoto, 160) : null }}
         unread={unread[0]}
         urgent={unread[1]}
         initiallyCollapsed={collapsed}
