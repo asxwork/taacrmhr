@@ -41,4 +41,7 @@ export const FINANCE_TUTORIALS: Tutorial[] = [
   F({ key: "fin-payroll", title: "Payroll link (salaries counted once)", who: "Finance team", href: "/finance/payroll",
     summary: "Each approved HR payroll month next to the salaries already entered in Finance.",
     steps: ["Check HR payroll net and Salaries already in Finance for the month.", "If part was paid in cash and already entered, only the rest is suggested.", "Choose the account it was paid from and click Record.", "Attach the bank transfer sheet on the entry."] }),
+  F({ key: "fin-cashcount", title: "Day-end cash count", who: "Bushra, branch cash holders", href: "/finance/cash-count",
+    summary: "Count the cash at the end of the day and compare it with what AMS calculated.",
+    steps: ["Count the cash in the drawer.", "Type the amount on your card and Save count.", "If it's different, write the reason; tick Book the difference to record it.", "Differences of Rs 1,000+ notify the approvers."] }),
 ];

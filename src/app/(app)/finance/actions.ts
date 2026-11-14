@@ -389,3 +389,29 @@ export async function recordPayroll(_: FormState, fd: FormData): Promise<FormSta
   revalidatePath("/finance/payroll");
   return { ok: true, message: `Recorded ${pkr(amount)}. Attach the bank transfer sheet on the entry.` };
 }
+
+/** Day-end cash count: what was physically counted vs what AMS calculated. A difference can be booked as cash short / extra. */
+export async function saveCashCount(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "create");
+  const accountId = str(fd, "accountId");
+  const counted = parseFloat(str(fd, "counted").replace(/,/g, ""));
+  if (!accountId) return { error: "Choose whose cash you counted." };
+  if (Number.isNaN(counted)) return { error: "Enter the cash you counted." };
+  const h = (await balances()).find((a) => a.id === accountId);
+  if (!h) return { error: "Holder not found." };
+  const diff = Math.round((counted - h.balance) * 100) / 100;
+  const note = str(fd, "note").slice(0, 300) || null;
+  if (diff !== 0 && !note) return { error: `Counted cash is ${pkr(Math.abs(diff))} ${diff < 0 ? "less" : "more"} than AMS shows. Write the reason (e.g. forgot to enter a bill).` };
+  await db.finCashCount.create({ data: { accountId, date: new Date(), counted, expected: h.balance, note, createdById: user.id } });
+  if (diff !== 0 && fd.get("book") === "on") {
+    const misc = await db.finCategory.findFirst({ where: { parentId: null, name: "Miscellaneous" } });
+    await db.finEntry.create({ data: diff < 0
+      ? { kind: "expense", amount: -diff, date: new Date(), accountId, categoryId: misc?.id ?? null, description: `Cash short at count: ${note}`, createdById: user.id }
+      : { kind: "in", amount: diff, date: new Date(), accountId, description: `Extra cash at count: ${note}`, createdById: user.id } });
+  }
+  if (Math.abs(diff) >= 1000) for (const uid of await financeApproverIds()) if (uid !== user.id) await notify(uid, `Cash count difference: ${h.name} ${diff < 0 ? "short" : "extra"} ${pkr(Math.abs(diff))}`, { body: note ?? undefined, link: "/finance/cash-count" });
+  await audit(user.id, "create", "finAccount", accountId, `Cash count ${h.name}: counted ${pkr(counted)}, AMS ${pkr(h.balance)}${diff ? ` (${diff < 0 ? "short" : "extra"} ${pkr(Math.abs(diff))})` : " — matches"}`);
+  refresh();
+  revalidatePath("/finance/cash-count");
+  return { ok: true, message: diff === 0 ? "Matches exactly." : `Saved with a difference of ${pkr(Math.abs(diff))}.` };
+}
