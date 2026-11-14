@@ -8,7 +8,7 @@ import { TutorialsView, type Chapter } from "@/components/tutorials-view";
 export const metadata = { title: "Tutorials" };
 
 /** Tutorials: the full video tour with chapters and step-by-step guides for everything (opened from the ? in the menu). */
-const GROUPS: Record<string, string> = { start: "Getting started", crm: "CRM", calls: "Calls", hr: "HR", me: "My Space", admin: "Admin" };
+const GROUPS: Record<string, string> = { start: "Getting started", crm: "CRM", calls: "Calls", hr: "HR", finance: "Finance", me: "My Space", admin: "Admin" };
 
 /** Super Admins see everything; others see tutorials (and video chapters) for what their role can use. */
 export default async function HelpPage({ searchParams }: { searchParams: Promise<{ g?: string }> }) {

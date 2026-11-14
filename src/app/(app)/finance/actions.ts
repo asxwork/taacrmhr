@@ -345,3 +345,24 @@ export async function mergePayees(_: FormState, fd: FormData): Promise<FormState
   revalidatePath("/finance/payees");
   return { ok: true, message: `${r.count} entries now say “${to}”.` };
 }
+
+/** Pay an approved HR expense claim in cash from a holder: records the expense (with the claim's receipt) and marks the claim paid so payroll skips it. */
+export async function payClaim(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "create");
+  const c = await db.expense.findUnique({ where: { id: str(fd, "id") }, include: { employee: true } });
+  const accountId = str(fd, "accountId");
+  if (!c || c.status !== "approved" || c.runId) return { error: "This claim is no longer waiting for payment." };
+  if (!accountId) return { error: "Choose who pays it." };
+  const { categoryForClaim } = await import("@/lib/finance");
+  const e = await db.finEntry.create({ data: {
+    kind: "expense", amount: c.amount, date: new Date(), accountId, categoryId: await categoryForClaim(c.category), description: `Claim: ${c.category}${c.description ? ` — ${c.description}` : ""} (${c.employee.fullName})`,
+    party: c.employee.fullName, sourceType: "expense", sourceId: c.id, createdById: user.id,
+  } });
+  if (c.receipt) await db.finProof.create({ data: { entryId: e.id, path: c.receipt, name: "Claim receipt", createdById: user.id } });
+  await db.expense.update({ where: { id: c.id }, data: { status: "paid" } });
+  if (c.employee.userId) await notify(c.employee.userId, `Your ${c.category} claim of ${pkr(c.amount)} was paid`, { link: "/me/expenses" });
+  await audit(user.id, "create", "finEntry", e.id, `Paid claim of ${c.employee.fullName}: ${pkr(c.amount)}`);
+  refresh();
+  revalidatePath("/finance/claims");
+  return { ok: true, message: `Paid ${pkr(c.amount)} to ${c.employee.fullName}.` };
+}

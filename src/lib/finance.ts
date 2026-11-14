@@ -188,3 +188,16 @@ export const cleanTags = (raw: string) => [...new Set(raw.split(",").map((t) => 
 export const tagList = (tags: string | null) => (tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : []);
 /** Same payee written differently: "K-Electric", "k electric", "KElectric " all match. */
 export const payeeKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Finance category for an HR expense claim category. */
+export async function categoryForClaim(claimCategory: string) {
+  const map: Record<string, [string, string?]> = {
+    Fuel: ["Employee & HR", "Conveyance"], Travel: ["Employee & HR", "Conveyance"], "Site visit": ["Employee & HR", "Conveyance"],
+    "Client meeting": ["Entertainment", "Guest Lunches/Dinners"], "Mobile / internet": ["Facilities & Office", "Utilities"],
+    "Office supplies": ["Facilities & Office", "Stationery"], Marketing: ["Marketing"], Other: ["Miscellaneous"],
+  };
+  const [main, sub] = map[claimCategory] ?? ["Miscellaneous"];
+  const m = await db.finCategory.findFirst({ where: { parentId: null, name: main } });
+  if (!m) return null;
+  return (sub && (await db.finCategory.findFirst({ where: { parentId: m.id, name: sub } }))?.id) || m.id;
+}

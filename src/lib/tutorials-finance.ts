@@ -1,0 +1,41 @@
+// Finance app guides (shown in the ? help on each Finance page and on the Tutorials page). Client-safe.
+import type { Tutorial } from "./tutorials";
+
+const F = (t: Omit<Tutorial, "group">): Tutorial => ({ group: "Finance", module: "finance", ...t });
+
+export const FINANCE_TUTORIALS: Tutorial[] = [
+  F({ key: "fin-boss", module: "finance.boss", title: "Boss view", who: "Owner, Super Admin", href: "/finance/boss",
+    summary: "All company money on one screen: where it is, where it went, and whether there is a bill for it.",
+    steps: ["Opens on the last complete month; use the arrows to change month.", "Top row: cash in hand, cash with branches, what the company owes staff, what you put in.", "Proof score shows how much spending has a bill. Click it to see the entries without one.", "Needs your attention lists big expenses without a bill and possible double entries.", "In the 10 biggest expenses, look at the bill and click Mark checked."] }),
+  F({ key: "fin-dashboard", title: "Finance dashboard", who: "Finance team", href: "/finance",
+    summary: "Spending by category for the month and the year, who spent, who was paid, and every money holder's balance.",
+    steps: ["Change the month with the arrows.", "Click a category to see its entries.", "Red banners warn about low cash, approvals waiting and expenses without a bill."] }),
+  F({ key: "fin-entries", title: "Add an expense, money in or transfer", who: "Finance team", href: "/finance/entries", paths: ["/finance/entries", "/finance/personal"],
+    summary: "Every rupee in one list. Expense = spent, Money in = received, Transfer = moved between two people (not spending).",
+    steps: ["Click Expense, Money in or Transfer.", "Enter date, amount, who paid, category and paid to.", "Take a photo of the bill or choose the file.", "Save. The entry shows No proof until a bill is attached.", "To repeat last month's bill, click the copy icon on that row and change date, amount and bill."],
+    tips: ["Transfers (e.g. Bushra gives Samad Rs 6,000) never count as spending, so nothing is counted twice."] }),
+  F({ key: "fin-entry", title: "One transaction and its proof", who: "Finance team, owner", paths: ["/finance/entries/"],
+    summary: "Where the money came from, who paid, who received it, the bills, and every change.",
+    steps: ["Open any entry from the list.", "Where the money went shows the trail step by step.", "Add more proof with Take photo or Choose files.", "The boss clicks “I checked the proof” after looking at the bill."] }),
+  F({ key: "fin-holders", title: "Money holders, top-ups and paying back", who: "Finance team", href: "/finance/holders",
+    summary: "Everyone who holds company cash, with live balances, per office.",
+    steps: ["Add a holder: name, type, office (e.g. Bahadurabad) and low cash alert.", "Request top-up when petty cash runs low; the approver approves it.", "Pay back: when someone paid from their own pocket, record the repayment."] }),
+  F({ key: "fin-approvals", module: "finance", action: "approve", title: "Approve big expenses and top-ups", who: "Owner, approvers", href: "/finance/approvals",
+    summary: "Expenses above the limit wait here and don't count until approved.",
+    steps: ["Open the entry to see its bill.", "Click Approve, or write a reason and Reject.", "The person who entered it gets a notification."] }),
+  F({ key: "fin-bills", title: "Monthly bills", who: "Finance team", href: "/finance/bills",
+    summary: "K-Electric, rent, internet, Meta: see what is paid and due, and record this month's payment in one click.",
+    steps: ["Add bill, or open a past payment and click Make it a monthly bill.", "Each month click Record payment, check the amount and attach the bill.", "Approvers get a reminder 3 days before the due date."] }),
+  F({ key: "fin-claims", title: "Pay staff claims", who: "Finance team", href: "/finance/claims",
+    summary: "Staff claim from My Space → Expenses with a photo; after HR approves, pay here in cash or leave for payroll.",
+    steps: ["Choose who pays from the list.", "Click Pay in cash. The claim's bill is attached as proof automatically.", "The employee gets a notification; payroll will not pay it again."] }),
+  F({ key: "fin-payees", title: "Payees", who: "Finance team", href: "/finance/payees",
+    summary: "Who the company pays and how much in total.",
+    steps: ["Click a payee to see all its payments.", "Merge the same name spelled differently (Qasim / qasim)."] }),
+  F({ key: "fin-budgets", module: "finance.settings", title: "Budgets", who: "Owner, finance manager", href: "/finance/budgets",
+    summary: "A monthly limit per category with alerts at 80% and 100%.",
+    steps: ["Type a monthly amount next to each category (the 3-month average helps).", "Save budgets. Bars turn amber at 80% and red when over."] }),
+  F({ key: "fin-settings", module: "finance.settings", action: "edit", title: "Finance settings and month close", who: "Owner, Super Admin", href: "/finance/settings", paths: ["/finance/categories", "/finance/import"],
+    summary: "Proof limit, approval limit, closing a month, categories and Excel import.",
+    steps: ["Set Proof is required from (e.g. Rs 5,000).", "Set Needs approval from (e.g. Rs 50,000).", "After checking a month, close it so nobody can change it."] }),
+];

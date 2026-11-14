@@ -1,9 +1,11 @@
 // Tutorials (Help page): how to do everything in AMS, in plain steps. `chapter` links a topic to its part of the
 // full video tour (public/tutorials/chapters.json). Client-safe.
 
+import { FINANCE_TUTORIALS } from "./tutorials-finance";
+
 export type Tutorial = {
   key: string;
-  group: "Getting started" | "CRM" | "Calls" | "HR" | "My Space" | "Admin";
+  group: "Getting started" | "CRM" | "Calls" | "HR" | "Finance" | "My Space" | "Admin";
   title: string;
   who: string;
   summary: string;
@@ -19,7 +21,7 @@ export type Tutorial = {
   module?: string; action?: import("./rbac").Action; superAdmin?: boolean;
 };
 
-export const TUTORIAL_GROUPS = ["Getting started", "CRM", "Calls", "HR", "My Space", "Admin"] as const;
+export const TUTORIAL_GROUPS = ["Getting started", "CRM", "Calls", "HR", "Finance", "My Space", "Admin"] as const;
 
 export const TUTORIALS: Tutorial[] = [
   // ── Getting started
@@ -818,4 +820,5 @@ export const TUTORIALS: Tutorial[] = [
       "Company & Branches → Sample data loads or removes demo data for training.",
     ],
   },
+  ...FINANCE_TUTORIALS,
 ];

@@ -2170,12 +2170,16 @@ model FinEntry {
   recurringId String?
   /// Free labels across categories, comma separated (e.g. "DHA office, Skyline project").
   tags        String?
+  /// Created from another app: expense (HR claim) | loan (HR advance/loan) | payroll (HR payroll month) | payable | bank
+  sourceType  String?
+  sourceId    String?
   proofs      FinProof[]
   createdById String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   @@index([date])
+  @@index([sourceType, sourceId])
   @@index([accountId])
   @@index([categoryId])
 }
@@ -2237,4 +2241,54 @@ model FinTopup {
   createdAt     DateTime   @default(now())
 
   @@index([status])
+}
+
+/// Day-end cash count of a holder: what was physically counted vs what AMS calculated.
+model FinCashCount {
+  id          String     @id @default(cuid())
+  accountId   String
+  date        DateTime
+  counted     Float
+  expected    Float
+  note        String?
+  createdById String?
+  createdAt   DateTime   @default(now())
+
+  @@index([accountId, date])
+}
+
+/// A supplier bill not paid yet (what the company owes a vendor). status: open | paid | cancelled
+model FinPayable {
+  id          String    @id @default(cuid())
+  party       String
+  description String
+  amount      Float
+  billDate    DateTime
+  dueDate     DateTime?
+  categoryId  String?
+  proof       String?
+  status      String    @default("open")
+  entryId     String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  @@index([party])
+  @@index([status])
+}
+
+/// One line of an uploaded bank / JazzCash / Easypaisa statement, matched to an entry.
+model FinBankLine {
+  id          String    @id @default(cuid())
+  accountId   String
+  date        DateTime
+  description String
+  amount      Float
+  /// out = money left the account, in = money came in
+  direction   String
+  entryId     String?
+  ignored     Boolean   @default(false)
+  importKey   String    @unique
+  createdAt   DateTime  @default(now())
+
+  @@index([accountId, date])
 }
