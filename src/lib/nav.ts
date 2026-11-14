@@ -47,6 +47,7 @@ export const APPS: AppDef[] = [
       {
         label: "Leads", icon: "target",
         items: [
+          { href: "/crm/my-day", label: "My day", icon: "sparkles", module: "crm.leads" },
           { href: "/crm/leads", label: "All leads", icon: "target", module: "crm.leads" },
           { href: "/crm/leads?owner=me", label: "My leads", icon: "user", module: "crm.leads" },
           { href: "/crm/follow-ups", label: "Follow-ups", icon: "alarm", module: "crm.leads" },

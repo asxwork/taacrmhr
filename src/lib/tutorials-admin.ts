@@ -4,6 +4,9 @@ import type { Tutorial } from "./tutorials";
 const A = (t: Omit<Tutorial, "group">): Tutorial => ({ group: "Admin", ...t });
 
 export const ADMIN_EXTRA_TUTORIALS: Tutorial[] = [
+  { key: "my-day", group: "CRM", module: "crm.leads", title: "My day (agents)", who: "Agents", href: "/crm/my-day",
+    summary: "Everything to do today on one screen: overdue, due today, site visits, callbacks, new leads and hot leads without a next step.",
+    steps: ["Open CRM → Leads → My day each morning (the morning notification opens it too).", "Work from the top: overdue first. Tap the phone or WhatsApp icon to contact the client.", "Open the lead to log what happened and plan the next follow-up.", "The circle shows how much of today is done."] },
   A({ key: "roles-matrix", module: "settings.roles", title: "Access permissions (roles)", who: "Super Admin, admins", href: "/settings/roles",
     summary: "Roles across the top, every app's sections down the side. Click a pill to change what a role can do.",
     steps: ["Find a section with the search box (e.g. Finance, Payroll).", "Click the section to open its actions: Read, Add, Edit, Delete, Approve…", "Click a pill to choose None, Own, Team, Branch or All. It saves at once.", "Click + under a role to choose who has it."] }),
