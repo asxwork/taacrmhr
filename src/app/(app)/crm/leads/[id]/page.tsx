@@ -1,3 +1,4 @@
+import { leadScoreParts, scoreLabel } from "@/lib/lead-score";
 import Link from "@/components/link";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
@@ -86,6 +87,19 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
     </Link>
   );
 
+  // Lead score (Hot / Warm / Cold) and why.
+  const score = await (async () => {
+    const statuses = await db.leadStatus.findMany({ where: { active: true, kind: "open" }, orderBy: { sortOrder: "asc" }, select: { id: true } });
+    const [rates, done, visit, nextAct] = await Promise.all([
+      (await import("@/lib/lead-score-data")).sourceRates(),
+      db.activity.count({ where: { leadId: lead.id, doneAt: { not: null } } }),
+      db.activity.count({ where: { leadId: lead.id, type: "visit", OR: [{ doneAt: { not: null } }, { checkInAt: { not: null } }] } }),
+      db.activity.findFirst({ where: { leadId: lead.id, doneAt: null, dueAt: { not: null } }, orderBy: { dueAt: "asc" }, select: { dueAt: true } }),
+    ]);
+    return leadScoreParts({ kind: lead.status.kind, stageIndex: Math.max(0, statuses.findIndex((s) => s.id === lead.statusId)), stageCount: statuses.length, createdAt: lead.createdAt, lastActivityAt: lead.lastActivityAt,
+      hasBudget: !!(lead.budgetMin || lead.budgetMax), hasProperty: !!(lead.projectId || lead.unitId), nextDue: nextAct?.dueAt ?? null, sourceRate: lead.sourceId ? rates.get(lead.sourceId) ?? null : null,
+      doneActivities: done, visited: visit > 0, fullContact: !!(lead.phone && lead.email) });
+  })();
   return (
     <>
       <Link href="/crm/leads" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
@@ -186,6 +200,10 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
             ) : (
               <dl className="space-y-3.5">
                 <Row label="Stage">{lead.status.name}</Row>
+                <Row label="Lead score">
+                  <span title={score.why.join("\n")} className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold", score.score >= 60 ? "bg-red-50 text-red-700" : score.score >= 35 ? "bg-amber-50 text-amber-700" : "bg-canvas text-muted")}>{scoreLabel(score.score)} · {score.score}/100</span>
+                  {score.why.length > 0 && <span className="mt-1 block text-[11px] leading-snug text-muted">{score.why.join(" · ")}</span>}
+                </Row>
                 <Row label="Client name">{lead.name}</Row>
                 <Row label="Phone">{phoneItems.length > 0 && <ContactValues items={phoneItems} />}</Row>
                 <Row label="E-mail">{emailItems.length > 0 && <ContactValues items={emailItems} />}</Row>

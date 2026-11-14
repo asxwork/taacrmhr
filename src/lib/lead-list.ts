@@ -6,7 +6,7 @@ import { scopeMatcher, scopeWhere } from "./permissions";
 import { LEAD_FILTER_KEYS, leadWhere, type LeadFilters } from "./lead-filters";
 import type { SessionUser } from "./auth";
 import { fieldAccess } from "./field-rules";
-import { leadScore } from "./lead-score";
+import { leadScoreParts } from "./lead-score";
 import { maskPhone, shown } from "./field-defs";
 import { telHref, waHref } from "./crm-shared";
 
@@ -32,8 +32,9 @@ export type LeadRow = {
   reshuffleCount: number | null;
   editable: boolean;
   next: NextActivity | null;
-  /** Lead score 0–100 (lib/lead-score.ts). */
+  /** Lead score 0–100 (lib/lead-score.ts) and why. */
   score: number;
+  scoreWhy: string[];
 };
 
 export type NextActivity = { subject: string; due: string; late: boolean; owner: string | null };
@@ -83,6 +84,16 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
     orderBy: { dueAt: "asc" },
   })) if (a.leadId && !next.has(a.leadId)) { next.set(a.leadId, nextActivity(a)); nextDue.set(a.leadId, a.dueAt!); }
 
+  // Score inputs: how each source converts, and how engaged each lead on this page is.
+  const { sourceRates } = await import("./lead-score-data");
+  const rates = await sourceRates();
+  const ids = leads.map((l) => l.id);
+  const [doneCounts, visits] = await Promise.all([
+    db.activity.groupBy({ by: ["leadId"], where: { leadId: { in: ids }, doneAt: { not: null } }, _count: true }),
+    db.activity.findMany({ where: { leadId: { in: ids }, type: "visit", OR: [{ doneAt: { not: null } }, { checkInAt: { not: null } }] }, select: { leadId: true }, distinct: ["leadId"] }),
+  ]);
+  const visited = new Set(visits.map((v) => v.leadId));
+
   return {
     total,
     page,
@@ -105,11 +116,12 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
       reshuffleCount: l.reshuffledAt ? l.reshuffleCount : null,
       editable: canEditRow(l),
       next: next.get(l.id) ?? null,
-      score: leadScore({
+      ...(() => { const r = leadScoreParts({
         kind: statuses.find((s) => s.id === l.statusId)?.kind ?? "open", stageIndex: Math.max(0, openIds.indexOf(l.statusId)), stageCount: openIds.length,
         createdAt: l.createdAt, lastActivityAt: l.lastActivityAt, hasBudget: !!(l.budgetMin || l.budgetMax), hasProperty: !!(l.projectId || l.unitId),
-        nextDue: nextDue.get(l.id) ?? null,
-      }),
+        nextDue: nextDue.get(l.id) ?? null, sourceRate: l.sourceId ? rates.get(l.sourceId) ?? null : null,
+        doneActivities: doneCounts.find((d) => d.leadId === l.id)?._count ?? 0, visited: visited.has(l.id), fullContact: !!(l.phone && l.email),
+      }); return { score: r.score, scoreWhy: r.why }; })(),
     })),
   };
 }
