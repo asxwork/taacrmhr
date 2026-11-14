@@ -320,6 +320,7 @@ export const APPS: AppDef[] = [
           { href: "/finance/advances", label: "Advances & loans", icon: "card", module: "finance" },
           { href: "/finance/payroll", label: "Payroll link", icon: "banknote", module: "finance" },
           { href: "/finance/payees", label: "Payees", icon: "users", module: "finance" },
+          { href: "/finance/vendors", label: "Supplier bills", icon: "file", module: "finance" },
           { href: "/finance/bills", label: "Monthly bills", icon: "calendar", module: "finance" },
           { href: "/finance/approvals", label: "Approvals", icon: "check", module: "finance", action: "approve" },
           { href: "/finance/personal", label: "Sir personal", icon: "crown", module: "finance.personal" },

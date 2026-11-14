@@ -448,3 +448,47 @@ export async function giveAdvance(_: FormState, fd: FormData): Promise<FormState
   revalidatePath("/finance/advances");
   return { ok: true, message: `Paid ${pkr(loan.amount)} to ${loan.employee.fullName}.` };
 }
+
+/** A supplier bill not paid yet (what the company owes a vendor). */
+export async function savePayable(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "create");
+  const party = await samePayee(str(fd, "party").slice(0, 120));
+  const amount = parseFloat(str(fd, "amount").replace(/,/g, "")) || 0;
+  const billDate = new Date(`${str(fd, "billDate")}T12:00:00`);
+  const due = str(fd, "dueDate") ? new Date(`${str(fd, "dueDate")}T12:00:00`) : null;
+  if (!party) return { error: "Who is the supplier?" };
+  if (!(amount > 0)) return { error: "Enter the bill amount." };
+  if (Number.isNaN(billDate.getTime())) return { error: "Enter the bill date." };
+  let proof: string | null = null;
+  const f = [...fd.getAll("proofs"), ...fd.getAll("photo")].find((x): x is File => x instanceof File && x.size > 0);
+  if (f) { const r = await saveUpload(f, "finance", { maxBytes: 10_000_000, allowPdf: true }); if ("error" in r) return { error: r.error }; proof = r.path; }
+  const p = await db.finPayable.create({ data: { party, description: str(fd, "description").slice(0, 200) || "Bill", amount, billDate, dueDate: due, categoryId: str(fd, "categoryId") || null, proof, createdById: user.id } });
+  await audit(user.id, "create", "finEntry", p.id, `Supplier bill from ${party}: ${pkr(amount)}`);
+  revalidatePath("/finance/vendors");
+  return { ok: true, message: `Bill from ${party} saved.` };
+}
+
+/** Pay a supplier bill: records the expense (bill attached as proof) and closes the bill. */
+export async function payPayable(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "create");
+  const p = await db.finPayable.findUnique({ where: { id: str(fd, "id") } });
+  const accountId = str(fd, "accountId");
+  if (!p || p.status !== "open") return { error: "This bill is not open." };
+  if (!accountId) return { error: "Choose who pays it." };
+  const e = await db.finEntry.create({ data: { kind: "expense", amount: p.amount, date: new Date(), accountId, categoryId: p.categoryId, description: `${p.description} (${p.party})`, party: p.party, sourceType: "payable", sourceId: p.id, createdById: user.id } });
+  if (p.proof) await db.finProof.create({ data: { entryId: e.id, path: p.proof, name: "Supplier bill", createdById: user.id } });
+  await db.finPayable.update({ where: { id: p.id }, data: { status: "paid", entryId: e.id } });
+  await audit(user.id, "create", "finEntry", e.id, `Paid ${p.party} bill ${pkr(p.amount)}`);
+  refresh();
+  revalidatePath("/finance/vendors");
+  return { ok: true, message: `Paid ${pkr(p.amount)} to ${p.party}.` };
+}
+
+export async function cancelPayable(fd: FormData) {
+  const user = await requirePermission("finance", "delete");
+  const p = await db.finPayable.findUnique({ where: { id: str(fd, "id") } });
+  if (!p || p.status !== "open") return;
+  await db.finPayable.update({ where: { id: p.id }, data: { status: "cancelled" } });
+  await audit(user.id, "delete", "finEntry", p.id, `Cancelled ${p.party} bill ${pkr(p.amount)}`);
+  revalidatePath("/finance/vendors");
+}

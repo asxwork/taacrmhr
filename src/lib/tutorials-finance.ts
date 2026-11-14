@@ -47,4 +47,7 @@ export const FINANCE_TUTORIALS: Tutorial[] = [
   F({ key: "fin-advances", title: "Advances and loans to staff", who: "Finance team", href: "/finance/advances",
     summary: "Give an advance, see what's repaid and what's left. Installments come off salary automatically.",
     steps: ["Choose the employee, amount, monthly installment and the first salary month.", "Choose who pays it out and click Give advance.", "Loans approved in HR show here: click Pay to record the payout.", "Repaid and Left update after each payroll."] }),
+  F({ key: "fin-vendors", title: "Supplier bills", who: "Finance team", href: "/finance/vendors",
+    summary: "Bills received but not paid yet, what is owed to each supplier, and a statement per supplier.",
+    steps: ["Add a supplier bill with amount, date, due date and a photo of the bill.", "When you pay, choose who pays and click Pay: the bill becomes the proof.", "Click a supplier to see all its bills and payments."] }),
 ];
