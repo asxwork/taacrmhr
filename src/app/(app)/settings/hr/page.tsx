@@ -50,7 +50,7 @@ export default async function HrSettingsPage({ searchParams }: { searchParams: P
   const editDesig = editKind === "designation" && editId !== "new" ? designations.find((d) => d.id === editId) : undefined;
   return (
     <>
-      <PageHeader title="HR Settings" description="Pick a topic. Each one is a short page with only what it needs." actions={user.isSuperAdmin && <><LinkButton href="/settings/layouts?app=hr" variant="secondary"><LayoutTemplate className="size-4" /> HR layouts</LinkButton><LinkButton href="/settings/layouts?app=me" variant="secondary"><LayoutTemplate className="size-4" /> My Space layouts</LinkButton></>} />
+      <PageHeader title="HR Settings" description="Pick a topic. Each one is a short page with only what it needs." actions={user.isSuperAdmin && <><LinkButton href="/hr/settings/layouts" variant="secondary"><LayoutTemplate className="size-4" /> HR &amp; My Space layouts</LinkButton></>} />
       <nav aria-label="HR settings" className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {TABS.map(([t, label, sub]) => (
           <Link key={t} href={t === "general" ? "/settings/hr" : `/settings/hr?tab=${t}`}

@@ -114,6 +114,20 @@ export const APPS: AppDef[] = [
           { href: "/reports/agents", label: "Agent performance", icon: "award", superAdmin: true },
         ],
       },
+      {
+        label: "Settings", icon: "settings",
+        items: [
+          sub("CRM settings", [
+            { href: "/settings/crm", label: "Lead statuses", icon: "list", module: "settings.company" },
+            { href: "/settings/crm#unit-holds", label: "Unit holds", icon: "building", module: "settings.company" },
+            { href: "/settings/crm#on-hold-rules", label: "On-hold rules", icon: "timer", module: "settings.company" },
+            { href: "/settings/crm#deal-pipelines", label: "Deal pipelines", icon: "handshake", module: "settings.company" },
+            { href: "/settings/crm#lead-sources", label: "Lead sources", icon: "target", module: "settings.company" },
+          ], "sliders"),
+          { href: "/crm/automations", label: "Lead automations", icon: "workflow", superAdmin: true },
+          { href: "/crm/settings/layouts", label: "Layouts", icon: "layout", superAdmin: true },
+        ],
+      },
     ],
   },
   {
@@ -340,6 +354,7 @@ export const APPS: AppDef[] = [
           sub("Customization", [
             { href: "/hr/settings/custom-fields", label: "Custom Fields", icon: "list", module: "settings.company" },
             { href: "/hr/settings/dashboard", label: "Dashboard", icon: "layout", module: "settings.company" },
+            { href: "/hr/settings/layouts", label: "Layouts (HR & My Space)", icon: "layout", superAdmin: true },
           ], "sliders"),
           sub("Templates", [
             { href: "/hr/settings/notification-templates", label: "Notification", icon: "bell", module: "settings.company" },
@@ -411,6 +426,7 @@ export const APPS: AppDef[] = [
             { href: "/finance/settings", label: "Settings", icon: "settings", module: "finance.settings", action: "edit" },
             { href: "/finance/categories", label: "Categories", icon: "list", module: "finance.settings", action: "edit" },
             { href: "/finance/import", label: "Import Excel", icon: "sheet", module: "finance", action: "import" },
+            { href: "/finance/layouts", label: "Layouts", icon: "layout", superAdmin: true },
           ], "settings"),
         ],
       },
@@ -419,7 +435,7 @@ export const APPS: AppDef[] = [
   {
     key: "boss", name: "Boss dashboard", description: "The whole business at a glance", icon: "crown", tile: "from-amber-400 to-orange-600",
     home: "/boss", prefixes: ["/boss"], layout: "list",
-    groups: [{ items: [{ href: "/boss", label: "Boss dashboard", icon: "crown", boss: true }, { href: "/finance/boss", label: "Finance", icon: "wallet", module: "finance.boss" }] }],
+    groups: [{ items: [{ href: "/boss", label: "Boss dashboard", icon: "crown", boss: true }, { href: "/finance/boss", label: "Finance", icon: "wallet", module: "finance.boss" }, { href: "/boss/layouts", label: "Layouts", icon: "layout", superAdmin: true }] }],
   },
   {
     // Tutorials app: everyone sees the tutorials for what their role can use; Super Admins see all of it.
@@ -480,7 +496,6 @@ export const APPS: AppDef[] = [
             { href: "/settings/crm#lead-sources", label: "Lead sources", icon: "target", module: "settings.company" },
           ], "sliders"),
           { href: "/crm/automations", label: "Lead automations", icon: "workflow", superAdmin: true },
-          { href: "/settings/layouts?app=crm", label: "CRM layouts", icon: "layout", superAdmin: true },
         ],
       },
       {
@@ -494,15 +509,12 @@ export const APPS: AppDef[] = [
             { href: "/settings/hr?tab=approvals", label: "Approvals", icon: "check", module: "hr.employees" },
           ], "clipboard"),
           { href: "/settings/hr-import", label: "Import HR data", icon: "sheet", superAdmin: true },
-          { href: "/settings/layouts?app=hr", label: "HR layouts", icon: "layout", superAdmin: true },
-          { href: "/settings/layouts?app=me", label: "My Space layouts", icon: "layout", superAdmin: true },
         ],
       },
       {
         label: "Finance", icon: "wallet",
         items: [
           { href: "/finance/settings", label: "Finance settings", icon: "settings", module: "finance.settings", action: "edit" },
-          { href: "/settings/layouts?app=finance", label: "Finance layouts", icon: "layout", superAdmin: true },
         ],
       },
       {
@@ -510,12 +522,7 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/settings/layouts", label: "All layouts", icon: "layout", superAdmin: true },
           { href: "/settings/layouts?app=home", label: "Start page & app tiles", icon: "apps", superAdmin: true },
-          { href: "/settings/layouts?app=crm", label: "CRM", icon: "target", superAdmin: true },
-          { href: "/settings/layouts?app=hr", label: "HR", icon: "users", superAdmin: true },
-          { href: "/settings/layouts?app=me", label: "My Space", icon: "user", superAdmin: true },
-          { href: "/settings/layouts?app=finance", label: "Finance", icon: "wallet", superAdmin: true },
-          { href: "/settings/layouts?app=boss", label: "Boss", icon: "crown", superAdmin: true },
-          { href: "/settings/layouts?app=settings", label: "Settings", icon: "settings", superAdmin: true },
+          { href: "/settings/layouts?app=settings", label: "Settings app", icon: "settings", superAdmin: true },
         ],
       },
       {

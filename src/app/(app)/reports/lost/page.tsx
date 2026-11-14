@@ -42,8 +42,10 @@ export default async function LostReasonsPage({ searchParams }: { searchParams: 
       <PageHeader title="Lost-reason analysis" description={`${format(from, "d MMM yyyy")} – ${format(to, "d MMM yyyy")} · why deals are lost and leads are closed`} />
       <AutoFilterForm className="mb-6 flex flex-wrap items-end gap-2">
         <select name="period" defaultValue={sp.period ?? "month"} className="input w-40">{PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</select>
+        {sp.period === "custom" && (<>
         <input type="date" name="from" defaultValue={sp.period === "custom" ? sp.from : ""} className="input w-40" aria-label="From (custom)" />
         <input type="date" name="to" defaultValue={sp.period === "custom" ? sp.to : ""} className="input w-40" aria-label="To (custom)" />
+        </>)}
       </AutoFilterForm>
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[["Deals lost", String(deals.length)], ["Value lost", fmtPKR(lostValue)], ["Win rate", winRate == null ? "—" : `${winRate}%`], ["Leads closed", String(leads.length)]].map(([k, v]) => (

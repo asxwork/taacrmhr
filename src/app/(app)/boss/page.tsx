@@ -41,8 +41,10 @@ export default async function BossPage({ searchParams }: { searchParams: Promise
           <select name="period" defaultValue={sp.period ?? "month"} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Period">
             {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
+          {sp.period === "custom" && (<>
           <input type="date" name="from" defaultValue={sp.period === "custom" ? sp.from : ""} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="From (custom)" />
           <input type="date" name="to" defaultValue={sp.period === "custom" ? sp.to : ""} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="To (custom)" />
+          </>)}
         </AutoFilterForm>
       </div>
 

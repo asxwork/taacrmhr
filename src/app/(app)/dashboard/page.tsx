@@ -22,33 +22,12 @@ export default async function DashboardPage() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
-  const modules = NAV.flatMap((g) => g.items.filter((i) => i.module && g.label !== "Settings" && can(user, i.module)).map((i) => ({ ...i, group: g.label })));
-
-  const stats = user.isSuperAdmin
-    ? await Promise.all([db.user.count({ where: { active: true } }), db.role.count(), db.branch.count({ where: { active: true } }), db.leadSource.count({ where: { active: true } })])
-    : null;
+  // CRM home: shortcuts to CRM screens only (other apps have their own homes).
+  const modules = NAV.filter((g) => g.label === "CRM").flatMap((g) => g.items.flatMap((i) => i.children ?? [i]).filter((i) => i.module && can(user, i.module, i.action ?? "view")).map((i) => ({ ...i, group: g.label })));
 
   return (
     <>
       <PageHeader eyebrow={new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} title={`${greeting}, ${firstName}`} description={`${user.roleNames.join(", ") || "No role assigned"}${user.branchName ? ` · ${user.branchName} branch` : ""}`} />
-
-      {stats && (
-        <div className="stagger mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            ["Active users", stats[0], "/settings/users"],
-            ["Roles", stats[1], "/settings/roles"],
-            ["Branches", stats[2], "/settings/company"],
-            ["Lead sources", stats[3], "/settings/company"],
-          ].map(([label, value, href]) => (
-            <Link key={label as string} href={href as string}>
-              <Card className="p-4 transition hover:border-navy-900/20">
-                <p className="text-xs text-muted">{label}</p>
-                <p className="mt-1 text-2xl font-semibold">{value}</p>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      )}
 
       <TodayAttendance userId={user.id} />
       {can(user, "crm.targets") && !featureOff && <MyTargets userId={user.id} />}

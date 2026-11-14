@@ -186,10 +186,10 @@ export function Sidebar({ apps, initialApp, user, unread, urgent = 0, initiallyC
 
   const footer = (rail: boolean) => (
     <div className="border-t border-white/10 p-3">
-      <div className={cn("flex items-center", rail ? "flex-col gap-1" : "gap-1 px-1")}>
+      <div className={cn("flex items-center", rail ? "flex-col gap-1" : "flex-wrap gap-1 px-1")}>
         {/* Name and photo open My profile — the same profile in every app. */}
         <Link href="/profile" onClick={() => setOpen(false)} title={rail ? `${user.name} · ${user.roles} · My profile` : "My profile"} aria-label="My profile"
-          className={cn("flex min-w-0 items-center rounded-lg transition-colors hover:bg-white/10", rail ? "flex-col p-0.5" : "flex-1 gap-2.5 p-1")}>
+          className={cn("flex min-w-0 items-center rounded-lg transition-colors hover:bg-white/10", rail ? "flex-col p-0.5" : "basis-full gap-2.5 p-1")}>
           {user.photo
             ? <SafeImg src={user.photo} alt="" className="size-9 shrink-0 rounded-full object-cover ring-2 ring-gold-400/30" />
             : <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gold-400/15 text-[11px] font-semibold text-gold-300">{initials(user.name)}</span>}
@@ -307,7 +307,7 @@ export function Sidebar({ apps, initialApp, user, unread, urgent = 0, initiallyC
                 {appSwitcher(false)}
                 {searchButton(false)}
                 {/* A one-page module (Dashboard) has no sub-menu: the rail icon is the link. */}
-                {shownModule && shownModule.items.length > 1 ? navList(false, [shownModule]) : <div className="flex-1" />}
+                {shownModule && shownModule.items.length > 1 ? navList(false, [shownModule]) : navList(false, [{ label: "Go to", items: groups.filter((g) => g !== shownModule).map((g) => { const first = g.items[0]!.children?.[0] ?? g.items[0]!; return { ...first, label: g.label ?? first.label, icon: g.icon ?? first.icon, children: undefined }; }) }])}
                 {footer(false)}
               </div>
             )}
@@ -378,7 +378,7 @@ export function Sidebar({ apps, initialApp, user, unread, urgent = 0, initiallyC
           return (
             <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn("flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] transition-colors", active ? "font-medium text-navy-900" : "text-muted")}>
               <Icon className={cn("size-5", active && "text-gold-600")} />
-              <span className="max-w-full truncate px-1">{item.label.split(" & ")[0]!.replace(/^My /, "")}</span>
+              <span className="max-w-full truncate px-1">{item.label.split(" & ")[0]!.replace(/^(HR|CRM) /, "")}</span>
             </Link>
           );
         })}

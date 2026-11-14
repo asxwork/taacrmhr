@@ -42,7 +42,8 @@ export async function saveLayout(_: FormState, fd: FormData): Promise<FormState>
   else await db.layoutProfile.create({ data: { ...data, sortOrder: await db.layoutProfile.count() } });
   await audit(user.id, id ? "update" : "create", "layout", id || data.name, `Layout ${data.name}`);
   revalidatePath("/", "layout");
-  redirect(`/settings/layouts?app=${appKey}`);
+  const back = ["/settings/layouts", "/crm/settings/layouts", "/hr/settings/layouts", "/finance/layouts", "/boss/layouts"].includes(str(fd, "back")) ? str(fd, "back") : "/settings/layouts";
+  redirect(`${back}?app=${appKey}`);
 }
 
 export async function deleteLayout(fd: FormData) {

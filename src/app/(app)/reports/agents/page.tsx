@@ -50,8 +50,10 @@ export default async function AgentPerformancePage({ searchParams }: { searchPar
         <select name="period" defaultValue={sp.period ?? "month"} className="input w-40">
           {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
+        {sp.period === "custom" && (<>
         <input type="date" name="from" defaultValue={sp.period === "custom" ? sp.from : ""} className="input w-40" aria-label="From (custom)" />
         <input type="date" name="to" defaultValue={sp.period === "custom" ? sp.to : ""} className="input w-40" aria-label="To (custom)" />
+        </>)}
         {branches.length > 1 && (
           <select name="branch" defaultValue={sp.branch ?? ""} className="input w-40">
             <option value="">All branches</option>

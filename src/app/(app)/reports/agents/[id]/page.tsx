@@ -52,8 +52,10 @@ export default async function AgentDetailPage({ params, searchParams }: { params
         <select name="period" defaultValue={sp.period ?? "month"} className="input w-40">
           {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
+        {sp.period === "custom" && (<>
         <input type="date" name="from" defaultValue={sp.period === "custom" ? sp.from : ""} className="input w-40" aria-label="From (custom)" />
         <input type="date" name="to" defaultValue={sp.period === "custom" ? sp.to : ""} className="input w-40" aria-label="To (custom)" />
+        </>)}
       </AutoFilterForm>
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">

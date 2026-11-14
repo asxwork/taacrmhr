@@ -16,7 +16,7 @@ export async function MyTargets({ userId }: { userId: string }) {
         <span className="text-sm font-semibold tabular-nums">{pct == null ? "No targets set" : `${pct}% done`}</span>
         <Link href="/reports/targets" className="text-xs font-medium text-navy-900 hover:underline">Leaderboard →</Link>
       </div>
-      <TargetBars p={p} />
+      {pct == null ? <p className="text-sm text-muted">No targets for this month yet. Your manager sets them in Reports → Targets.</p> : <TargetBars p={p} />}
     </Card>
   );
 }
