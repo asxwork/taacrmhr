@@ -203,3 +203,33 @@ export async function categoryForClaim(claimCategory: string) {
   if (!m) return null;
   return (sub && (await db.finCategory.findFirst({ where: { parentId: m.id, name: sub } }))?.id) || m.id;
 }
+
+export type CheckRow = { id: string; date: Date; description: string; amount: number; account: string; why: string };
+/** Warnings worth a look for a month (never blocking): unusual amounts, Sundays/holidays, round cash without a bill, the same payee paid twice in a week, late entries, possible double entries. */
+export async function financeChecks(from: Date, to: Date) {
+  const rows = await db.finEntry.findMany({ where: { status: "approved", kind: "expense", personal: false, date: { gte: from, lte: to } }, include: { account: true, _count: { select: { proofs: true } } }, orderBy: { date: "asc" } });
+  const history = await db.finEntry.groupBy({ by: ["party"], where: { status: "approved", kind: "expense", party: { in: [...new Set(rows.map((r) => r.party).filter((p): p is string => !!p))] }, date: { gte: new Date(from.getTime() - 180 * 86400000), lt: from } }, _avg: { amount: true }, _count: true });
+  const holidays = await db.holiday.findMany({ where: { date: { gte: from, lte: to } } });
+  const day = (d: Date) => d.toISOString().slice(0, 10);
+  const holi = new Map(holidays.map((h) => [day(h.date), h.name]));
+  const row = (r: (typeof rows)[number], why: string): CheckRow => ({ id: r.id, date: r.date, description: r.description, amount: r.amount, account: r.account.name, why });
+  const hasProof = (r: (typeof rows)[number]) => !!r.receipt || r._count.proofs > 0;
+  const unusual: CheckRow[] = [], offDay: CheckRow[] = [], roundCash: CheckRow[] = [], repeat: CheckRow[] = [], late: CheckRow[] = [];
+  // Salaries, overtime and allowances change every month by design: not "unusual".
+  const payLike = (r: (typeof rows)[number]) => /salar|overtime|allowance|commission|advance|loan/i.test(r.description);
+  for (const r of rows) {
+    const h = r.party && !payLike(r) ? history.find((x) => x.party === r.party) : null;
+    if (h && h._count >= 3 && h._avg.amount && r.amount > h._avg.amount * 1.6 && r.amount - h._avg.amount > 2000) unusual.push(row(r, `${Math.round((r.amount / h._avg.amount - 1) * 100)}% more than usual for ${r.party} (avg ${pkr(h._avg.amount)})`));
+    if (r.date.getDay() === 0 || holi.has(day(r.date))) offDay.push(row(r, r.date.getDay() === 0 ? "On a Sunday" : `On a holiday (${holi.get(day(r.date))})`));
+    if (r.amount >= 5000 && r.amount % 1000 === 0 && !hasProof(r) && !payLike(r)) roundCash.push(row(r, "Round amount with no bill"));
+    if (!r.importKey && r.createdAt.getTime() - r.date.getTime() > 7 * 86400000) late.push(row(r, `Entered ${Math.round((r.createdAt.getTime() - r.date.getTime()) / 86400000)} days after the date`));
+  }
+  const byParty = new Map<string, typeof rows>();
+  for (const r of rows) if (r.party && r.amount >= 2000 && !payLike(r)) byParty.set(r.party.toLowerCase(), [...(byParty.get(r.party.toLowerCase()) ?? []), r]);
+  for (const list of byParty.values()) for (let i = 1; i < list.length; i++) {
+    const a = list[i - 1]!, b = list[i]!;
+    if (b.date.getTime() - a.date.getTime() <= 7 * 86400000 && Math.abs(a.amount - b.amount) < 1) repeat.push(row(b, `${b.party} paid ${pkr(b.amount)} again within a week (also ${a.date.toDateString().slice(4, 10)})`));
+  }
+  const dups = findDuplicates(rows).map((g) => row(g[1]!, `${g.length} entries: same person, amount, day and description`));
+  return { unusual, offDay, roundCash, repeat, late, dups, total: unusual.length + offDay.length + roundCash.length + repeat.length + late.length + dups.length };
+}

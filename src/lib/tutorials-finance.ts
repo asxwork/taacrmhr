@@ -50,4 +50,7 @@ export const FINANCE_TUTORIALS: Tutorial[] = [
   F({ key: "fin-vendors", title: "Supplier bills", who: "Finance team", href: "/finance/vendors",
     summary: "Bills received but not paid yet, what is owed to each supplier, and a statement per supplier.",
     steps: ["Add a supplier bill with amount, date, due date and a photo of the bill.", "When you pay, choose who pays and click Pay: the bill becomes the proof.", "Click a supplier to see all its bills and payments."] }),
+  F({ key: "fin-checks", title: "Checks (things worth a second look)", who: "Owner, finance manager", href: "/finance/checks",
+    summary: "Unusual amounts, double entries, the same payee paid twice in a week, round cash without a bill, Sundays/holidays and late entries.",
+    steps: ["Choose the month.", "Open any entry to see its bill and details.", "These are warnings only: many will be fine, some will catch mistakes."] }),
 ];

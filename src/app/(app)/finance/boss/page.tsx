@@ -3,7 +3,7 @@ import { addMonths, differenceInCalendarMonths, endOfMonth, format, parse, start
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Copy, FileText, Landmark, Megaphone, ShieldCheck, Users, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
-import { balances, categoryTree, findDuplicates, lakh, pkr, PROOF_WHERE } from "@/lib/finance";
+import { balances, categoryTree, financeChecks, findDuplicates, lakh, pkr } from "@/lib/finance";
 import { fileUrl } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { Card, PageHeader } from "@/components/ui";
@@ -51,6 +51,7 @@ export default async function BossFinance({ searchParams }: { searchParams: Prom
   const proofMonth = proofAmt(monthYearRows), proofYear = proofAmt(yearRows);
   const bigNoProof = yearRows.filter((r) => r.amount >= 50000 && !hasProof(r)).sort((a, b) => b.amount - a.amount);
   const dups = findDuplicates(monthYearRows);
+  const checks = await financeChecks(mFrom, mTo);
 
   const cashInHand = holders.filter((h) => h.kind !== "owner" && !h.branch && h.balance > 0).reduce((s, h) => s + h.balance, 0);
   const branchCash = holders.filter((h) => h.branch && h.balance > 0).reduce((s, h) => s + h.balance, 0);
@@ -101,7 +102,7 @@ export default async function BossFinance({ searchParams }: { searchParams: Prom
       {/* Alerts */}
       {(bigNoProof.length > 0 || dups.length > 0) && (
         <Card className="mb-6 border-red-200 p-5">
-          <h2 className="mb-3 flex items-center gap-2 font-semibold text-red-700"><AlertTriangle className="size-4" /> Needs your attention</h2>
+          <h2 className="mb-3 flex items-center gap-2 font-semibold text-red-700"><AlertTriangle className="size-4" /> Needs your attention{checks.total > 0 && <Link href={`/finance/checks?month=${mk}`} className="ml-auto text-sm font-medium text-navy-900 hover:underline">{checks.total} checks for {format(month, "MMMM")} →</Link>}</h2>
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {bigNoProof.length > 0 && (
               <div>
