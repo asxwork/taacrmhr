@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Briefcase, PhoneCall, ShieldCheck, Target, Wallet } from "lucide-react";
+import { headers } from "next/headers";
+import { Briefcase, Download, PhoneCall, ShieldCheck, Target, Wallet } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { login, requestPasswordReset } from "./actions";
 import { LoginForm } from "./login-form";
@@ -15,6 +16,7 @@ const APPS = [
 ];
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ idle?: string; password?: string }> }) {
+  const inApp = /AMSApp\//.test((await headers()).get("user-agent") ?? "");
   if (await getCurrentUser().catch(() => null)) redirect("/home");
   const sp = await searchParams;
   const reason = sp.idle ? "You were signed out after a period of inactivity." : null;
@@ -62,7 +64,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           {reason && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{reason}</p>}
           {sp.password === "set" && <p role="status" className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Password set. You can sign in now.</p>}
           <LoginForm action={login} resetAction={requestPasswordReset} />
-          <p className="mt-10 text-center text-xs text-muted">© {new Date().getFullYear()} The Advisor Associates · <Link href="/privacy" className="hover:underline">Privacy</Link> · <Link href="/terms" className="hover:underline">Terms</Link></p>
+          {!inApp && <p className="mt-8 text-center sm:hidden"><a href="/app/AMS.apk" className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm text-navy-900 hover:bg-canvas"><Download className="size-4" /> Get the Android app</a></p>}
+          <p className="mt-6 text-center text-xs text-muted">© {new Date().getFullYear()} The Advisor Associates · <Link href="/privacy" className="hover:underline">Privacy</Link> · <Link href="/terms" className="hover:underline">Terms</Link></p>
         </div>
       </section>
     </main>
