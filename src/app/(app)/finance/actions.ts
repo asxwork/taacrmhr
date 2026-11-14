@@ -366,3 +366,26 @@ export async function payClaim(_: FormState, fd: FormData): Promise<FormState> {
   revalidatePath("/finance/claims");
   return { ok: true, message: `Paid ${pkr(c.amount)} to ${c.employee.fullName}.` };
 }
+
+/** Record a paid HR payroll month in Finance as one salary expense (only the part not already entered by hand). */
+export async function recordPayroll(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "create");
+  const run = await db.payrollRun.findUnique({ where: { id: str(fd, "id") } });
+  const accountId = str(fd, "accountId");
+  const amount = parseFloat(str(fd, "amount").replace(/,/g, "")) || 0;
+  if (!run) return { error: "Payroll month not found." };
+  if (!accountId) return { error: "Choose the account the salaries were paid from." };
+  if (!(amount > 0)) return { error: "Nothing to record." };
+  if (await db.finEntry.findFirst({ where: { sourceType: "payroll", sourceId: run.id } })) return { error: "This month is already recorded." };
+  const main = await db.finCategory.findFirst({ where: { parentId: null, name: "Employee & HR" } });
+  const sal = main && (await db.finCategory.findFirst({ where: { parentId: main.id, name: "Salaries" } }));
+  const [y, m] = run.month.split("-").map(Number);
+  const e = await db.finEntry.create({ data: {
+    kind: "expense", amount, date: run.paidAt ?? new Date(y!, m!, 0, 12), accountId, categoryId: sal?.id ?? main?.id ?? null,
+    description: `Salaries ${run.month} (HR payroll)`, party: "Staff salaries", sourceType: "payroll", sourceId: run.id, createdById: user.id,
+  } });
+  await audit(user.id, "create", "finEntry", e.id, `Recorded payroll ${run.month} in Finance: ${pkr(amount)}`);
+  refresh();
+  revalidatePath("/finance/payroll");
+  return { ok: true, message: `Recorded ${pkr(amount)}. Attach the bank transfer sheet on the entry.` };
+}
