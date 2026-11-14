@@ -21,7 +21,7 @@ export default async function LetterPrint({ params }: { params: Promise<{ id: st
       <style>{`@page { size: A4; margin: 18mm } body { background: #fff !important }`}</style>
       <div className="mb-8 flex items-center justify-between print:hidden">
         <p className="text-sm text-slate-500">{l.title} · issued {format(l.issuedAt, "d MMM yyyy")}</p>
-        <PrintButton />
+        <PrintButton target="main" fileName={`${l.title} ${l.employee.fullName}`} dark />
       </div>
       <header className="mb-10 flex items-center justify-between border-b-2 border-[#d4b26a] pb-4">
         {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset */}

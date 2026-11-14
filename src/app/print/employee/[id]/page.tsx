@@ -39,8 +39,8 @@ export default async function ProfileCard({ params }: { params: Promise<{ id: st
     <main className="mx-auto max-w-3xl bg-white p-8 text-[#0a223c] print:p-0">
       <style>{`@page { size: A4; margin: 14mm } body { background: #fff !important }`}</style>
       <div className="mb-6 flex items-center justify-between print:hidden">
-        <p className="text-sm text-slate-500">Print or choose “Save as PDF” to download.</p>
-        <PrintButton />
+        <p className="text-sm text-slate-500">Profile card</p>
+        <PrintButton target="main" fileName={`Profile card ${emp.fullName}`} dark />
       </div>
 
       <div className="mb-8 flex flex-wrap justify-center gap-6">

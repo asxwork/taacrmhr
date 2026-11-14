@@ -534,7 +534,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       "Open HR → People → Settings → Letter Management and choose a template, or edit the wording.",
       "Pick the employee: the letter fills in their name, designation, dates and salary from their record.",
-      "Issue it: it's saved on their profile (Documents) and opens on the letterhead to print or save as PDF.",
+      "Issue it: it's saved on their profile (Documents) and opens on the letterhead with Print and Download PDF buttons.",
     ],
   },
   {

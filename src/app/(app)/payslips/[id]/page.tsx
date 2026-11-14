@@ -12,7 +12,7 @@ import { resendPayslip } from "@/app/(app)/hr/payroll/payslip-actions";
 export const metadata = { title: "Payslip" };
 const n = (v: number) => Math.round(v).toLocaleString("en-PK");
 
-/** Printable payslip in the company format (Ctrl+P / "Save as PDF"). Employees see their own once the run is approved. */
+/** Printable payslip in the company format (Print, or Download PDF). Employees see their own once the run is approved. */
 export default async function PayslipPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
@@ -34,7 +34,7 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
             <SubmitButton variant="secondary" pendingText="Sending…"><Mail className="size-4" /> {slip.emailedAt ? "Email again" : "Email to employee"}</SubmitButton>
           </ActionForm>
         )}
-        <PrintButton />
+        <PrintButton target="article.print-sheet" fileName={`Payslip ${d.month}`} />
       </div>
       <article className="print-sheet overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
         <header className="flex flex-wrap items-start justify-between gap-4 bg-navy-950 px-8 py-6 text-white print:bg-white print:text-black">
