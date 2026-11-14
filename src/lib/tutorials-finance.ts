@@ -59,4 +59,7 @@ export const FINANCE_TUTORIALS: Tutorial[] = [
   F({ key: "fin-quick", title: "Add an expense from your phone", who: "Bushra, branch staff", href: "/finance/quick",
     summary: "Photo of the bill, amount, tap a category, save — about 10 seconds.",
     steps: ["Open Finance → Add expense (phone), or hold the AMS icon on your home screen and pick Add expense.", "Tap Take a photo of the bill.", "Type the amount and tap a category.", "Check Paid by, write Paid to, and tap Save expense."] }),
+  F({ key: "fin-bank", title: "Match the bank / JazzCash statement", who: "Finance team", href: "/finance/bank",
+    summary: "Upload the statement and see money that moved with no entry, and entries with no bank line.",
+    steps: ["Add the bank (or JazzCash / Easypaisa) account as a money holder of type Bank account.", "Download the statement as Excel or CSV and upload it here for that account.", "Lines are matched automatically (same amount, within 3 days).", "For a line with no entry, choose a category and click Add entry, or Ignore it."] }),
 ];

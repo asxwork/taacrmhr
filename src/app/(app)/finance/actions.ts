@@ -494,3 +494,41 @@ export async function cancelPayable(fd: FormData) {
   await audit(user.id, "delete", "finEntry", p.id, `Cancelled ${p.party} bill ${pkr(p.amount)}`);
   revalidatePath("/finance/vendors");
 }
+
+/** Upload a bank / JazzCash / Easypaisa statement (Excel or CSV) for a holder and match it to entries. */
+export async function uploadStatement(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance", "import");
+  const accountId = str(fd, "accountId");
+  const file = fd.get("file");
+  if (!accountId) return { error: "Choose the account this statement is for." };
+  if (!(file instanceof File) || !file.size) return { error: "Choose the statement file (.xlsx or .csv)." };
+  if (!/\.(xlsx|csv)$/i.test(file.name)) return { error: "Save the statement as Excel (.xlsx) or CSV first." };
+  try {
+    const { readStatement, importStatement } = await import("@/lib/finance-bank");
+    const lines = await readStatement(file.name, await file.arrayBuffer());
+    if (!lines.length) return { error: "No transactions found in the file." };
+    const r = await importStatement(accountId, lines);
+    await audit(user.id, "import", "finImport", accountId, `Bank statement ${file.name}: ${r.added} new lines, ${r.matched} matched`);
+    revalidatePath("/finance/bank");
+    return { ok: true, message: `${lines.length} lines read · ${r.added} new · ${r.matched} matched to entries.` };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not read the file." };
+  }
+}
+
+/** A bank line with no entry: create the entry from it, or ignore it (e.g. bank charges already counted). */
+export async function bankLineAction(fd: FormData) {
+  const user = await requirePermission("finance", "create");
+  const l = await db.finBankLine.findUnique({ where: { id: str(fd, "id") } });
+  if (!l || l.entryId) return;
+  if (str(fd, "op") === "ignore") await db.finBankLine.update({ where: { id: l.id }, data: { ignored: true } });
+  else if (str(fd, "op") === "rematch") { const { matchLines } = await import("@/lib/finance-bank"); await matchLines(l.accountId); }
+  else {
+    const e = await db.finEntry.create({ data: l.direction === "out"
+      ? { kind: "expense", amount: l.amount, date: l.date, accountId: l.accountId, categoryId: str(fd, "categoryId") || null, description: l.description, sourceType: "bank", sourceId: l.id, createdById: user.id }
+      : { kind: "in", amount: l.amount, date: l.date, accountId: l.accountId, description: l.description, sourceType: "bank", sourceId: l.id, createdById: user.id } });
+    await db.finBankLine.update({ where: { id: l.id }, data: { entryId: e.id } });
+    await audit(user.id, "create", "finEntry", e.id, `Entry from bank line: ${l.description} ${pkr(l.amount)}`);
+  }
+  revalidatePath("/finance/bank");
+}
