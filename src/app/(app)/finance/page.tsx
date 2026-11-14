@@ -3,16 +3,18 @@ import { addMonths, endOfMonth, format, parse, startOfMonth, startOfYear, subMon
 import { ArrowDownLeft, Clock, ChevronLeft, ChevronRight, Crown, FileWarning, TrendingDown, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
-import { balances, categoryTree, ensureFinanceDefaults, pkr, PROOF_WHERE } from "@/lib/finance";
+import type { Prisma } from "@prisma/client";
+import { balances, categoryTree, ensureFinanceDefaults, financeLimit, holderLimit, officeNames, officeWhere, pkr, PROOF_WHERE } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { Card, PageHeader } from "@/components/ui";
 import { BarList } from "@/components/charts";
 import { LineChart } from "@/components/line-chart";
+import { OfficeSwitch } from "./office-switch";
 
 export const metadata = { title: "Finance" };
 
 /** Finance dashboard: where the money went this month and this year, who spent it, and who holds what. */
-export default async function FinanceDashboard({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+export default async function FinanceDashboard({ searchParams }: { searchParams: Promise<{ month?: string; office?: string }> }) {
   const user = await requirePermission("finance");
   const seePersonal = can(user, "finance.personal");
   await ensureFinanceDefaults();
@@ -22,22 +24,31 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
   const mFrom = startOfMonth(month), mTo = endOfMonth(month), yFrom = startOfYear(month);
   const range = (from: Date, to: Date) => ({ gte: from, lte: to });
   const trendFrom = startOfMonth(subMonths(month, 11));
+  // Office filter and the user's own limit (branch staff see only their office).
+  const extra = [officeWhere(sp.office), financeLimit(user)].filter((x): x is Prisma.FinEntryWhereInput => !!x);
+  const X: Prisma.FinEntryWhereInput = extra.length ? { AND: extra } : {};
+  const offices = await officeNames();
 
   const [tree, monthByCat, yearByCat, inMonth, personalMonth, byHolder, byParty, trend, holders] = await Promise.all([
     categoryTree(),
-    db.finEntry.groupBy({ by: ["categoryId"], where: { status: "approved", kind: "expense", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
-    db.finEntry.groupBy({ by: ["categoryId"], where: { status: "approved", kind: "expense", personal: false, date: range(yFrom, mTo) }, _sum: { amount: true } }),
-    db.finEntry.aggregate({ where: { status: "approved", kind: "in", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
-    db.finEntry.aggregate({ where: { status: "approved", kind: "expense", personal: true, date: range(mFrom, mTo) }, _sum: { amount: true } }),
-    db.finEntry.groupBy({ by: ["accountId"], where: { status: "approved", kind: "expense", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
-    db.finEntry.groupBy({ by: ["party"], where: { status: "approved", kind: "expense", personal: false, date: range(mFrom, mTo), party: { not: null } }, _sum: { amount: true }, orderBy: { _sum: { amount: "desc" } }, take: 8 }),
-    db.finEntry.findMany({ where: { status: "approved", kind: "expense", date: range(trendFrom, mTo) }, select: { date: true, amount: true, personal: true } }),
+    db.finEntry.groupBy({ by: ["categoryId"], where: { ...X, status: "approved", kind: "expense", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
+    db.finEntry.groupBy({ by: ["categoryId"], where: { ...X, status: "approved", kind: "expense", personal: false, date: range(yFrom, mTo) }, _sum: { amount: true } }),
+    db.finEntry.aggregate({ where: { ...X, status: "approved", kind: "in", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
+    db.finEntry.aggregate({ where: { ...X, status: "approved", kind: "expense", personal: true, date: range(mFrom, mTo) }, _sum: { amount: true } }),
+    db.finEntry.groupBy({ by: ["accountId"], where: { ...X, status: "approved", kind: "expense", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
+    db.finEntry.groupBy({ by: ["party"], where: { ...X, status: "approved", kind: "expense", personal: false, date: range(mFrom, mTo), party: { not: null } }, _sum: { amount: true }, orderBy: { _sum: { amount: "desc" } }, take: 8 }),
+    db.finEntry.findMany({ where: { ...X, status: "approved", kind: "expense", date: range(trendFrom, mTo) }, select: { date: true, amount: true, personal: true } }),
     balances(),
-  ]);
-  const pendingApproval = await db.finEntry.aggregate({ where: { status: "pending" }, _count: true, _sum: { amount: true } });
+  ]).then(async (r) => {
+    const hl = holderLimit(user);
+    const ok = hl ? new Set((await db.finAccount.findMany({ where: hl, select: { id: true } })).map((a) => a.id)) : null;
+    r[8] = r[8].filter((h) => (!ok || ok.has(h.id)) && (!sp.office || (sp.office === "head" ? !h.branch : h.branch === sp.office)));
+    return r;
+  });
+  const pendingApproval = await db.finEntry.aggregate({ where: { ...X, status: "pending" }, _count: true, _sum: { amount: true } });
   const [noProof, noProofYear] = await Promise.all([
-    db.finEntry.aggregate({ where: { ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(mFrom, mTo) }, _count: true, _sum: { amount: true } }),
-    db.finEntry.count({ where: { ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(yFrom, mTo) } }),
+    db.finEntry.aggregate({ where: { ...X, ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(mFrom, mTo) }, _count: true, _sum: { amount: true } }),
+    db.finEntry.count({ where: { ...X, ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(yFrom, mTo) } }),
   ]);
   const sumFor = (rows: { categoryId: string | null; _sum: { amount: number | null } }[], ids: string[]) => rows.filter((r) => r.categoryId && ids.includes(r.categoryId)).reduce((s, r) => s + (r._sum.amount ?? 0), 0);
   const spentMonth = monthByCat.reduce((s, r) => s + (r._sum.amount ?? 0), 0);
@@ -47,12 +58,12 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
   const mk = (d: Date) => format(d, "yyyy-MM");
   const pettyInHand = holders.filter((h) => h.kind === "petty").reduce((s, h) => s + h.balance, 0);
   const owed = holders.filter((h) => h.balance < 0 && h.kind !== "owner").reduce((s, h) => s - h.balance, 0);
-  const nav = (d: Date) => `/finance?month=${format(d, "yyyy-MM")}`;
+  const nav = (d: Date) => `/finance?month=${format(d, "yyyy-MM")}${sp.office ? `&office=${encodeURIComponent(sp.office)}` : ""}`;
 
   return (
     <>
       <PageHeader title="Finance" description="Where the money went, who spent it, and who holds what."
-        actions={<div className="flex flex-wrap items-center gap-2"><a href={`/print/finance/${mk(month)}`} target="_blank" rel="noreferrer" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Monthly report (PDF)</a><div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1">
+        actions={<div className="flex flex-wrap items-center gap-2">{offices.length > 0 && <OfficeSwitch offices={offices} value={sp.office} base={`/finance?month=${mk(month)}`} />}<a href={`/print/finance/${mk(month)}`} target="_blank" rel="noreferrer" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Monthly report (PDF)</a><div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1">
           <Link href={nav(subMonths(month, 1))} aria-label="Previous month" className="rounded-md p-1.5 text-muted hover:bg-canvas"><ChevronLeft className="size-4" /></Link>
           <span className="min-w-28 text-center text-sm font-medium">{format(month, "MMMM yyyy")}</span>
           <Link href={nav(addMonths(month, 1))} aria-label="Next month" className="rounded-md p-1.5 text-muted hover:bg-canvas"><ChevronRight className="size-4" /></Link>

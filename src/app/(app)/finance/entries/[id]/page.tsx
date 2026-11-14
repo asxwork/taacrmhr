@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { ArrowDown, ArrowDownLeft, ArrowRight, ArrowUpRight, Clock, FileText, History, Paperclip, ShieldCheck, Store, Trash2, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
-import { pkr } from "@/lib/finance";
+import { financeLimit, pkr } from "@/lib/finance";
 import { fileUrl } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -23,6 +23,8 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
   if (!e) notFound();
   const mod = e.personal ? "finance.personal" : "finance";
   const user = await requirePermission(mod);
+  const limit = financeLimit(user);
+  if (limit && !(await db.finEntry.findFirst({ where: { AND: [{ id: e.id }, limit] }, select: { id: true } }))) notFound();
 
   const ids = [e.createdById, e.verifiedById, e.approvedById, ...e.proofs.map((p) => p.createdById)].filter((x): x is string => !!x);
   const [people, cameFrom, wentOn, history] = await Promise.all([

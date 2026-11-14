@@ -1,7 +1,7 @@
 import { differenceInCalendarDays, format } from "date-fns";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
-import { balances, pkr } from "@/lib/finance";
+import { balances, holderLimit, pkr } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Field, PageHeader } from "@/components/ui";
@@ -14,7 +14,9 @@ export default async function CashCount({ searchParams }: { searchParams: Promis
   const user = await requirePermission("finance");
   const sp = await searchParams;
   const [holders, counts] = await Promise.all([balances(), db.finCashCount.findMany({ orderBy: { date: "desc" }, take: 40 })]);
-  const cash = holders.filter((h) => h.active && h.kind === "petty");
+  const hl = holderLimit(user);
+  const ok = hl ? new Set((await db.finAccount.findMany({ where: hl, select: { id: true } })).map((a) => a.id)) : null;
+  const cash = holders.filter((h) => h.active && h.kind === "petty" && (!ok || ok.has(h.id)));
   const users = await db.user.findMany({ where: { id: { in: counts.map((c) => c.createdById).filter((x): x is string => !!x) } }, select: { id: true, name: true } });
   const last = (id: string) => counts.find((c) => c.accountId === id);
   return (

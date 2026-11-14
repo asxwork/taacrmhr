@@ -53,4 +53,7 @@ export const FINANCE_TUTORIALS: Tutorial[] = [
   F({ key: "fin-checks", title: "Checks (things worth a second look)", who: "Owner, finance manager", href: "/finance/checks",
     summary: "Unusual amounts, double entries, the same payee paid twice in a week, round cash without a bill, Sundays/holidays and late entries.",
     steps: ["Choose the month.", "Open any entry to see its bill and details.", "These are warnings only: many will be fine, some will catch mistakes."] }),
+  F({ key: "fin-branch", title: "Branch view and branch staff", who: "Owner, Super Admin", href: "/finance", paths: ["/finance/boss"],
+    summary: "See each office on its own, and let branch staff see only their office's money.",
+    steps: ["On the dashboard or Boss view, click All offices / Head office / Bahadurabad.", "To limit branch staff: in Money holders set the holder's Office to the branch name from Company & Branches.", "In Access permissions → Finance → Read, choose “Their branch's items” for the branch role.", "Give the user that branch in Settings → Users."] }),
 ];

@@ -61,7 +61,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "hr.orgchart", label: "Org chart", group: "HR", actions: ["view"], scoped: false },
   { key: "hr.exit", label: "Exit interviews", group: "HR", actions: ["view", "edit"], scoped: true },
   { key: "calls", label: "Calling centre", group: "Calls", actions: [...CRUD, "assign", "listen"], scoped: true },
-  { key: "finance", label: "Finance: dashboard, entries & money holders", group: "Finance", actions: [...CRUD, "import", "approve"], scoped: false },
+  { key: "finance", label: "Finance: dashboard, entries & money holders", group: "Finance", actions: [...CRUD, "import", "approve"], scoped: true },
   { key: "finance.personal", label: "Finance: Sir personal expenses", group: "Finance", actions: [...CRUD], scoped: false },
   { key: "finance.boss", label: "Finance: boss dashboard", group: "Finance", actions: ["view"], scoped: false },
   { key: "finance.settings", label: "Finance: categories, budgets, recurring bills & settings", group: "Finance", actions: ["view", "edit"], scoped: false },

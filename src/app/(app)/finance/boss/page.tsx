@@ -3,7 +3,8 @@ import { addMonths, differenceInCalendarMonths, endOfMonth, format, parse, start
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Copy, FileText, Landmark, Megaphone, ShieldCheck, Users, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
-import { balances, categoryTree, financeChecks, findDuplicates, lakh, pkr } from "@/lib/finance";
+import { balances, categoryTree, financeChecks, findDuplicates, lakh, officeNames, officeWhere, pkr } from "@/lib/finance";
+import { OfficeSwitch } from "../office-switch";
 import { fileUrl } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { Card, PageHeader } from "@/components/ui";
@@ -13,18 +14,20 @@ export const metadata = { title: "Boss view · Finance" };
 const isImage = (p: string) => /\.(jpe?g|png|webp|gif)$/i.test(p);
 
 /** The owner's finance dashboard: cash position, change vs last month, proof score, biggest spends with bills, alerts. */
-export default async function BossFinance({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+export default async function BossFinance({ searchParams }: { searchParams: Promise<{ month?: string; office?: string }> }) {
   const user = await requirePermission("finance.boss");
   const sp = await searchParams;
   const now = new Date();
   // Opens on the last complete month, so numbers aren't half a month.
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? parse(sp.month, "yyyy-MM", now) : subMonths(now, 1);
   const mFrom = startOfMonth(month), mTo = endOfMonth(month), pFrom = startOfMonth(subMonths(month, 1)), pTo = endOfMonth(subMonths(month, 1)), yFrom = startOfYear(month);
-  const co = { status: "approved", kind: "expense", personal: false } as const;
+  const ow = officeWhere(sp.office);
+  const co = { status: "approved", kind: "expense", personal: false, ...(ow && { AND: [ow] }) } as const;
+  const offices = await officeNames();
   const range = (a: Date, b: Date) => ({ gte: a, lte: b });
   const mk = format(month, "yyyy-MM");
 
-  const [tree, holders, thisCat, lastCat, yearRows, monthRows, budgets, payroll, leads, won, pending] = await Promise.all([
+  const [tree, holdersRaw, thisCat, lastCat, yearRows, monthRows, budgets, payroll, leads, won, pending] = await Promise.all([
     categoryTree(),
     balances(),
     db.finEntry.groupBy({ by: ["categoryId"], where: { ...co, date: range(mFrom, mTo) }, _sum: { amount: true } }),
@@ -38,6 +41,7 @@ export default async function BossFinance({ searchParams }: { searchParams: Prom
     db.finEntry.aggregate({ where: { status: "pending" }, _count: true, _sum: { amount: true } }),
   ]);
 
+  const holders = sp.office ? holdersRaw.filter((h) => (sp.office === "head" ? !h.branch : h.branch === sp.office)) : holdersRaw;
   const sumIds = (rows: { categoryId: string | null; _sum: { amount: number | null } }[], ids: string[]) => rows.filter((r) => r.categoryId && ids.includes(r.categoryId)).reduce((s, r) => s + (r._sum.amount ?? 0), 0);
   const total = (rows: { _sum: { amount: number | null } }[]) => rows.reduce((s, r) => s + (r._sum.amount ?? 0), 0);
   const spent = total(thisCat), spentLast = total(lastCat);
@@ -62,7 +66,7 @@ export default async function BossFinance({ searchParams }: { searchParams: Prom
   const salariesFinance = sumIds(thisCat, salaryIds);
   const marketing = tree.find((c) => /marketing/i.test(c.name));
   const marketingSpend = marketing ? sumIds(thisCat, mainIds(marketing)) : 0;
-  const nav = (d: Date) => `/finance/boss?month=${format(d, "yyyy-MM")}`;
+  const nav = (d: Date) => `/finance/boss?month=${format(d, "yyyy-MM")}${sp.office ? `&office=${encodeURIComponent(sp.office)}` : ""}`;
   const canVerify = can(user, "finance", "approve");
 
   const Kpi = ({ label, value, sub, icon: Icon, tone, href }: { label: string; value: string; sub?: React.ReactNode; icon: typeof Wallet; tone?: string; href?: string }) => {
@@ -73,7 +77,7 @@ export default async function BossFinance({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader title="Boss view" description="Company money at a glance: where it is, where it went, and whether there is a bill for it."
-        actions={<div className="flex flex-wrap items-center gap-2"><a href={`/print/finance/${mk}`} target="_blank" rel="noreferrer" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Monthly report (PDF)</a><div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1">
+        actions={<div className="flex flex-wrap items-center gap-2">{offices.length > 0 && <OfficeSwitch offices={offices} value={sp.office} base={`/finance/boss?month=${mk}`} />}<a href={`/print/finance/${mk}`} target="_blank" rel="noreferrer" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:bg-canvas">Monthly report (PDF)</a><div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1">
           <Link href={nav(subMonths(month, 1))} aria-label="Previous month" className="rounded-md p-1.5 text-muted hover:bg-canvas"><ChevronLeft className="size-4" /></Link>
           <span className="min-w-28 text-center text-sm font-medium">{format(month, "MMMM yyyy")}</span>
           <Link href={nav(addMonths(month, 1))} aria-label="Next month" className="rounded-md p-1.5 text-muted hover:bg-canvas"><ChevronRight className="size-4" /></Link>

@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { categoryTree, entryWhere } from "@/lib/finance";
+import { categoryTree, entryWhere, financeLimit } from "@/lib/finance";
 
 // Excel download of finance entries, with the same filters as the entries list.
 export async function GET(req: Request) {
@@ -13,7 +13,8 @@ export async function GET(req: Request) {
   const sp = Object.fromEntries(new URL(req.url).searchParams);
   const personal = sp.personal === "1";
   if (!can(user, personal ? "finance.personal" : "finance", "export")) return new Response("Forbidden", { status: 403 });
-  const where = entryWhere(sp, personal, await categoryTree());
+  const limit = financeLimit(user);
+  const where = limit ? { AND: [entryWhere(sp, personal, await categoryTree()), limit] } : entryWhere(sp, personal, await categoryTree());
   const rows = await db.finEntry.findMany({ where, include: { account: true, toAccount: true, category: { include: { parent: true } }, _count: { select: { proofs: true } } }, orderBy: [{ date: "asc" }, { createdAt: "asc" }], take: 50000 });
 
   const wb = new ExcelJS.Workbook();

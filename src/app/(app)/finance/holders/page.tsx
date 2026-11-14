@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { Banknote, CreditCard, Crown, Landmark, Plus, Trash2, User, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
-import { ACCOUNT_KINDS, balances, kindLabel, pkr } from "@/lib/finance";
+import { ACCOUNT_KINDS, balances, holderLimit, kindLabel, pkr } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, EmptyState, Field, PageHeader } from "@/components/ui";
@@ -17,11 +17,15 @@ const ICON = { petty: Wallet, person: User, owner: Crown, bank: Landmark, card: 
 export default async function HoldersPage({ searchParams }: { searchParams: Promise<{ edit?: string; topup?: string; settle?: string }> }) {
   const user = await requirePermission("finance");
   const sp = await searchParams;
-  const [list, last, topups] = await Promise.all([
+  const hLimit = holderLimit(user);
+  const allowed = hLimit ? new Set((await db.finAccount.findMany({ where: hLimit, select: { id: true } })).map((a) => a.id)) : null;
+  const [all, last, topups, branchRows] = await Promise.all([
     balances(),
     db.finEntry.groupBy({ by: ["accountId"], _max: { date: true } }),
-    db.finTopup.findMany({ where: { status: "pending" }, include: { account: true }, orderBy: { createdAt: "asc" } }),
+    db.finTopup.findMany({ where: { status: "pending", ...(allowed && { accountId: { in: [...allowed] } }) }, include: { account: true }, orderBy: { createdAt: "asc" } }),
+    db.branch.findMany({ select: { name: true } }),
   ]);
+  const list = allowed ? all.filter((a) => allowed.has(a.id)) : all;
   const requesters = await db.user.findMany({ where: { id: { in: topups.map((t) => t.requestedById).filter((x): x is string => !!x) } }, select: { id: true, name: true } });
   const canApprove = can(user, "finance", "approve"), canAdd = can(user, "finance", "create");
   const topupFor = sp.topup ? list.find((a) => a.id === sp.topup) : undefined;
@@ -120,7 +124,7 @@ export default async function HoldersPage({ searchParams }: { searchParams: Prom
             {editing && <input type="hidden" name="id" value={editing.id} />}
             <Field label="Name"><input name="name" required defaultValue={editing?.name} className="input" placeholder="e.g. Bushra (petty cash)" autoFocus /></Field>
             <Field label="Type"><select name="kind" defaultValue={editing?.kind ?? "person"} className="input">{ACCOUNT_KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
-            <Field label="Office / branch" hint="Leave empty for the head office. e.g. Bahadurabad"><input name="branch" list="fin-branches" defaultValue={editing?.branch ?? ""} className="input" /><datalist id="fin-branches">{branches.slice(1).map((b) => <option key={b} value={b} />)}<option value="Bahadurabad" /></datalist></Field>
+            <Field label="Office / branch" hint="Leave empty for the head office. Use the same name as the branch in Company & Branches, so branch staff see only their office."><input name="branch" list="fin-branches" defaultValue={editing?.branch ?? ""} className="input" /><datalist id="fin-branches">{branches.slice(1).map((b) => <option key={b} value={b} />)}{branchRows.filter((b) => !branches.includes(b.name)).map((b) => <option key={b.name} value={b.name} />)}<option value="Bahadurabad" /></datalist></Field>
             <Field label="Opening balance (Rs)" hint="Money they already held before AMS"><input name="opening" inputMode="decimal" defaultValue={editing?.opening ?? 0} className="input" /></Field>
             <Field label="Low cash alert below (Rs)" hint="Approvers get a notification when the balance drops below this. Empty = no alert."><input name="lowAlert" inputMode="decimal" defaultValue={editing?.lowAlert ?? ""} className="input" /></Field>
             <Field label="Notes"><input name="notes" defaultValue={editing?.notes ?? ""} className="input" /></Field>

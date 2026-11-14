@@ -5,7 +5,8 @@ import { ProofInputs } from "./proof-inputs";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import type { SessionUser } from "@/lib/auth";
-import { categoryTree, ensureFinanceDefaults, entryWhere, financeConfig, pkr, tagList } from "@/lib/finance";
+import type { Prisma } from "@prisma/client";
+import { categoryTree, ensureFinanceDefaults, entryWhere, financeConfig, financeLimit, holderLimit, pkr, tagList } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, EmptyState, Field, PageHeader } from "@/components/ui";
@@ -20,7 +21,8 @@ const PAGE = 100;
 export async function EntriesView({ user, sp, personal, base }: { user: SessionUser; sp: EntrySP; personal: boolean; base: string }) {
   await ensureFinanceDefaults();
   const tree = await categoryTree();
-  const where = entryWhere(sp, personal, tree);
+  const limit = financeLimit(user), hLimit = holderLimit(user);
+  const where: Prisma.FinEntryWhereInput = limit ? { AND: [entryWhere(sp, personal, tree), limit] } : entryWhere(sp, personal, tree);
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? parse(sp.month, "yyyy-MM", new Date()) : null;
   const q = sp.q?.trim();
   const page = Math.max(1, Number(sp.page) || 1);
@@ -28,7 +30,7 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
     db.finEntry.findMany({ where, include: { account: true, toAccount: true, category: { include: { parent: true } }, _count: { select: { proofs: true } } }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], skip: (page - 1) * PAGE, take: PAGE }),
     db.finEntry.count({ where }),
     db.finEntry.groupBy({ by: ["kind"], where: { AND: [where, { status: "approved" }] }, _sum: { amount: true } }),
-    db.finAccount.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    db.finAccount.findMany({ where: { active: true, ...hLimit }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     db.finEntry.groupBy({ by: ["party"], where: { party: { not: null } }, _count: true, orderBy: { _count: { party: "desc" } }, take: 400 }),
     db.finEntry.findMany({ where: { tags: { not: null } }, select: { tags: true }, distinct: ["tags"], take: 500 }),
   ]);

@@ -4,6 +4,7 @@
 import type { Prisma } from "@prisma/client";
 import { endOfMonth, parse, startOfMonth } from "date-fns";
 import { db } from "./db";
+import { scopeFor } from "./permissions";
 
 export const ACCOUNT_KINDS = [
   ["petty", "Petty cash"],
@@ -232,4 +233,28 @@ export async function financeChecks(from: Date, to: Date) {
   }
   const dups = findDuplicates(rows).map((g) => row(g[1]!, `${g.length} entries: same person, amount, day and description`));
   return { unusual, offDay, roundCash, repeat, late, dups, total: unusual.length + offDay.length + roundCash.length + repeat.length + late.length + dups.length };
+}
+
+export const HEAD_OFFICE = "Head office (DHA)";
+/**
+ * What a user may see in Finance (Access permissions → Finance → Read):
+ * all = everything · branch = money holders of their own office (user's branch = holder's office) · own/team = entries they entered.
+ */
+export function financeLimit(user: { id: string; isSuperAdmin: boolean; branchName: string | null; perms: unknown }): Prisma.FinEntryWhereInput | null {
+  const s = scopeFor(user as never, "finance");
+  if (s === "all" || s === "none") return null;
+  if (s === "branch" && user.branchName) return { OR: [{ account: { branch: user.branchName } }, { toAccount: { branch: user.branchName } }] };
+  return { createdById: user.id };
+}
+export function holderLimit(user: { id: string; isSuperAdmin: boolean; branchName: string | null; perms: unknown }): Prisma.FinAccountWhereInput | null {
+  const s = scopeFor(user as never, "finance");
+  if (s === "all" || s === "none") return null;
+  if (s === "branch" && user.branchName) return { branch: user.branchName };
+  return { entries: { some: { createdById: user.id } } };
+}
+/** Office filter (?office=): a branch name, or "head" for holders without an office. */
+export const officeWhere = (office?: string): Prisma.FinEntryWhereInput | null => (!office ? null : office === "head" ? { account: { branch: null } } : { account: { branch: office } });
+export async function officeNames() {
+  const rows = await db.finAccount.findMany({ where: { branch: { not: null } }, select: { branch: true }, distinct: ["branch"] });
+  return rows.map((r) => r.branch!).sort();
 }
