@@ -2,6 +2,7 @@
 // full video tour (public/tutorials/chapters.json). Client-safe.
 
 import { FINANCE_TUTORIALS } from "./tutorials-finance";
+import { ADMIN_EXTRA_TUTORIALS } from "./tutorials-admin";
 
 export type Tutorial = {
   key: string;
@@ -821,4 +822,5 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   ...FINANCE_TUTORIALS,
+  ...ADMIN_EXTRA_TUTORIALS,
 ];

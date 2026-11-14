@@ -15,6 +15,7 @@ import { memo } from "@/lib/memo";
 import { PageHelp } from "@/components/page-help";
 import { BackLink } from "@/components/back-link";
 import { visibleTutorials } from "@/lib/tutorial-access";
+import { sectionVideos, videoUrl } from "@/lib/section-videos";
 import { SECTIONS, sectionForPath, type SectionTab } from "@/lib/sections";
 import { SectionTabs } from "@/components/section-tabs";
 import { redirect } from "next/navigation";
@@ -56,11 +57,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const sectionPages = SECTIONS.flatMap((sec) => sec.tabs.filter(tabAllowed).map((t) => ({ href: t.href, label: t.label, icon: "list" })));
   const pages = [...new Map([...pageItems.map((item) => ({ href: item.href, label: item.label, icon: item.icon })), ...sectionPages].map((p) => [p.href, p])).values()];
 
+  const videos = await sectionVideos();
   return (
     <div className="app-wallpaper min-h-screen" data-sidebar={sidebarMode(current.layout, collapsed)}>
       <NavProgress />
       {/* "?" help button: the guide for the page you're on, from the sections you use. */}
-      <PageHelp items={visibleTutorials(user).filter((t) => t.href || t.paths?.length).map((t) => ({ key: t.key, title: t.title, summary: t.summary, steps: t.steps, tips: t.tips, paths: [...(t.href ? [t.href] : []), ...(t.paths ?? [])] }))} />
+      <PageHelp items={visibleTutorials(user).filter((t) => t.href || t.paths?.length).map((t) => ({ key: t.key, title: t.title, summary: t.summary, steps: t.steps, tips: t.tips, paths: [...(t.href ? [t.href] : []), ...(t.paths ?? [])], video: videos[t.key] ? videoUrl(t.key) : undefined }))} />
       <Sidebar
         apps={apps}
         initialApp={current.key as AppKey}

@@ -38,19 +38,74 @@ export type AppDef = {
 export const APPS: AppDef[] = [
   {
     key: "crm", name: "CRM", description: "Leads, deals, contacts, calls, inventory", icon: "target", tile: "from-sky-500 to-blue-700",
-    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents", "/reports/targets", "/reports/lost", "/reports/activity"], layout: "list",
-    // Six sections; the screens inside each are tabs across the top of the page (lib/sections.ts).
+    home: "/dashboard", prefixes: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents", "/reports/targets", "/reports/lost", "/reports/activity"], layout: "modules",
+    // Like HR: each module is an icon on the rail, its screens (and sub-menus) in the panel.
     groups: [
+      { label: "Home", icon: "home", items: [{ href: "/dashboard", label: "CRM home", icon: "home" }] },
       {
-        label: "CRM",
+        label: "Leads", icon: "target",
         items: [
-          { href: "/dashboard", label: "Home", icon: "home" },
-          { href: "/crm/leads", label: "Leads", icon: "target", module: "crm.leads", also: ["/crm/follow-ups", "/crm/tasks", "/crm/focus", "/crm/matches", "/crm/templates", "/crm/visits", "/crm/duplicates"] },
-          { href: "/crm/deals", label: "Deals", icon: "handshake", module: "crm.deals" },
-          { href: "/calls", label: "Calls", icon: "phonecall", module: "calls" },
-          { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts", also: ["/crm/companies"] },
-          { href: "/inventory", label: "Inventory", icon: "building", module: "inventory.units", anyModule: ["inventory.projects"] },
-          { href: "/reports/crm", label: "Reports", icon: "chart", module: "reports.crm", anyModule: ["crm.targets", "reports.lost", "reports.activity"], also: ["/reports/agents", "/reports/targets", "/reports/lost", "/reports/activity"] },
+          { href: "/crm/leads", label: "All leads", icon: "target", module: "crm.leads" },
+          { href: "/crm/leads?owner=me", label: "My leads", icon: "user", module: "crm.leads" },
+          { href: "/crm/follow-ups", label: "Follow-ups", icon: "alarm", module: "crm.leads" },
+          { href: "/crm/tasks", label: "Tasks & calendar", icon: "calendar", module: "crm.activities" },
+          { href: "/crm/focus", label: "Focus", icon: "sparkles", module: "crm.leads" },
+          { href: "/crm/matches", label: "Matches", icon: "puzzle", module: "crm.matches" },
+          { href: "/crm/visits", label: "Site visits", icon: "building", module: "crm.visits" },
+          sub("More", [
+            { href: "/crm/leads?group=converted", label: "Converted", icon: "check", module: "crm.leads" },
+            { href: "/crm/leads?group=junk", label: "Closed", icon: "archive", module: "crm.leads" },
+            { href: "/crm/duplicates", label: "Duplicates", icon: "refresh", module: "crm.merge" },
+            { href: "/crm/templates", label: "Templates", icon: "file", module: "crm.templates", action: "create" },
+          ], "list"),
+        ],
+      },
+      {
+        label: "Deals", icon: "handshake",
+        items: [
+          { href: "/crm/deals", label: "Pipeline", icon: "handshake", module: "crm.deals" },
+          { href: "/crm/deals?view=list", label: "Deal list", icon: "list", module: "crm.deals" },
+        ],
+      },
+      {
+        label: "Calls", icon: "phonecall",
+        items: [
+          { href: "/calls", label: "Dialer", icon: "phonecall", module: "calls", action: "edit" },
+          { href: "/calls/callbacks", label: "Callbacks", icon: "alarm", module: "calls" },
+          { href: "/calls/history", label: "History", icon: "history", module: "calls" },
+          { href: "/calls/recordings", label: "Recordings", icon: "file", module: "calls", action: "listen" },
+          sub("Manage", [
+            { href: "/calls/campaigns", label: "Campaigns", icon: "target", module: "calls", action: "create" },
+            { href: "/calls/wallboard", label: "Wallboard", icon: "gauge", module: "calls", action: "create" },
+            { href: "/calls/reports", label: "Reports", icon: "chart", module: "calls", action: "create" },
+            { href: "/calls/dnc", label: "Do-not-call", icon: "ban", module: "calls", action: "create" },
+            { href: "/calls/phone-system", label: "Phone system", icon: "settings", superAdmin: true },
+          ], "settings"),
+        ],
+      },
+      {
+        label: "Contacts", icon: "contact",
+        items: [
+          { href: "/crm/contacts", label: "Contacts", icon: "contact", module: "crm.contacts" },
+          { href: "/crm/contacts?tab=companies", label: "Companies", icon: "building", module: "crm.contacts", also: ["/crm/companies"] },
+        ],
+      },
+      {
+        label: "Inventory", icon: "building",
+        items: [
+          { href: "/inventory", label: "Units", icon: "building", module: "inventory.units" },
+          { href: "/inventory?status=available", label: "Available units", icon: "check", module: "inventory.units" },
+          { href: "/inventory?tab=projects", label: "Projects", icon: "landmark", module: "inventory.projects" },
+        ],
+      },
+      {
+        label: "Reports", icon: "chart",
+        items: [
+          { href: "/reports/crm", label: "CRM reports", icon: "chart", module: "reports.crm" },
+          { href: "/reports/targets", label: "Targets", icon: "target", module: "crm.targets" },
+          { href: "/reports/lost", label: "Lost reasons", icon: "ban", module: "reports.lost" },
+          { href: "/reports/activity", label: "Activity feed", icon: "history", module: "reports.activity" },
+          { href: "/reports/agents", label: "Agent performance", icon: "award", superAdmin: true },
         ],
       },
     ],

@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { CircleHelp, X } from "lucide-react";
+import { ChevronDown, CircleHelp, PlayCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type HelpItem = { key: string; title: string; summary: string; steps: string[]; tips?: string[]; paths: string[] };
+export type HelpItem = { key: string; title: string; summary: string; steps: string[]; tips?: string[]; paths: string[]; video?: string };
 
 const clean = (p: string) => p.split("?")[0]!.split("#")[0]!.replace(/\/+$/, "") || "/";
 
@@ -17,6 +17,8 @@ const clean = (p: string) => p.split("?")[0]!.split("#")[0]!.replace(/\/+$/, "")
 export function PageHelp({ items }: { items: HelpItem[] }) {
   const pathname = clean(usePathname());
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const [showSteps, setShowSteps] = useState(false);
   // Best match: exact page first, then the closest parent page (/hr/payroll/payslips → /hr/payroll).
   const matches = useMemo(() => {
     let best = -1;
@@ -31,7 +33,7 @@ export function PageHelp({ items }: { items: HelpItem[] }) {
     });
     return best < 0 ? [] : scored.filter((x) => x.score === best).map((x) => x.t);
   }, [items, pathname]);
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => { setOpen(false); setActive(0); setShowSteps(false); }, [pathname]);
   useEffect(() => {
     if (!open) return;
     const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -49,21 +51,47 @@ export function PageHelp({ items }: { items: HelpItem[] }) {
       {open && (
         <div className="fixed inset-0 z-50 print:hidden" role="dialog" aria-modal="true" aria-label="Help for this page">
           <div className="anim-fade absolute inset-0 bg-navy-950/30" onClick={() => setOpen(false)} />
-          <aside className="anim-pop absolute bottom-0 right-0 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface shadow-2xl sm:bottom-6 sm:right-6 sm:w-[26rem] sm:rounded-2xl">
+          <aside className="anim-pop absolute bottom-0 right-0 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface shadow-2xl sm:bottom-6 sm:right-6 sm:w-[34rem] sm:rounded-2xl">
             <header className="flex items-center gap-2 border-b border-line px-5 py-3">
               <CircleHelp className="size-5 text-gold-600" />
               <h2 className="flex-1 font-semibold">How to use this page</h2>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink"><X className="size-4" /></button>
             </header>
-            <div className="space-y-5 overflow-y-auto px-5 py-4">
-              {matches.map((t) => (
-                <section key={t.key}>
-                  <h3 className="font-medium">{t.title}</h3>
-                  <p className="mb-2 text-sm text-muted">{t.summary}</p>
-                  <ol className="list-decimal space-y-1.5 pl-5 text-sm">{t.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
-                  {t.tips?.length ? <ul className="mt-2 space-y-1 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{t.tips.map((s, i) => <li key={i}>💡 {s}</li>)}</ul> : null}
-                </section>
-              ))}
+            <div className="overflow-y-auto">
+              {/* Video first: a short recording of this section. Written steps only if asked for. */}
+              {(() => {
+                const withVideo = matches.filter((t) => t.video);
+                const t = withVideo[active] ?? withVideo[0];
+                return t ? (
+                  <div>
+                    <video key={t.video} src={t.video} controls autoPlay playsInline preload="auto" className="aspect-video w-full bg-navy-950" />
+                    <div className="px-5 pt-3">
+                      <h3 className="font-medium">{t.title}</h3>
+                      <p className="text-sm text-muted">{t.summary}</p>
+                    </div>
+                    {withVideo.length > 1 && (
+                      <div className="flex flex-wrap gap-1.5 px-5 pt-3">{withVideo.map((v, i) => (
+                        <button key={v.key} type="button" onClick={() => setActive(i)} className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs", (withVideo[active] ?? withVideo[0]) === v ? "border-navy-900 bg-navy-900 text-white" : "border-line text-muted hover:text-ink")}><PlayCircle className="size-3.5" />{v.title}</button>
+                      ))}</div>
+                    )}
+                  </div>
+                ) : null;
+              })()}
+              <div className="space-y-5 px-5 py-4">
+                {matches.some((t) => t.video) && (
+                  <button type="button" onClick={() => setShowSteps((x) => !x)} className="inline-flex items-center gap-1 text-xs font-medium text-muted hover:text-ink">
+                    <ChevronDown className={cn("size-3.5 transition", showSteps && "rotate-180")} /> {showSteps ? "Hide written steps" : "Written steps"}
+                  </button>
+                )}
+                {(showSteps || !matches.some((t) => t.video)) && matches.map((t) => (
+                  <section key={t.key}>
+                    <h3 className="font-medium">{t.title}</h3>
+                    <p className="mb-2 text-sm text-muted">{t.summary}</p>
+                    <ol className="list-decimal space-y-1.5 pl-5 text-sm">{t.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
+                    {t.tips?.length ? <ul className="mt-2 space-y-1 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{t.tips.map((s, i) => <li key={i}>💡 {s}</li>)}</ul> : null}
+                  </section>
+                ))}
+              </div>
             </div>
             <footer className={cn("border-t border-line px-5 py-3 text-right text-sm")}>
               <Link href="/help" className="font-medium text-navy-900 hover:underline">All tutorials →</Link>
