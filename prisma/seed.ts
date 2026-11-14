@@ -39,6 +39,15 @@ async function main() {
     }
     await db.setting.create({ data: { key: flag, value: "done" } });
   }
+  // Go-live defaults (once, and only where nobody has chosen yet): selfie at check-in optional (camera opens, can be
+  // skipped), deal commission paid through payroll when the deal is won (deal % or the agent's own %; default 0%).
+  if (!(await db.setting.findUnique({ where: { key: "fix.golive-defaults" } }))) {
+    const keep = async (key: string, value: string) => { if (!(await db.setting.findUnique({ where: { key } }))) await db.setting.create({ data: { key, value } }); };
+    await keep("attendance.selfie", "optional");
+    await keep("payroll.commission", "on");
+    await keep("payroll.commissionBasis", "won");
+    await db.setting.create({ data: { key: "fix.golive-defaults", value: "done" } });
+  }
   // Notifications got a category and priority: sort the existing ones once (most recent 20,000).
   if (!(await db.setting.findUnique({ where: { key: "fix.notify-category" } }))) {
     const { categoryOf, priorityOf } = await import("../src/lib/notify");
