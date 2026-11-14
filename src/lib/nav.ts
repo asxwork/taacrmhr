@@ -313,6 +313,7 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/finance/boss", label: "Boss view", icon: "crown", module: "finance.boss" },
           { href: "/finance", label: "Dashboard", icon: "chart", module: "finance" },
+          { href: "/finance/quick", label: "Add expense (phone)", icon: "plus", module: "finance", action: "create" },
           { href: "/finance/entries", label: "Entries", icon: "receipt", module: "finance" },
           { href: "/finance/holders", label: "Money holders", icon: "wallet", module: "finance" },
           { href: "/finance/cash-count", label: "Cash count", icon: "check", module: "finance" },

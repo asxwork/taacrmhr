@@ -56,4 +56,7 @@ export const FINANCE_TUTORIALS: Tutorial[] = [
   F({ key: "fin-branch", title: "Branch view and branch staff", who: "Owner, Super Admin", href: "/finance", paths: ["/finance/boss"],
     summary: "See each office on its own, and let branch staff see only their office's money.",
     steps: ["On the dashboard or Boss view, click All offices / Head office / Bahadurabad.", "To limit branch staff: in Money holders set the holder's Office to the branch name from Company & Branches.", "In Access permissions → Finance → Read, choose “Their branch's items” for the branch role.", "Give the user that branch in Settings → Users."] }),
+  F({ key: "fin-quick", title: "Add an expense from your phone", who: "Bushra, branch staff", href: "/finance/quick",
+    summary: "Photo of the bill, amount, tap a category, save — about 10 seconds.",
+    steps: ["Open Finance → Add expense (phone), or hold the AMS icon on your home screen and pick Add expense.", "Tap Take a photo of the bill.", "Type the amount and tap a category.", "Check Paid by, write Paid to, and tap Save expense."] }),
 ];

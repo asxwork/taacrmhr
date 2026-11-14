@@ -23,7 +23,9 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
   const accountId = str(fd, "accountId");
   const toAccountId = kind === "transfer" ? str(fd, "toAccountId") : "";
   const categoryId = kind === "expense" ? str(fd, "categoryId") : "";
-  const description = str(fd, "description").slice(0, 300);
+  let description = str(fd, "description").slice(0, 300);
+  // Quick add: no description typed → use the category name.
+  if (!description && fd.get("quick") && categoryId) description = (await db.finCategory.findUnique({ where: { id: categoryId } }))?.name ?? "";
   if (!(amount > 0)) return { error: "Enter the amount." };
   if (Number.isNaN(date.getTime())) return { error: "Enter the date." };
   if (!accountId) return { error: kind === "in" ? "Who received the money?" : "Who paid?" };

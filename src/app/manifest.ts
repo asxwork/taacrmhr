@@ -20,6 +20,7 @@ export default function manifest(): MetadataRoute.Manifest {
       { name: "Check in", url: "/me/attendance" },
       { name: "Leads", url: "/crm/leads" },
       { name: "Apply for leave", url: "/me/leave" },
+      { name: "Add expense", url: "/finance/quick" },
     ],
   };
 }
