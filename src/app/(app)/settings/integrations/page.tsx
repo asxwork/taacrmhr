@@ -124,8 +124,8 @@ export default async function IntegrationsPage() {
                     <div className="flex flex-wrap items-start gap-2">
                       <ActionForm action={updateConnection} className="flex flex-1 flex-wrap items-center gap-2">
                         <input type="hidden" name="id" value={c.id} />
-                        <input name="name" defaultValue={c.name} className="input h-9 w-40" aria-label="Name" />
-                        <select name="sourceId" defaultValue={c.sourceId ?? ""} className="input h-9 w-40" aria-label="Lead source">
+                        <input name="name" defaultValue={c.name} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Name" />
+                        <select name="sourceId" defaultValue={c.sourceId ?? ""} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Lead source">
                           <option value="">Source: from payload</option>
                           {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>

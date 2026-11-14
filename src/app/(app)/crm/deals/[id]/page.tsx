@@ -130,7 +130,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]">
         <div className="space-y-4">
           {deal.contact && (
             <Card className="p-5">

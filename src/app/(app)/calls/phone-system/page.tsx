@@ -36,7 +36,7 @@ export default async function PhoneSystem() {
   return (
     <>
       <PageHeader title="Phone system (Issabel)" description="Agents register their own Issabel extensions inside AMS, so calls go through your PBX and lines as usual. AMS does not need admin access to the PBX." />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           <Card className="p-6">
             <h2 className="mb-4 font-semibold">Connection</h2>

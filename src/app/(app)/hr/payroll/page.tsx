@@ -24,9 +24,9 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   const thisMonth = format(new Date(), "yyyy-MM");
 
   const tabs = (
-    <div className="mb-4 flex rounded-lg bg-black/5 p-0.5 sm:w-fit">
+    <div className="mb-4 flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5 sm:w-fit">
       {([["runs", "Payroll runs"], ["salaries", "Salaries"], ...(isAdmin ? [["settings", "Settings & tax"]] : [])] as [string, string][]).map(([t, label]) => (
-        <Link key={t} href={t === "runs" ? "/hr/payroll" : `/hr/payroll?tab=${t}`} className={cn("flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{label}</Link>
+        <Link key={t} href={t === "runs" ? "/hr/payroll" : `/hr/payroll?tab=${t}`} className={cn("flex-1 shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{label}</Link>
       ))}
     </div>
   );

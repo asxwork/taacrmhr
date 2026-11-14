@@ -86,8 +86,8 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
   return (
     <div ref={box} className="relative min-w-0 flex-1">
       <div className={cn("flex h-10 items-center gap-2 rounded-lg border bg-surface pl-2 pr-1.5 shadow-xs transition-colors", open ? "border-navy-700 ring-2 ring-navy-700/10" : "border-line")}>
-        <button type="button" onClick={() => setOpen((o) => !o)} className="flex shrink-0 items-center gap-1.5 rounded-md bg-navy-900/[0.07] py-1 pl-2.5 pr-1.5 text-sm font-medium text-navy-900 hover:bg-navy-900/10" aria-expanded={open} aria-label="Filters">
-          <span className="max-w-40 truncate">{chip}</span>
+        <button type="button" onClick={() => setOpen((o) => !o)} className="flex min-w-0 items-center gap-1.5 rounded-md bg-navy-900/[0.07] py-1 pl-2.5 pr-1.5 text-sm font-medium text-navy-900 hover:bg-navy-900/10" aria-expanded={open} aria-label="Filters">
+          <span className="max-w-24 truncate sm:max-w-40">{chip}</span>
           {current ? (
             <span role="button" tabIndex={0} aria-label="Clear filter" onClick={(e) => { e.stopPropagation(); setDraft({ q: draft.q }); go({ q: draft.q }); }} onKeyDown={(e) => e.key === "Enter" && go({ q: draft.q })} className="rounded p-0.5 hover:bg-navy-900/10">
               <X className="size-3.5" />
@@ -140,7 +140,7 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
               <F label="Lead name"><input value={draft.name ?? ""} onChange={(e) => set({ name: e.target.value }, 400)} className="input" /></F>
               <F label="Phone"><input value={draft.phone ?? ""} onChange={(e) => set({ phone: e.target.value }, 400)} className="input" inputMode="tel" /></F>
               <F label="Status" wide>
-                <div className="flex rounded-lg bg-black/5 p-0.5">
+                <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
                   {STATUS_GROUPS.map((g) => (
                     <button key={g.value} type="button" onClick={() => set({ group: g.value, stage: "" })} className={cn("flex-1 rounded-md px-2 py-1.5 text-sm", (draft.group ?? "") === g.value && !draft.stage ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{g.label}</button>
                   ))}

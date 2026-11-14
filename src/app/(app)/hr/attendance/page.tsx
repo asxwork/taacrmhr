@@ -51,7 +51,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
 
   const toolbar = (
     <div className="mb-4 flex flex-wrap items-center gap-2">
-      <div className="flex rounded-lg bg-black/5 p-0.5">
+      <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
         {([["day", "Daily"], ["people", "Summary"], ["month", "Monthly register"]] as const).map(([v, label]) => (
           <Link key={v} href={hrefWith("/hr/attendance", { branch: sp.branch }, { view: v === "day" ? undefined : v })} className={cn("whitespace-nowrap rounded-md px-3 py-1.5 text-sm", view === v ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{label}</Link>
         ))}

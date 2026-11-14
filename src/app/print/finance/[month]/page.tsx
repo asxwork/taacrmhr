@@ -55,27 +55,27 @@ export default async function FinanceReport({ params, searchParams }: { params: 
       </section>
       <section className="mb-6">
         <h2 className="mb-2 font-semibold">Spending by category</h2>
-        <table className="w-full"><thead><tr><th className={th}>Category</th><th className={`${th} text-right`}>{format(month, "MMM")}</th><th className={`${th} text-right`}>Year to date</th></tr></thead>
+        <div className="overflow-x-auto print:overflow-visible"><table className="w-full"><thead><tr><th className={th}>Category</th><th className={`${th} text-right`}>{format(month, "MMM")}</th><th className={`${th} text-right`}>Year to date</th></tr></thead>
           <tbody>{tree.filter((c) => !c.personal).flatMap((c) => {
             const ids = [c.id, ...c.subs.map((s) => s.id)]; const mm = sum(byCat, ids), yy = sum(byCatYear, ids);
             if (!mm && !yy) return [];
             return [<tr key={c.id} className="font-semibold"><td className={td}>{c.name}</td><td className={`${td} text-right`}>{pkr(mm)}</td><td className={`${td} text-right`}>{pkr(yy)}</td></tr>,
               ...c.subs.filter((s) => sum(byCat, [s.id]) || sum(byCatYear, [s.id])).map((s) => <tr key={s.id} className="text-gray-600"><td className={`${td} pl-6`}>{s.name}</td><td className={`${td} text-right`}>{pkr(sum(byCat, [s.id]))}</td><td className={`${td} text-right`}>{pkr(sum(byCatYear, [s.id]))}</td></tr>)];
-          })}<tr className="font-semibold"><td className="px-2 py-2">Total</td><td className="px-2 py-2 text-right">{pkr(total)}</td><td className="px-2 py-2 text-right">{pkr(byCatYear.reduce((s, r) => s + (r._sum.amount ?? 0), 0))}</td></tr></tbody></table>
+          })}<tr className="font-semibold"><td className="px-2 py-2">Total</td><td className="px-2 py-2 text-right">{pkr(total)}</td><td className="px-2 py-2 text-right">{pkr(byCatYear.reduce((s, r) => s + (r._sum.amount ?? 0), 0))}</td></tr></tbody></table></div>
       </section>
       <section className="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div><h2 className="mb-2 font-semibold">By office</h2><table className="w-full"><tbody>{[...byOffice].map(([o, v]) => <tr key={o}><td className={td}>{o}</td><td className={`${td} text-right`}>{pkr(v)}</td></tr>)}</tbody></table></div>
-        <div><h2 className="mb-2 font-semibold">Balances on {format(mTo, "d MMM")}</h2><table className="w-full"><tbody>{holders.filter((h) => h.active).map((h) => <tr key={h.id}><td className={td}>{h.name}</td><td className={`${td} text-right`}>{h.kind === "owner" && h.balance < 0 ? `${pkr(-h.balance)} put in` : pkr(h.balance)}</td></tr>)}</tbody></table></div>
+        <div><h2 className="mb-2 font-semibold">By office</h2><div className="overflow-x-auto print:overflow-visible"><table className="w-full"><tbody>{[...byOffice].map(([o, v]) => <tr key={o}><td className={td}>{o}</td><td className={`${td} text-right`}>{pkr(v)}</td></tr>)}</tbody></table></div></div>
+        <div><h2 className="mb-2 font-semibold">Balances on {format(mTo, "d MMM")}</h2><div className="overflow-x-auto print:overflow-visible"><table className="w-full"><tbody>{holders.filter((h) => h.active).map((h) => <tr key={h.id}><td className={td}>{h.name}</td><td className={`${td} text-right`}>{h.kind === "owner" && h.balance < 0 ? `${pkr(-h.balance)} put in` : pkr(h.balance)}</td></tr>)}</tbody></table></div></div>
       </section>
       <section className="mb-6">
         <h2 className="mb-2 font-semibold">Biggest expenses</h2>
-        <table className="w-full"><thead><tr><th className={th}>Date</th><th className={th}>What</th><th className={th}>Paid by</th><th className={`${th} text-right`}>Amount</th><th className={th}>Bill</th></tr></thead>
-          <tbody>{entries.slice(0, 25).map((e) => <tr key={e.id}><td className={td}>{format(e.date, "d MMM")}</td><td className={td}>{e.description}</td><td className={td}>{e.account.name}</td><td className={`${td} text-right`}>{pkr(e.amount)}</td><td className={td}>{e.receipt || e.proofs.length ? "✓" : "—"}</td></tr>)}</tbody></table>
+        <div className="overflow-x-auto print:overflow-visible"><table className="w-full"><thead><tr><th className={th}>Date</th><th className={th}>What</th><th className={th}>Paid by</th><th className={`${th} text-right`}>Amount</th><th className={th}>Bill</th></tr></thead>
+          <tbody>{entries.slice(0, 25).map((e) => <tr key={e.id}><td className={td}>{format(e.date, "d MMM")}</td><td className={td}>{e.description}</td><td className={td}>{e.account.name}</td><td className={`${td} text-right`}>{pkr(e.amount)}</td><td className={td}>{e.receipt || e.proofs.length ? "✓" : "—"}</td></tr>)}</tbody></table></div>
       </section>
       {seePersonal && personal.length > 0 && (
         <section className="mb-6 break-before-page">
           <h2 className="mb-2 font-semibold">Sir personal · {pkr(personal.reduce((s, e) => s + e.amount, 0))} (not in company totals)</h2>
-          <table className="w-full"><tbody>{personal.map((e) => <tr key={e.id}><td className={td}>{format(e.date, "d MMM")}</td><td className={td}>{e.description}</td><td className={`${td} text-right`}>{pkr(e.amount)}</td></tr>)}</tbody></table>
+          <div className="overflow-x-auto print:overflow-visible"><table className="w-full"><tbody>{personal.map((e) => <tr key={e.id}><td className={td}>{format(e.date, "d MMM")}</td><td className={td}>{e.description}</td><td className={`${td} text-right`}>{pkr(e.amount)}</td></tr>)}</tbody></table></div>
         </section>
       )}
       {images.length > 0 && (

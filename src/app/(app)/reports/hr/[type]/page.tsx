@@ -30,12 +30,12 @@ export default async function HrReportPage({ params, searchParams }: { params: P
       <PageHeader title={def.label} description={`${table.rows.filter((r) => r[0] !== "Total").length} row(s)`} />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap rounded-lg bg-black/5 p-0.5">
-          {HR_REPORTS.map((t) => <Link key={t.value} href={`/reports/hr/${t.value}`} className={cn("rounded-md px-3 py-1.5 text-sm", t.value === type ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{t.label.replace(" Reports", "")}</Link>)}
+          {HR_REPORTS.map((t) => <Link key={t.value} href={`/reports/hr/${t.value}`} className={cn("shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm", t.value === type ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{t.label.replace(" Reports", "")}</Link>)}
         </div>
         {def.dated && (
-          <AutoFilterForm className="flex gap-2">
-            <input type="date" name="from" defaultValue={range.from} className="input h-9 w-40" aria-label="From" />
-            <input type="date" name="to" defaultValue={range.to} className="input h-9 w-40" aria-label="To" />
+          <AutoFilterForm className="flex min-w-0 gap-2">
+            <input type="date" name="from" defaultValue={range.from} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="From" />
+            <input type="date" name="to" defaultValue={range.to} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="To" />
           </AutoFilterForm>
         )}
         <a href={`/api/hr/export?type=${type}${def.dated ? `&from=${range.from}&to=${range.to}` : ""}`} className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-2 text-sm hover:bg-surface"><Download className="size-4" /> Download CSV</a>

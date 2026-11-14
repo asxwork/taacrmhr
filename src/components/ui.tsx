@@ -67,7 +67,7 @@ export function PageHeader({ title, description, actions, eyebrow }: { title: st
         <h1 className="font-display text-[26px] font-semibold leading-tight tracking-tight text-ink sm:text-[30px]">{title}</h1>
         {description && <p className="mt-1.5 text-sm text-muted">{description}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }

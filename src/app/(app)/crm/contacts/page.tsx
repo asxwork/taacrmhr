@@ -55,7 +55,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex rounded-lg bg-black/5 p-0.5">
+        <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
           {(["contacts", "companies"] as const).map((t) => (
             <Link
               key={t}

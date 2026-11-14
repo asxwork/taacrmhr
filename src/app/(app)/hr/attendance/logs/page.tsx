@@ -73,14 +73,14 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
       <PageHeader title="Attendance logs" description="Every machine punch and web check-in, and every change to attendance: who did it, when, and what it was before. Entries can't be edited; only a Super Admin can delete one, and that is recorded too." />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex rounded-lg bg-black/5 p-0.5">
+        <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
           {tabLink("machine", "Machine & check-ins", punchCount)}
           {tabLink("changes", "Change log", logCount)}
         </div>
         <AutoFilterForm className="flex flex-wrap items-center gap-2">
           {sp.tab && <input type="hidden" name="tab" value={sp.tab} />}
-          <input type="date" name="from" defaultValue={format(from, "yyyy-MM-dd")} className="input h-9 w-40" aria-label="From" />
-          <input type="date" name="to" defaultValue={format(to, "yyyy-MM-dd")} className="input h-9 w-40" aria-label="To" />
+          <input type="date" name="from" defaultValue={format(from, "yyyy-MM-dd")} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="From" />
+          <input type="date" name="to" defaultValue={format(to, "yyyy-MM-dd")} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="To" />
           <select name="employee" defaultValue={sp.employee ?? ""} className="input h-9 w-44" aria-label="Employee">
             <option value="">All employees</option>
             {employees.map((e) => <option key={e.id} value={e.id}>{e.fullName}</option>)}

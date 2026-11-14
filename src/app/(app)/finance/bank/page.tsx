@@ -46,7 +46,7 @@ export default async function Bank({ searchParams }: { searchParams: Promise<{ a
             <h2 className="mb-3 font-semibold">Upload statement</h2>
             <ActionForm action={uploadStatement} className="space-y-3">
               <Field label="Account"><select name="accountId" required defaultValue={sel} className="input"><option value="">Choose…</option>{holders.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select></Field>
-              <Field label="Statement (.xlsx or .csv)" hint="Download from internet banking / the JazzCash or Easypaisa app. Uploading the same file again adds nothing."><input type="file" name="file" required accept=".xlsx,.csv" className="text-sm" /></Field>
+              <Field label="Statement (.xlsx or .csv)" hint="Download from internet banking / the JazzCash or Easypaisa app. Uploading the same file again adds nothing."><input type="file" name="file" required accept=".xlsx,.csv" className="w-full min-w-0 text-sm" /></Field>
               <SubmitButton>Upload and match</SubmitButton>
             </ActionForm>
           </Card>

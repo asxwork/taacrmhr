@@ -22,10 +22,10 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader title="Call Reports" actions={
-        <div className="flex flex-wrap gap-2">
-          <AutoFilterForm className="flex gap-2">
-            <input type="date" name="from" defaultValue={range.from} className="input h-9 w-40" aria-label="From" />
-            <input type="date" name="to" defaultValue={range.to} className="input h-9 w-40" aria-label="To" />
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <AutoFilterForm className="flex min-w-0 flex-1 gap-2">
+            <input type="date" name="from" defaultValue={range.from} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="From" />
+            <input type="date" name="to" defaultValue={range.to} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="To" />
           </AutoFilterForm>
           <a href={`/api/calls/export?from=${range.from}&to=${range.to}`} className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-2 text-sm hover:bg-surface"><Download className="size-4" /> CSV</a>
         </div>

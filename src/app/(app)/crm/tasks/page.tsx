@@ -143,7 +143,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         description="Follow-ups, meetings and site visits."
         actions={
           <>
-            <div className="flex rounded-lg bg-black/5 p-0.5">
+            <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
               <Link href={hrefWith(path, keep, { view: undefined })} className={cn("flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm", view === "day" ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
                 <ListChecks className="size-4" /> My day
               </Link>

@@ -55,9 +55,9 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
   const pageRows = employees.slice((page - 1) * PER, page * PER);
 
   const tabs = (
-    <div className="mb-4 flex rounded-lg bg-black/5 p-0.5 sm:w-fit">
+    <div className="mb-4 flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5 sm:w-fit">
       {([["directory", "Directory"], ["org", "Org chart"], ["documents", "Expiring documents"]] as const).map(([t, label]) => (
-        <Link key={t} href={t === "directory" ? "/hr/employees" : `/hr/employees?tab=${t}`} className={cn("flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
+        <Link key={t} href={t === "directory" ? "/hr/employees" : `/hr/employees?tab=${t}`} className={cn("flex-1 shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
           {label}
         </Link>
       ))}
@@ -141,7 +141,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
           </select>
         </AutoFilterForm>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg bg-black/5 p-0.5">
+          <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
             {([["", "All", Users], ["1", "My team", Network]] as const).map(([v, label, Icon]) => (
               <Link key={label} href={hrefWith("/hr/employees", keep, { mine: v || undefined, page: undefined })} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm", (sp.mine ?? "") === v ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
                 <Icon className="size-4" /> {label}

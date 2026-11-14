@@ -42,7 +42,7 @@ export default async function RecordingsPage({ searchParams }: { searchParams: P
           <AutoFilterForm>
             <input type="date" name="from" defaultValue={format(from, "yyyy-MM-dd")} className="input h-9" aria-label="From" />
             <input type="date" name="to" defaultValue={format(to, "yyyy-MM-dd")} className="input h-9" aria-label="To" />
-            <select name="agent" defaultValue={sp.agent ?? ""} className="input h-9 w-40" aria-label="Agent"><option value="">All agents</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+            <select name="agent" defaultValue={sp.agent ?? ""} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Agent"><option value="">All agents</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
             <input name="phone" defaultValue={sp.phone ?? ""} placeholder="Number" className="input h-9 w-36" aria-label="Number" />
           </AutoFilterForm>
         } />

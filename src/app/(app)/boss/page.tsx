@@ -31,18 +31,18 @@ export default async function BossPage({ searchParams }: { searchParams: Promise
     <>
       <PageHeader title="Boss dashboard" description={`${format(from, "d MMM")} – ${format(to, "d MMM yyyy")}`} />
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <div className="flex rounded-lg bg-black/5 p-0.5">
+        <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
           {TABS.map(([t, label]) => (
             <Link key={t} href={hrefWith("/boss", keep, { tab: t === "overview" ? undefined : t })} className={cn("whitespace-nowrap rounded-md px-3 py-1.5 text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{label}</Link>
           ))}
         </div>
         <AutoFilterForm className="flex flex-wrap items-end gap-2 sm:ml-auto">
           {sp.tab && <input type="hidden" name="tab" value={sp.tab} />}
-          <select name="period" defaultValue={sp.period ?? "month"} className="input h-9 w-40" aria-label="Period">
+          <select name="period" defaultValue={sp.period ?? "month"} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Period">
             {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
-          <input type="date" name="from" defaultValue={sp.period === "custom" ? sp.from : ""} className="input h-9 w-40" aria-label="From (custom)" />
-          <input type="date" name="to" defaultValue={sp.period === "custom" ? sp.to : ""} className="input h-9 w-40" aria-label="To (custom)" />
+          <input type="date" name="from" defaultValue={sp.period === "custom" ? sp.from : ""} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="From (custom)" />
+          <input type="date" name="to" defaultValue={sp.period === "custom" ? sp.to : ""} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="To (custom)" />
         </AutoFilterForm>
       </div>
 

@@ -56,7 +56,7 @@ export function PhotoManager({ photos, title, path, selectedId, canEdit, owner, 
           <ActionForm action={upload} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name={owner.name} value={owner.value} />
             <ImagePlus className="size-4 text-muted" />
-            <input name="images" type="file" multiple required accept="image/jpeg,image/png,image/webp" aria-label="Photos" className="flex-1 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
+            <input name="images" type="file" multiple required accept="image/jpeg,image/png,image/webp" aria-label="Photos" className="min-w-0 flex-1 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
             <SubmitButton variant="secondary" pendingText="Uploading…">Upload</SubmitButton>
           </ActionForm>
           {photos.length > 0 && (

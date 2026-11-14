@@ -47,7 +47,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         actions={
           <>
             {tab === "units" && (
-              <div className="flex rounded-lg bg-black/5 p-0.5">
+              <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
                 {([["grid", LayoutGrid, "Cards"], ["table", List, "Table"]] as const).map(([v, Icon, label]) => (
                   <Link key={v} href={hrefWith("/inventory", keep, { view: v === "grid" ? undefined : v, page: undefined })} className={cn("flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm", view === v ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
                     <Icon className="size-4" /> {label}
@@ -64,9 +64,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         }
       />
       {canProjects && (
-        <div className="mb-4 flex rounded-lg bg-black/5 p-0.5 sm:w-fit">
+        <div className="mb-4 flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5 sm:w-fit">
           {(["units", "projects"] as const).map((t) => (
-            <Link key={t} href={t === "projects" ? "/inventory?tab=projects" : "/inventory"} className={cn("flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm capitalize", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
+            <Link key={t} href={t === "projects" ? "/inventory?tab=projects" : "/inventory"} className={cn("flex-1 shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm capitalize", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
               {t}
             </Link>
           ))}

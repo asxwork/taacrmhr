@@ -202,7 +202,7 @@ export default async function CrmSettingsPage() {
               </ActionForm>
             ))}
             <ActionForm action={saveLeadSource} className="flex items-center gap-2 bg-canvas/50 p-3">
-              <input name="name" required placeholder="New source, e.g. TikTok" className="input w-56" />
+              <input name="name" required placeholder="New source, e.g. TikTok" className="input min-w-0 flex-1 sm:w-56 sm:flex-none" />
               <SubmitButton>Add source</SubmitButton>
             </ActionForm>
           </Card>

@@ -31,7 +31,7 @@ export function ViewToggle({ base, sp, view }: { base: string; sp: Record<string
     </Link>
   );
   return (
-    <div className="flex rounded-lg bg-black/5 p-0.5">
+    <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
       {item("board", KanbanSquare, "Board")}
       {item("list", List, "List")}
     </div>

@@ -339,12 +339,12 @@ export function Sidebar({ apps, initialApp, user, unread, urgent = 0, initiallyC
       )}
 
       {/* Phone top bar */}
-      <div className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-navy-950 px-4 lg:hidden">
+      <div className="sticky top-0 z-30 flex h-14 items-center gap-2 bg-navy-950 px-3 lg:hidden">
         <button onClick={() => setOpen(true)} className="rounded-lg p-1.5 text-white/80" aria-label="Open menu" aria-expanded={open}>
           <Menu className="size-5" />
         </button>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-9 w-auto" />
+        <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-9 w-auto min-w-0 shrink object-contain object-left" />
         <Link href="/home?all=1" className="ml-auto rounded-lg p-1.5 text-white/80" aria-label="All apps"><LayoutGrid className="size-5" /></Link>
         <button onClick={openSearch} className="rounded-lg p-1.5 text-white/80" aria-label="Search">
           <Search className="size-5" />

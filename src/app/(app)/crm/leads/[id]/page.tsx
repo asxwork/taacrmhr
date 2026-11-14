@@ -113,7 +113,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
         {canEdit && !editing && (
           <Link href={`${path}?edit=1`} scroll={false} className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink" title="Edit lead" aria-label="Edit lead"><Pencil className="size-4" /></Link>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {callHref && <a href={callHref} className={iconBtn} title={pm === "mask" ? "Call" : `Call ${fmtPhone(lead.phone)}`} aria-label="Call"><Phone className="size-4" /></a>}
           {waLink && <a href={waLink} target="_blank" rel="noreferrer" className={cn(iconBtn, "hover:text-emerald-600")} title="WhatsApp" aria-label="WhatsApp"><MessageCircle className="size-4" /></a>}
           {templates.length > 0 && (

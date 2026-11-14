@@ -196,7 +196,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex rounded-lg bg-black/5 p-0.5">
+        <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
           {viewTab("board", KanbanSquare, "Kanban")}
           {viewTab("list", List, "List")}
         </div>
