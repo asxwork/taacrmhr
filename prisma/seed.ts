@@ -39,6 +39,14 @@ async function main() {
     }
     await db.setting.create({ data: { key: flag, value: "done" } });
   }
+  // Notifications got a category and priority: sort the existing ones once (most recent 20,000).
+  if (!(await db.setting.findUnique({ where: { key: "fix.notify-category" } }))) {
+    const { categoryOf, priorityOf } = await import("../src/lib/notify");
+    for (const n of await db.notification.findMany({ orderBy: { createdAt: "desc" }, take: 20000, select: { id: true, title: true, link: true } })) {
+      await db.notification.update({ where: { id: n.id }, data: { category: categoryOf(n.link), priority: priorityOf(n.title) } });
+    }
+    await db.setting.create({ data: { key: "fix.notify-category", value: "done" } });
+  }
   // Onboarding review needs "edit" (it didn't exist before): every role that could send onboarding links can now review them.
   if (!(await db.setting.findUnique({ where: { key: "fix.onboarding-edit" } }))) {
     for (const p of await db.permission.findMany({ where: { module: "hr.onboarding", action: "create", scope: { not: "none" } } })) {

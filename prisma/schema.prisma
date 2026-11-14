@@ -156,6 +156,10 @@ model Notification {
   title     String
   body      String? // @text
   link      String?
+  /// crm | hr | finance | system (worked out from the link when not given)
+  category  String    @default("system")
+  /// urgent | high | normal
+  priority  String    @default("normal")
   readAt    DateTime?
   createdAt DateTime  @default(now())
 

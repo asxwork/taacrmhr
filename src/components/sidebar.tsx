@@ -14,7 +14,7 @@ import { SafeImg } from "@/components/safe-img";
 
 const ICONS = NAV_ICONS;
 
-type Props = { apps: UserApp[]; initialApp: AppKey; user: { name: string; roles: string; branch: string | null; photo: string | null }; unread: number; initiallyCollapsed: boolean };
+type Props = { apps: UserApp[]; initialApp: AppKey; user: { name: string; roles: string; branch: string | null; photo: string | null }; unread: number; urgent?: number; initiallyCollapsed: boolean };
 
 const pathOf = (href: string) => href.split(/[?#]/)[0]!;
 const isActive = (pathname: string, href: string) => {
@@ -22,7 +22,7 @@ const isActive = (pathname: string, href: string) => {
   return pathname === path || (path !== "/me" && path !== "/hr" && pathname.startsWith(path + "/"));
 };
 
-export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: Props) {
+export function Sidebar({ apps, initialApp, user, unread, urgent = 0, initiallyCollapsed }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const params = useSearchParams();
@@ -205,7 +205,7 @@ export function Sidebar({ apps, initialApp, user, unread, initiallyCollapsed }: 
         </Link>
         <Link href="/notifications" onClick={() => setOpen(false)} className="relative flex size-10 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white" title="Notifications" aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}>
           <Bell className="size-[18px]" />
-          {unread > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-semibold text-navy-950">{unread > 99 ? "99+" : unread}</span>}
+          {unread > 0 && <span title={urgent ? `${urgent} urgent` : undefined} className={cn("absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold", urgent ? "animate-pulse bg-red-500 text-white" : "bg-gold-400 text-navy-950")}>{unread > 99 ? "99+" : unread}</span>}
         </Link>
         <form action={logout} className="flex">
           <button className="flex size-10 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-red-500/15 hover:text-red-300" title="Sign out" aria-label="Sign out">
