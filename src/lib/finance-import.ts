@@ -40,7 +40,8 @@ export const BRANCH_NAME = "Bahadurabad";
 export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string, opts: { replace?: boolean } = {}): Promise<ImportResult & { removed: number }> {
   await ensureFinanceDefaults();
   // Replace: remove what earlier imports added (entries typed in by hand stay).
-  const removed = opts.replace ? (await db.finEntry.deleteMany({ where: { importKey: { not: null } } })).count : 0;
+  // Entries someone has worked on since (bill attached, checked, approved, linked to a bank line) are kept; the re-import skips them.
+  const removed = opts.replace ? (await db.finEntry.deleteMany({ where: { importKey: { not: null }, proofs: { none: {} }, receipt: null, verifiedAt: null, approvedAt: null } })).count : 0;
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer);
 

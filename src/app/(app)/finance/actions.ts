@@ -6,9 +6,26 @@ import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { saveUpload } from "@/lib/files";
-import { balances, checkBudget, cleanTags, payeeKey, financeApproverIds, financeConfig, isClosed, pkr, saveFinanceConfig } from "@/lib/finance";
+import { balances, checkBudget, cleanTags, financeLimit, holderLimit, payeeKey, financeApproverIds, financeConfig, isClosed, pkr, saveFinanceConfig } from "@/lib/finance";
 import { notify } from "@/lib/notify";
 import { str, type FormState } from "@/lib/utils";
+
+/** Branch / own-scope users may only use their own money holders and entries (Access permissions → Finance → Read). */
+async function holderAllowed(user: Awaited<ReturnType<typeof requirePermission>>, ...ids: (string | null | undefined)[]) {
+  const lim = holderLimit(user);
+  if (!lim) return true;
+  const ok = new Set((await db.finAccount.findMany({ where: lim, select: { id: true } })).map((a) => a.id));
+  return ids.filter(Boolean).every((id) => ok.has(id!));
+}
+async function entryAllowed(user: Awaited<ReturnType<typeof requirePermission>>, id: string) {
+  const lim = financeLimit(user);
+  return !lim || !!(await db.finEntry.findFirst({ where: { AND: [{ id }, lim] }, select: { id: true } }));
+}
+/** Status for an expense AMS creates for someone (claims, supplier bills, advances, bank lines): big ones wait for approval too. */
+async function autoStatus(user: Awaited<ReturnType<typeof requirePermission>>, amount: number) {
+  const cfg = await financeConfig();
+  return cfg.approvalAbove > 0 && amount >= cfg.approvalAbove && !can(user, "finance", "approve") ? "pending" : "approved";
+}
 
 const refresh = () => ["/finance", "/finance/entries", "/finance/holders", "/finance/categories"].forEach((p) => revalidatePath(p));
 
@@ -35,12 +52,15 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
   const cat = categoryId ? await db.finCategory.findUnique({ where: { id: categoryId }, include: { parent: true } }) : null;
   const personal = !!(cat?.personal || cat?.parent?.personal || fd.get("personal") === "on");
   if (personal && !can(user, "finance.personal", id ? "edit" : "create")) return { error: "You don't have access to Sir personal expenses." };
+  if (id && !(await entryAllowed(user, id))) return { error: "You can't edit this entry." };
+  if (!(await holderAllowed(user, accountId, toAccountId || null))) return { error: "You can only use your own office's money holders." };
   const cfg = await financeConfig();
   const before = id ? await db.finEntry.findUnique({ where: { id } }) : null;
   if (isClosed(date, cfg) || (before && isClosed(before.date, cfg))) return { error: `${cfg.closedThrough} and earlier months are closed. Ask a Super Admin to reopen the month in Finance → Settings.` };
   // Big expenses wait for the boss (unless the person saving can approve).
   const needsApproval = kind === "expense" && cfg.approvalAbove > 0 && amount >= cfg.approvalAbove && !can(user, "finance", "approve");
-  const status = needsApproval && (!before || before.status !== "approved" || amount > before.amount) ? "pending" : before?.status ?? "approved";
+  // A rejected entry that is corrected goes back for approval (or straight through when no approval is needed).
+  const status = needsApproval && (!before || before.status !== "approved" || amount > before.amount) ? "pending" : before && before.status !== "rejected" ? before.status : "approved";
   // Proof: any number of bills / receipts / transfer screenshots, from files or the phone camera.
   const files = [...fd.getAll("proofs"), ...fd.getAll("photo")].filter((f): f is File => f instanceof File && f.size > 0);
   const hadProof = id ? (await db.finProof.count({ where: { entryId: id } })) + ((await db.finEntry.findUnique({ where: { id }, select: { receipt: true } }))?.receipt ? 1 : 0) : 0;
@@ -75,8 +95,13 @@ export async function deleteEntry(fd: FormData) {
   const e = await db.finEntry.findUnique({ where: { id: str(fd, "id") } });
   if (!e) return;
   const user = await requirePermission(e.personal ? "finance.personal" : "finance", "delete");
-  if (isClosed(e.date, await financeConfig())) return;
+  if (isClosed(e.date, await financeConfig()) || !(await entryAllowed(user, e.id))) return;
   await db.finEntry.delete({ where: { id: e.id } });
+  // Undo what the entry stood for, so nothing is left marked "paid" with no payment behind it.
+  if (e.sourceType === "expense" && e.sourceId) await db.expense.updateMany({ where: { id: e.sourceId, status: "paid", runId: null }, data: { status: "approved" } });
+  if (e.sourceType === "payable" && e.sourceId) await db.finPayable.updateMany({ where: { id: e.sourceId }, data: { status: "open", entryId: null } });
+  await db.finBankLine.updateMany({ where: { entryId: e.id }, data: { entryId: null } });
+  await db.finTopup.updateMany({ where: { entryId: e.id }, data: { entryId: null } });
   await audit(user.id, "delete", "finEntry", e.id, `Deleted ${e.kind} ${pkr(e.amount)}: ${e.description}`);
   refresh();
 }
@@ -152,9 +177,10 @@ export async function importWorkbook(_: FormState, fd: FormData): Promise<FormSt
 
 /** Add more proof to an entry (bill, receipt, screenshot). */
 export async function addProof(_: FormState, fd: FormData): Promise<FormState> {
-  const user = await requirePermission("finance", "create");
   const e = await db.finEntry.findUnique({ where: { id: str(fd, "id") } });
   if (!e) return { error: "Entry not found." };
+  const user = await requirePermission(e.personal ? "finance.personal" : "finance", "create");
+  if (!(await entryAllowed(user, e.id))) return { error: "You can't change this entry." };
   const files = [...fd.getAll("proofs"), ...fd.getAll("photo")].filter((f): f is File => f instanceof File && f.size > 0);
   if (!files.length) return { error: "Choose a file or take a photo." };
   for (const f of files.slice(0, 10)) {
@@ -171,9 +197,10 @@ export async function addProof(_: FormState, fd: FormData): Promise<FormState> {
 }
 
 export async function deleteProof(fd: FormData) {
-  const user = await requirePermission("finance", "delete");
   const p = await db.finProof.findUnique({ where: { id: str(fd, "id") }, include: { entry: true } });
   if (!p) return;
+  const user = await requirePermission(p.entry.personal ? "finance.personal" : "finance", "delete");
+  if (!(await entryAllowed(user, p.entryId))) return;
   await db.finProof.delete({ where: { id: p.id } });
   await audit(user.id, "update", "finEntry", p.entryId, `Removed proof ${p.name} from ${p.entry.description}`);
   revalidatePath(`/finance/entries/${p.entryId}`);
@@ -213,6 +240,9 @@ export async function decideEntry(fd: FormData) {
   if (!e || e.status !== "pending") return;
   const approve = str(fd, "op") === "approve";
   const reason = str(fd, "reason").slice(0, 300) || null;
+  // Only one decision counts (two approvers clicking at once).
+  const claimed = await db.finEntry.updateMany({ where: { id: e.id, status: "pending" }, data: { status: approve ? "approved" : "rejected" } });
+  if (!claimed.count) return;
   await db.finEntry.update({ where: { id: e.id }, data: approve ? { status: "approved", approvedById: user.id, approvedAt: new Date(), rejectReason: null } : { status: "rejected", approvedById: user.id, approvedAt: new Date(), rejectReason: reason } });
   if (approve && !e.personal) await checkBudget(e.categoryId, e.date).catch(() => {});
   await audit(user.id, approve ? "approve" : "reject", "finEntry", e.id, `${approve ? "Approved" : "Rejected"} ${e.description} (${pkr(e.amount)})${reason ? `: ${reason}` : ""}`);
@@ -297,6 +327,7 @@ export async function decideTopup(fd: FormData) {
   const user = await requirePermission("finance", "approve");
   const t = await db.finTopup.findUnique({ where: { id: str(fd, "id") }, include: { account: true } });
   if (!t || t.status !== "pending") return;
+  if (!(await db.finTopup.updateMany({ where: { id: t.id, status: "pending" }, data: { status: "deciding" } })).count) return;
   if (str(fd, "op") === "reject") {
     await db.finTopup.update({ where: { id: t.id }, data: { status: "rejected", decidedById: user.id, decidedAt: new Date() } });
     if (t.requestedById) await notify(t.requestedById, `Top-up of ${pkr(t.amount)} for ${t.account.name} was not approved`, { link: "/finance/holders" });
@@ -320,6 +351,7 @@ export async function settleHolder(_: FormState, fd: FormData): Promise<FormStat
   const from = str(fd, "fromId");
   const amount = parseFloat(str(fd, "amount").replace(/,/g, "")) || 0;
   if (!to || !from || from === to.id) return { error: "Choose who pays them back." };
+  if (!(await holderAllowed(user, from, to.id))) return { error: "You can only use your own office's money holders." };
   if (!(amount > 0)) return { error: "Enter the amount." };
   const e = await db.finEntry.create({ data: { kind: "transfer", amount, date: new Date(), accountId: from, toAccountId: to.id, description: `Paid back to ${to.name}`, notes: str(fd, "note") || null, createdById: user.id } });
   await audit(user.id, "create", "finEntry", e.id, `Paid back ${pkr(amount)} to ${to.name}`);
@@ -357,13 +389,15 @@ export async function payClaim(_: FormState, fd: FormData): Promise<FormState> {
   const accountId = str(fd, "accountId");
   if (!c || c.status !== "approved" || c.runId) return { error: "This claim is no longer waiting for payment." };
   if (!accountId) return { error: "Choose who pays it." };
+  if (!(await holderAllowed(user, accountId))) return { error: "You can only use your own office's money holders." };
+  // Mark it paid first, so a double click can't pay the same claim twice.
+  if (!(await db.expense.updateMany({ where: { id: c.id, status: "approved", runId: null }, data: { status: "paid" } })).count) return { error: "This claim was just paid." };
   const { categoryForClaim } = await import("@/lib/finance");
   const e = await db.finEntry.create({ data: {
-    kind: "expense", amount: c.amount, date: new Date(), accountId, categoryId: await categoryForClaim(c.category), description: `Claim: ${c.category}${c.description ? ` — ${c.description}` : ""} (${c.employee.fullName})`,
+    status: await autoStatus(user, c.amount), kind: "expense", amount: c.amount, date: new Date(), accountId, categoryId: await categoryForClaim(c.category), description: `Claim: ${c.category}${c.description ? ` — ${c.description}` : ""} (${c.employee.fullName})`,
     party: c.employee.fullName, sourceType: "expense", sourceId: c.id, createdById: user.id,
   } });
   if (c.receipt) await db.finProof.create({ data: { entryId: e.id, path: c.receipt, name: "Claim receipt", createdById: user.id } });
-  await db.expense.update({ where: { id: c.id }, data: { status: "paid" } });
   if (c.employee.userId) await notify(c.employee.userId, `Your ${c.category} claim of ${pkr(c.amount)} was paid`, { link: "/me/expenses" });
   await audit(user.id, "create", "finEntry", e.id, `Paid claim of ${c.employee.fullName}: ${pkr(c.amount)}`);
   refresh();
@@ -379,6 +413,7 @@ export async function recordPayroll(_: FormState, fd: FormData): Promise<FormSta
   const amount = parseFloat(str(fd, "amount").replace(/,/g, "")) || 0;
   if (!run) return { error: "Payroll month not found." };
   if (!accountId) return { error: "Choose the account the salaries were paid from." };
+  if (!(await holderAllowed(user, accountId))) return { error: "You can only use your own office's money holders." };
   if (!(amount > 0)) return { error: "Nothing to record." };
   if (await db.finEntry.findFirst({ where: { sourceType: "payroll", sourceId: run.id } })) return { error: "This month is already recorded." };
   const main = await db.finCategory.findFirst({ where: { parentId: null, name: "Employee & HR" } });
@@ -400,6 +435,7 @@ export async function saveCashCount(_: FormState, fd: FormData): Promise<FormSta
   const accountId = str(fd, "accountId");
   const counted = parseFloat(str(fd, "counted").replace(/,/g, ""));
   if (!accountId) return { error: "Choose whose cash you counted." };
+  if (!(await holderAllowed(user, accountId))) return { error: "You can only count your own office's cash." };
   if (Number.isNaN(counted)) return { error: "Enter the cash you counted." };
   const h = (await balances()).find((a) => a.id === accountId);
   if (!h) return { error: "Holder not found." };
@@ -426,6 +462,7 @@ export async function giveAdvance(_: FormState, fd: FormData): Promise<FormState
   const loanId = str(fd, "loanId");
   const accountId = str(fd, "accountId");
   if (!accountId) return { error: "Choose who pays it out." };
+  if (!(await holderAllowed(user, accountId))) return { error: "You can only use your own office's money holders." };
   let loan;
   if (loanId) {
     loan = await db.loan.findUnique({ where: { id: loanId }, include: { employee: true } });
@@ -443,7 +480,7 @@ export async function giveAdvance(_: FormState, fd: FormData): Promise<FormState
   if (await db.finEntry.findFirst({ where: { sourceType: "loan", sourceId: loan.id } })) return { error: "Already paid out." };
   const main = await db.finCategory.findFirst({ where: { parentId: null, name: "Employee & HR" } });
   const sub = main && (await db.finCategory.findFirst({ where: { parentId: main.id, name: "Advance/Loan" } }));
-  const e = await db.finEntry.create({ data: { kind: "expense", amount: loan.amount, date: new Date(), accountId, categoryId: sub?.id ?? main?.id ?? null, description: `${loan.kind === "loan" ? "Loan" : "Advance"} to ${loan.employee.fullName}${loan.reason ? ` — ${loan.reason}` : ""}`, party: loan.employee.fullName, sourceType: "loan", sourceId: loan.id, createdById: user.id } });
+  const e = await db.finEntry.create({ data: { status: await autoStatus(user, loan.amount), kind: "expense", amount: loan.amount, date: new Date(), accountId, categoryId: sub?.id ?? main?.id ?? null, description: `${loan.kind === "loan" ? "Loan" : "Advance"} to ${loan.employee.fullName}${loan.reason ? ` — ${loan.reason}` : ""}`, party: loan.employee.fullName, sourceType: "loan", sourceId: loan.id, createdById: user.id } });
   await audit(user.id, "create", "finEntry", e.id, `Paid ${loan.kind} of ${pkr(loan.amount)} to ${loan.employee.fullName}`);
   if (loan.employee.userId) await notify(loan.employee.userId, `Your ${loan.kind} of ${pkr(loan.amount)} was paid`, { body: `${pkr(loan.installment)} per month from your ${loan.startMonth} salary.`, link: "/me/expenses" });
   refresh();
@@ -477,9 +514,11 @@ export async function payPayable(_: FormState, fd: FormData): Promise<FormState>
   const accountId = str(fd, "accountId");
   if (!p || p.status !== "open") return { error: "This bill is not open." };
   if (!accountId) return { error: "Choose who pays it." };
-  const e = await db.finEntry.create({ data: { kind: "expense", amount: p.amount, date: new Date(), accountId, categoryId: p.categoryId, description: `${p.description} (${p.party})`, party: p.party, sourceType: "payable", sourceId: p.id, createdById: user.id } });
+  if (!(await holderAllowed(user, accountId))) return { error: "You can only use your own office's money holders." };
+  if (!(await db.finPayable.updateMany({ where: { id: p.id, status: "open" }, data: { status: "paid" } })).count) return { error: "This bill was just paid." };
+  const e = await db.finEntry.create({ data: { status: await autoStatus(user, p.amount), kind: "expense", amount: p.amount, date: new Date(), accountId, categoryId: p.categoryId, description: `${p.description} (${p.party})`, party: p.party, sourceType: "payable", sourceId: p.id, createdById: user.id } });
   if (p.proof) await db.finProof.create({ data: { entryId: e.id, path: p.proof, name: "Supplier bill", createdById: user.id } });
-  await db.finPayable.update({ where: { id: p.id }, data: { status: "paid", entryId: e.id } });
+  await db.finPayable.update({ where: { id: p.id }, data: { entryId: e.id } });
   await audit(user.id, "create", "finEntry", e.id, `Paid ${p.party} bill ${pkr(p.amount)}`);
   refresh();
   revalidatePath("/finance/vendors");
@@ -501,6 +540,7 @@ export async function uploadStatement(_: FormState, fd: FormData): Promise<FormS
   const accountId = str(fd, "accountId");
   const file = fd.get("file");
   if (!accountId) return { error: "Choose the account this statement is for." };
+  if (!(await holderAllowed(user, accountId))) return { error: "You can only use your own office's accounts." };
   if (!(file instanceof File) || !file.size) return { error: "Choose the statement file (.xlsx or .csv)." };
   if (!/\.(xlsx|csv)$/i.test(file.name)) return { error: "Save the statement as Excel (.xlsx) or CSV first." };
   try {
@@ -525,7 +565,7 @@ export async function bankLineAction(fd: FormData) {
   else if (str(fd, "op") === "rematch") { const { matchLines } = await import("@/lib/finance-bank"); await matchLines(l.accountId); }
   else {
     const e = await db.finEntry.create({ data: l.direction === "out"
-      ? { kind: "expense", amount: l.amount, date: l.date, accountId: l.accountId, categoryId: str(fd, "categoryId") || null, description: l.description, sourceType: "bank", sourceId: l.id, createdById: user.id }
+      ? { status: await autoStatus(user, l.amount), kind: "expense", amount: l.amount, date: l.date, accountId: l.accountId, categoryId: str(fd, "categoryId") || null, description: l.description, sourceType: "bank", sourceId: l.id, createdById: user.id }
       : { kind: "in", amount: l.amount, date: l.date, accountId: l.accountId, description: l.description, sourceType: "bank", sourceId: l.id, createdById: user.id } });
     await db.finBankLine.update({ where: { id: l.id }, data: { entryId: e.id } });
     await audit(user.id, "create", "finEntry", e.id, `Entry from bank line: ${l.description} ${pkr(l.amount)}`);
@@ -534,8 +574,9 @@ export async function bankLineAction(fd: FormData) {
 }
 
 /** "Add bill" straight from the entries list (one file or photo). */
-export async function quickProof(fd: FormData) {
-  await addProof(undefined, fd);
+export async function quickProof(fd: FormData): Promise<string | null> {
+  const r = await addProof(undefined, fd);
+  return r?.error ?? null;
 }
 
 /** The view (holder, sort, filters) the Entries list opens on for this user; empty = remove. */

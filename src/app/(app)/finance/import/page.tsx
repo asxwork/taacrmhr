@@ -21,7 +21,7 @@ export default async function FinanceImport() {
               <span className="text-sm font-medium">Choose the expense workbook (.xlsx)</span>
               <input type="file" name="file" accept=".xlsx" required className="text-sm" />
             </label>
-            {imported > 0 && <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="replace" className="mt-0.5" /> <span>Replace the earlier import <span className="block text-xs text-muted">Removes the {imported.toLocaleString()} imported entries first (entries typed in by hand and their proofs stay). Use this if the sheet was corrected.</span></span></label>}
+            {imported > 0 && <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="replace" className="mt-0.5" /> <span>Replace the earlier import <span className="block text-xs text-muted">Removes the imported entries first. Entries typed in by hand, and imported entries that have a bill attached or were checked / approved, stay. Use this if the sheet was corrected.</span></span></label>}
             <SubmitButton>Import</SubmitButton>
           </ActionForm>
           {imported > 0 && <p className="mt-3 text-xs text-muted">{imported.toLocaleString()} entries came from earlier imports.</p>}

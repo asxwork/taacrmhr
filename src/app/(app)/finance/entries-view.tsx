@@ -1,12 +1,12 @@
 import Link from "@/components/link";
 import { format, parse } from "date-fns";
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Download, Paperclip, Plus, Search, ShieldCheck, Trash2, Copy } from "lucide-react";
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Download, Paperclip, Plus, Search, ShieldCheck, Trash2, Copy, Lock } from "lucide-react";
 import { ProofInputs } from "./proof-inputs";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import type { SessionUser } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
-import { categoryTree, ensureFinanceDefaults, entryWhere, financeConfig, financeLimit, holderLimit, pkr, tagList } from "@/lib/finance";
+import { categoryTree, ensureFinanceDefaults, entryWhere, financeConfig, financeLimit, holderLimit, isClosed, pkr, tagList } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Drawer, EmptyState, Field, PageHeader } from "@/components/ui";
@@ -130,9 +130,10 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
                     </td>
                     <td className="px-2 py-2.5 text-right">
                       <span className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100">
-                        {canEdit && <Link href={href({ edit: e.id })} scroll={false} className="rounded px-2 py-1 text-xs font-medium text-navy-900 hover:bg-canvas">Edit</Link>}
+                        {isClosed(e.date, cfg) && <span title={`${cfg.closedThrough} and earlier are closed`} className="p-1 text-muted"><Lock className="size-3.5" /></span>}
+                        {canEdit && !isClosed(e.date, cfg) && <Link href={href({ edit: e.id })} scroll={false} className="rounded px-2 py-1 text-xs font-medium text-navy-900 hover:bg-canvas">Edit</Link>}
                         {canAdd && <Link href={href({ copy: e.id })} scroll={false} title="Duplicate (same details, new date / amount / bill)" className="rounded p-1 text-muted hover:text-ink"><Copy className="size-3.5" /></Link>}
-                        {canDel && <form action={deleteEntry}><input type="hidden" name="id" value={e.id} /><ConfirmButton message={`Delete “${e.description}” (${pkr(e.amount)})?`} title="Delete" className="rounded p-1 text-muted hover:text-red-600"><Trash2 className="size-3.5" /></ConfirmButton></form>}
+                        {canDel && !isClosed(e.date, cfg) && <form action={deleteEntry}><input type="hidden" name="id" value={e.id} /><ConfirmButton message={`Delete “${e.description}” (${pkr(e.amount)})?`} title="Delete" className="rounded p-1 text-muted hover:text-red-600"><Trash2 className="size-3.5" /></ConfirmButton></form>}
                       </span>
                     </td>
                   </tr>

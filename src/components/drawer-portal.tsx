@@ -15,5 +15,6 @@ export function DrawerPortal({ children }: { children: React.ReactNode }) {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, []);
-  return host ? createPortal(children, host) : <>{children}</>;
+  // Drawn once, straight on <body> after the page loads (drawing it inline first and moving it would wipe anything typed).
+  return host ? createPortal(children, host) : null;
 }
