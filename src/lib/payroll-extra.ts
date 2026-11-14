@@ -16,15 +16,24 @@ export async function lateSittingSuggestions(month: string, employeeIds: string[
   return new Map([...att.entries()].map(([id, days]) => [id, days.filter((d) => d.overtimeMin >= 60).length]));
 }
 
-/** Won deals in the month with commission %, per agent (what payroll pays when "commission" is on). */
-export async function commissionFor(month: string) {
-  const start = startOfMonth(monthDate(month));
-  const deals = await db.deal.findMany({
-    where: { stage: { kind: "won" }, closedAt: { gte: start, lte: endOfMonth(start) }, commissionPct: { gt: 0 }, ownerId: { not: null } },
-    select: { id: true, title: true, value: true, commissionPct: true, closedAt: true, owner: { select: { id: true, name: true, employee: { select: { id: true } } } } },
-    orderBy: { closedAt: "asc" },
-  });
-  return deals.map((d) => ({ ...d, commission: Math.round(((d.value ?? 0) * (d.commissionPct ?? 0)) / 100) }));
+/**
+ * Commission for a month (what payroll pays when "commission" is on), per deal.
+ * % = the deal's own % → else the agent's % (salary profile) → else the company default (payroll settings).
+ * Basis "won": deals won in the month × value. Basis "received": client money received in the month (installments) × %.
+ */
+export async function commissionFor(month: string, ownerId?: string) {
+  const { payrollSettings } = await import("./payroll");
+  const settings = await payrollSettings();
+  const start = startOfMonth(monthDate(month)), end = endOfMonth(start);
+  const select = { id: true, title: true, value: true, commissionPct: true, closedAt: true, owner: { select: { id: true, name: true, employee: { select: { id: true, salary: { select: { commissionPct: true } } } } } } } as const;
+  const deals = settings.commissionBasis === "received"
+    ? await db.deal.findMany({ where: { ownerId: ownerId ?? { not: null }, paymentPlan: { items: { some: { paidAt: { gte: start, lte: end } } } } }, select: { ...select, paymentPlan: { select: { items: { where: { paidAt: { gte: start, lte: end } }, select: { paidAmount: true } } } } } })
+    : await db.deal.findMany({ where: { stage: { kind: "won" }, closedAt: { gte: start, lte: end }, ownerId: ownerId ?? { not: null } }, select, orderBy: { closedAt: "asc" } });
+  return deals.map((d) => {
+    const pct = d.commissionPct || d.owner?.employee?.salary?.commissionPct || settings.commissionDefault || 0;
+    const base = "paymentPlan" in d && d.paymentPlan ? (d.paymentPlan as { items: { paidAmount: number }[] }).items.reduce((s, i) => s + i.paidAmount, 0) : d.value ?? 0;
+    return { ...d, commissionPct: pct, base, commission: Math.round((base * pct) / 100) };
+  }).filter((d) => d.commission > 0);
 }
 
 export type SettlementLine = { kind: "earning" | "deduction" | "info"; label: string; amount: number };

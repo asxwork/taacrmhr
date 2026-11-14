@@ -107,6 +107,7 @@ export async function saveProfileSection(_: FormState, fd: FormData): Promise<Fo
       if (pfPct > 20) return { error: "Provident fund must be 0–20%." };
       const data = {
         excludeFromPayroll: !!sal.excludeFromPayroll, compensationType: (sal.compensationType as string | null) ?? null,
+        commissionPct: sal.commissionPct == null || sal.commissionPct === "" ? null : Math.min(100, Math.max(0, Number(sal.commissionPct) || 0)),
         currency: (sal.currency as string | null) ?? "PKR", description: (sal.description as string | null) ?? null,
         gross: sal.gross as number, probationGross: (sal.probationGross as number | null) ?? null, effectiveFrom: sal.effectiveFrom as Date,
         paymentMethod: (sal.paymentMethod as string | null) ?? "bank", incrementMonths: Number(incrementMonths ?? 12) || 12,

@@ -129,6 +129,10 @@ export async function savePayrollSettings(_: FormState, fd: FormData): Promise<F
     await set(k, String(v));
   }
   await set("commission", fd.get("commission") === "on" ? "on" : "off");
+  const cd = parseFloat(str(fd, "commissionDefault") || "0");
+  if (!(cd >= 0 && cd <= 100)) return { error: "Default commission must be 0–100%." };
+  await set("commissionDefault", String(cd));
+  await set("commissionBasis", str(fd, "commissionBasis") === "received" ? "received" : "won");
   const fy = Math.round(Number(str(fd, "fyStart") || 7));
   if (fy < 1 || fy > 12) return { error: "Financial year start must be a month 1–12." };
   await set("fyStart", String(fy));

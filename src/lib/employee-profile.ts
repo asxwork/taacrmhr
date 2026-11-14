@@ -51,7 +51,7 @@ export async function loadProfile(id: string) {
     managerId: emp.managerId ?? "", finalAuthorityId: emp.finalAuthorityId ?? "", shiftId: emp.shiftId ?? "", deviceUserId: emp.deviceUserId ?? "",
     gross: s ? String(s.gross) : "", probationGross: s?.probationGross ? String(s.probationGross) : "", effectiveFrom: d(s?.effectiveFrom) || d(new Date()),
     paymentMethod: s?.paymentMethod ?? "bank", ntn: emp.ntn ?? "", incrementMonths: String(s?.incrementMonths ?? 12), nextIncrementAt: d(s?.nextIncrementAt),
-    excludeFromPayroll: s?.excludeFromPayroll ? "on" : "", compensationType: s?.compensationType ?? "", currency: s?.currency ?? "PKR", description: s?.description ?? "",
+    excludeFromPayroll: s?.excludeFromPayroll ? "on" : "", compensationType: s?.compensationType ?? "", commissionPct: s?.commissionPct != null ? String(s.commissionPct) : "", currency: s?.currency ?? "PKR", description: s?.description ?? "",
     taxExempt: s?.taxExempt ? "on" : "", eobi: !s || s.eobi ? "on" : "", pfPct: s ? String(s.pfPct) : "0",
     address: emp.address ?? "", permanentAddress: emp.permanentAddress ?? "", city: emp.city ?? "",
     emergencyName: emp.emergencyName ?? "", emergencyRelation: emp.emergencyRelation ?? "", emergencyPhone: emp.emergencyPhone ?? "",

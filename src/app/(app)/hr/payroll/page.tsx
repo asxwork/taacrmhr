@@ -140,7 +140,12 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
               </Field>
               <Field label="First payslip number" hint="e.g. 598 → PS-000598 (used once)"><input name="payslipStart" type="number" min={1} defaultValue={slipSettings.payslipStart} className="input" /></Field>
             </div>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="commission" defaultChecked={settings.commission} className="accent-navy-900" /> Pay deal commissions through payroll (won deals × commission %)</label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="commission" defaultChecked={settings.commission} className="accent-navy-900" /> Pay deal commissions through payroll automatically</label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Commission paid" hint="When the agent earns it"><select name="commissionBasis" defaultValue={settings.commissionBasis} className="input"><option value="won">When the deal is won (on deal value)</option><option value="received">When the client pays (on money received)</option></select></Field>
+              <Field label="Default commission %" hint="Used when neither the deal nor the agent has a %"><input name="commissionDefault" type="number" step="0.1" min={0} max={100} defaultValue={settings.commissionDefault} className="input" /></Field>
+            </div>
+            <p className="text-xs text-muted">Order used: the deal&apos;s own % → the agent&apos;s % (employee profile → Salary) → this default.</p>
             <SubmitButton>Save</SubmitButton>
           </ActionForm>
         </Card>

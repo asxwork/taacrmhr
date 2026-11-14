@@ -1359,6 +1359,8 @@ model SalaryProfile {
   excludeFromPayroll Boolean @default(false)
   /// fixed | commission | fixed_commission | hourly
   compensationType String?
+  /// This person's commission % on deals (used when a deal has no % of its own).
+  commissionPct   Float?
   currency        String    @default("PKR")
   description     String? // @text
   updatedAt       DateTime  @updatedAt

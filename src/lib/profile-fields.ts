@@ -116,6 +116,7 @@ export const PROFILE_SECTIONS: ProfileSectionDef[] = [
     fields: [
       { key: "excludeFromPayroll", label: "Do Not Use in Payroll", kind: "bool" },
       { key: "compensationType", label: "Compensation Type", kind: "select", options: COMPENSATION_TYPES },
+      { key: "commissionPct", label: "Commission % on deals", kind: "number", placeholder: "Used when a deal has no % of its own" },
       { key: "ntn", label: "NTN #", kind: "text", placeholder: "NTN #" },
       { key: "paymentMethod", label: "Payment Method", kind: "select", options: PAYMENT_METHODS },
       { key: "currency", label: "Currency", kind: "select", options: CURRENCIES },

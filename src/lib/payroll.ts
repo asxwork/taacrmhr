@@ -33,6 +33,10 @@ export async function payrollSettings() {
     latesPerDay: Number(get("latesPerDay", "3")) || 0,
     overtimeRate: Number(get("overtimeRate", "0")) || 0,
     commission: get("commission", "off") === "on",
+    /** Commission % used when neither the deal nor the agent has one (0 = none). */
+    commissionDefault: Number(get("commissionDefault", "0")) || 0,
+    /** won = paid in the month the deal is won; received = paid on client money received that month (installments). */
+    commissionBasis: get("commissionBasis", "won") === "received" ? "received" as const : "won" as const,
     /** PKR per late sitting (Custom Payitems → No. Of Late Sittings). */
     lateSittingRate: Number(get("lateSittingRate", "1000")) || 0,
   };
@@ -101,9 +105,10 @@ export async function computePayslip(employeeId: string, month: string, runId: s
   }
 
   if (settings.commission && emp.userId) {
-    const won = await db.deal.findMany({ where: { ownerId: emp.userId, stage: { kind: "won" }, closedAt: { gte: start, lte: end }, commissionPct: { gt: 0 } }, select: { value: true, commissionPct: true } });
-    const total = won.reduce((sum, d) => sum + ((d.value ?? 0) * (d.commissionPct ?? 0)) / 100, 0);
-    if (total) lines.push({ kind: "earning", label: `Commission (${won.length} deal${won.length === 1 ? "" : "s"})`, amount: r0(total), source: "commission" });
+    const { commissionFor } = await import("./payroll-extra");
+    const rows = await commissionFor(month, emp.userId);
+    const total = rows.reduce((sum, d) => sum + d.commission, 0);
+    if (total) lines.push({ kind: "earning", label: `Commission (${rows.length} deal${rows.length === 1 ? "" : "s"}${settings.commissionBasis === "received" ? ", on money received" : ""})`, amount: r0(total), source: "commission" });
   }
 
   // One-off adjustments for this run.

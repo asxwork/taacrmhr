@@ -24,7 +24,7 @@ export default async function CommissionPage({ searchParams }: { searchParams: P
 
   return (
     <>
-      <PageHeader title="Commission" description="From the CRM: won deals closed this month with a commission % on the deal."
+      <PageHeader title="Commission" description={settings.commissionBasis === "received" ? "From the CRM: client money received this month on each agent's deals × commission %." : "From the CRM: deals won this month × commission % (deal % → agent % → default)."}
         actions={<AutoFilterForm><input type="month" name="month" defaultValue={month} className="input h-9" aria-label="Month" /></AutoFilterForm>} />
       <p className="mb-4 text-sm">
         Deal commission through payroll is <Badge tone={settings.commission ? "green" : "neutral"}>{settings.commission ? "on" : "off"}</Badge>{" "}
@@ -34,14 +34,14 @@ export default async function CommissionPage({ searchParams }: { searchParams: P
         <Card className="overflow-x-auto">
           {deals.length === 0 ? <EmptyState title="No won deals with commission this month" /> : (
             <table className="w-full min-w-[620px] text-sm">
-              <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Deal</th><th className="px-4 py-2.5">Agent</th><th className="px-4 py-2.5">Closed</th><th className="px-4 py-2.5 text-right">Value</th><th className="px-4 py-2.5 text-right">%</th><th className="px-4 py-2.5 text-right">Commission</th></tr></thead>
+              <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Deal</th><th className="px-4 py-2.5">Agent</th><th className="px-4 py-2.5">Closed</th><th className="px-4 py-2.5 text-right">{settings.commissionBasis === "received" ? "Received" : "Value"}</th><th className="px-4 py-2.5 text-right">%</th><th className="px-4 py-2.5 text-right">Commission</th></tr></thead>
               <tbody className="divide-y divide-line">
                 {deals.map((d) => (
                   <tr key={d.id}>
                     <td className="px-4 py-2.5"><Link href={`/crm/deals/${d.id}`} className="font-medium hover:underline">{d.title}</Link></td>
                     <td className="px-4 py-2.5">{d.owner!.name}</td>
                     <td className="px-4 py-2.5 text-xs">{d.closedAt ? format(d.closedAt, "d MMM") : "—"}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{fmtPKR(d.value ?? 0)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{fmtPKR(d.base)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{d.commissionPct}%</td>
                     <td className="px-4 py-2.5 text-right font-medium tabular-nums">{fmtPKR(d.commission)}</td>
                   </tr>
