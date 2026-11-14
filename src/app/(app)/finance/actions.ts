@@ -58,6 +58,7 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
   const e = id ? await db.finEntry.update({ where: { id }, data }) : await db.finEntry.create({ data: { ...data, createdById: user.id } });
   if (data.recurringId) await db.finRecurring.update({ where: { id: data.recurringId }, data: { lastPaid: date.toISOString().slice(0, 7) } }).catch(() => {});
   if (saved.length) await db.finProof.createMany({ data: saved.map((p) => ({ ...p, entryId: e.id, createdById: user.id })) });
+  if (!before && kind === "expense" && !personal) await (await import("@/lib/finance-weekly")).alertBigExpense(e, user.name, cfg.alertAbove).catch(() => {});
   if (status === "approved" && kind !== "in") await checkLowCash(accountId, amount).catch(() => {});
   if (status === "approved" && kind === "expense" && !personal) await checkBudget(e.categoryId, e.date).catch(() => {});
   if (status === "pending" && before?.status !== "pending") {
@@ -195,6 +196,7 @@ export async function saveFinanceSettings(_: FormState, fd: FormData): Promise<F
   const patch: Record<string, number | string> = {};
   if (fd.has("proofAbove")) patch.proofAbove = num("proofAbove");
   if (fd.has("approvalAbove")) patch.approvalAbove = num("approvalAbove");
+  if (fd.has("alertAbove")) patch.alertAbove = num("alertAbove");
   if (fd.has("closedThrough")) patch.closedThrough = /^\d{4}-\d{2}$/.test(str(fd, "closedThrough")) ? str(fd, "closedThrough") : "";
   await saveFinanceConfig(patch);
   await audit(user.id, "update", "setting", "finance.config", `Finance settings: ${JSON.stringify(patch)}`);

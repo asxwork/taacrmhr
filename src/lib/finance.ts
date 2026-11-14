@@ -105,8 +105,10 @@ export type FinConfig = {
   approvalAbove: number;
   /** Months up to and including this one ("yyyy-MM") are closed: entries can't be added, edited or deleted. */
   closedThrough: string;
+  /** The owner gets an instant notification for any single expense of this amount or more (0 = off). */
+  alertAbove: number;
 };
-const FIN_DEFAULTS: FinConfig = { proofAbove: 0, approvalAbove: 0, closedThrough: "" };
+const FIN_DEFAULTS: FinConfig = { proofAbove: 0, approvalAbove: 0, closedThrough: "", alertAbove: 0 };
 export async function financeConfig(): Promise<FinConfig> {
   const row = await db.setting.findUnique({ where: { key: "finance.config" } });
   try { return { ...FIN_DEFAULTS, ...(row ? JSON.parse(row.value) : {}) }; } catch { return FIN_DEFAULTS; }

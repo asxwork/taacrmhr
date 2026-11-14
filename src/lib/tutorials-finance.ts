@@ -37,7 +37,7 @@ export const FINANCE_TUTORIALS: Tutorial[] = [
     steps: ["Type a monthly amount next to each category (the 3-month average helps).", "Save budgets. Bars turn amber at 80% and red when over."] }),
   F({ key: "fin-settings", module: "finance.settings", action: "edit", title: "Finance settings and month close", who: "Owner, Super Admin", href: "/finance/settings", paths: ["/finance/categories", "/finance/import"],
     summary: "Proof limit, approval limit, closing a month, categories and Excel import.",
-    steps: ["Set Proof is required from (e.g. Rs 5,000).", "Set Needs approval from (e.g. Rs 50,000).", "After checking a month, close it so nobody can change it."] }),
+    steps: ["Set Proof is required from (e.g. Rs 5,000).", "Set Needs approval from (e.g. Rs 50,000).", "Set Alert me for expenses from to get an instant notification for big spends; the Monday summary comes automatically.", "After checking a month, close it so nobody can change it."] }),
   F({ key: "fin-payroll", title: "Payroll link (salaries counted once)", who: "Finance team", href: "/finance/payroll",
     summary: "Each approved HR payroll month next to the salaries already entered in Finance.",
     steps: ["Check HR payroll net and Salaries already in Finance for the month.", "If part was paid in cash and already entered, only the rest is suggested.", "Choose the account it was paid from and click Record.", "Attach the bank transfer sheet on the entry."] }),

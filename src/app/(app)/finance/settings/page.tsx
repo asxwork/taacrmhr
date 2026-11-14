@@ -32,6 +32,14 @@ export default async function FinanceSettings() {
           </ActionForm>
         </Card>
         <Card className="p-5">
+          <h2 className="mb-1 font-semibold">Alerts for the owner</h2>
+          <p className="mb-4 text-sm text-muted">Every Monday the owner (and anyone with Finance: boss dashboard) gets last week&apos;s spending, biggest expenses, missing bills, bills due and cash in hand by email and notification. Also send an instant alert for big single expenses:</p>
+          <ActionForm action={saveFinanceSettings} className="flex flex-wrap items-end gap-3">
+            <Field label="Alert me for expenses from (Rs)" hint="0 = off"><input name="alertAbove" inputMode="decimal" defaultValue={cfg.alertAbove} className="input w-48" /></Field>
+            <SubmitButton>Save</SubmitButton>
+          </ActionForm>
+        </Card>
+        <Card className="p-5">
           <h2 className="mb-1 font-semibold">Close a month</h2>
           <p className="mb-4 text-sm text-muted">After the month&apos;s accounts are checked, close it: entries in that month and earlier can&apos;t be added, changed or deleted (proof can still be attached). Clear the box to reopen.</p>
           <ActionForm action={saveFinanceSettings} className="flex flex-wrap items-end gap-3">
