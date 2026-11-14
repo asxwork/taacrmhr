@@ -52,7 +52,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "hr.performance", label: "Performance", group: "HR", actions: [...CRUD, "approve"], scoped: true },
   { key: "hr.expenses", label: "Expenses & Loans", group: "HR", actions: [...CRUD, "approve"], scoped: true },
   { key: "hr.assets", label: "Assets", group: "HR", actions: CRUD, scoped: false },
-  { key: "hr.onboarding", label: "Onboarding links", group: "HR", actions: ["view", "create"], scoped: false },
+  { key: "hr.onboarding", label: "Onboarding (send links, review & approve)", group: "HR", actions: ["view", "create", "edit"], scoped: false },
   { key: "hr.leaveplanner", label: "Leave planner", group: "HR", actions: ["view"], scoped: true },
   { key: "hr.shiftswap", label: "Shift swaps", group: "HR", actions: ["view", "approve"], scoped: true },
   { key: "hr.payrollchecklist", label: "Payroll checklist", group: "HR", actions: ["view", "edit"], scoped: false },

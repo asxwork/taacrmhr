@@ -42,7 +42,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
   const canSalary = user.isSuperAdmin || scopeFor(user, "hr.payroll", "edit") === "all";
   const [options, org, roles, actors] = await Promise.all([
     profileOptions(),
-    canEdit && sp.assign ? orgOptions() : null,
+    canEdit && sp.assign ? orgOptions([emp.managerId]) : null,
     canEdit && !emp.user ? db.role.findMany({ orderBy: { name: "asc" } }).then((rs) => rs.filter((r) => user.isSuperAdmin || r.name === "Employee").sort((a) => (a.name === "Employee" ? -1 : 1))) : [],
     db.user.findMany({ where: { id: { in: [...emp.events.map((e) => e.byId), ...emp.checklist.map((c) => c.doneById)].filter(Boolean) as string[] } }, select: { id: true, name: true } }).then((us) => new Map(us.map((u) => [u.id, u.name]))),
   ]);

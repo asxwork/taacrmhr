@@ -28,7 +28,7 @@ const GROUPS = [...KNOWN_GROUPS, ...[...new Set(MODULES.map((m) => m.group))].fi
 const ORDER = ["Administrator", "Supervisor", "Deputy supervisor", "Agent", "Observer", "Sales Manager", "HR Manager", "Employee"];
 
 /** Bitrix-style access matrix: roles across, permissions down, every cell editable in place. */
-export default async function AccessPermissionsPage({ searchParams }: { searchParams: Promise<{ q?: string; members?: string; new?: string }> }) {
+export default async function AccessPermissionsPage({ searchParams }: { searchParams: Promise<{ q?: string; members?: string; new?: string; show?: string }> }) {
   const actor = await requirePermission("settings.roles");
   const sp = await searchParams;
   const canEdit = can(actor, "settings.roles", "edit");
@@ -39,7 +39,15 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
     db.user.count({ where: { isSuperAdmin: true, active: true } }),
   ]);
   const rank = (n: string) => (ORDER.includes(n) ? ORDER.indexOf(n) : ORDER.length);
-  const roles = rolesRaw.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
+  const allRoles = rolesRaw.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
+  // Role bar: every role (Super Admin is a user flag, not a role). Pick some to compare side by side; none picked = all.
+  const picked = new Set((sp.show ?? "").split(",").filter(Boolean));
+  const roles = picked.size ? allRoles.filter((r) => picked.has(r.id)) : allRoles;
+  const toggleHref = (id: string) => {
+    const next = new Set(picked); if (next.has(id)) next.delete(id); else next.add(id);
+    const qs = new URLSearchParams({ ...(sp.q && { q: sp.q }), ...(next.size && { show: [...next].join(",") }) });
+    return `/settings/roles${qs.size ? `?${qs}` : ""}`;
+  };
   const q = sp.q?.trim().toLowerCase();
   const modules = MODULES.filter((m) => !q || m.label.toLowerCase().includes(q) || m.group.toLowerCase().includes(q));
   const membersRole = sp.members ? roles.find((r) => r.id === sp.members) : null;
@@ -67,6 +75,16 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
             </span>
           </AutoFilterForm>
 
+          <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-line bg-surface p-2">
+            <span className="px-1.5 text-xs font-medium text-muted">Roles {allRoles.length}:</span>
+            <Link href={`/settings/roles${sp.q ? `?q=${encodeURIComponent(sp.q)}` : ""}`} className={cn("rounded-full border px-2.5 py-1 text-xs", !picked.size ? "border-navy-900 bg-navy-900 text-white" : "border-line text-muted hover:text-ink")}>All</Link>
+            {allRoles.map((r) => (
+              <Link key={r.id} href={toggleHref(r.id)} title={picked.has(r.id) ? "Hide from the grid" : "Show in the grid"} className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs", picked.has(r.id) ? "border-navy-900 bg-navy-900 text-white" : "border-line hover:bg-canvas")}>
+                {r.name}<span className={cn("rounded-full px-1.5 text-[10px]", picked.has(r.id) ? "bg-white/20" : "bg-canvas text-muted")}>{r.users.length}</span>
+              </Link>
+            ))}
+            {!picked.size && allRoles.length > 4 && <span className="ml-auto px-1.5 text-[11px] text-muted">Tip: pick 2–4 roles to compare, or scroll the grid sideways →</span>}
+          </div>
           <Card className="overflow-hidden">
             <div id="perm-scroll" className="h-[calc(100vh-15rem)] min-h-[24rem] overflow-auto overscroll-contain">
               <table className="w-full border-separate border-spacing-0 text-sm">
@@ -74,7 +92,7 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
                   <tr>
                     <th className="sticky left-0 top-0 z-30 min-w-52 border-b border-r border-line bg-surface px-4 py-3 text-left font-medium">Roles <span className="font-normal text-muted">{roles.length}</span></th>
                     {roles.map((r) => (
-                      <th key={r.id} id={`role-${r.id}`} className="sticky top-0 z-20 min-w-[7.5rem] border-b border-r border-line bg-surface px-3 py-3 text-center align-top font-normal">
+                      <th key={r.id} id={`role-${r.id}`} className="sticky top-0 z-20 min-w-[6.5rem] border-b border-r border-line bg-surface px-3 py-3 text-center align-top font-normal">
                         <Link href={`/settings/roles/${r.id}`} className="block truncate font-medium hover:underline" title={r.description ?? undefined}>{r.name}</Link>
                         <div className="mt-1.5 flex items-center justify-center gap-1">
                           <span className="flex -space-x-1.5">

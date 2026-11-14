@@ -39,6 +39,13 @@ async function main() {
     }
     await db.setting.create({ data: { key: flag, value: "done" } });
   }
+  // Onboarding review needs "edit" (it didn't exist before): every role that could send onboarding links can now review them.
+  if (!(await db.setting.findUnique({ where: { key: "fix.onboarding-edit" } }))) {
+    for (const p of await db.permission.findMany({ where: { module: "hr.onboarding", action: "create", scope: { not: "none" } } })) {
+      await db.permission.upsert({ where: { roleId_module_action: { roleId: p.roleId, module: "hr.onboarding", action: "edit" } }, update: {}, create: { roleId: p.roleId, module: "hr.onboarding", action: "edit", scope: p.scope } });
+    }
+    await db.setting.create({ data: { key: "fix.onboarding-edit", value: "done" } });
+  }
   // Phone keys saved before "+92 0300…" was understood (country code plus the leading 0): fix them once.
   if (!(await db.setting.findUnique({ where: { key: "fix.phonekey920" } }))) {
     for (const l of await db.lead.findMany({ where: { phoneKey: { startsWith: "920" } }, select: { id: true, phoneKey: true } })) {

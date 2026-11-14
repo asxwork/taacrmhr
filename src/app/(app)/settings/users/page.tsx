@@ -1,6 +1,7 @@
 import Link from "@/components/link";
 import { Plus, Search } from "lucide-react";
 import { db } from "@/lib/db";
+import { managerUserIds } from "@/lib/managers";
 import { can, requirePermission } from "@/lib/permissions";
 import { fmtAgo } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -37,6 +38,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
   const closeHref = `/settings/users${keep ? `?${keep}` : ""}`;
   const editHref = (id: string) => `/settings/users?${new URLSearchParams({ ...(q && { q }), ...(sp.branch && { branch: sp.branch }), edit: id })}`;
 
+  const managerIds = await managerUserIds(); // "Reports to": only admin / HR / supervisor / manager access
   return (
     <>
       <PageHeader
@@ -150,7 +152,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                 <select name="managerId" defaultValue={editing?.managerId ?? ""} className="input">
                   <option value="">—</option>
                   {users
-                    .filter((u) => u.active && u.id !== editing?.id)
+                    .filter((u) => u.active && u.id !== editing?.id && (managerIds.has(u.id) || u.id === editing?.managerId))
                     .map((u) => (
                       <option key={u.id} value={u.id}>{u.name}</option>
                     ))}

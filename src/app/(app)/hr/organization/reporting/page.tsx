@@ -6,6 +6,7 @@ import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { PersonAvatar } from "@/components/person-avatar";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ManagerSelect } from "./manager-select";
+import { managerEmployees } from "@/lib/managers";
 
 export const metadata = { title: "Reporting lines" };
 
@@ -20,10 +21,13 @@ export default async function ReportingLinesPage({ searchParams }: { searchParam
       select: { id: true, fullName: true, photo: true, code: true, managerId: true, designation: { select: { name: true } }, department: { select: { name: true } }, branch: { select: { name: true } } },
       orderBy: [{ department: { name: "asc" } }, { fullName: "asc" }],
     }),
-    db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, fullName: true, designation: { select: { name: true } } }, orderBy: { fullName: "asc" } }),
+    managerEmployees(),
     db.department.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   const canEdit = can(user, "hr.employees", "edit");
+  // Only people with admin / HR / supervisor / manager access can be picked; current managers stay listed.
+  const extra = people.map((p) => p.managerId).filter((id): id is string => !!id && !everyone.some((e) => e.id === id));
+  if (extra.length) everyone.push(...(await db.employee.findMany({ where: { id: { in: extra } }, select: { id: true, fullName: true, designation: { select: { name: true } } } })));
   const options = everyone.map((e) => ({ id: e.id, name: e.designation ? `${e.fullName} · ${e.designation.name}` : e.fullName }));
   const missing = await db.employee.count({ where: { ...scope, status: { not: "left" }, managerId: null } });
 
