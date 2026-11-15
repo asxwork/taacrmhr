@@ -38,3 +38,22 @@ export function verifyTotp(secret: string, code: string) {
 export function otpauthUrl(secret: string, account: string, issuer = "AMS") {
   return `otpauth://totp/${encodeURIComponent(`${issuer}:${account}`)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&period=30&digits=6`;
 }
+
+/** Ten one-time backup codes like "7KQ2-M9XD" for when the phone is lost. */
+export function newRecoveryCodes(n = 10) {
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const b = randomBytes(8);
+    let c = "";
+    for (const x of b) c += B32[x % 32];
+    out.push(`${c.slice(0, 4)}-${c.slice(4, 8)}`);
+  }
+  return out;
+}
+
+/** Uses a backup code: the list without it, or null when it isn't one of them. */
+export function spendRecoveryCode(codes: string[], input: string) {
+  const want = input.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const i = codes.findIndex((c) => c.replace("-", "") === want);
+  return i < 0 ? null : codes.filter((_, j) => j !== i);
+}

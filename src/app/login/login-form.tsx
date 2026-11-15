@@ -65,8 +65,8 @@ export function LoginForm({ action, resetAction }: { action: (s: FormState, fd: 
       {needCode && (
         <label className="block">
           <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><ShieldCheck className="size-4 text-emerald-600" /> Authenticator code</span>
-          <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required autoFocus className="input h-12 text-center font-mono text-xl tracking-[0.5em]" placeholder="123456" />
-          <span className="mt-1 block text-xs text-muted">From Google Authenticator or Microsoft Authenticator on your phone.</span>
+          <input name="code" autoComplete="one-time-code" pattern="[0-9 ]{6,7}|[A-Za-z0-9]{4}-?[A-Za-z0-9]{4}" maxLength={9} required autoFocus autoCapitalize="characters" className="input h-12 text-center font-mono text-xl tracking-[0.4em]" placeholder="123456" />
+          <span className="mt-1 block text-xs text-muted">From Google Authenticator or Microsoft Authenticator on your phone. Lost your phone? Type one of your backup codes (like 7KQ2-M9XD).</span>
         </label>
       )}
       {!needCode && (

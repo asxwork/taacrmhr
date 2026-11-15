@@ -4,7 +4,7 @@ import { db } from "./db";
 import { memo } from "./memo";
 
 export type LoginWindow = { from: string; to: string; days: number[] };
-export type SecuritySettings = { idleMinutes: number; require2fa: "none" | "superadmin" | "all" };
+export type SecuritySettings = { idleMinutes: number; require2fa: "none" | "superadmin" | "finance" | "all" };
 export const SECURITY_KEYS = { idleMinutes: "security.idleMinutes", require2fa: "security.require2fa" } as const;
 
 export function securitySettings(): Promise<SecuritySettings> {
@@ -12,8 +12,13 @@ export function securitySettings(): Promise<SecuritySettings> {
     const rows = await db.setting.findMany({ where: { key: { in: Object.values(SECURITY_KEYS) } } });
     const get = (k: string) => rows.find((r) => r.key === k)?.value;
     const req = get(SECURITY_KEYS.require2fa);
-    return { idleMinutes: Math.max(0, Number(get(SECURITY_KEYS.idleMinutes)) || 0), require2fa: req === "superadmin" || req === "all" ? req : "none" };
+    return { idleMinutes: Math.max(0, Number(get(SECURITY_KEYS.idleMinutes)) || 0), require2fa: req === "superadmin" || req === "finance" || req === "all" ? req : "none" };
   });
+}
+
+/** Whether company policy makes this person use two-step login ("finance" = Super Admins and anyone with Finance). */
+export function twoStepRequired(user: { isSuperAdmin: boolean }, s: SecuritySettings, hasFinance = false) {
+  return s.require2fa === "all" || (s.require2fa !== "none" && user.isSuperAdmin) || (s.require2fa === "finance" && hasFinance);
 }
 
 /**

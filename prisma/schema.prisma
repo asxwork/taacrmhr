@@ -79,6 +79,8 @@ model User {
   /// Two-step login: authenticator key (encrypted) and whether it's switched on.
   totpSecret  String? // @text
   totpEnabled Boolean @default(false)
+  /// One-time backup codes for a lost phone (encrypted, comma-separated; each works once).
+  totpRecovery String? // @text
 }
 
 model Role {

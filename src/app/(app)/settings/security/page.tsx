@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { describeWindow, securitySettings, windowFromRoles } from "@/lib/security";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field, PageHeader } from "@/components/ui";
-import { saveSecurity } from "./actions";
+import { resetTwoStep, saveSecurity } from "./actions";
 
 export const metadata = { title: "Security" };
 
@@ -31,6 +31,7 @@ export default async function SecurityPage() {
               <select name="require2fa" defaultValue={s.require2fa} className="input w-64">
                 <option value="none">Nobody (optional)</option>
                 <option value="superadmin">Super Admins</option>
+                <option value="finance">Super Admins and Finance users</option>
                 <option value="all">Everyone</option>
               </select>
             </Field>
@@ -51,7 +52,7 @@ export default async function SecurityPage() {
           <Card className="p-5">
             <p className="mb-3 text-sm font-semibold">Two-step login</p>
             <ul className="space-y-1.5 text-sm">
-              {users.map((u) => <li key={u.id} className="flex justify-between gap-3"><span>{u.name}{u.isSuperAdmin && <span className="ml-1 text-xs text-muted">Super Admin</span>}</span>{u.totpEnabled ? <Badge tone="green">On</Badge> : <Badge>Off</Badge>}</li>)}
+              {users.map((u) => <li key={u.id} className="flex items-center justify-between gap-3"><span className="flex-1">{u.name}{u.isSuperAdmin && <span className="ml-1 text-xs text-muted">Super Admin</span>}</span>{u.totpEnabled ? <Badge tone="green">On</Badge> : <Badge>Off</Badge>}{u.totpEnabled && u.id !== user.id && <form action={resetTwoStep}><input type="hidden" name="id" value={u.id} /><button className="text-xs text-muted hover:text-red-600 hover:underline" title="Lost phone: turns two-step login off so they can set it up again">Reset</button></form>}</li>)}
             </ul>
           </Card>
         </div>

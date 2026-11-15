@@ -7,8 +7,8 @@ import { createSession, destroySession, getCurrentUser, verifyPassword } from "@
 import { audit } from "@/lib/audit";
 import { str, type FormState } from "@/lib/utils";
 import { clearLoginFailures, loginBlockedFor, recordLoginFailure } from "@/lib/rate-limit";
-import { openSecret } from "@/lib/softphone";
-import { verifyTotp } from "@/lib/totp";
+import { openSecret, sealSecret } from "@/lib/softphone";
+import { spendRecoveryCode, verifyTotp } from "@/lib/totp";
 import { describeWindow, insideWindow, windowFromRoles } from "@/lib/security";
 import { explainDbError } from "@/lib/db-diagnose";
 import { recordSignIn } from "@/lib/login-alerts";
@@ -36,7 +36,13 @@ export async function login(_: FormState, fd: FormData): Promise<FormState> {
       const code = str(fd, "code");
       if (!code) return { needCode: true, message: "Enter the 6-digit code from your authenticator app." };
       const secret = openSecret(user.totpSecret);
-      if (!secret || !verifyTotp(secret, code)) {
+      // A backup code (lost phone) works once instead of the app's code.
+      const left = !(secret && verifyTotp(secret, code)) && code.replace(/[^A-Za-z0-9]/g, "").length === 8
+        ? spendRecoveryCode((openSecret(user.totpRecovery ?? null) ?? "").split(",").filter(Boolean), code) : null;
+      if (left) {
+        await db.user.update({ where: { id: user.id }, data: { totpRecovery: left.length ? sealSecret(left.join(",")) : null } });
+        await audit(user.id, "login", "user", user.id, `${user.name} used a two-step backup code (${left.length} left)`);
+      } else if (!secret || !verifyTotp(secret, code)) {
         recordLoginFailure(email, ip);
         await audit(user.id, "login_failed", "user", user.id, `Wrong two-step code for ${email} from ${ip}`);
         return { needCode: true, error: "That code didn't work. Check the time on your phone and try the newest code." };

@@ -3,18 +3,20 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { openSecret } from "@/lib/softphone";
 import { otpauthUrl } from "@/lib/totp";
-import { securitySettings } from "@/lib/security";
+import { securitySettings, twoStepRequired } from "@/lib/security";
+import { can } from "@/lib/permissions";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Field, PageHeader } from "@/components/ui";
-import { confirmTotp, disableTotp, startTotp } from "./actions";
+import { confirmTotp, disableTotp, newBackupCodes, startTotp } from "./actions";
 
 export const metadata = { title: "Two-step login" };
 
 /** My profile → Two-step login: set up an authenticator app (Google / Microsoft Authenticator). */
 export default async function TwoStepPage() {
   const user = await requireUser();
-  const [row, s] = await Promise.all([db.user.findUnique({ where: { id: user.id }, select: { email: true, totpSecret: true, totpEnabled: true } }), securitySettings()]);
-  const required = s.require2fa === "all" || (s.require2fa === "superadmin" && user.isSuperAdmin);
+  const [row, s] = await Promise.all([db.user.findUnique({ where: { id: user.id }, select: { email: true, totpSecret: true, totpEnabled: true, totpRecovery: true } }), securitySettings()]);
+  const required = twoStepRequired(user, s, can(user, "finance") || can(user, "finance.boss"));
+  const backup = row?.totpEnabled ? (openSecret(row.totpRecovery ?? null) ?? "").split(",").filter(Boolean) : [];
   const pending = !row?.totpEnabled && row?.totpSecret ? openSecret(row.totpSecret) : null;
   const key = pending?.match(/.{1,4}/g)?.join(" ");
   return (
@@ -54,6 +56,19 @@ export default async function TwoStepPage() {
           <ActionForm action={startTotp}><SubmitButton>Set up two-step login</SubmitButton></ActionForm>
         )}
       </Card>
+      {row?.totpEnabled && (
+        <Card className="mt-6 max-w-2xl p-6">
+          <p className="font-medium">Backup codes</p>
+          <p className="mt-1 text-sm text-muted">Lost your phone? Type one of these instead of the 6-digit code. Each works once. Write them down or save them somewhere safe, not on the same phone.</p>
+          {backup.length > 0 ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm font-medium text-navy-900">Show my {backup.length} backup codes</summary>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">{backup.map((c) => <code key={c} className="select-all rounded-md bg-canvas px-2 py-1.5 text-center font-mono text-sm">{c}</code>)}</div>
+            </details>
+          ) : <p className="mt-3 text-sm text-amber-700">You have no backup codes left. Make new ones.</p>}
+          <ActionForm action={newBackupCodes} className="mt-4"><SubmitButton variant="secondary">Make new backup codes</SubmitButton></ActionForm>
+        </Card>
+      )}
     </>
   );
 }

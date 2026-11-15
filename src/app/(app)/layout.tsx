@@ -19,7 +19,7 @@ import { sectionVideos, videoUrl } from "@/lib/section-videos";
 import { SECTIONS, sectionForPath, type SectionTab } from "@/lib/sections";
 import { SectionTabs } from "@/components/section-tabs";
 import { redirect } from "next/navigation";
-import { securitySettings } from "@/lib/security";
+import { securitySettings, twoStepRequired } from "@/lib/security";
 import { IdleSignOut } from "@/components/idle-sign-out";
 import { logout } from "@/app/login/actions";
 import { disabledFeatures, featureForPath } from "@/lib/features";
@@ -46,7 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Pages of a feature switched off in Settings → Features show a notice instead.
   const offFeature = featureForPath(h.get("x-pathname") ?? "", off);
   // Two-step login required by policy (Settings → Security) and not set up yet: set it up first.
-  const needs2fa = !user.viewAs && !user.totpEnabled && (security.require2fa === "all" || (security.require2fa === "superadmin" && user.isSuperAdmin));
+  const needs2fa = !user.viewAs && !user.totpEnabled && twoStepRequired(user, security, can(user, "finance") || can(user, "finance.boss"));
   if (needs2fa && (h.get("x-pathname") ?? "") !== "/profile/security") redirect("/profile/security");
   // Section tabs for this page (CRM: Leads / Deals / Calls / Contacts / Inventory / Reports), filtered by permission and features.
   const path = h.get("x-pathname") ?? "";
