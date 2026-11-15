@@ -21,7 +21,7 @@ export type NavGroup = { label?: string; icon?: string; items: NavItem[] };
 /** A collapsible sub-menu (e.g. Compliance ▸): opens on its first child's page. */
 const sub = (label: string, children: NavItem[], icon = children[0]!.icon): NavItem => ({ href: children[0]!.href, label, icon, children });
 
-export type AppKey = "crm" | "hr" | "finance" | "me" | "boss" | "settings" | "learn";
+export type AppKey = "crm" | "hr" | "finance" | "me" | "boss" | "settings" | "learn" | "chat";
 export type AppDef = {
   key: AppKey;
   name: string;
@@ -449,6 +449,11 @@ export const APPS: AppDef[] = [
         ],
       },
     ],
+  },
+  {
+    key: "chat", name: "Messenger", description: "Chat with colleagues, one-to-one or in groups", icon: "chat", tile: "from-cyan-500 to-sky-700",
+    home: "/chat", prefixes: ["/chat"], layout: "list",
+    groups: [{ items: [{ href: "/chat", label: "Messages", icon: "chat", module: "chat" }] }],
   },
   {
     key: "boss", name: "Boss dashboard", description: "The whole business at a glance", icon: "crown", tile: "from-amber-400 to-orange-600",

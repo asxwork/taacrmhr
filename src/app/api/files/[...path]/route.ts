@@ -26,6 +26,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ path: st
     const exp = await db.expense.findFirst({ where: { receipt: rel }, include: { employee: { select: { userId: true, branchId: true } } } });
     if (!exp || !(exp.employee.userId === user.id || (can(user, "hr.expenses") && (await scopeMatcher(user, "hr.expenses", "view"))({ ownerId: exp.employee.userId, branchId: exp.employee.branchId })))) return new Response("Not found", { status: 404 });
   }
+  // Messenger files: only people in that conversation (chat/<threadId>/…).
+  if (rel.startsWith("chat/")) {
+    if (!(await db.chatMember.findFirst({ where: { threadId: parts[1] ?? "", userId: user.id }, select: { id: true } }))) return new Response("Not found", { status: 404 });
+  }
   // Finance bills and receipts: Finance users only (Sir personal ones: Sir personal access).
   if (rel.startsWith("finance/")) {
     const proof = await db.finProof.findFirst({ where: { path: rel }, select: { entry: { select: { personal: true } } } });

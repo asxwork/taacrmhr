@@ -39,6 +39,13 @@ async function main() {
     }
     await db.setting.create({ data: { key: flag, value: "done" } });
   }
+  // Messenger: everyone can chat and start groups (each role can be switched off in Roles & Permissions).
+  if (!(await db.setting.findUnique({ where: { key: "fix.chat-all-roles" } }))) {
+    for (const role of await db.role.findMany({ select: { id: true } })) {
+      for (const action of ["view", "create"]) await db.permission.upsert({ where: { roleId_module_action: { roleId: role.id, module: "chat", action } }, update: {}, create: { roleId: role.id, module: "chat", action, scope: "all" } });
+    }
+    await db.setting.create({ data: { key: "fix.chat-all-roles", value: "done" } });
+  }
   // Go-live defaults (once, and only where nobody has chosen yet): selfie at check-in optional (camera opens, can be
   // skipped), deal commission paid through payroll when the deal is won (deal % or the agent's own %; default 0%).
   if (!(await db.setting.findUnique({ where: { key: "fix.golive-defaults" } }))) {

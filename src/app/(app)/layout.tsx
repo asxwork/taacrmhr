@@ -9,6 +9,7 @@ import { PageTransition } from "@/components/page-transition";
 import { CommandPalette } from "@/components/command-palette";
 import { NavProgress } from "@/components/nav-progress";
 import { unreadCount, urgentUnread } from "@/lib/notify";
+import { chatUnread } from "@/lib/chat";
 import { maybeRunHoldRules } from "@/lib/lead-hold";
 import { db } from "@/lib/db";
 import { memo } from "@/lib/memo";
@@ -35,7 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [jar, h, apps, me, off, security, unread, banner] = await Promise.all([
     cookies(), headers(), appsForUser(user),
     db.employee.findUnique({ where: { userId: user.id }, select: { photo: true } }),
-    disabledFeatures(), securitySettings(), Promise.all([unreadCount(user.id), urgentUnread(user.id)]),
+    disabledFeatures(), securitySettings(), Promise.all([unreadCount(user.id), urgentUnread(user.id), can(user, "chat") ? chatUnread(user.id) : Promise.resolve(-1)]),
     memo("setting:banner", 30_000, async () => (await db.setting.findUnique({ where: { key: "maintenance.banner" } }))?.value ?? ""),
   ]);
 
@@ -69,6 +70,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         user={{ name: user.name, roles: user.roleNames.join(", ") || "No role", branch: user.branchName, photo: myPhoto ? fileUrl(myPhoto, 160) : null }}
         unread={unread[0]}
         urgent={unread[1]}
+        chat={unread[2]}
         initiallyCollapsed={collapsed}
       />
       <main className="app-main">

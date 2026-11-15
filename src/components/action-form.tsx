@@ -45,11 +45,14 @@ export function ActionForm({
   children,
   className,
   successMessage,
+  onSuccess,
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   children: React.ReactNode;
   className?: string;
   successMessage?: string;
+  /** Called after a save that worked (e.g. close a panel). */
+  onSuccess?: () => void;
 }) {
   const [state, formAction] = useActionState(async (prev: FormState, fd: FormData): Promise<FormState> => {
     const t0 = Date.now();
@@ -69,6 +72,7 @@ export function ActionForm({
   useEffect(() => {
     if (state?.error || state?.confirm) feedback.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [state]);
+  useEffect(() => { if (state?.ok) onSuccess?.(); }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
   const okMessage = state?.ok ? state.message ?? successMessage : undefined;
   return (
     <form action={formAction} className={className}>
