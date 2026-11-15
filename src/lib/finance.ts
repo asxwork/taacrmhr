@@ -260,3 +260,6 @@ export async function officeNames() {
   const rows = await db.finAccount.findMany({ where: { branch: { not: null } }, select: { branch: true }, distinct: ["branch"] });
   return rows.map((r) => r.branch!).sort();
 }
+
+/** Voucher number: PV-yyyyMM-last 5 of the entry id (the same number every time it is printed). */
+export const voucherNo = (e: { id: string; date: Date }) => `PV-${e.date.toISOString().slice(0, 7).replace("-", "")}-${e.id.slice(-5).toUpperCase()}`;

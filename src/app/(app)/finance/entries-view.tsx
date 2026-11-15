@@ -1,6 +1,6 @@
 import Link from "@/components/link";
 import { format, parse } from "date-fns";
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Download, Paperclip, Plus, Search, ShieldCheck, Trash2, Copy, Lock } from "lucide-react";
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Download, Paperclip, Plus, Search, ShieldCheck, Trash2, Copy, Lock, FileText } from "lucide-react";
 import { ProofInputs } from "./proof-inputs";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
@@ -133,6 +133,7 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
                         {isClosed(e.date, cfg) && <span title={`${cfg.closedThrough} and earlier are closed`} className="p-1 text-muted"><Lock className="size-3.5" /></span>}
                         {canEdit && !isClosed(e.date, cfg) && <Link href={href({ edit: e.id })} scroll={false} className="rounded px-2 py-1 text-xs font-medium text-navy-900 hover:bg-canvas">Edit</Link>}
                         {canAdd && <Link href={href({ copy: e.id })} scroll={false} title="Duplicate (same details, new date / amount / bill)" className="rounded p-1 text-muted hover:text-ink"><Copy className="size-3.5" /></Link>}
+                        <a href={`/print/finance/voucher/${e.id}`} target="_blank" rel="noopener" title="Payment voucher (print / PDF)" className="rounded p-1 text-muted hover:text-ink"><FileText className="size-3.5" /></a>
                         {canDel && !isClosed(e.date, cfg) && <form action={deleteEntry}><input type="hidden" name="id" value={e.id} /><ConfirmButton message={`Delete “${e.description}” (${pkr(e.amount)})?`} title="Delete" className="rounded p-1 text-muted hover:text-red-600"><Trash2 className="size-3.5" /></ConfirmButton></form>}
                       </span>
                     </td>

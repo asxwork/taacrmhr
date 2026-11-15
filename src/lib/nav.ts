@@ -406,6 +406,14 @@ export const APPS: AppDef[] = [
         ],
       },
       {
+        label: "Reports", icon: "pie",
+        items: [
+          { href: "/finance/pnl", label: "Profit & loss", icon: "trending", module: "finance.boss" },
+          { href: "/finance/forecast", label: "Cash forecast", icon: "chart", module: "finance.boss" },
+          { href: "/finance/marketing", label: "Marketing cost per lead", icon: "target", module: "finance.boss" },
+        ],
+      },
+      {
         label: "Cash", icon: "wallet",
         items: [
           { href: "/finance/holders", label: "Money holders", icon: "wallet", module: "finance" },
