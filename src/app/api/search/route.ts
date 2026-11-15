@@ -93,6 +93,10 @@ export async function GET(req: Request) {
   } else {
     add("Inventory", unitRows.map((u) => ({ title: u.project ? `${u.project.name} · ${u.unitNo}` : u.unitNo, sub: [u.type, u.status, u.address].filter(Boolean).join(" · "), href: `/inventory/units/${u.id}` })));
   }
+  // Invoices by number or client.
+  const invScope = can(user, "invoices") ? await scopeWhere(user, "invoices") : null;
+  const invoices = invScope ? await db.invoice.findMany({ where: { AND: [invScope as Prisma.InvoiceWhereInput, { AND: words.map((w) => ({ OR: [{ number: { contains: w } }, { clientName: { contains: w } }] })) }] }, orderBy: { issueDate: "desc" }, take: TAKE }) : [];
+  add("Invoices", invoices.map((i) => ({ title: `${i.number} · ${i.clientName}`, sub: `${fmtPKR(i.total)} · ${i.status}`, href: `/invoices/${i.id}` })));
   add("Employees", people.map((e) => ({ title: e.fullName, sub: [e.code, e.designation?.name].filter(Boolean).join(" · "), href: `/hr/employees/${e.id}` })));
   // How-to answers from Tutorials (only topics this person can use).
   const lower = words.map((w) => w.toLowerCase());

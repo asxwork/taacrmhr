@@ -1,5 +1,6 @@
 "use client";
 
+import { TutorialPlayer } from "./tutorial-player";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "@/components/link";
 import { ChevronDown, PlayCircle, Search } from "lucide-react";
@@ -111,7 +112,7 @@ export function TutorialsView({ tutorials, chapters, video, ranges = null, clips
                       <ChevronDown className="mt-1 size-4 shrink-0 text-muted transition group-open:rotate-180" />
                     </summary>
                     <div className="border-t border-line px-4 py-4">
-                      {clips[t.key] ? <video src={`/tutorials/sections/${t.key}.mp4`} controls playsInline preload="none" poster="" className="mb-4 aspect-video w-full max-w-2xl rounded-lg bg-navy-950" /> : null}
+                      {clips[t.key] ? <div className="mb-4 w-full max-w-2xl overflow-hidden rounded-xl ring-1 ring-line"><TutorialPlayer src={`/tutorials/sections/${t.key}.mp4`} poster={`/tutorials/sections/${t.key}.jpg`} autoPlay={false} /></div> : null}
                       <ol className="list-decimal space-y-2 pl-5 text-sm">{t.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
                       {t.tips?.length ? <ul className="mt-3 space-y-1 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{t.tips.map((s, i) => <li key={i}>💡 {s}</li>)}</ul> : null}
                       <div className="mt-4 flex flex-wrap gap-2">

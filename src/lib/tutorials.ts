@@ -3,6 +3,7 @@
 
 import { FINANCE_TUTORIALS } from "./tutorials-finance";
 import { ADMIN_EXTRA_TUTORIALS } from "./tutorials-admin";
+import { NEW_TUTORIALS } from "./tutorials-new";
 
 export type Tutorial = {
   key: string;
@@ -823,4 +824,5 @@ export const TUTORIALS: Tutorial[] = [
   },
   ...FINANCE_TUTORIALS,
   ...ADMIN_EXTRA_TUTORIALS,
+  ...NEW_TUTORIALS,
 ];

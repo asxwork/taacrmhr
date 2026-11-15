@@ -5,6 +5,9 @@ import { requireUser } from "@/lib/auth";
 import { appsForUser } from "@/lib/apps";
 import { layoutsFor } from "@/lib/layouts";
 import { unreadCount } from "@/lib/notify";
+import { chatUnread } from "@/lib/chat";
+import { can } from "@/lib/permissions";
+import { db } from "@/lib/db";
 import { logout } from "@/app/login/actions";
 import { NAV_ICONS } from "@/components/nav-icons";
 
@@ -19,6 +22,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const landing = layouts.get("home")?.landing;
   if (landing && !sp.all) redirect(landing);
   const unread = await unreadCount(user.id);
+  // Things waiting in each app, shown as a badge on its tile.
+  const keys = new Set(apps.map((a) => a.key));
+  const [chat, invoices, finance] = await Promise.all([
+    keys.has("chat") ? chatUnread(user.id) : 0,
+    keys.has("invoices") && can(user, "invoices", "approve") ? db.invoice.count({ where: { status: "pending", approverId: user.id } }) : 0,
+    keys.has("finance") && can(user, "finance", "approve") ? db.finEntry.count({ where: { status: "pending" } }) : 0,
+  ]);
+  const badges: Record<string, [number, string]> = { chat: [chat, "unread"], invoices: [invoices, "to sign"], finance: [finance, "to approve"] };
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
@@ -57,7 +68,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             const Icon = NAV_ICONS[app.icon] ?? NAV_ICONS.home!;
             return (
               <li key={app.key}>
-                <Link href={app.start} className="group flex h-full flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-center transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08]">
+                <Link href={app.start} className="group relative flex h-full flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-center transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08]">
+                  {(badges[app.key]?.[0] ?? 0) > 0 && <span className="absolute right-3 top-3 rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-semibold text-white shadow" title={`${badges[app.key]![0]} ${badges[app.key]![1]}`}>{badges[app.key]![0]} {badges[app.key]![1]}</span>}
                   <span className={`flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br ${app.tile} shadow-lg shadow-black/30 transition group-hover:scale-105`}>
                     <Icon className="size-8 text-white" />
                   </span>

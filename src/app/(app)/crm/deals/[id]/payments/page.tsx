@@ -8,6 +8,7 @@ import { fmtPKR } from "@/lib/crm";
 import { FREQUENCIES, PAYMENT_METHODS } from "@/lib/inventory";
 import { cn, fmtDate } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
+import { displayStatus } from "@/lib/invoices";
 import { Badge, Card, Field, PageHeader } from "@/components/ui";
 import { recordPayment, savePaymentPlan, undoPayment } from "../../payment-actions";
 import { fieldAccess } from "@/lib/field-rules";
@@ -32,6 +33,8 @@ export default async function PaymentsPage({ params }: { params: Promise<{ id: s
 
   const canEdit = can(user, "crm.deals", "edit") && (await scopeMatcher(user, "crm.deals", "edit"))(deal);
   const canInvoice = can(user, "invoices", "create");
+  const invScope = can(user, "invoices") ? await scopeWhere(user, "invoices") : null;
+  const invoices = invScope ? await db.invoice.findMany({ where: { AND: [{ dealId: deal.id }, invScope] }, orderBy: { issueDate: "desc" } }) : [];
   const plan = deal.paymentPlan;
   const items = plan?.items ?? [];
   const paid = items.reduce((s, i) => s + i.paidAmount, 0);
@@ -150,6 +153,16 @@ export default async function PaymentsPage({ params }: { params: Promise<{ id: s
         </Card>
       ) : (
         !canEdit && <Card className="p-6 text-sm text-muted">No payment plan yet.</Card>
+      )}
+      {invoices.length > 0 && (
+        <Card className="mt-6 overflow-hidden">
+          <h2 className="border-b border-line px-4 py-3 font-medium">Invoices for this deal</h2>
+          <ul className="divide-y divide-line text-sm">
+            {invoices.map((i) => { const st = displayStatus(i); return (
+              <li key={i.id}><Link href={`/invoices/${i.id}`} className="flex flex-wrap items-center gap-3 px-4 py-2.5 hover:bg-canvas/60"><span className="font-mono">{i.number}</span><span className="flex-1 text-muted">{fmtDate(i.issueDate)} · due {fmtDate(i.dueDate)}</span><Badge tone={st.tone}>{st.label}</Badge><span className="w-32 text-right tabular-nums">{fmtPKR(i.total)}</span></Link></li>
+            ); })}
+          </ul>
+        </Card>
       )}
     </>
   );
