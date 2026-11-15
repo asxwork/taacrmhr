@@ -275,6 +275,11 @@ export async function runBackup(trigger: "auto" | "manual") {
   } catch (e) {
     await db.backupRun.update({ where: { id: run.id }, data: { status: "failed", error: (e as Error).message.slice(0, 2000), finishedAt: new Date() } });
     await (await import("./heartbeat")).beat("backup", false, (e as Error).message);
+    // Tell the Super Admins straight away (a missed backup is only noticed when it's needed).
+    const { notify } = await import("./notify");
+    for (const a of await db.user.findMany({ where: { isSuperAdmin: true, active: true }, select: { id: true } })) {
+      await notify(a.id, "⚠️ Today's backup failed", { body: (e as Error).message.slice(0, 300), link: "/settings/backup", email: true }).catch(() => {});
+    }
     return { error: (e as Error).message };
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
