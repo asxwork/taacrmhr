@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { openSecret } from "@/lib/softphone";
 import { otpauthUrl } from "@/lib/totp";
+import QRCode from "qrcode";
 import { securitySettings, twoStepRequired } from "@/lib/security";
 import { can } from "@/lib/permissions";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -19,6 +20,8 @@ export default async function TwoStepPage() {
   const backup = row?.totpEnabled ? (openSecret(row.totpRecovery ?? null) ?? "").split(",").filter(Boolean) : [];
   const pending = !row?.totpEnabled && row?.totpSecret ? openSecret(row.totpSecret) : null;
   const key = pending?.match(/.{1,4}/g)?.join(" ");
+  // Scan with the authenticator app instead of typing the key.
+  const qr = pending ? await QRCode.toDataURL(otpauthUrl(pending, row!.email), { margin: 1, width: 220, errorCorrectionLevel: "M", color: { dark: "#0b1f3a", light: "#ffffff" } }) : null;
   return (
     <>
       <PageHeader title="Two-step login" description="After your password, AMS asks for a 6-digit code from an app on your phone, so a stolen password alone can't get in." />
@@ -40,9 +43,15 @@ export default async function TwoStepPage() {
           <ol className="list-decimal space-y-4 pl-5 text-sm">
             <li>Install <b>Google Authenticator</b> or <b>Microsoft Authenticator</b> on your phone.</li>
             <li>
-              In the app tap <b>+</b> → <b>Enter a setup key</b>. Account: <span className="font-mono">AMS ({row?.email})</span>, key:
-              <p className="mt-2 select-all rounded-lg bg-canvas px-3 py-2 text-center font-mono text-base tracking-wider">{key}</p>
-              <p className="mt-1 text-xs text-muted">On this phone? <a href={otpauthUrl(pending, row!.email)} className="underline">Open in the authenticator app</a>. Time based, 6 digits.</p>
+              In the app tap <b>+</b> → <b>Scan a QR code</b> and point your phone at this code:
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {qr && <img src={qr} alt="QR code for your authenticator app" width={220} height={220} className="mx-auto mt-3 block rounded-xl border border-line bg-white p-2 shadow-sm" />}
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-muted hover:text-ink">Can&apos;t scan? Type the key instead</summary>
+                <p className="mt-2 text-xs text-muted">Tap <b>+</b> → <b>Enter a setup key</b>. Account: <span className="font-mono">AMS ({row?.email})</span>, time based, key:</p>
+                <p className="mt-1 select-all rounded-lg bg-canvas px-3 py-2 text-center font-mono text-base tracking-wider">{key}</p>
+              </details>
+              <p className="mt-2 text-xs text-muted">Setting up on this same phone? <a href={otpauthUrl(pending, row!.email)} className="underline">Open in the authenticator app</a>.</p>
             </li>
             <li>
               Type the 6-digit code the app shows:
