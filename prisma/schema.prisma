@@ -2438,3 +2438,45 @@ model InvoiceEvent {
 
   @@index([invoiceId])
 }
+
+/// Lead automation rules: when a lead arrives / changes stage / isn't contacted / goes quiet, do these things.
+model LeadRule {
+  id         String    @id @default(cuid())
+  name       String
+  active     Boolean   @default(true)
+  /// created | stage | uncontacted | idle
+  trigger    String
+  /// JSON: { sourceIds, stageIds, words, interests, minutes, hours }
+  conditions String // @text
+  /// JSON: { assign, userIds, stageId, task, taskMinutes, notifyOwner, notifyUserIds, note, emailSubject, emailBody }
+  actions    String // @text
+  sortOrder  Int       @default(0)
+  runs       Int       @default(0)
+  lastRunAt  DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+/// Timed rules fire once per lead (uncontacted) or once per quiet spell (idle).
+model LeadRuleHit {
+  id     String   @id @default(cuid())
+  ruleId String
+  leadId String
+  at     DateTime @default(now())
+
+  @@index([ruleId, leadId])
+}
+
+/// Outgoing webhooks: AMS tells another system (Zapier, Make, Google Sheets, a CRM) when something happens.
+model OutgoingHook {
+  id         String    @id @default(cuid())
+  name       String
+  url        String // @text
+  /// comma separated: lead.created, lead.stage, lead.assigned, lead.converted, invoice.paid
+  events     String
+  secret     String
+  active     Boolean   @default(true)
+  lastStatus String?
+  lastAt     DateTime?
+  fails      Int       @default(0)
+  createdAt  DateTime  @default(now())
+}

@@ -10,6 +10,8 @@ export async function GET(req: Request) {
     return new Response("Forbidden", { status: 403 });
   }
   const machines = await syncAllPullMachines();
+  // Lead automation timers (not contacted in N minutes, quiet for N hours) ride on this frequent job.
+  const leadRules = await (await import("@/lib/lead-rules")).runTimedLeadRules().catch(() => 0);
   await (await import("@/lib/heartbeat")).beat("machines");
-  return Response.json({ ok: true, machines });
+  return Response.json({ ok: true, machines, leadRules });
 }

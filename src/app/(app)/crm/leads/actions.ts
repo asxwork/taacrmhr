@@ -117,6 +117,7 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
       ownerId !== user.id ? notify(ownerId, `New lead assigned to you: ${name}`, { body: `By ${user.name}`, link: `/crm/leads/${leadId}`, email: true }) : null,
       audit(user.id, "create", "lead", leadId, `Created lead ${name}`),
     ]);
+    await (await import("@/lib/lead-rules")).leadEvent("created", leadId);
   }
 
   revalidatePath("/crm/leads");
@@ -197,6 +198,7 @@ export async function convertLead(_: FormState, fd: FormData): Promise<FormState
   }
   const converted = await db.leadStatus.findFirst({ where: { kind: "converted" }, orderBy: { sortOrder: "asc" } });
   await db.lead.update({ where: { id: lead.id }, data: { statusId: converted?.id ?? lead.statusId, convertedAt: new Date(), contactId: contact.id } });
+  { const lr = await import("@/lib/lead-rules"); const p = await lr.leadPayload(lead.id); if (p) void lr.fireHook("lead.converted", { lead: p }); }
   await logSystem({ leadId: lead.id }, `Converted to deal “${title}”`, user.id);
   await logSystem({ dealId: deal.id }, `Deal created from lead ${lead.name}`, user.id);
   await audit(user.id, "update", "lead", lead.id, `Converted lead ${lead.name} to deal ${title}`);

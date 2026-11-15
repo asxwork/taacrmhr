@@ -29,6 +29,7 @@ export async function applyLeadStatus(user: SessionUser, id: string, statusId: s
   if (holdError) return { error: holdError };
   await db.lead.update({ where: { id }, data: { statusId } });
   await logSystem({ leadId: id }, `Status: ${lead.status.name} → ${status.name}`, user.id);
+  await (await import("./lead-rules")).leadEvent("stage", id);
   return {};
 }
 

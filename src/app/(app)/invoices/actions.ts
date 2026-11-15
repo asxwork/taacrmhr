@@ -188,6 +188,7 @@ export async function recordInvoicePayment(_: FormState, fd: FormData): Promise<
     if (i) await db.installment.update({ where: { id: i.id }, data: { paidAmount: Math.min(i.amount, i.paidAmount + amount), paidAt: when, method, reference: reference ?? inv.number } });
   }
   await invoiceEvent(inv.id, user.id, "payment", `${pkr(amount)} received${method ? ` by ${method}` : ""}`);
+  if (paid >= inv.total - 0.5) void (await import("@/lib/lead-rules")).fireHook("invoice.paid", { invoice: { id: inv.id, number: inv.number, client: inv.clientName, total: inv.total, paidAt: when } });
   revalidatePath(`/invoices/${inv.id}`);
   return { ok: true, message: paid >= inv.total - 0.5 ? "Paid in full." : `Recorded. ${pkr(inv.total - paid)} still due.` };
 }
