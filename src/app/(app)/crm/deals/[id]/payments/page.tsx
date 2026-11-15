@@ -31,6 +31,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ id: s
   if (!deal) notFound();
 
   const canEdit = can(user, "crm.deals", "edit") && (await scopeMatcher(user, "crm.deals", "edit"))(deal);
+  const canInvoice = can(user, "invoices", "create");
   const plan = deal.paymentPlan;
   const items = plan?.items ?? [];
   const paid = items.reduce((s, i) => s + i.paidAmount, 0);
@@ -117,6 +118,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ id: s
                       <td className="td">
                         {done ? <Badge tone="green">Paid {fmtDate(i.paidAt)}</Badge> : late ? <Badge tone="red">Overdue</Badge> : i.paidAmount > 0 ? <Badge tone="amber">Part paid</Badge> : <Badge>Upcoming</Badge>}
                         {i.method && <span className="ml-1.5 text-xs text-muted">{i.method}{i.reference ? ` · ${i.reference}` : ""}</span>}
+                        {!done && canInvoice && <Link href={`/invoices/new?deal=${deal.id}&installment=${i.id}`} className="ml-2 text-xs font-medium text-navy-900 hover:underline">Make invoice</Link>}
                       </td>
                       {canEdit && (
                         <td className="td">

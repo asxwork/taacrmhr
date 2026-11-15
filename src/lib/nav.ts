@@ -21,7 +21,7 @@ export type NavGroup = { label?: string; icon?: string; items: NavItem[] };
 /** A collapsible sub-menu (e.g. Compliance ▸): opens on its first child's page. */
 const sub = (label: string, children: NavItem[], icon = children[0]!.icon): NavItem => ({ href: children[0]!.href, label, icon, children });
 
-export type AppKey = "crm" | "hr" | "finance" | "me" | "boss" | "settings" | "learn" | "chat";
+export type AppKey = "crm" | "hr" | "finance" | "me" | "boss" | "settings" | "learn" | "chat" | "invoices";
 export type AppDef = {
   key: AppKey;
   name: string;
@@ -449,6 +449,18 @@ export const APPS: AppDef[] = [
         ],
       },
     ],
+  },
+  {
+    key: "invoices", name: "Invoices", description: "Invoices with approval, e-signatures and payment reminders", icon: "receipt", tile: "from-indigo-500 to-blue-800",
+    home: "/invoices", prefixes: ["/invoices"], layout: "list",
+    groups: [{ items: [
+      { href: "/invoices", label: "All invoices", icon: "receipt", module: "invoices" },
+      { href: "/invoices/new", label: "New invoice", icon: "plus", module: "invoices", action: "create" },
+      { href: "/invoices?tab=pending", label: "Waiting for approval", icon: "check", module: "invoices" },
+      { href: "/invoices?tab=overdue", label: "Overdue", icon: "alarm", module: "invoices" },
+      { href: "/invoices?tab=repeat", label: "Repeating", icon: "refresh", module: "invoices" },
+      { href: "/invoices/settings", label: "Settings", icon: "settings", module: "invoices", action: "approve" },
+    ] }],
   },
   {
     key: "chat", name: "Messenger", description: "Chat with colleagues, one-to-one or in groups", icon: "chat", tile: "from-cyan-500 to-sky-700",

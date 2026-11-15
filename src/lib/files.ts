@@ -1,4 +1,4 @@
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 
@@ -50,3 +50,26 @@ export function resolveUpload(rel: string) {
 
 /** Link to an upload; `w` asks for a smaller copy of a photo (64, 160, 400, 800 or 1200 px wide). */
 export const fileUrl = (rel: string, w?: number) => `/api/files/${rel}${w ? `?w=${w}` : ""}`;
+
+/** A drawn signature (canvas PNG data URL) saved as a file. Only real PNGs up to 500 KB. */
+export async function saveSignature(dataUrl: string, dir: string): Promise<string | null> {
+  const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl.trim());
+  if (!m) return null;
+  const buf = Buffer.from(m[1]!, "base64");
+  if (buf.length < 100 || buf.length > 500_000 || buf.readUInt32BE(0) !== 0x89504e47) return null;
+  const rel = path.posix.join(dir, `${Date.now()}-${randomBytes(6).toString("hex")}.png`);
+  const abs = path.join(UPLOAD_ROOT, rel);
+  await mkdir(path.dirname(abs), { recursive: true });
+  await writeFile(abs, buf);
+  return rel;
+}
+
+/** An uploaded image as a data: URL, for pages without a login (e.g. the client's invoice link). */
+export async function uploadAsDataUrl(rel: string | null | undefined) {
+  if (!rel || rel.includes("..")) return null;
+  try {
+    const buf = await readFile(path.join(UPLOAD_ROOT, rel));
+    const ext = rel.split(".").pop()!.toLowerCase();
+    return `data:${ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg"};base64,${buf.toString("base64")}`;
+  } catch { return null; }
+}

@@ -23,7 +23,7 @@ export const ACTION_LABELS: Record<Action, string> = {
 export type ModuleDef = {
   key: string;
   label: string;
-  group: "CRM" | "Inventory" | "Calls" | "HR" | "Finance" | "Reports" | "Settings" | "Messenger";
+  group: "CRM" | "Inventory" | "Calls" | "HR" | "Finance" | "Reports" | "Settings" | "Messenger" | "Invoices";
   actions: readonly Action[];
   /** Records in this module have an owner/branch, so own/team/branch scopes apply. */
   scoped: boolean;
@@ -74,6 +74,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "settings.roles", label: "Roles & Permissions", group: "Settings", actions: ["view", "create", "edit", "delete"], scoped: false },
   { key: "settings.company", label: "Company, Branches & Lists", group: "Settings", actions: ["view", "edit"], scoped: false },
   { key: "settings.audit", label: "Audit Log", group: "Settings", actions: ["view"], scoped: false },
+  { key: "invoices", label: "Invoices (approve = sign and approve invoices)", group: "Invoices", actions: [...CRUD, "approve"], scoped: true },
   { key: "chat", label: "Messenger (chat with colleagues; create = start group chats)", group: "Messenger", actions: ["view", "create"], scoped: false },
 ] as const;
 

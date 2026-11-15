@@ -2346,3 +2346,95 @@ model ChatMessage {
 
   @@index([threadId, createdAt])
 }
+
+/// Invoices app: client invoices with approval (e-signed by the approver), client e-signature by link, payments and reminders.
+model Invoice {
+  id               String           @id @default(cuid())
+  number           String           @unique
+  /// draft | pending (waiting for approval) | approved | sent | paid | rejected | void  (overdue / part-paid are shown from dates and payments)
+  status           String           @default("draft")
+  clientName       String
+  clientEmail      String?
+  clientPhone      String?
+  clientAddress    String? // @text
+  contactId        String?
+  dealId           String?
+  installmentId    String?
+  issueDate        DateTime
+  dueDate          DateTime
+  subtotal         Float            @default(0)
+  discount         Float            @default(0)
+  taxPct           Float            @default(0)
+  taxAmount        Float            @default(0)
+  total            Float            @default(0)
+  paidAmount       Float            @default(0)
+  notes            String? // @text
+  terms            String? // @text
+  ownerId          String?
+  branchId         String?
+  /// The person asked to approve (e.g. Samad or the boss).
+  approverId       String?
+  approvedById     String?
+  approvedAt       DateTime?
+  approverSign     String?
+  rejectReason     String?
+  /// Link the client opens to view, sign and download (no login).
+  publicToken      String           @unique
+  clientSign       String?
+  clientSignedName String?
+  clientSignedAt   DateTime?
+  clientSignedIp   String?
+  viewedAt         DateTime?
+  sentAt           DateTime?
+  lastReminderAt   DateTime?
+  /// none | monthly | quarterly | yearly: the next copy is made automatically on nextRunAt.
+  repeat           String           @default("none")
+  nextRunAt        DateTime?
+  parentId         String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  items            InvoiceItem[]
+  payments         InvoicePayment[]
+  events           InvoiceEvent[]
+
+  @@index([status])
+  @@index([ownerId])
+  @@index([dueDate])
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  qty         Float   @default(1)
+  rate        Float   @default(0)
+  amount      Float   @default(0)
+  sort        Int     @default(0)
+}
+
+model InvoicePayment {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount      Float
+  date        DateTime
+  method      String?
+  reference   String?
+  finEntryId  String?
+  createdById String?
+  createdAt   DateTime @default(now())
+}
+
+/// History shown on the invoice: created, submitted, approved (with signature), sent, viewed, signed by client, paid…
+model InvoiceEvent {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  userId    String?
+  action    String
+  note      String?
+  at        DateTime @default(now())
+
+  @@index([invoiceId])
+}

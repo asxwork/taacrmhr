@@ -39,6 +39,15 @@ async function main() {
     }
     await db.setting.create({ data: { key: flag, value: "done" } });
   }
+  // Invoices: built-in managers get full access; Super Admins approve. Other roles are switched on in Roles & Permissions.
+  if (!(await db.setting.findUnique({ where: { key: "fix.invoices-perms" } }))) {
+    for (const role of await db.role.findMany({ where: { name: { in: ["Administrator", "Sales Manager", "Boss"] } }, select: { id: true, name: true } })) {
+      for (const action of ["view", "create", "edit", "delete", ...(role.name === "Sales Manager" ? [] : ["approve"])]) {
+        await db.permission.upsert({ where: { roleId_module_action: { roleId: role.id, module: "invoices", action } }, update: {}, create: { roleId: role.id, module: "invoices", action, scope: "all" } });
+      }
+    }
+    await db.setting.create({ data: { key: "fix.invoices-perms", value: "done" } });
+  }
   // Messenger: everyone can chat and start groups (each role can be switched off in Roles & Permissions).
   if (!(await db.setting.findUnique({ where: { key: "fix.chat-all-roles" } }))) {
     for (const role of await db.role.findMany({ select: { id: true } })) {

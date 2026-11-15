@@ -12,7 +12,7 @@ export async function profitAndLoss(year: number) {
   const from = new Date(year, 0, 1), to = new Date(year, 11, 31, 23, 59, 59);
   const [inst, ins, exp, cats] = await Promise.all([
     db.installment.findMany({ where: { paidAt: { gte: from, lte: to }, paidAmount: { gt: 0 } }, select: { paidAt: true, paidAmount: true } }),
-    db.finEntry.findMany({ where: { kind: "in", status: "approved", personal: false, date: { gte: from, lte: to } }, select: { date: true, amount: true, categoryId: true } }),
+    db.finEntry.findMany({ where: { kind: "in", status: "approved", personal: false, date: { gte: from, lte: to }, NOT: { sourceType: "installment" } }, select: { date: true, amount: true, categoryId: true } }),
     db.finEntry.findMany({ where: companyExpense({ date: { gte: from, lte: to } }), select: { date: true, amount: true, categoryId: true } }),
     db.finCategory.findMany({ select: { id: true, name: true, parentId: true } }),
   ]);
