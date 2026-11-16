@@ -274,6 +274,8 @@ model Lead {
   assignedAt      DateTime?
   statusChangedAt DateTime?
   lastActivityAt  DateTime?
+  /// The lead's ID in Bitrix24 when it was imported from there (re-imports skip leads already brought in).
+  bitrixId        Int?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   deals           Deal[]
@@ -289,6 +291,7 @@ model Lead {
   @@index([phoneKey])
   @@index([createdAt])
   @@index([email])
+  @@index([bitrixId])
 }
 
 model Company {
