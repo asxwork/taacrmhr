@@ -7,9 +7,10 @@ import { format } from "date-fns";
 import {
   AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, KanbanSquare,
   List, Loader2, MessageCircle, Pencil, Phone, Play, Plus, Settings, Trash2, Upload, X,
+  ArrowDown, ArrowUp, ArrowUpDown,
 } from "lucide-react";
 import { ACTIVITY_TYPES, color, fmtPhone, fmtPKR } from "@/lib/crm-shared";
-import { LEAD_COLUMNS } from "@/lib/lead-columns";
+import { LEAD_COLUMNS, SORTABLE_LEAD_COLUMNS, parseLeadSort } from "@/lib/lead-columns";
 import { ColumnSettings } from "@/components/crm/column-settings";
 import { scoreLabel } from "@/lib/lead-score";
 import { LEAD_FILTER_KEYS, type LeadFilters } from "@/lib/lead-filters-shared";
@@ -102,13 +103,26 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
     });
   }, []);
 
-  const applyFilters = (f: LeadFilters) => {
+  const applyFilters = (input: LeadFilters) => {
+    // Sorting isn't a filter: changing filters or presets keeps the chosen column order.
+    const f = { ...input, sort: "sort" in input ? input.sort : filters.sort };
+    if (!f.sort) delete f.sort;
     setFilters(f);
     setSelected(new Set());
     setForAll(false);
     load(f, view, 1);
   };
   const refresh = () => load(filters, view, data.page);
+  const sort = parseLeadSort(filters.sort);
+  const sortWords = (k: string) => (["created", "modified", "lastActivity", "reshuffle"].includes(k) ? ["newest", "oldest"] : ["id", "budget"].includes(k) ? ["highest", "lowest"] : ["Z–A", "A–Z"]);
+  const canSort = (k: string) => (SORTABLE_LEAD_COLUMNS as readonly string[]).includes(k);
+  /** Header click: first click newest / highest first for dates and numbers, A–Z for text; next click flips it. */
+  const sortBy = (k: string) => {
+    const firstDesc = ["id", "created", "modified", "lastActivity", "reshuffle", "budget"].includes(k);
+    const desc = sort.key === k ? !sort.desc : firstDesc;
+    const v = k === "created" && desc ? undefined : `${desc ? "-" : ""}${k}`;
+    applyFilters({ ...filters, sort: v });
+  };
   const patchRow = (id: string, patch: Partial<LeadRow>) => setData((d) => ({ ...d, rows: d.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)) }));
 
   async function moveStage(row: LeadRow, statusId: string) {
@@ -279,10 +293,17 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
             {data.rows.length === 0 ? (
               <div className="px-6 py-16 text-center">
                 <p className="font-medium">No leads here</p>
-                <p className="mt-1 text-sm text-muted">{Object.keys(filters).length ? "Nothing matches this filter. Try another preset or reset the filter." : "Create your first lead or import a file."}</p>
+                <p className="mt-1 text-sm text-muted">{Object.keys(filters).some((k) => k !== "sort") ? "Nothing matches this filter. Try another preset or reset the filter." : "Create your first lead or import a file."}</p>
               </div>
             ) : (<>
               {/* Phones: one card per lead with big Call / WhatsApp buttons instead of a wide table. */}
+              <div className="flex items-center gap-2 border-b border-line px-4 py-2 sm:hidden">
+                <span className="text-xs text-muted">Sort</span>
+                <select value={`${sort.desc ? "-" : ""}${sort.key}`} onChange={(e) => applyFilters({ ...filters, sort: e.target.value === "-created" ? undefined : e.target.value })} className="input h-8 flex-1 text-sm" aria-label="Sort leads">
+                  {cols.filter(canSort).flatMap((k) => { const [d, a] = sortWords(k); return [<option key={`-${k}`} value={`-${k}`}>{colLabel(k)} · {d}</option>, <option key={k} value={k}>{colLabel(k)} · {a}</option>]; })}
+                  {!cols.includes("created") && <><option value="-created">Created · newest</option><option value="created">Created · oldest</option></>}
+                </select>
+              </div>
               <ul className="divide-y divide-line sm:hidden">
                 {data.rows.map((l) => {
                   const st = stageOf(l.statusId);
@@ -334,7 +355,13 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                       {cols.map((k, i) => (
                         <th key={k} draggable onDragStart={() => setDragCol(i)} onDragOver={(e) => { e.preventDefault(); }} onDrop={() => { if (dragCol !== null && dragCol !== i) { const a = [...cols]; const [x] = a.splice(dragCol, 1); a.splice(i, 0, x!); void applyCols(a, "me"); } setDragCol(null); }}
                           className={cn("th cursor-grab select-none whitespace-nowrap", k === "id" && "w-12", dragCol === i && "opacity-50")} title="Drag to move this column">
-                          {k === "owner" ? <><span className="hidden 2xl:inline">Responsible</span><span className="2xl:hidden">Owner</span></> : colLabel(k)}
+                          {canSort(k) ? (
+                            <button type="button" onClick={() => sortBy(k)} className={cn("group inline-flex items-center gap-1 uppercase hover:text-ink", sort.key === k && "text-ink")}
+                              title={`Sort by ${colLabel(k)}`} aria-label={`Sort by ${colLabel(k)}${sort.key === k ? `, ${sortWords(k)[sort.desc ? 0 : 1]} first` : ""}`}>
+                              {colLabel(k)}
+                              {sort.key === k ? (sort.desc ? <ArrowDown className="size-3.5" /> : <ArrowUp className="size-3.5" />) : <ArrowUpDown className="size-3.5 opacity-0 transition group-hover:opacity-60" />}
+                            </button>
+                          ) : colLabel(k)}
                         </th>
                       ))}
                     </tr>

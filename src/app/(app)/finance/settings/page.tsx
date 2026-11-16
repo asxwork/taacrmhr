@@ -15,11 +15,11 @@ export default async function FinanceSettings() {
     <>
       <PageHeader title="Finance settings" description="Rules for proof, approvals and closing months." actions={user.isSuperAdmin && <LinkButton href="/finance/layouts" variant="secondary"><LayoutTemplate className="size-4" /> Finance layouts</LinkButton>} />
       <div className="grid max-w-3xl grid-cols-1 gap-6">
-        <Card className="p-5">
+        <Card id="receipt-reading" className="scroll-mt-24 p-5">
           <h2 className="mb-1 font-semibold">Receipt reading {receiptReadingOn() ? <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">On</span> : <span className="ml-2 rounded-full bg-canvas px-2 py-0.5 text-xs font-medium text-muted">Off</span>}</h2>
           <p className="text-sm text-muted">{receiptReadingOn() ? "When someone takes a photo of a bill, AMS reads the amount, date, shop and category and fills the form. They check it and save." : "To turn it on, add ANTHROPIC_API_KEY (from console.anthropic.com) to the environment variables in hPanel and redeploy. Each bill read costs a few rupees."}</p>
         </Card>
-        <Card className="p-5">
+        <Card id="proof" className="scroll-mt-24 p-5">
           <h2 className="mb-1 font-semibold">Proof (bills & receipts)</h2>
           <p className="mb-4 text-sm text-muted">Every entry shows whether it has proof. Entries without it appear under “No proof yet” and on the dashboard.</p>
           <ActionForm action={saveFinanceSettings} className="flex flex-wrap items-end gap-3">
@@ -29,7 +29,7 @@ export default async function FinanceSettings() {
             <SubmitButton>Save</SubmitButton>
           </ActionForm>
         </Card>
-        <Card className="p-5">
+        <Card id="approvals" className="scroll-mt-24 p-5">
           <h2 className="mb-1 font-semibold">Approval for big expenses</h2>
           <p className="mb-4 text-sm text-muted">Expenses of this amount or more wait under Finance → Approvals and don&apos;t count until the boss approves. People with Finance → Approve skip it.</p>
           <ActionForm action={saveFinanceSettings} className="flex flex-wrap items-end gap-3">
@@ -37,7 +37,7 @@ export default async function FinanceSettings() {
             <SubmitButton>Save</SubmitButton>
           </ActionForm>
         </Card>
-        <Card className="p-5">
+        <Card id="alerts" className="scroll-mt-24 p-5">
           <h2 className="mb-1 font-semibold">Alerts for the owner</h2>
           <p className="mb-4 text-sm text-muted">Every Monday the owner (and anyone with Finance: boss dashboard) gets last week&apos;s spending, biggest expenses, missing bills, bills due and cash in hand by email and notification. Also send an instant alert for big single expenses:</p>
           <ActionForm action={saveFinanceSettings} className="flex flex-wrap items-end gap-3">
@@ -45,7 +45,7 @@ export default async function FinanceSettings() {
             <SubmitButton>Save</SubmitButton>
           </ActionForm>
         </Card>
-        <Card className="p-5">
+        <Card id="close-month" className="scroll-mt-24 p-5">
           <h2 className="mb-1 font-semibold">Close a month</h2>
           <p className="mb-4 text-sm text-muted">After the month&apos;s accounts are checked, close it: entries in that month and earlier can&apos;t be added, changed or deleted (proof can still be attached). Clear the box to reopen.</p>
           <ActionForm action={saveFinanceSettings} className="flex flex-wrap items-end gap-3">

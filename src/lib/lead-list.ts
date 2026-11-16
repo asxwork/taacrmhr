@@ -1,6 +1,8 @@
 // Rows for the lead list/board. Used for the first render (crm/leads/page.tsx) and for every in-place
 // refresh (crm/leads/list-actions.ts → fetchLeadList), so filters and paging never reload the page.
+import type { Prisma } from "@prisma/client";
 import { addDays, format, startOfDay } from "date-fns";
+import { parseLeadSort } from "./lead-columns";
 import { db } from "./db";
 import { scopeMatcher, scopeWhere } from "./permissions";
 import { LEAD_FILTER_KEYS, leadWhere, type LeadFilters } from "./lead-filters";
@@ -64,6 +66,20 @@ export function filtersFrom(sp: Record<string, string | undefined>): LeadFilters
   return Object.fromEntries(LEAD_FILTER_KEYS.filter((k) => sp[k]).map((k) => [k, sp[k]])) as LeadFilters;
 }
 
+/** Database order for the sort param (see parseLeadSort); ties fall back to newest first. */
+function leadOrderBy(sort?: string): Prisma.LeadOrderByWithRelationInput[] {
+  const { key, desc } = parseLeadSort(sort);
+  const d = desc ? "desc" : "asc";
+  const n = { sort: d, nulls: "last" } as const;
+  const by: Record<string, Prisma.LeadOrderByWithRelationInput> = {
+    id: { number: n }, lead: { name: d }, stage: { status: { sortOrder: d } }, phone: { phone: n }, created: { createdAt: d },
+    owner: { owner: { name: d } }, reshuffle: { reshuffledAt: n }, source: { source: { name: d } }, sourceInfo: { sourceInfo: n },
+    project: { project: { name: d } }, email: { email: n }, campaign: { campaign: n }, location: { location: n }, interest: { interest: n },
+    propertyType: { propertyType: n }, budget: { budgetMax: n }, createdBy: { createdBy: { name: d } }, lastActivity: { lastActivityAt: n }, modified: { updatedAt: d },
+  };
+  return key === "created" ? [by.created!, { id: d }] : [by[key]!, { createdAt: "desc" }];
+}
+
 export async function loadLeadList(user: SessionUser, filters: LeadFilters, view: "list" | "board", page: number): Promise<LeadListData> {
   const statuses = await db.leadStatus.findMany({ where: { active: true }, select: { id: true, kind: true, sortOrder: true }, orderBy: { sortOrder: "asc" } });
   const openIds = statuses.filter((s) => s.kind === "open").map((s) => s.id);
@@ -75,7 +91,7 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
     db.lead.findMany({
       where,
       include: { source: { select: { name: true } }, project: { select: { name: true } }, owner: { select: { name: true } }, createdBy: { select: { name: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy: leadOrderBy(filters.sort),
       skip: view === "list" ? (page - 1) * LEAD_PAGE_SIZE : 0,
       take: view === "list" ? LEAD_PAGE_SIZE : 500,
     }),

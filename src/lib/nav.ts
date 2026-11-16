@@ -556,7 +556,15 @@ export const APPS: AppDef[] = [
       {
         label: "Finance", icon: "wallet",
         items: [
-          { href: "/finance/settings", label: "Finance settings", icon: "settings", module: "finance.settings", action: "edit" },
+          sub("Finance settings", [
+            { href: "/finance/settings", label: "Receipt reading", icon: "receipt", module: "finance.settings", action: "edit" },
+            { href: "/finance/settings#proof", label: "Proof (bills & receipts)", icon: "file", module: "finance.settings", action: "edit" },
+            { href: "/finance/settings#approvals", label: "Approval for big expenses", icon: "check", module: "finance.settings", action: "edit" },
+            { href: "/finance/settings#alerts", label: "Alerts for the owner", icon: "bell", module: "finance.settings", action: "edit" },
+            { href: "/finance/settings#close-month", label: "Close a month", icon: "lock", module: "finance.settings", action: "edit" },
+          ], "settings"),
+          { href: "/finance/categories", label: "Categories", icon: "list", module: "finance.settings", action: "edit" },
+          { href: "/finance/holders", label: "Money holders", icon: "wallet", module: "finance" },
         ],
       },
       {

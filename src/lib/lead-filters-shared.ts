@@ -1,6 +1,6 @@
 // Lead list filters live in the URL so every filter (and saved preset) is a link.
 // Multi-value params are comma-separated ids. "me" in owner means the signed-in user.
-export const LEAD_FILTER_KEYS = ["q", "name", "project", "group", "stage", "phone", "owner", "source", "activity", "created", "cfrom", "cto", "modified", "mfrom", "mto", "stale", "reshuffled", "branch"] as const;
+export const LEAD_FILTER_KEYS = ["q", "name", "project", "group", "stage", "phone", "owner", "source", "activity", "created", "cfrom", "cto", "modified", "mfrom", "mto", "stale", "reshuffled", "branch", "sort"] as const;
 export type LeadFilters = Partial<Record<(typeof LEAD_FILTER_KEYS)[number], string>>;
 
 export const STATUS_GROUPS = [
@@ -32,7 +32,7 @@ export const DATE_FILTERS = [
 /** Normalised query string of just the filter params (for matching presets and saving). */
 export function filterQuery(f: LeadFilters) {
   const p = new URLSearchParams();
-  for (const k of LEAD_FILTER_KEYS) if (k !== "q" && f[k]) p.set(k, f[k]!);
+  for (const k of LEAD_FILTER_KEYS) if (k !== "q" && k !== "sort" && f[k]) p.set(k, f[k]!);
   p.sort();
   return p.toString();
 }

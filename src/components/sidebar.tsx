@@ -77,6 +77,7 @@ export function Sidebar({ apps, initialApp, user, unread, urgent = 0, chat = -1,
     ?? groups.find((g) => g.items.some((i) => isActive(pathname, i.href)));
   const [picked, setPicked] = useState<string | null>(null);
   useEffect(() => setPicked(null), [pathname]);
+  const onePage = (g: { label?: string; items: { label: string }[] }) => !g.label || g.items[0]!.label.toLowerCase().endsWith(g.label.toLowerCase());
   const shownModule = groups.find((g) => g.label === picked) ?? pageModule ?? groups[0];
 
   // While creating or editing something (a /new page or a New/Edit panel) the sidebar folds away to give
@@ -324,8 +325,9 @@ export function Sidebar({ apps, initialApp, user, unread, urgent = 0, chat = -1,
               <div className="flex min-w-0 flex-1 flex-col pt-3">
                 {appSwitcher(false)}
                 {searchButton(false)}
-                {/* A one-page module (Dashboard) has no sub-menu: the rail icon is the link. */}
-                {shownModule && shownModule.items.length > 1 ? navList(false, [shownModule]) : navList(false, [{ label: "Go to", items: groups.filter((g) => g !== shownModule).map((g) => { const first = g.items[0]!.children?.[0] ?? g.items[0]!; return { ...first, label: g.label ?? first.label, icon: g.icon ?? first.icon, children: undefined }; }) }])}
+                {/* A one-page module (Dashboard → "HR dashboard") has no sub-menu: the rail icon is the link. A module whose one page
+                    is something else (Settings → Finance → "Finance settings") still lists it. */}
+                {shownModule && (shownModule.items.length > 1 || !!shownModule.items[0]?.children?.length || !onePage(shownModule)) ? navList(false, [shownModule]) : navList(false, [{ label: "Go to", items: groups.filter((g) => g !== shownModule).map((g) => { const first = g.items[0]!.children?.[0] ?? g.items[0]!; return { ...first, label: g.label ?? first.label, icon: g.icon ?? first.icon, children: undefined }; }) }])}
                 {footer(false)}
               </div>
             )}
