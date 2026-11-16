@@ -15,8 +15,17 @@ export async function agentStats(from: Date, to: Date) {
       interested: ls.filter((l) => l.outcome === "interested").length, callbacks: ls.filter((l) => l.outcome === "callback").length,
       talkMin: Math.round(ls.reduce((s, l) => s + (l.durationSec ?? 0), 0) / 60), last: ls.reduce<Date | null>((m, l) => (!m || l.startedAt > m ? l.startedAt : m), null),
       reachRate: calls.length ? Math.round((reached / calls.length) * 100) : 0,
+      avgSec: (() => { const t = calls.filter((l) => (l.durationSec ?? 0) > 0); return t.length ? Math.round(t.reduce((s, l) => s + (l.durationSec ?? 0), 0) / t.length) : 0; })(),
     };
   }).sort((a, b) => b.calls - a.calls);
+}
+
+/** Calls per Karachi hour of day (0–23) in the period. */
+export async function hourStats(from: Date, to: Date) {
+  const logs = await db.callLog.findMany({ where: { startedAt: { gte: from, lt: to }, channel: { not: "whatsapp" } }, select: { startedAt: true } });
+  const hours = Array.from({ length: 24 }, () => 0);
+  for (const l of logs) hours[new Date(+l.startedAt + 5 * 3_600_000).getUTCHours()]!++;
+  return hours;
 }
 
 export async function outcomeStats(from: Date, to: Date) {

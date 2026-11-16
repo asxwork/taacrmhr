@@ -2487,3 +2487,17 @@ model OutgoingHook {
   fails      Int       @default(0)
   createdAt  DateTime  @default(now())
 }
+
+/// Calls: the automatic end-of-shift report for each calling agent (one per agent per day).
+model CallDailyReport {
+  id        String   @id @default(cuid())
+  agentId   String
+  /// yyyy-MM-dd (Karachi)
+  date      String
+  /// JSON summary (calls, reached, talk time, outcomes, hours, first/last call…)
+  data      String // @text
+  sentAt    DateTime @default(now())
+
+  @@index([agentId, date])
+  @@index([date])
+}

@@ -12,6 +12,8 @@ export async function GET(req: Request) {
   const machines = await syncAllPullMachines();
   // Lead automation timers (not contacted in N minutes, quiet for N hours) ride on this frequent job.
   const leadRules = await (await import("@/lib/lead-rules")).runTimedLeadRules().catch(() => 0);
+  // End-of-shift calls report for each CSR agent (once a day, after their shift ends).
+  const callReports = await (await import("@/lib/call-daily")).sendDueCallReports().catch(() => 0);
   await (await import("@/lib/heartbeat")).beat("machines");
-  return Response.json({ ok: true, machines, leadRules });
+  return Response.json({ ok: true, machines, leadRules, callReports });
 }

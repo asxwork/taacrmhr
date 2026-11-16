@@ -49,8 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Two-step login required by policy (Settings → Security) and not set up yet: set it up first.
   const needs2fa = !user.viewAs && !user.totpEnabled && twoStepRequired(user, security, can(user, "finance") || can(user, "finance.boss"));
   if (needs2fa && (h.get("x-pathname") ?? "") !== "/profile/security") redirect("/profile/security");
-  // Section tabs for this page (CRM: Leads / Deals / Calls / Contacts / Inventory / Reports), filtered by permission and features.
-  const path = h.get("x-pathname") ?? "";
+  // Section tabs (CRM: Leads / Deals / Calls / Contacts / Inventory / Reports), filtered by permission and features.
   const tabAllowed = (t: SectionTab) => (!t.module || can(user, t.module, t.action ?? "view")) && (!t.superAdmin || user.isSuperAdmin) && !featureForPath(t.href, off);
   const pageItems = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]))).filter((item) => !item.phase);
   const sectionPages = SECTIONS.flatMap((sec) => sec.tabs.filter(tabAllowed).map((t) => ({ href: t.href, label: t.label, icon: "list" })));

@@ -1,7 +1,7 @@
 import { EmptyState } from "@/components/ui";
 
 /** Simple numeric report table: numbers right-aligned with thousands separators; a "Total" row is bold. */
-export function ReportTable({ head, rows, empty = "No data for this month." }: { head: string[]; rows: (string | number)[][]; empty?: string }) {
+export function ReportTable({ head, rows, empty = "No data for this month." }: { head: string[]; rows: React.ReactNode[][]; empty?: string }) {
   if (!rows.length) return <EmptyState title={empty} />;
   return (
     <table className="w-full min-w-[720px] text-sm">
