@@ -1,6 +1,7 @@
 // Lead automation: rules that run by themselves (when a lead arrives, changes stage, isn't contacted in time, or
 // goes quiet) and outgoing webhooks that tell other systems (Zapier, Make, Google Sheets…) what happened.
 import { createHmac, randomBytes } from "node:crypto";
+import vm from "node:vm";
 import { db } from "./db";
 import { logSystem } from "./crm";
 import { notify, APP_URL } from "./notify";
@@ -12,22 +13,67 @@ export const TRIGGERS: [RuleTrigger, string, string][] = [
   ["uncontacted", "Nobody contacts a new lead in time", "No call, WhatsApp, note or meeting within the minutes you set"],
   ["idle", "A lead goes quiet", "No activity for the hours you set"],
 ];
-export type RuleConditions = { sourceIds: string[]; stageIds: string[]; words: string; interests: string[]; minutes: number; hours: number };
+export type RuleConditions = { sourceIds: string[]; stageIds: string[]; words: string; interests: string[]; minutes: number; hours: number; projectIds: string[]; developers: string[]; areas: string; script: string };
 export type RuleActions = {
   assign: "none" | "user" | "roundrobin" | "leastloaded"; userIds: string[]; stageId: string; task: string; taskMinutes: number;
   notifyOwner: boolean; notifyUserIds: string[]; note: string; emailSubject: string; emailBody: string;
+  /** Custom script (JavaScript) returning extra actions, e.g. { assignTo: "Ali Raza", task: "Call now" }. */
+  script: string;
 };
-export const EMPTY_CONDITIONS: RuleConditions = { sourceIds: [], stageIds: [], words: "", interests: [], minutes: 15, hours: 48 };
-export const EMPTY_ACTIONS: RuleActions = { assign: "none", userIds: [], stageId: "", task: "", taskMinutes: 0, notifyOwner: true, notifyUserIds: [], note: "", emailSubject: "", emailBody: "" };
+export const EMPTY_CONDITIONS: RuleConditions = { sourceIds: [], stageIds: [], words: "", interests: [], minutes: 15, hours: 48, projectIds: [], developers: [], areas: "", script: "" };
+export const EMPTY_ACTIONS: RuleActions = { assign: "none", userIds: [], stageId: "", task: "", taskMinutes: 0, notifyOwner: true, notifyUserIds: [], note: "", emailSubject: "", emailBody: "", script: "" };
 
 const parse = <T,>(raw: string, base: T): T => { try { return { ...base, ...JSON.parse(raw) }; } catch { return base; } };
 export const ruleConditions = (raw: string) => parse(raw, EMPTY_CONDITIONS);
 export const ruleActions = (raw: string) => parse(raw, EMPTY_ACTIONS);
 
-type LeadLite = { id: string; name: string; email: string | null; phone: string | null; ownerId: string | null; sourceId: string | null; statusId: string; interest: string | null; campaign: string | null; location: string | null; notes: string | null; propertyType: string | null; number: number | null };
-const LEAD_SELECT = { id: true, name: true, email: true, phone: true, ownerId: true, sourceId: true, statusId: true, interest: true, campaign: true, location: true, notes: true, propertyType: true, number: true } as const;
+type LeadLite = {
+  id: string; name: string; email: string | null; phone: string | null; ownerId: string | null; sourceId: string | null; statusId: string; interest: string | null; campaign: string | null;
+  location: string | null; notes: string | null; propertyType: string | null; number: number | null; projectId: string | null; budgetMax: number | null; budgetMin: number | null; createdAt: Date;
+  source: { name: string } | null; status: { name: string }; owner: { name: string } | null; project: { name: string; developer: string | null; location: string | null } | null;
+};
+const LEAD_SELECT = {
+  id: true, name: true, email: true, phone: true, ownerId: true, sourceId: true, statusId: true, interest: true, campaign: true, location: true, notes: true, propertyType: true, number: true,
+  projectId: true, budgetMax: true, budgetMin: true, createdAt: true, source: { select: { name: true } }, status: { select: { name: true } }, owner: { select: { name: true } },
+  project: { select: { name: true, developer: true, location: true } },
+} as const;
+
+/** What a custom script sees: plain values only (no database access). */
+export function scriptLead(l: LeadLite) {
+  const pk = new Date(Date.now() + 5 * 3_600_000); // Karachi time
+  return Object.freeze({
+    name: l.name, phone: l.phone ?? "", email: l.email ?? "", source: l.source?.name ?? "", stage: l.status.name, owner: l.owner?.name ?? "",
+    project: l.project?.name ?? "", developer: l.project?.developer ?? "", area: [l.location, l.project?.location].filter(Boolean).join(", "),
+    campaign: l.campaign ?? "", interest: l.interest ?? "", propertyType: l.propertyType ?? "", notes: l.notes ?? "",
+    budget: l.budgetMax ?? l.budgetMin ?? 0, number: l.number ?? 0, ageMinutes: Math.round((Date.now() - +l.createdAt) / 60_000),
+    hour: pk.getUTCHours(), weekday: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][pk.getUTCDay()]!,
+  });
+}
+
+/**
+ * Runs a Super Admin's custom script in a separate context with a 200 ms limit. It gets `lead` (above) and returns a
+ * value; it can't reach the database, files or the network. Errors are returned, not thrown.
+ */
+export function runScript(code: string, lead: ReturnType<typeof scriptLead>): { value?: unknown; error?: string } {
+  if (!code.trim()) return { value: undefined };
+  try {
+    const value = vm.runInNewContext(`"use strict"; (function (lead) {\n${code}\n})(lead)`, { lead, Math, JSON, Number, String, Date }, { timeout: 200 });
+    return { value };
+  } catch (e) { return { error: (e as Error).message.slice(0, 300) }; }
+}
 
 function matches(c: RuleConditions, l: LeadLite) {
+  if (c.projectIds?.length && !c.projectIds.includes(l.projectId ?? "")) return false;
+  if (c.developers?.length && !c.developers.some((d) => d.toLowerCase() === (l.project?.developer ?? "").toLowerCase())) return false;
+  const areas = (c.areas ?? "").split(",").map((w) => w.trim().toLowerCase()).filter(Boolean);
+  if (areas.length) {
+    const where = [l.location, l.project?.location, l.project?.name, l.campaign, l.notes].filter(Boolean).join(" ").toLowerCase();
+    if (!areas.some((w) => where.includes(w))) return false;
+  }
+  if (c.script?.trim()) {
+    const res = runScript(c.script, scriptLead(l));
+    if (res.error || !res.value) return false;
+  }
   if (c.sourceIds.length && !c.sourceIds.includes(l.sourceId ?? "")) return false;
   if (c.stageIds.length && !c.stageIds.includes(l.statusId)) return false;
   if (c.interests.length && !c.interests.includes(l.interest ?? "")) return false;
@@ -46,6 +92,21 @@ const fill = (tpl: string, l: LeadLite, ownerName: string) =>
 async function apply(rule: { id: string; name: string; actions: string }, l: LeadLite) {
   const a = ruleActions(rule.actions);
   const done: string[] = [];
+  // Custom script: its result adds to / overrides the actions chosen in the form.
+  if (a.script.trim()) {
+    const res = runScript(a.script, scriptLead(l));
+    if (res.error) done.push(`script error: ${res.error}`);
+    const v = (res.value && typeof res.value === "object" ? res.value : {}) as Record<string, unknown>;
+    if (v.skip) return ["skipped by script"];
+    const userId = async (who: unknown) => typeof who === "string" && who.trim() ? (await db.user.findFirst({ where: { active: true, OR: [{ name: who.trim() }, { email: who.trim().toLowerCase() }] }, select: { id: true } }))?.id : undefined;
+    if (v.assignTo) { const id = await userId(v.assignTo); if (id) { a.assign = "user"; a.userIds = [id]; } else done.push(`no user called ${String(v.assignTo)}`); }
+    if (Array.isArray(v.assignRoundRobin)) { const ids = (await Promise.all(v.assignRoundRobin.map(userId))).filter((x): x is string => !!x); if (ids.length) { a.assign = "roundrobin"; a.userIds = ids; } }
+    if (typeof v.stage === "string") { const st = await db.leadStatus.findFirst({ where: { name: v.stage, active: true } }); if (st) a.stageId = st.id; }
+    if (typeof v.task === "string") { a.task = v.task; if (typeof v.taskMinutes === "number") a.taskMinutes = v.taskMinutes; }
+    if (typeof v.note === "string") a.note = v.note;
+    if (Array.isArray(v.notify)) a.notifyUserIds = [...a.notifyUserIds, ...(await Promise.all(v.notify.map(userId))).filter((x): x is string => !!x)];
+    if (v.email && typeof v.email === "object") { const e = v.email as { subject?: string; body?: string }; if (e.subject && e.body) { a.emailSubject = e.subject; a.emailBody = e.body; } }
+  }
   let ownerId = l.ownerId;
   if (a.assign !== "none" && a.userIds.length) {
     const pool = await db.user.findMany({ where: { id: { in: a.userIds }, active: true }, select: { id: true, name: true, branchId: true }, orderBy: { name: "asc" } });
@@ -176,4 +237,16 @@ export async function leadEvent(event: "created" | "stage", leadId: string) {
   await runLeadRules(event, leadId);
   const payload = await leadPayload(leadId);
   if (payload) void fireHook(event === "created" ? "lead.created" : "lead.stage", { lead: payload });
+}
+
+/** "Test on a lead": does this rule match lead #N, and what would its script return? Changes nothing. */
+export async function testRule(ruleId: string, leadNumber: number) {
+  const r = await db.leadRule.findUnique({ where: { id: ruleId } });
+  const l = await db.lead.findFirst({ where: { number: leadNumber }, select: LEAD_SELECT });
+  if (!r || !l) return { error: !r ? "Rule not found." : `No lead #${leadNumber}.` };
+  const c = ruleConditions(r.conditions), a = ruleActions(r.actions);
+  const lead = scriptLead(l);
+  const cond = c.script.trim() ? runScript(c.script, lead) : null;
+  const act = a.script.trim() ? runScript(a.script, lead) : null;
+  return { lead: `${l.name} (#${l.number})`, matches: matches(c, l), conditionScript: cond, actionScript: act, sees: lead };
 }

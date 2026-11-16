@@ -11,7 +11,7 @@ import { getSetting, INTAKE_KEYS } from "@/lib/lead-intake";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Drawer, EmptyState, Field, PageHeader } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { deleteHook, deleteRule, saveHook, saveRule, sendTestLead, testHook, toggleRule } from "./actions";
+import { deleteHook, deleteRule, saveHook, saveRule, sendTestLead, testHook, testRuleOnLead, toggleRule } from "./actions";
 
 export const metadata = { title: "Automation hub · CRM" };
 
@@ -24,6 +24,13 @@ const TEMPLATES: Record<string, { name: string; trigger: string; c: Partial<Rule
   facebook: { name: "Facebook & Instagram leads to the social team", trigger: "created", c: {}, a: { assign: "roundrobin", task: "Call within 5 minutes", taskMinutes: 5 }, why: "Leads from chosen sources are shared round-robin between chosen agents." },
   quiet: { name: "Quiet for 2 days: remind the agent", trigger: "idle", c: { hours: 48 }, a: { task: "Follow up: no contact for 2 days", notifyOwner: true }, why: "No activity for 48 hours: the owner gets a follow-up task and an alert." },
   visit: { name: "Site visit booked: tell the manager", trigger: "stage", c: {}, a: { notifyOwner: false, task: "Confirm the site visit with the client", taskMinutes: 60 }, why: "When a lead reaches a stage, chosen people are told and a task is planned." },
+  dha: { name: "DHA area leads to the DHA team", trigger: "created", c: { areas: "DHA, Defence" }, a: { assign: "roundrobin", task: "Call within 10 minutes", taskMinutes: 10 }, why: "Leads mentioning an area (DHA, Clifton, Bahria…) go to the team that sells there." },
+  developer: { name: "Developer leads to the project specialist", trigger: "created", c: {}, a: { assign: "user", task: "Share the project brochure" }, why: "Leads for a developer's projects (e.g. Emaar, HMR) go to the person who knows them best." },
+  vip: { name: "Big budget (5 Cr+) to senior agents", trigger: "created", c: { script: "return lead.budget >= 50000000;" }, a: { assign: "leastloaded", task: "Priority call: big budget", taskMinutes: 5 }, why: "A custom script checks the budget; big-budget leads go to the least busy senior agent." },
+  night: { name: "After-hours leads: first call in the morning", trigger: "created", c: { script: "return lead.hour >= 21 || lead.hour < 9;" }, a: { task: "First call this morning", taskMinutes: 600, notifyOwner: true }, why: "Leads that arrive at night get a morning call task instead of waiting unnoticed." },
+  noanswer: { name: "Not answered: try again tomorrow", trigger: "stage", c: {}, a: { task: "Try calling again", taskMinutes: 1440, notifyOwner: false }, why: "When a lead moves to Not Answered, a retry call is planned for the next day." },
+  revive: { name: "Quiet for 30 days: revive", trigger: "idle", c: { hours: 720 }, a: { assign: "roundrobin", task: "Revive: share new projects", note: "Revived after 30 quiet days" }, why: "Leads nobody touched for a month go to a fresh agent with a revive task." },
+  script: { name: "Custom script example", trigger: "created", c: {}, a: { script: "// Return what to do. Everything is optional.\nif (lead.source === \"Zameen\" && lead.area.includes(\"Clifton\")) {\n  return { assignTo: \"Ali Raza\", task: \"Call within 5 minutes\", taskMinutes: 5 };\n}\nif (lead.weekday === \"Sunday\") return { note: \"Came in on a Sunday\" };\nreturn { skip: true };" }, why: "Write your own logic in JavaScript: the lead's details come in, the actions to take go out." },
   welcome: { name: "Welcome email to new leads", trigger: "created", c: {}, a: { emailSubject: "Thank you for your interest, {first_name}", emailBody: "Dear {name},\n\nThank you for contacting The Advisor Associates. {agent} will call you shortly.\n\nRegards,\nThe Advisor Associates", notifyOwner: false }, why: "Leads with an email get a thank-you email straight away." },
 };
 
@@ -34,6 +41,8 @@ export default async function AutomationHub({ searchParams }: { searchParams: Pr
   const tab = TABS.some(([t]) => t === sp.tab) ? sp.tab! : "overview";
   const origin = APP_URL();
   const since = subDays(new Date(), 7);
+  const projects = await db.project.findMany({ where: { active: true }, select: { id: true, name: true, developer: true }, orderBy: { name: "asc" } });
+  const developers = [...new Set(projects.map((x) => x.developer?.trim()).filter((x): x is string => !!x))].sort();
   const [rules, hooks, logs, sources, stages, users, connections, weekLogs, formKey] = await Promise.all([
     db.leadRule.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
     db.outgoingHook.findMany({ orderBy: { createdAt: "asc" } }),
@@ -137,6 +146,7 @@ export default async function AutomationHub({ searchParams }: { searchParams: Pr
                       <Link href={`/crm/automation?tab=rules&edit=${r.id}`} scroll={false} className="font-medium hover:underline">{r.name}</Link>
                       <p className="text-sm text-muted">{sentence(r)}</p>
                       <p className="text-xs text-muted">{r.runs} run{r.runs === 1 ? "" : "s"}{r.lastRunAt ? ` · last ${formatDistanceToNowStrict(r.lastRunAt)} ago` : ""}</p>
+                      <ActionForm action={testRuleOnLead} className="mt-1.5 flex flex-wrap items-center gap-1.5"><input type="hidden" name="id" value={r.id} /><input name="lead" inputMode="numeric" placeholder="Lead #" className="input h-7 w-24 text-xs" aria-label="Lead number" /><button className="h-7 rounded-md border border-line px-2 text-xs hover:bg-canvas">Test on lead</button></ActionForm>
                     </div>
                     <form action={toggleRule}><input type="hidden" name="id" value={r.id} /><button className={cn("rounded-full px-3 py-1 text-xs font-medium", r.active ? "bg-emerald-50 text-emerald-700" : "bg-canvas text-muted")}>{r.active ? "On" : "Off"}</button></form>
                     <form action={deleteRule}><input type="hidden" name="id" value={r.id} /><button className="p-1 text-muted hover:text-red-600" aria-label="Delete rule"><Trash2 className="size-4" /></button></form>
@@ -213,10 +223,19 @@ export default async function AutomationHub({ searchParams }: { searchParams: Pr
               <legend className="px-1 text-sm font-semibold">2 · Only for (leave empty for every lead)</legend>
               <p className="mb-1.5 text-sm font-medium">Sources</p>
               <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">{sources.map((s) => <label key={s.id} className="flex items-center gap-1.5"><input type="checkbox" name="sourceIds" value={s.id} defaultChecked={c.sourceIds.includes(s.id)} className="accent-navy-900" />{s.name}</label>)}</div>
+              {projects.length > 0 && <>
+                <p className="mb-1.5 text-sm font-medium">Projects</p>
+                <div className="mb-3 flex max-h-32 flex-wrap gap-x-4 gap-y-1.5 overflow-y-auto text-sm">{projects.map((x) => <label key={x.id} className="flex items-center gap-1.5"><input type="checkbox" name="projectIds" value={x.id} defaultChecked={c.projectIds.includes(x.id)} className="accent-navy-900" />{x.name}</label>)}</div>
+              </>}
+              {developers.length > 0 && <>
+                <p className="mb-1.5 text-sm font-medium">Developers</p>
+                <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">{developers.map((d) => <label key={d} className="flex items-center gap-1.5"><input type="checkbox" name="developers" value={d} defaultChecked={c.developers.includes(d)} className="accent-navy-900" />{d}</label>)}</div>
+              </>}
               <p className="mb-1.5 text-sm font-medium">Stages <span className="font-normal text-muted">(for “moves to a stage”: the stage it moves to)</span></p>
               <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">{stages.filter((s) => s.systemKey !== "onhold").map((s) => <label key={s.id} className="flex items-center gap-1.5"><input type="checkbox" name="stageIds" value={s.id} defaultChecked={c.stageIds.includes(s.id)} className="accent-navy-900" />{s.name}</label>)}</div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Words in campaign / location / notes" hint="Comma separated, e.g. DHA, Bahria, 10 marla"><input name="words" defaultValue={c.words} className="input" /></Field>
+                <Field label="Areas (location, project or notes mention)" hint="Comma separated, e.g. DHA, Clifton, Bahria Town"><input name="areas" defaultValue={c.areas} className="input" /></Field>
                 <div><p className="mb-1.5 text-sm font-medium">Wants to</p><div className="flex flex-wrap gap-3 text-sm">{["buy", "rent", "invest", "sell"].map((i) => <label key={i} className="flex items-center gap-1.5"><input type="checkbox" name="interests" value={i} defaultChecked={c.interests.includes(i)} className="accent-navy-900" />{i}</label>)}</div></div>
               </div>
             </fieldset>
@@ -243,6 +262,20 @@ export default async function AutomationHub({ searchParams }: { searchParams: Pr
                 <div className="mt-2 space-y-2"><input name="emailSubject" defaultValue={a.emailSubject} placeholder="Subject" className="input" /><textarea name="emailBody" rows={5} defaultValue={a.emailBody} placeholder="Message. You can use {name}, {first_name}, {agent}." className="input" /></div>
               </details>
             </fieldset>
+            {user.isSuperAdmin && (
+              <details className="rounded-lg border border-line p-4" open={!!(c.script || a.script)}>
+                <summary className="cursor-pointer text-sm font-semibold">4 · Custom script (advanced, optional)</summary>
+                <p className="mt-2 text-xs text-muted">JavaScript that gets <code>lead</code> and returns a value. Runs in a sealed box for at most 0.2 s: it can&apos;t reach the database, files or the internet.</p>
+                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <Field label="Condition: return true to run the rule"><textarea name="conditionScript" rows={6} defaultValue={c.script} spellCheck={false} placeholder={"return lead.budget >= 50000000 && lead.area.includes(\"DHA\");"} className="input font-mono text-xs" /></Field>
+                  <Field label="Actions: return what to do"><textarea name="actionScript" rows={6} defaultValue={a.script} spellCheck={false} placeholder={"return { assignTo: \"Ali Raza\", task: \"Call now\", taskMinutes: 5 };"} className="input font-mono text-xs" /></Field>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 text-xs text-muted sm:grid-cols-2">
+                  <p><b className="text-ink">lead has:</b> name, phone, email, source, stage, owner, project, developer, area, campaign, interest, propertyType, notes, budget (rupees), number, ageMinutes, hour (Karachi time, 0–23), weekday.</p>
+                  <p><b className="text-ink">Actions can return:</b> assignTo (name or email), assignRoundRobin [names], stage (name), task + taskMinutes, note, notify [names], email {"{ subject, body }"}, or skip: true to do nothing.</p>
+                </div>
+              </details>
+            )}
             <SubmitButton>Save rule</SubmitButton>
           </ActionForm>
         </Drawer>
