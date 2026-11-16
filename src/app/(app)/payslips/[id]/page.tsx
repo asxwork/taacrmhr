@@ -10,7 +10,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { resendPayslip } from "@/app/(app)/hr/payroll/payslip-actions";
 
 export const metadata = { title: "Payslip" };
-const n = (v: number) => Math.round(v).toLocaleString("en-PK");
+const n2 = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** Printable payslip in the company format (Print, or Download PDF). Employees see their own once the run is approved. */
 export default async function PayslipPage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,7 +22,6 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
   const hr = can(user, "hr.payroll") && (await scopeMatcher(user, "hr.payroll", "view"))({ ownerId: slip.employee.userId, branchId: slip.employee.branchId });
   if (!own && !hr) notFound();
   const d = (await payslipDoc(id))!;
-  const label = "text-[11px] font-semibold uppercase tracking-[0.14em] text-muted";
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -36,87 +35,83 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
         )}
         <PrintButton target="article.print-sheet" fileName={`Payslip ${d.month}`} />
       </div>
-      <article className="print-sheet overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
-        <header className="flex flex-wrap items-start justify-between gap-4 bg-navy-950 px-8 py-6 text-white print:bg-white print:text-black">
-          <div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/logo-gold.svg" alt={d.employer.name} className="h-11 w-auto print:hidden" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/logo-blue.svg" alt={d.employer.name} className="hidden h-11 w-auto print:block" />
-            <p className="mt-4 text-xs tracking-[0.3em] text-gold-400 print:text-black">PAYSLIP</p>
-            <p className="font-display text-2xl font-semibold">{d.month}</p>
-            {d.status === "draft" && <p className="mt-1 text-xs font-semibold uppercase text-amber-300">Draft, not final</p>}
-          </div>
-          <dl className="grid grid-cols-[auto_auto] gap-x-5 gap-y-1 text-sm">
-            {([["Payslip #", d.number], ["Payment date", d.paymentDate], ["Pay period", d.payPeriod], ["Working days", String(d.workingDays)]] as const).map(([k, v]) => (
-              <div key={k} className="contents"><dt className="text-white/60 print:text-black/60">{k}</dt><dd className="text-right font-semibold tabular-nums">{v}</dd></div>
-            ))}
-          </dl>
-        </header>
-
-        <section className="grid grid-cols-1 gap-6 border-b border-line px-8 py-6 sm:grid-cols-2">
-          <div>
-            <p className={label}>Employer</p>
-            <p className="mt-1 font-semibold">{d.employer.name}</p>
-            {d.employer.address && <p className="text-sm text-muted">{d.employer.address}</p>}
-          </div>
-          <div>
-            <p className={label}>Employee</p>
-            <p className="mt-1 font-semibold">{d.employee.name}</p>
-            <dl className="mt-1 space-y-0.5 text-sm">
-              {([["Employee ID", d.employee.code], ["Designation", d.employee.designation], ["Department", d.employee.department], ["Days paid", d.daysPaid]] as const).map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-3"><dt className="text-muted">{k}</dt><dd className="text-right font-medium">{v}</dd></div>
+      {/* Same layout as the company's Excel payslip (Pay-Slip_fixed.xlsx): navy bar with gold edge, PAYSLIP, details on the right,
+          Employer / Employee, Description · Hours · Rate · Amount · YTD · Type, Gross / Deductions / Net, payment detail. */}
+      <article className="print-sheet bg-white text-[#0B1F3A] shadow-sm ring-1 ring-line" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+        <div className="h-8 border-b-[3px] border-[#B8913A] bg-[#0B1F3A]" />
+        <div className="px-6 pb-8 pt-6 sm:px-10">
+          {d.status === "draft" && <p className="mb-3 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase text-amber-800">Draft, not final</p>}
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <h1 className="text-[40px] font-bold leading-none tracking-tight sm:text-[46px]">PAYSLIP</h1>
+            <dl className="grid grid-cols-[auto_auto] gap-x-8 gap-y-1 text-[12.5px]">
+              {([["Payslip #", d.number], ["Payment Date", d.paymentDate], ["Pay Period", d.payPeriod], ["Working Days", String(d.workingDays)]] as const).map(([k, v]) => (
+                <div key={k} className="contents"><dt className="text-right text-[#6B7280]">{k}</dt><dd className="text-right font-bold tabular-nums">{v}</dd></div>
               ))}
             </dl>
           </div>
-        </section>
 
-        <section className="px-8 py-6">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b-2 border-ink/80 text-left text-[11px] uppercase tracking-wider text-muted">
-                <th className="py-2">Description</th><th className="py-2 text-right">Hours</th><th className="py-2 text-right">Rate</th><th className="py-2 text-right">Amount</th><th className="py-2 text-right">YTD</th><th className="py-2 pl-4">Type</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {d.earnings.map((e, i) => (
-                <tr key={`e${i}`}>
-                  <td className="py-2">{e.label}</td>
-                  <td className="py-2 text-right tabular-nums text-muted">{e.hours ?? ""}</td>
-                  <td className="py-2 text-right tabular-nums text-muted">{e.rate != null ? n(e.rate) : ""}</td>
-                  <td className="py-2 text-right font-medium tabular-nums">{n(e.amount)}</td>
-                  <td className="py-2 text-right tabular-nums text-muted">{n(e.ytd)}</td>
-                  <td className="py-2 pl-4 text-xs text-muted">{e.type}</td>
-                </tr>
-              ))}
-              <tr className="bg-canvas/70 font-semibold"><td className="py-2" colSpan={3}>Gross pay</td><td className="py-2 text-right tabular-nums">{n(d.gross)}</td><td colSpan={2} /></tr>
-              {d.deductions.map((e, i) => (
-                <tr key={`d${i}`}>
-                  <td className="py-2 text-red-700">− {e.label}</td><td /><td />
-                  <td className="py-2 text-right tabular-nums text-red-700">{n(e.amount)}</td>
-                  <td className="py-2 text-right tabular-nums text-muted">{n(e.ytd)}</td>
-                  <td className="py-2 pl-4 text-xs text-muted">{e.type}</td>
-                </tr>
-              ))}
-              <tr className="bg-canvas/70 font-semibold"><td className="py-2" colSpan={3}>Deductions / tax</td><td className="py-2 text-right tabular-nums">{n(d.totalDeductions)}</td><td colSpan={2} /></tr>
-            </tbody>
-          </table>
+          <section className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <p className="text-[10.5px] font-bold uppercase tracking-wide text-[#B8913A]">Employer</p>
+              <p className="mt-2 text-[17px] font-bold">{d.employer.name}</p>
+              {d.employer.address && <p className="mt-0.5 text-[11.5px] leading-snug">{d.employer.address}</p>}
+            </div>
+            <div>
+              <p className="text-[10.5px] font-bold uppercase tracking-wide text-[#B8913A]">Employee</p>
+              <p className="mt-2 text-[17px] font-bold">{d.employee.name}</p>
+              <dl className="mt-1 grid grid-cols-[7.5rem_1fr] gap-y-1 text-[12.5px]">
+                {([["Employee ID", d.employee.code], ["Designation", d.employee.designation], ["Department", d.employee.department], ["Joining Date", d.joiningDate]] as const).map(([k, v]) => (
+                  <div key={k} className="contents"><dt className="text-[#6B7280]">{k}</dt><dd className="font-bold">{v}</dd></div>
+                ))}
+              </dl>
+            </div>
+          </section>
 
-          <div className="mt-5 flex items-center justify-between rounded-xl bg-navy-900 px-6 py-4 text-white print:border print:border-black print:bg-white print:text-black">
-            <span><span className="block text-xs tracking-[0.2em] text-white/60 print:text-black/60">NET PAY</span><span className="text-xs text-white/60 print:text-black/60">Year to date PKR {n(d.ytdNet)}</span></span>
-            <span className="font-display text-2xl font-semibold tabular-nums">PKR {n(d.net)}</span>
+          <div className="mt-6 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-[12.5px]">
+              <thead>
+                <tr className="bg-[#0B1F3A] text-[11px] font-bold uppercase text-white">
+                  <th className="px-3 py-2.5 text-left">Description</th><th className="px-3 py-2.5 text-right">Hours</th><th className="px-3 py-2.5 text-right">Rate</th><th className="px-3 py-2.5 text-right">Amount</th><th className="px-3 py-2.5 text-right">YTD</th><th className="px-3 py-2.5 text-right">Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.lines.map((l) => (
+                  <tr key={l.label} className="border-b border-[#D9DEE5]">
+                    <td className="px-3 py-2.5">{l.label}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{l.hours != null ? n2(l.hours) : ""}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{l.rate != null ? n2(l.rate) : ""}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{n2(l.amount)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{n2(l.ytd)}</td>
+                    <td className="px-3 py-2.5 text-right text-[#6B7280]">{l.type}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </section>
 
-        <section className="border-t border-line px-8 py-6">
-          <p className={label}>Payment detail</p>
-          <dl className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
-            {([["Payment method", d.payment.method], ["Bank name", d.payment.bank], ["IBAN / Account number", d.payment.account], ["Branch", d.payment.branch], ["Account title", d.payment.title]] as const).map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-3"><dt className="text-muted">{k}</dt><dd className="text-right font-medium">{v}</dd></div>
-            ))}
-          </dl>
-        </section>
-        <footer className="bg-canvas px-8 py-3 text-center text-xs text-muted">This is a computer-generated payslip and is confidential. · {d.employer.name}</footer>
+          <div className="mt-4 flex justify-end">
+            <dl className="w-full max-w-[18rem] text-[12.5px]">
+              <div className="flex justify-between border-b border-[#D9DEE5] px-2 py-2.5"><dt className="text-[#6B7280]">Gross Pay</dt><dd className="tabular-nums">{n2(d.gross)}</dd></div>
+              <div className="flex justify-between border-b border-[#D9DEE5] px-2 py-2.5"><dt className="text-[#6B7280]">Deductions / Tax</dt><dd className="tabular-nums">{n2(d.totalDeductions)}</dd></div>
+              <div className="flex items-center justify-between border-l-[3px] border-[#B8913A] bg-[#F1F3F6] px-2 py-3"><dt className="text-[13px] font-bold">NET PAY</dt><dd className="text-[19px] font-bold tabular-nums">{n2(d.net)}</dd></div>
+            </dl>
+          </div>
+          {d.deductions.length > 0 && <p className="mt-2 text-right text-[11px] text-[#6B7280]">Deductions: {d.deductions.map((x) => `${x.label} ${n2(x.amount)}`).join(" · ")}</p>}
+
+          <section className="mt-8">
+            <p className="text-[10.5px] font-bold uppercase tracking-wide text-[#B8913A]">Payment Detail</p>
+            <dl className="mt-1.5 grid grid-cols-[13rem_1fr] gap-y-1 text-[12.5px]">
+              {([["Payment Method", d.payment.method], ["Bank Name", d.payment.bank], ["IBAN / Account Number", d.payment.account], ["Branch", d.payment.branch]] as const).map(([k, v]) => (
+                <div key={k} className="contents"><dt className="text-[#6B7280]">{k}</dt><dd className="font-bold">{v}</dd></div>
+              ))}
+            </dl>
+          </section>
+
+          <footer className="mt-10 border-t border-[#0B1F3A]/60 pt-2 text-center">
+            <p className="text-[10.5px] text-[#6B7280]">This is a computer-generated payslip and is confidential.</p>
+            <p className="mt-2 text-[10.5px] font-bold">{d.employer.name}</p>
+          </footer>
+        </div>
       </article>
     </div>
   );
