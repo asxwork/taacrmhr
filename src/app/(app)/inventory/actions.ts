@@ -9,7 +9,7 @@ import { requireUser } from "@/lib/auth";
 import { requirePermission, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { logSystem, ownerBranch, parseAmount, resolveOwner } from "@/lib/crm";
-import { FREQUENCIES, SIZE_UNITS, UNIT_TYPES, attachUnitToDeal, releaseUnit, unitAllows, unitWhere } from "@/lib/inventory";
+import { FREQUENCIES, SIZE_UNITS, UNIT_TYPES, guessArea, attachUnitToDeal, releaseUnit, unitAllows, unitWhere } from "@/lib/inventory";
 import { deleteUpload, saveImage } from "@/lib/files";
 import { str, type FormState } from "@/lib/utils";
 
@@ -134,6 +134,7 @@ export async function saveUnit(_: FormState, fd: FormData): Promise<FormState> {
     floor: str(fd, "floor") || null, facing: str(fd, "facing") || null,
     corner: fd.get("corner") === "on", parkFacing: fd.get("parkFacing") === "on", mainRoad: fd.get("mainRoad") === "on",
     price: parseAmount(str(fd, "price")), address: str(fd, "address") || null,
+    area: isListing ? (str(fd, "area").slice(0, 80) || guessArea(str(fd, "address"))) : null,
     lat: num(fd, "lat"), lng: num(fd, "lng"),
     propertyOwner: isListing ? str(fd, "propertyOwner") || null : null,
     propertyOwnerPhone: isListing ? str(fd, "propertyOwnerPhone") || null : null,

@@ -1,6 +1,6 @@
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Field, LinkButton } from "@/components/ui";
-import { FREQUENCIES, LISTING_TYPES, SIZE_UNITS, UNIT_TYPES } from "@/lib/inventory-shared";
+import { FREQUENCIES, KNOWN_AREAS, LISTING_TYPES, SIZE_UNITS, UNIT_TYPES } from "@/lib/inventory-shared";
 import { bulkCreateUnits, saveBlock, saveProject, saveUnit } from "./actions";
 
 type Opt = { id: string; name: string };
@@ -9,7 +9,7 @@ type ProjectOpt = Opt & { blocks: Opt[] };
 type UnitValues = {
   id: string; listingType: string; purpose: string; projectId: string | null; blockId: string | null; unitNo: string; type: string;
   size: number | null; sizeUnit: string; bedrooms: number | null; bathrooms: number | null; floor: string | null; facing: string | null;
-  corner: boolean; parkFacing: boolean; mainRoad: boolean; price: number | null; address: string | null; lat: number | null; lng: number | null;
+  corner: boolean; parkFacing: boolean; mainRoad: boolean; price: number | null; address: string | null; area?: string | null; lat: number | null; lng: number | null;
   propertyOwner: string | null; propertyOwnerPhone: string | null; notes: string | null; ownerId: string | null;
 };
 
@@ -108,9 +108,15 @@ export function UnitForm({
       {(unit ? unit.listingType !== "project" : types.some((t) => t.value !== "project")) && (
         <fieldset className="min-w-0 space-y-3 rounded-lg border border-line p-3">
           <legend className="px-1 text-xs font-medium text-ink/80">Listing details (resale / rental)</legend>
-          <Field label="Address">
-            <input name="address" defaultValue={unit?.address ?? ""} className="input" />
-          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_14rem]">
+            <Field label="Address">
+              <input name="address" defaultValue={unit?.address ?? ""} className="input" />
+            </Field>
+            <Field label="Area / society" hint="Used for area targeting and matching">
+              <input name="area" list="known-areas" defaultValue={unit?.area ?? ""} placeholder="e.g. DHA Phase 6" className="input" />
+            </Field>
+          </div>
+          <datalist id="known-areas">{KNOWN_AREAS.map((a) => <option key={a} value={a} />)}</datalist>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Property owner">
               <input name="propertyOwner" defaultValue={unit?.propertyOwner ?? ""} className="input" />
@@ -166,7 +172,7 @@ type ProjectValues = {
   description: string | null; planDownPct: number | null; planInstallments: number | null; planFrequency: string | null; planPossessionPct: number | null;
 };
 
-export function ProjectForm({ project, cancelHref }: { project?: ProjectValues | null; cancelHref: string }) {
+export function ProjectForm({ project, cancelHref, developers = [] }: { project?: ProjectValues | null; cancelHref: string; developers?: string[] }) {
   return (
     <ActionForm action={saveProject} className="space-y-4">
       {project && <input type="hidden" name="id" value={project.id} />}
@@ -180,10 +186,12 @@ export function ProjectForm({ project, cancelHref }: { project?: ProjectValues |
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Developer">
-          <input name="developer" defaultValue={project?.developer ?? ""} className="input" />
+          <input name="developer" list="known-developers" defaultValue={project?.developer ?? ""} className="input" />
+          <datalist id="known-developers">{developers.map((d) => <option key={d} value={d} />)}</datalist>
         </Field>
-        <Field label="Location">
-          <input name="location" defaultValue={project?.location ?? ""} className="input" />
+        <Field label="Area / location">
+          <input name="location" list="project-areas" defaultValue={project?.location ?? ""} placeholder="Area, e.g. DHA Phase 8" className="input" />
+          <datalist id="project-areas">{KNOWN_AREAS.map((a) => <option key={a} value={a} />)}</datalist>
         </Field>
       </div>
       <div className="grid grid-cols-3 gap-3">

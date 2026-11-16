@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { assignableUsers } from "@/lib/crm";
 import { FormPage } from "@/components/ui";
 import { ProjectForm, UnitForm } from "../forms";
+import { developerNames } from "@/lib/inventory";
 
 export const metadata = { title: "Add to inventory" };
 
@@ -14,7 +15,7 @@ export default async function NewInventoryPage({ searchParams }: { searchParams:
     if (!can(user, "inventory.projects", "create")) redirect("/inventory?tab=projects");
     return (
       <FormPage title="New project" backHref="/inventory?tab=projects" backLabel="Projects">
-        <ProjectForm cancelHref="/inventory?tab=projects" />
+        <ProjectForm cancelHref="/inventory?tab=projects" developers={await developerNames()} />
       </FormPage>
     );
   }

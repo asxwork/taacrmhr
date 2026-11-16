@@ -146,9 +146,15 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
               </ul>
             </Card>
           )}
-          {(unit.address || unit.lat) && (
+          {(unit.address || unit.lat || unit.area || unit.project?.location) && (
             <Card className="p-5 text-sm">
-              <p className="flex items-start gap-2"><MapPin className="mt-0.5 size-4 shrink-0 text-muted" /> {unit.address ?? `${unit.lat}, ${unit.lng}`}</p>
+              {(unit.area || unit.project?.location) && (
+                <p className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+                  <Link href={`/inventory?area=${encodeURIComponent((unit.area || unit.project?.location)!)}&status=available`} className="font-medium text-ink hover:underline">Area: {unit.area || unit.project?.location}</Link>
+                  {unit.project?.developer && <Link href={`/inventory?developer=${encodeURIComponent(unit.project.developer)}&status=available`} className="hover:underline">Developer: {unit.project.developer}</Link>}
+                </p>
+              )}
+              {(unit.address || unit.lat) && <p className="flex items-start gap-2"><MapPin className="mt-0.5 size-4 shrink-0 text-muted" /> {unit.address ?? `${unit.lat}, ${unit.lng}`}</p>}
               {unit.lat && unit.lng && (
                 <a href={`https://www.google.com/maps?q=${unit.lat},${unit.lng}`} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-navy-900 underline">Open in Google Maps</a>
               )}

@@ -20,6 +20,24 @@ export const SIZE_UNITS = [
 ] as const;
 export const sizeLabel = (size: number | null, unit: string) => (size ? `${size.toLocaleString("en-PK")} ${SIZE_UNITS.find((u) => u.value === unit)?.label ?? unit}` : "—");
 
+/** Common Karachi areas offered as suggestions (any other area can be typed). */
+export const KNOWN_AREAS = [
+  "DHA Phase 1", "DHA Phase 2", "DHA Phase 2 Ext", "DHA Phase 4", "DHA Phase 5", "DHA Phase 6", "DHA Phase 7", "DHA Phase 7 Ext", "DHA Phase 8", "DHA City",
+  "Clifton", "Bahria Town Karachi", "Scheme 33", "Scheme 45", "Gulshan-e-Iqbal", "Gulistan-e-Jauhar", "PECHS", "Bahadurabad", "Tariq Road",
+  "North Nazimabad", "Federal B Area", "Saddar", "Shahrah-e-Faisal", "Malir Cantt", "Karachi Cantt", "KDA Scheme 1", "Naya Nazimabad", "Gadap", "Super Highway",
+] as const;
+
+/** Best guess of a listing's area from its address: the longest known area (or project location) it mentions. */
+export function guessArea(address: string | null | undefined, extra: string[] = []) {
+  if (!address) return null;
+  const a = address.toLowerCase();
+  const hit = [...extra, ...KNOWN_AREAS].filter((k) => k && a.includes(k.toLowerCase())).sort((x, y) => y.length - x.length)[0];
+  return hit ?? null;
+}
+
+/** A unit's area: its own, else its project's location, else guessed from the address. */
+export const areaOf = (u: { area?: string | null; address?: string | null; project?: { location: string | null } | null }) => u.area || u.project?.location || guessArea(u.address);
+
 export const LISTING_TYPES = [
   { value: "project", label: "Project stock" },
   { value: "resale", label: "Resale listing" },

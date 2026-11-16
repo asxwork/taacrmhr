@@ -8,6 +8,7 @@ import { FREQUENCIES, UNIT_STATUSES, sizeLabel, unitStatus } from "@/lib/invento
 import { cn } from "@/lib/utils";
 import { Badge, Card, Drawer, EmptyState, LinkButton } from "@/components/ui";
 import { BlockForm, BulkUnitsForm, ProjectForm, UnitForm } from "../../forms";
+import { developerNames } from "@/lib/inventory";
 import { deleteProjectImage, setProjectCover, uploadProjectImages } from "../../actions";
 import { PhotoManager } from "@/components/photo-manager";
 
@@ -172,7 +173,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
 
       {sp.edit && canEdit && (
         <Drawer title="Edit project" closeHref={path}>
-          <ProjectForm project={project} cancelHref={path} />
+          <ProjectForm project={project} cancelHref={path} developers={await developerNames()} />
         </Drawer>
       )}
       {sp.blocks && canEdit && (

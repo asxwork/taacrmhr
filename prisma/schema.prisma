@@ -490,6 +490,8 @@ model Unit {
   price              Float?
   status             String      @default("available")
   address            String?
+  /// Area / society for targeting (e.g. "DHA Phase 6"). Project stock uses the project's location.
+  area               String?
   lat                Float?
   lng                Float?
   propertyOwner      String?

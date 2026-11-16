@@ -5,6 +5,7 @@ import type { SessionUser } from "./auth";
 import type { Action } from "./rbac";
 import { fmtPKR } from "./crm-shared";
 import { logSystem } from "./crm";
+import { guessArea } from "./inventory-shared";
 
 export * from "./inventory-shared";
 
@@ -98,7 +99,7 @@ export async function matchUnitsForLead(
   });
   const words = (lead.location ?? "").toLowerCase().split(/[\s,]+/).filter((w) => w.length > 2);
   const score = (u: (typeof candidates)[number]) => {
-    const hay = [u.project?.name, u.project?.location, u.address].join(" ").toLowerCase();
+    const hay = [u.project?.name, u.project?.location, u.area, u.address].join(" ").toLowerCase();
     return words.filter((w) => hay.includes(w)).length;
   };
   return candidates.sort((a, b) => score(b) - score(a)).slice(0, limit);
@@ -117,4 +118,26 @@ export async function unitOptions(user: SessionUser) {
     label: unitLabel(u),
     sub: [u.type, u.status, u.price ? fmtPKR(u.price) : null, u.listingType !== "project" ? u.address : null].filter(Boolean).join(" · "),
   }));
+}
+
+/** Developer names already used on projects (for suggestions and filters). */
+export async function developerNames() {
+  const rows = await db.project.findMany({ where: { developer: { not: null } }, select: { developer: true }, distinct: ["developer"], orderBy: { developer: "asc" } });
+  return rows.map((r) => r.developer!).filter(Boolean);
+}
+
+/** Areas in use: project locations plus listing areas. */
+export async function areaNames() {
+  const [p, u, old] = await Promise.all([
+    db.project.findMany({ where: { location: { not: null } }, select: { location: true }, distinct: ["location"] }),
+    db.unit.findMany({ where: { area: { not: null } }, select: { area: true }, distinct: ["area"] }),
+    db.unit.findMany({ where: { area: null, projectId: null, address: { not: null } }, select: { address: true }, distinct: ["address"], take: 2000 }),
+  ]);
+  const guessed = old.map((x) => guessArea(x.address)).filter((x): x is string => !!x);
+  return [...new Set([...p.map((x) => x.location!), ...u.map((x) => x.area!), ...guessed].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+/** Units in an area: own area, the project's location, or (older listings) the address mentions it. */
+export function areaWhere(area: string): Prisma.UnitWhereInput {
+  return { OR: [{ area }, { project: { location: area } }, { area: null, address: { contains: area } }] };
 }

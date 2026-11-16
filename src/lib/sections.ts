@@ -62,6 +62,8 @@ export const SECTIONS: Section[] = [
       { href: "/inventory", label: "Units", module: "inventory.units", params: { tab: null, status: null } },
       { href: "/inventory?status=available", label: "Available units", module: "inventory.units", params: { tab: null, status: "available" } },
       { href: "/inventory?tab=projects", label: "Projects", module: "inventory.projects", params: { tab: "projects" } },
+      { href: "/inventory?tab=developers", label: "Developers", module: "inventory.units", params: { tab: "developers" } },
+      { href: "/inventory?tab=areas", label: "Areas", module: "inventory.units", params: { tab: "areas" } },
     ],
   },
   // My Space

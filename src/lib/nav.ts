@@ -102,6 +102,8 @@ export const APPS: AppDef[] = [
           { href: "/inventory", label: "Units", icon: "building", module: "inventory.units" },
           { href: "/inventory?status=available", label: "Available units", icon: "check", module: "inventory.units" },
           { href: "/inventory?tab=projects", label: "Projects", icon: "landmark", module: "inventory.projects" },
+          { href: "/inventory?tab=developers", label: "Developers", icon: "building", module: "inventory.units" },
+          { href: "/inventory?tab=areas", label: "Areas", icon: "map", module: "inventory.units" },
         ],
       },
       {
