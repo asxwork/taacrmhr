@@ -8,6 +8,7 @@ import { audit } from "@/lib/audit";
 import { syncPullMachine } from "@/lib/attendance-machine";
 import { canStoreSecrets, sealSecret } from "@/lib/softphone";
 import { str, type FormState } from "@/lib/utils";
+import { MACHINE_TIME_ZONES as TIME_ZONES } from "@/lib/attendance-shared";
 
 const admin = async () => {
   const user = await requireUser();
@@ -89,4 +90,71 @@ export async function syncMachineNow(_: FormState, fd: FormData): Promise<FormSt
   const res = await syncPullMachine(str(fd, "id"));
   revalidatePath("/hr/attendance/machines");
   return "error" in res ? { error: res.error } : { ok: true, message: `Connected. ${res.added} new punch(es).` };
+}
+
+
+/**
+ * Create / edit a machine, ResourceInn style: machine information, connection (IP + port), routing (direct pull or
+ * the machine's Cloud Server push) and authentication (Comm Key only when "requires authentication" is ticked).
+ * Direct machines are tested straight away.
+ */
+export async function saveMachine(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await admin();
+  if (!user) return { error: "Only HR with company-wide attendance access can manage machines." };
+  const id = str(fd, "id");
+  const existing = id ? await db.attendanceMachine.findUnique({ where: { id } }) : null;
+  if (id && !existing) return { error: "Machine not found." };
+  const name = str(fd, "name").slice(0, 80);
+  if (!name) return { error: "Machine name is required." };
+  const mode = str(fd, "mode") === "push" ? "push" : "pull";
+  const branchId = str(fd, "branchId") || null;
+  const location = str(fd, "location").slice(0, 200) || null;
+  const timeZone = TIME_ZONES.includes(str(fd, "timeZone")) ? str(fd, "timeZone") : "Asia/Karachi";
+  const requiresAuth = fd.get("requiresAuth") === "on";
+  const details = { name, branchId, location, timeZone, requiresAuth };
+
+  if (mode === "push") {
+    // Cloud Server machines identify themselves by serial number when they call in.
+    if (!existing) return { error: "A Cloud Server machine appears here by itself once it calls in (see “Machine sends to AMS” below). Then edit it to fill in these details." };
+    await db.attendanceMachine.update({ where: { id: existing.id }, data: details });
+    revalidatePath("/hr/attendance/machines");
+    return { ok: true, message: "Saved." };
+  }
+
+  const host = str(fd, "host").replace(/^\w+:\/\//, "").replace(/[/:].*$/, "").slice(0, 120);
+  const port = Number(str(fd, "port")) || 4370;
+  if (!/^[\w.-]+$/.test(host)) return { error: "Enter the machine's public IP address or domain." };
+  if (/^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|localhost$)/.test(host)) return { error: "That is an office-only (private) address. Use the office's public IP with port forwarding to the machine." };
+  if (port < 1 || port > 65535) return { error: "Port must be between 1 and 65535 (usually 4370)." };
+  let commKeyEnc: string | null | undefined = undefined;
+  if (!requiresAuth) commKeyEnc = null;
+  else {
+    const key = commKeyField(fd);
+    if ("error" in key) return key;
+    if (key.value !== undefined) commKeyEnc = key.value;
+    else if (!existing?.commKeyEnc) return { error: "Enter the Comm Key, or untick “Machine requires authentication”." };
+  }
+  const serial = `${host}:${port}`;
+  const clash = await db.attendanceMachine.findUnique({ where: { serial } });
+  if (clash && clash.id !== existing?.id) return { error: `${serial} is already added (“${clash.name ?? clash.serial}”).` };
+  const data = { ...details, serial, host, port, mode: "pull", ...(commKeyEnc !== undefined ? { commKeyEnc } : {}), ...(existing && (existing.host !== host || existing.port !== port) ? { transport: null } : {}) };
+  const m = existing
+    ? await db.attendanceMachine.update({ where: { id: existing.id }, data })
+    : await db.attendanceMachine.create({ data: { ...data, status: "approved" } });
+  await audit(user.id, existing ? "update" : "create", "attendanceMachine", m.id, `Machine “${name}” (${serial}) ${existing ? "updated" : "added"}`);
+  const res = await syncPullMachine(m.id);
+  revalidatePath("/hr/attendance/machines");
+  return "error" in res ? { error: `Saved, but the test failed: ${res.error}` } : { ok: true, message: `Saved and connected. Read ${res.read} punch(es), ${res.added} new${res.unknown ? `, ${res.unknown} machine ID(s) not linked to employees` : ""}.` };
+}
+
+/** Active / Inactive switch (Inactive = not fetched and its pushes are ignored). */
+export async function setMachineActive(fd: FormData) {
+  const user = await admin();
+  if (!user) return;
+  const m = await db.attendanceMachine.findUnique({ where: { id: str(fd, "id") } });
+  if (!m) return;
+  const status = str(fd, "active") === "1" ? "approved" : "blocked";
+  await db.attendanceMachine.update({ where: { id: m.id }, data: { status } });
+  await audit(user.id, "update", "attendanceMachine", m.id, `Machine ${m.name ?? m.serial} ${status === "approved" ? "activated" : "deactivated"}`);
+  revalidatePath("/hr/attendance/machines");
 }

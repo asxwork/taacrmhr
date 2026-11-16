@@ -19,3 +19,6 @@ export const WEEKDAYS = [
 ] as const;
 
 export const fmtMinutes = (m: number) => (m <= 0 ? "—" : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`);
+
+/** Time zones offered for attendance machines (ResourceInn-style machine form). */
+export const MACHINE_TIME_ZONES = ["Asia/Karachi", "Asia/Dubai", "Asia/Riyadh", "Asia/Qatar", "Europe/London"];

@@ -9,5 +9,6 @@ declare module "zkteco-js" {
     disconnect(): Promise<void>;
     connectionType: "tcp" | "udp" | null;
     ztcp: { sessionId: number; createSocket(cbErr?: (e: unknown) => void, cbClose?: (t: string) => void): Promise<unknown>; executeCmd(command: number, data: Buffer | string): Promise<Buffer> };
+    zudp: { sessionId: number; createSocket(cbErr?: (e: unknown) => void, cbClose?: (t: string) => void): Promise<unknown>; executeCmd(command: number, data: Buffer | string): Promise<Buffer> };
   }
 }

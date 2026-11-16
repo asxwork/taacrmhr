@@ -1857,6 +1857,12 @@ model AttendanceMachine {
   lastSyncAt  DateTime?
   lastSeenAt  DateTime?
   lastPunchAt DateTime?
+  /// ResourceInn-style details: branch, location text, time zone, whether it needs a Comm Key, and the transport that worked (tcp | udp).
+  branchId     String?
+  location     String?
+  timeZone     String?
+  requiresAuth Boolean   @default(false)
+  transport    String?
   createdAt   DateTime  @default(now())
 }
 

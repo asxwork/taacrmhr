@@ -68,44 +68,54 @@ function commKeyBytes(key: number, sessionId: number, ticks = 50) {
 
 const CMD_CONNECT = 1000, CMD_AUTH = 1102, CMD_ACK_OK = 2000, CMD_ACK_UNAUTH = 2005;
 
+type Zk = InstanceType<typeof import("zkteco-js").default>;
+type Transport = "tcp" | "udp";
+
 /**
- * Opens a TCP session, answering the machine's password challenge. Many ZKTeco firmwares ask every client to
- * authenticate even when no Comm Key is set; like ZKTeco's own tools (and ResourceInn) we then answer with key 0.
+ * Opens a session over TCP or UDP, answering the machine's password challenge. Many ZKTeco firmwares ask every client
+ * to authenticate even when no Comm Key is set; like ZKTeco's own tools (and ResourceInn) we then answer with key 0.
  * Read-only from here on.
  */
-async function openSession(zk: InstanceType<typeof import("zkteco-js").default>, commKey: number) {
-  await zk.ztcp.createSocket();
-  const reply = await zk.ztcp.executeCmd(CMD_CONNECT, "");
+async function openSession(zk: Zk, transport: Transport, commKey: number) {
+  const t = transport === "udp" ? zk.zudp : zk.ztcp;
+  await t.createSocket();
+  const reply = await t.executeCmd(CMD_CONNECT, "");
   let code = reply?.readUInt16LE(0);
   if (code === CMD_ACK_UNAUTH) {
-    const auth = await zk.ztcp.executeCmd(CMD_AUTH, commKeyBytes(commKey, zk.ztcp.sessionId));
+    const auth = await t.executeCmd(CMD_AUTH, commKeyBytes(commKey, t.sessionId));
     code = auth?.readUInt16LE(0);
     if (code !== CMD_ACK_OK) throw new Error(commKey ? "COMMKEY_WRONG" : "COMMKEY_NEEDED");
   } else if (code !== CMD_ACK_OK) throw new Error(`CONNECT_REPLY_${code}`);
-  zk.connectionType = "tcp";
+  zk.connectionType = transport;
 }
 
-type Zk = InstanceType<typeof import("zkteco-js").default>;
-/** Connects with the saved key; if the machine refuses it, tries once more with 0 (no password) on a fresh socket. */
-export async function connectMachine(host: string, port: number, savedKey: number): Promise<{ zk: Zk; usedKey: number }> {
+/**
+ * Connects the way ResourceInn-style tools do: TCP then UDP (some machines only answer one), and for each the saved
+ * Comm Key then 0. The first combination that works is returned so it can be remembered for next time.
+ */
+export async function connectMachine(host: string, port: number, savedKey: number, prefer?: string | null): Promise<{ zk: Zk; usedKey: number; transport: Transport }> {
   const { default: Zkteco } = await import("zkteco-js");
+  const transports: Transport[] = prefer === "udp" ? ["udp", "tcp"] : ["tcp", "udp"];
   const keys = savedKey ? [savedKey, 0] : [0];
-  let last: unknown;
-  for (const key of keys) {
-    const zk = new Zkteco(host, port, 15_000, 0);
-    try {
-      await within(openSession(zk, key), 12_000, "connect");
-      return { zk, usedKey: key };
-    } catch (e) {
-      last = e;
-      await within(zk.disconnect(), 3_000, "disconnect").catch(() => {});
-      // Only a refused key is worth a second try; network errors fail straight away.
-      if (!(e instanceof Error && /COMMKEY_/.test(e.message))) break;
+  const errors: Error[] = [];
+  for (const transport of transports) {
+    for (const key of keys) {
+      const zk = new Zkteco(host, port, 10_000, 0);
+      try {
+        await within(openSession(zk, transport, key), 10_000, "connect");
+        return { zk, usedKey: key, transport };
+      } catch (e) {
+        errors.push(e instanceof Error ? e : new Error(String(e)));
+        await within(zk.disconnect(), 3_000, "disconnect").catch(() => {});
+        // A machine that didn't answer at all won't take another key over this transport.
+        if (!(e instanceof Error && /COMMKEY_/.test(e.message))) break;
+      }
     }
   }
-  // Both refused: the saved key (if any) is the one to fix.
-  if (savedKey && last instanceof Error && /COMMKEY_NEEDED/.test(last.message)) throw new Error("COMMKEY_WRONG");
-  throw last;
+  // Most useful reason first: a refused key beats "no answer" on the other transport.
+  const key = errors.find((e) => /COMMKEY_/.test(e.message));
+  if (key) throw new Error(savedKey ? "COMMKEY_WRONG" : "COMMKEY_NEEDED");
+  throw errors[0] ?? new Error("TIMEOUT connect");
 }
 
 /** Plain "connect, read, save" for a machine AMS reaches directly (public IP + port 4370, comm key 0). */
@@ -116,10 +126,10 @@ export async function syncPullMachine(id: string) {
   let zk: Zk | null = null;
   try {
     const saved = Number(openSecret(m.commKeyEnc) ?? 0) || 0;
-    const conn = await connectMachine(m.host, m.port ?? 4370, saved);
+    const conn = await connectMachine(m.host, m.port ?? 4370, saved, m.transport);
     zk = conn.zk;
-    // The machine has no password after all: forget the wrong key so the card stops asking for one.
-    if (saved && conn.usedKey === 0) await db.attendanceMachine.update({ where: { id: m.id }, data: { commKeyEnc: null } });
+    // Remember what worked; if the machine has no password after all, forget the wrong key.
+    await db.attendanceMachine.update({ where: { id: m.id }, data: { transport: conn.transport, ...(saved && conn.usedKey === 0 ? { commKeyEnc: null, requiresAuth: false } : {}) } });
     const [info, serial, name] = await within(Promise.all([zk.getInfo().catch(() => null), zk.getSerialNumber().catch(() => ""), zk.getDeviceName().catch(() => "")]), 15_000, "device info");
     const { data } = await within(zk.getAttendances(), 120_000, "reading punches");
     // Only the last few days on each sync (punches already stored are skipped anyway).
@@ -141,8 +151,8 @@ export async function syncPullMachine(id: string) {
     return { ok: true as const, added: res.added, read: rows.length, unknown: res.unknown.length };
   } catch (e) {
     const msg = e instanceof Error ? e.message : typeof e === "object" && e && "err" in e ? String((e as { err: unknown }).err) : String(e);
-    const nice = /COMMKEY_NEEDED/.test(msg) ? "The machine has a Comm Key (password) and it isn't 0. Enter it on this machine below (Menu → Comm. → Connection → Comm Key; read it, don't change it)."
-      : /COMMKEY_WRONG/.test(msg) ? "The machine refused the saved Comm Key (and 0). Check the number in Menu → Comm. → Connection → Comm Key."
+    const nice = /COMMKEY_NEEDED/.test(msg) ? "The machine asked for a password and 0 didn't work. Tick “Machine requires authentication” and enter its Comm Key (Menu → Comm. → Connection → Comm Key; read it, don't change it)."
+      : /COMMKEY_WRONG/.test(msg) ? "The machine refused the Comm Key (tried over TCP and UDP, and 0 as well). Check the number in Menu → Comm. → Connection → Comm Key."
       : /ETIMEDOUT|timeout|TIMEOUT/i.test(msg) ? "No answer from the machine (check the IP, the router's port forwarding and that the machine is on)."
       : /ECONNREFUSED/.test(msg) ? "The connection was refused (wrong port, or port forwarding points to the wrong device)."
       : /EHOSTUNREACH|ENETUNREACH/.test(msg) ? "The address can't be reached from the server." : `Connection failed: ${msg.slice(0, 200)}`;
