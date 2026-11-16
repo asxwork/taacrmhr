@@ -99,6 +99,7 @@ export async function connectMachine(host: string, port: number, savedKey: numbe
   const transports: Transport[] = prefer === "udp" ? ["udp", "tcp"] : ["tcp", "udp"];
   const keys = savedKey ? [savedKey, 0] : [0];
   const errors: Error[] = [];
+  const tried: string[] = [];
   for (const transport of transports) {
     for (const key of keys) {
       const zk = new Zkteco(host, port, 10_000, 0);
@@ -106,7 +107,9 @@ export async function connectMachine(host: string, port: number, savedKey: numbe
         await within(openSession(zk, transport, key), 10_000, "connect");
         return { zk, usedKey: key, transport };
       } catch (e) {
-        errors.push(e instanceof Error ? e : new Error(String(e)));
+        const err = e instanceof Error ? e : new Error(String(e));
+        errors.push(err);
+        tried.push(`${transport.toUpperCase()} key ${key ? "saved" : "0"}: ${/COMMKEY_/.test(err.message) ? "password refused" : /TIMEOUT|ETIMEDOUT/i.test(err.message) ? "no answer" : /ECONNREFUSED/.test(err.message) ? "port closed" : err.message.slice(0, 60)}`);
         await within(zk.disconnect(), 3_000, "disconnect").catch(() => {});
         // A machine that didn't answer at all won't take another key over this transport.
         if (!(e instanceof Error && /COMMKEY_/.test(e.message))) break;
@@ -115,8 +118,9 @@ export async function connectMachine(host: string, port: number, savedKey: numbe
   }
   // Most useful reason first: a refused key beats "no answer" on the other transport.
   const key = errors.find((e) => /COMMKEY_/.test(e.message));
-  if (key) throw new Error(savedKey ? "COMMKEY_WRONG" : "COMMKEY_NEEDED");
-  throw errors[0] ?? new Error("TIMEOUT connect");
+  const detail = ` [Tried: ${tried.join("; ")}]`;
+  if (key) throw new Error((savedKey ? "COMMKEY_WRONG" : "COMMKEY_NEEDED") + detail);
+  throw new Error((errors[0]?.message ?? "TIMEOUT connect") + detail);
 }
 
 /** Plain "connect, read, save" for a machine AMS reaches directly (public IP + port 4370, comm key 0). */
@@ -157,11 +161,14 @@ export async function syncPullMachine(id: string) {
     return { ok: true as const, added: res.added, read: rows.length, unknown: res.unknown.length };
   } catch (e) {
     const msg = e instanceof Error ? e.message : typeof e === "object" && e && "err" in e ? String((e as { err: unknown }).err) : String(e);
-    const nice = /COMMKEY_NEEDED/.test(msg) ? "The machine asked for a password and 0 didn't work. Tick “Machine requires authentication” and enter its Comm Key (Menu → Comm. → Connection → Comm Key; read it, don't change it)."
+    const tried = msg.match(/\[Tried: [^\]]*\]/)?.[0] ?? "";
+    const nice0 = /COMMKEY_NEEDED/.test(msg) ? "The machine asked for a password and 0 didn't work. Tick “Machine requires authentication” and enter its Comm Key (Menu → Comm. → Connection → Comm Key; read it, don't change it)."
       : /COMMKEY_WRONG/.test(msg) ? "The machine refused the Comm Key (tried over TCP and UDP, and 0 as well). Check the number in Menu → Comm. → Connection → Comm Key."
+      : /TIMEOUT (reading punches|reading users|device info)/.test(msg) ? "Connected to the machine, but it stopped answering while sending its data. Try Fetch again; if it keeps happening, use Machine logs upload (USB file) on the mapping page."
       : /ETIMEDOUT|timeout|TIMEOUT/i.test(msg) ? "No answer from the machine (check the IP, the router's port forwarding and that the machine is on)."
       : /ECONNREFUSED/.test(msg) ? "The connection was refused (wrong port, or port forwarding points to the wrong device)."
       : /EHOSTUNREACH|ENETUNREACH/.test(msg) ? "The address can't be reached from the server." : `Connection failed: ${msg.slice(0, 200)}`;
+    const nice = nice0 + (tried ? ` ${tried}` : "");
     await db.attendanceMachine.update({ where: { id: m.id }, data: { lastSyncAt: new Date(), lastError: nice } });
     return { error: nice };
   } finally {
