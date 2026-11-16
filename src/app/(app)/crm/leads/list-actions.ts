@@ -41,3 +41,25 @@ export async function quickLeadActivity(fd: FormData): Promise<{ error?: string;
   });
   return { next: a ? nextActivity(a) : null };
 }
+
+/** Saves the leads table columns (order matters) for me, or as everyone's default (Super Admin). */
+export async function saveLeadColumns(cols: string[], scope: "me" | "everyone" | "reset"): Promise<{ error?: string; cols?: string[] }> {
+  const user = await requirePermission("crm.leads");
+  const { cleanColumns, DEFAULT_LEAD_COLUMNS } = await import("@/lib/lead-columns");
+  const { db } = await import("@/lib/db");
+  if (scope === "reset") {
+    await db.setting.deleteMany({ where: { key: `leadcols:user:${user.id}` } });
+    const d = await db.setting.findUnique({ where: { key: "leadcols:default" } });
+    return { cols: d ? cleanColumns(JSON.parse(d.value)) : DEFAULT_LEAD_COLUMNS };
+  }
+  const list = cleanColumns(cols);
+  if (scope === "everyone") {
+    if (!user.isSuperAdmin) return { error: "Only a Super Admin can set everyone's columns." };
+    await db.setting.upsert({ where: { key: "leadcols:default" }, update: { value: JSON.stringify(list) }, create: { key: "leadcols:default", value: JSON.stringify(list) } });
+    await db.setting.deleteMany({ where: { key: { startsWith: "leadcols:user:" } } });
+  } else {
+    const key = `leadcols:user:${user.id}`;
+    await db.setting.upsert({ where: { key }, update: { value: JSON.stringify(list) }, create: { key, value: JSON.stringify(list) } });
+  }
+  return { cols: list };
+}

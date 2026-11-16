@@ -7,7 +7,7 @@ import { LEAD_FILTER_KEYS, leadWhere, type LeadFilters } from "./lead-filters";
 import type { SessionUser } from "./auth";
 import { fieldAccess } from "./field-rules";
 import { leadScoreParts } from "./lead-score";
-import { maskPhone, shown } from "./field-defs";
+import { maskEmail, maskPhone, shown } from "./field-defs";
 import { telHref, waHref } from "./crm-shared";
 
 export const LEAD_PAGE_SIZE = 50;
@@ -35,6 +35,16 @@ export type LeadRow = {
   /** Lead score 0–100 (lib/lead-score.ts) and why. */
   score: number;
   scoreWhy: string[];
+  /** Extra columns the user can switch on (column settings). */
+  email: string | null;
+  sourceInfo: string | null;
+  campaign: string | null;
+  location: string | null;
+  interest: string | null;
+  propertyType: string | null;
+  createdBy: string | null;
+  lastActivity: string | null;
+  modified: string;
 };
 
 export type NextActivity = { subject: string; due: string; late: boolean; owner: string | null };
@@ -64,7 +74,7 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
   const [leads, total, overdue, dueToday, none] = await Promise.all([
     db.lead.findMany({
       where,
-      include: { source: { select: { name: true } }, project: { select: { name: true } }, owner: { select: { name: true } } },
+      include: { source: { select: { name: true } }, project: { select: { name: true } }, owner: { select: { name: true } }, createdBy: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       skip: view === "list" ? (page - 1) * LEAD_PAGE_SIZE : 0,
       take: view === "list" ? LEAD_PAGE_SIZE : 500,
@@ -108,7 +118,7 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
       source: l.source?.name ?? null,
       project: l.project?.name ?? null,
       subtitle: [l.project?.name ?? l.propertyType, l.location].filter(Boolean).join(" · ") || null,
-      budget: l.budgetMax ?? l.budgetMin ?? null,
+      budget: fields["lead.budget"] === "hidden" ? null : l.budgetMax ?? l.budgetMin ?? null,
       statusId: l.statusId,
       ownerId: l.ownerId,
       owner: l.owner?.name ?? null,
@@ -116,6 +126,12 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
       reshuffleCount: l.reshuffledAt ? l.reshuffleCount : null,
       editable: canEditRow(l),
       next: next.get(l.id) ?? null,
+      email: shown(l.email, fields["lead.email"], maskEmail),
+      sourceInfo: l.sourceInfo ? l.sourceInfo.slice(0, 160) : null,
+      campaign: l.campaign, location: l.location, interest: l.interest, propertyType: l.propertyType,
+      createdBy: l.createdBy?.name ?? null,
+      lastActivity: l.lastActivityAt ? format(l.lastActivityAt, "d MMM yyyy, h:mm a") : null,
+      modified: format(l.updatedAt, "d MMM yyyy"),
       ...(() => { const r = leadScoreParts({
         kind: statuses.find((s) => s.id === l.statusId)?.kind ?? "open", stageIndex: Math.max(0, openIds.indexOf(l.statusId)), stageCount: openIds.length,
         createdAt: l.createdAt, lastActivityAt: l.lastActivityAt, hasBudget: !!(l.budgetMin || l.budgetMax), hasProperty: !!(l.projectId || l.unitId),

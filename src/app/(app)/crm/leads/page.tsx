@@ -6,6 +6,7 @@ import { filtersFrom, loadLeadList } from "@/lib/lead-list";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Drawer, Field } from "@/components/ui";
 import { LeadsWorkspace } from "@/components/crm/leads-workspace";
+import { cleanColumns, DEFAULT_LEAD_COLUMNS } from "@/lib/lead-columns";
 import type { FilterPreset } from "@/components/crm/lead-filter-bar";
 import { hrefWith } from "@/components/crm/bits";
 import { describe, parseConfig } from "@/lib/automations";
@@ -61,6 +62,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const canAssign = assignees.length > 1;
   const closeHref = hrefWith("/crm/leads", { ...filters, view: sp.view, page: sp.page }, {});
 
+  // Columns this person chose (gear button), else the company default, else the standard set.
+  const colRows = await db.setting.findMany({ where: { key: { in: [`leadcols:user:${user.id}`, "leadcols:default"] } } });
+  const colRaw = colRows.find((r) => r.key === `leadcols:user:${user.id}`)?.value ?? colRows.find((r) => r.key === "leadcols:default")?.value;
+  const columns = colRaw ? cleanColumns(JSON.parse(colRaw)) : DEFAULT_LEAD_COLUMNS;
   return (
     <>
       <LeadsWorkspace
@@ -68,6 +73,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         initial={initial}
         initialFilters={filters}
         initialView={view}
+        initialColumns={columns}
         presets={presets}
         filterOptions={{ stages: statuses.map((s) => ({ id: s.id, name: s.name })), sources, projects, owners }}
         stages={statuses.map((s) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind, systemKey: s.systemKey }))}

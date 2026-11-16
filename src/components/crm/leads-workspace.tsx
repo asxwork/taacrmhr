@@ -6,9 +6,11 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { format } from "date-fns";
 import {
   AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, KanbanSquare,
-  List, Loader2, MessageCircle, Pencil, Phone, Play, Plus, Trash2, Upload, X,
+  List, Loader2, MessageCircle, Pencil, Phone, Play, Plus, Settings, Trash2, Upload, X,
 } from "lucide-react";
-import { ACTIVITY_TYPES, color, fmtPhone } from "@/lib/crm-shared";
+import { ACTIVITY_TYPES, color, fmtPhone, fmtPKR } from "@/lib/crm-shared";
+import { LEAD_COLUMNS } from "@/lib/lead-columns";
+import { ColumnSettings } from "@/components/crm/column-settings";
 import { scoreLabel } from "@/lib/lead-score";
 import { LEAD_FILTER_KEYS, type LeadFilters } from "@/lib/lead-filters-shared";
 import type { LeadListData, LeadRow } from "@/lib/lead-list";
@@ -17,7 +19,7 @@ import { Avatar, LinkButton } from "@/components/ui";
 import { Kanban } from "@/components/crm/kanban";
 import { StageProgress } from "@/components/crm/bits";
 import { LeadFilterBar, type FilterPreset } from "@/components/crm/lead-filter-bar";
-import { bulkLeadAction, changeLeadStage, fetchLeadList, quickLeadActivity } from "@/app/(app)/crm/leads/list-actions";
+import { bulkLeadAction, changeLeadStage, fetchLeadList, quickLeadActivity, saveLeadColumns } from "@/app/(app)/crm/leads/list-actions";
 
 type Opt = { id: string; name: string };
 export type LeadStage = { id: string; name: string; color: string; kind: string; systemKey: string | null };
@@ -42,10 +44,11 @@ function queryOf(f: LeadFilters) {
  * The lead list and board, working in place: filters, presets, paging, view switch, stage changes and bulk
  * actions fetch only the rows they need (list-actions.ts) and keep the address bar in sync, without a page load.
  */
-export function LeadsWorkspace({ initial, initialFilters, initialView, presets, filterOptions, stages, assignees, automations, perms }: {
+export function LeadsWorkspace({ initial, initialFilters, initialView, initialColumns, presets, filterOptions, stages, assignees, automations, perms }: {
   initial: LeadListData;
   initialFilters: LeadFilters;
   initialView: View;
+  initialColumns: string[];
   presets: FilterPreset[];
   filterOptions: { stages: Opt[]; sources: Opt[]; projects: Opt[]; owners: Opt[] };
   stages: LeadStage[];
@@ -64,6 +67,17 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
   const [dialog, setDialog] = useState<Dialog>(null);
   const [autoId, setAutoId] = useState(automations[0]?.id ?? "");
   const request = useRef(0);
+  // Columns (gear button / drag headers): saved per person.
+  const [cols, setCols] = useState<string[]>(initialColumns);
+  const [colsOpen, setColsOpen] = useState(false);
+  const [dragCol, setDragCol] = useState<number | null>(null);
+  const colLabel = (k: string) => LEAD_COLUMNS.find((c) => c.key === k)?.label ?? k;
+  const applyCols = async (next: string[], scope: "me" | "everyone" | "reset") => {
+    if (scope !== "reset") setCols(next);
+    const res = await saveLeadColumns(next, scope);
+    if (res.cols) setCols(res.cols);
+    if (res.error) setToast({ tone: "error", text: res.error });
+  };
 
   const openStages = stages.filter((s) => s.kind === "open");
   const pickable = stages.filter((s) => s.kind !== "converted");
@@ -308,74 +322,83 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
                 <table className="w-full [&_td]:px-3 [&_th]:px-3 2xl:[&_td]:px-4 2xl:[&_th]:px-4">
                   <thead className="border-b border-line bg-canvas/60">
                     <tr>
-                      {perms.canEdit && perms.canBulk && (
-                        <th className="th w-10">
-                          <input type="checkbox" aria-label="Select all on this page" className="accent-navy-900" checked={allOnPage}
-                            onChange={(e) => { setForAll(false); setSelected(e.target.checked ? new Set(pageIds) : new Set()); }} />
+                      <th className="th w-16">
+                        <span className="flex items-center gap-2">
+                          {perms.canEdit && perms.canBulk && (
+                            <input type="checkbox" aria-label="Select all on this page" className="accent-navy-900" checked={allOnPage}
+                              onChange={(e) => { setForAll(false); setSelected(e.target.checked ? new Set(pageIds) : new Set()); }} />
+                          )}
+                          <button type="button" onClick={() => setColsOpen(true)} className="rounded p-0.5 text-muted hover:bg-black/5 hover:text-ink" title="Choose and order columns" aria-label="Column settings"><Settings className="size-4" /></button>
+                        </span>
+                      </th>
+                      {cols.map((k, i) => (
+                        <th key={k} draggable onDragStart={() => setDragCol(i)} onDragOver={(e) => { e.preventDefault(); }} onDrop={() => { if (dragCol !== null && dragCol !== i) { const a = [...cols]; const [x] = a.splice(dragCol, 1); a.splice(i, 0, x!); void applyCols(a, "me"); } setDragCol(null); }}
+                          className={cn("th cursor-grab select-none whitespace-nowrap", k === "id" && "w-12", dragCol === i && "opacity-50")} title="Drag to move this column">
+                          {k === "owner" ? <><span className="hidden 2xl:inline">Responsible</span><span className="2xl:hidden">Owner</span></> : colLabel(k)}
                         </th>
-                      )}
-                      <th className="th w-12">ID</th>
-                      <th className="th">Lead</th>
-                      <th className="th">Stage</th>
-                      <th className="th">Phone</th>
-                      <th className="th">Activity</th>
-                      <th className="th hidden 2xl:table-cell">Created</th>
-                      <th className="th"><span className="hidden 2xl:inline">Responsible</span><span className="2xl:hidden">Owner</span></th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
                     {data.rows.map((l) => {
                       const st = stageOf(l.statusId);
                       const canChange = perms.canEdit && l.editable;
+                      const cell = (k: string) => {
+                        switch (k) {
+                          case "id": return <td key={k} className="td text-xs tabular-nums text-muted">{l.number ?? "—"}{l.reshuffleCount != null && !cols.includes("reshuffle") && <span title={`Reshuffled ${l.reshuffleCount}×`} className="mt-1 block w-fit rounded bg-amber-50 px-1 text-[10px] font-medium text-amber-700">Reshuffled</span>}</td>;
+                          case "lead": return (
+                            <td key={k} className="td max-w-64">
+                              <Link href={`/crm/leads/${l.id}`} className="font-medium text-navy-900 hover:underline">{l.name}</Link>
+                              {l.score >= 35 && <span title={`Lead score ${l.score}/100\n${l.scoreWhy.join("\n")}`} className={cn("ml-1.5 rounded-full px-1.5 py-px align-middle text-[10px] font-semibold", l.score >= 60 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700")}>{scoreLabel(l.score)}</span>}
+                              <p className="truncate text-xs text-muted">{[l.source, l.project].filter(Boolean).join(" · ") || "—"}</p>
+                            </td>
+                          );
+                          case "stage": return (
+                            <td key={k} className="td">
+                              {canChange ? (
+                                <button type="button" onClick={(e) => openMenu("stage", l, e.currentTarget)} className="-m-1 rounded-md p-1 text-left hover:bg-canvas" title="Change stage">
+                                  <StageProgress steps={openStages} currentId={l.statusId} name={`${st?.name ?? "—"} ▾`} colorName={st?.color ?? "slate"} kind={st?.kind} />
+                                </button>
+                              ) : <StageProgress steps={openStages} currentId={l.statusId} name={st?.name ?? "—"} colorName={st?.color ?? "slate"} kind={st?.kind} />}
+                            </td>
+                          );
+                          case "phone": return (
+                            <td key={k} className="td whitespace-nowrap text-sm">
+                              {l.phone ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <a href={l.phoneTel ?? "#"} className="inline-flex items-center gap-1.5 hover:text-navy-900 hover:underline"><Phone className="size-3.5 text-muted" />{l.phone.includes("•") ? l.phone : fmtPhone(l.phone)}</a>
+                                  <a href={l.phoneWa ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded p-0.5 text-[#25D366] hover:bg-[#25D366]/10" title="Message on WhatsApp" aria-label={`WhatsApp ${l.name}`}><MessageCircle className="size-4" /></a>
+                                </span>
+                              ) : <span className="text-muted">—</span>}
+                            </td>
+                          );
+                          case "activity": return (
+                            <td key={k} className="td min-w-32 max-w-60">
+                              {l.next ? (
+                                <>
+                                  <p className={cn("text-xs font-medium", l.next.late ? "text-red-600" : "text-ink/80")}>{l.next.due}</p>
+                                  <p className="truncate text-sm">{l.next.subject}</p>
+                                  {l.next.owner && <p className="text-xs text-muted">for <span className="text-navy-900">{l.next.owner}</span></p>}
+                                </>
+                              ) : null}
+                              {perms.canAddActivity && <button type="button" onClick={(e) => openMenu("activity", l, e.currentTarget)} className="mt-0.5 text-xs text-muted hover:text-navy-900 hover:underline">+ Add activity</button>}
+                            </td>
+                          );
+                          case "owner": return <td key={k} className="td whitespace-nowrap">{l.owner ? <span className="flex items-center gap-2 text-sm" title={l.owner}><Avatar name={l.owner} className="size-7 text-[10px]" /><span className="hidden 2xl:inline">{l.owner}</span></span> : <span className="text-muted">—</span>}</td>;
+                          case "reshuffle": return <td key={k} className="td whitespace-nowrap text-sm">{l.reshuffleCount != null ? <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">Yes · {l.reshuffleCount}×</span> : <span className="text-muted">No</span>}</td>;
+                          case "score": return <td key={k} className="td whitespace-nowrap text-sm tabular-nums" title={l.scoreWhy.join("\n")}>{l.score}<span className="text-muted">/100</span></td>;
+                          case "budget": return <td key={k} className="td whitespace-nowrap text-sm tabular-nums">{l.budget ? fmtPKR(l.budget) : <span className="text-muted">—</span>}</td>;
+                          case "sourceInfo": return <td key={k} className="td max-w-64 text-xs text-muted"><span className="line-clamp-3 whitespace-pre-line">{l.sourceInfo ?? "—"}</span></td>;
+                          default: {
+                            const v = (l as unknown as Record<string, string | null>)[k];
+                            return <td key={k} className="td max-w-56 truncate whitespace-nowrap text-sm text-muted">{v || "—"}</td>;
+                          }
+                        }
+                      };
                       return (
                         <tr key={l.id} className={cn("align-top transition-colors hover:bg-canvas/60", (forAll || selected.has(l.id)) && "bg-navy-900/[0.03]")}>
-                          {perms.canEdit && perms.canBulk && (
-                            <td className="td">{l.editable && <input type="checkbox" checked={forAll || selected.has(l.id)} disabled={forAll} onChange={() => toggle(l.id)} className="accent-navy-900" aria-label={`Select ${l.name}`} />}</td>
-                          )}
-                          <td className="td text-xs tabular-nums text-muted">
-                            {l.number ?? "—"}
-                            {l.reshuffleCount != null && <span title={`Reshuffled ${l.reshuffleCount}×`} className="mt-1 block w-fit rounded bg-amber-50 px-1 text-[10px] font-medium text-amber-700">Reshuffled</span>}
-                          </td>
-                          <td className="td max-w-64">
-                            <Link href={`/crm/leads/${l.id}`} className="font-medium text-navy-900 hover:underline">{l.name}</Link>
-                            {l.score >= 35 && <span title={`Lead score ${l.score}/100\n${l.scoreWhy.join("\n")}`} className={cn("ml-1.5 rounded-full px-1.5 py-px align-middle text-[10px] font-semibold", l.score >= 60 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700")}>{scoreLabel(l.score)}</span>}
-                            <p className="truncate text-xs text-muted">{[l.source, l.project].filter(Boolean).join(" · ") || "—"}</p>
-                          </td>
-                          <td className="td">
-                            {canChange ? (
-                              <button type="button" onClick={(e) => openMenu("stage", l, e.currentTarget)} className="-m-1 rounded-md p-1 text-left hover:bg-canvas" title="Change stage">
-                                <StageProgress steps={openStages} currentId={l.statusId} name={`${st?.name ?? "—"} ▾`} colorName={st?.color ?? "slate"} kind={st?.kind} />
-                              </button>
-                            ) : (
-                              <StageProgress steps={openStages} currentId={l.statusId} name={st?.name ?? "—"} colorName={st?.color ?? "slate"} kind={st?.kind} />
-                            )}
-                          </td>
-                          <td className="td whitespace-nowrap text-sm">
-                            {l.phone ? (
-                              <span className="inline-flex items-center gap-2">
-                                <a href={l.phoneTel ?? "#"} className="inline-flex items-center gap-1.5 hover:text-navy-900 hover:underline"><Phone className="size-3.5 text-muted" />{l.phone.includes("•") ? l.phone : fmtPhone(l.phone)}</a>
-                                <a href={l.phoneWa ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded p-0.5 text-[#25D366] hover:bg-[#25D366]/10" title="Message on WhatsApp" aria-label={`WhatsApp ${l.name}`}>
-                                  <MessageCircle className="size-4" />
-                                </a>
-                              </span>
-                            ) : <span className="text-muted">—</span>}
-                          </td>
-                          <td className="td min-w-32 max-w-60">
-                            {l.next ? (
-                              <>
-                                <p className={cn("text-xs font-medium", l.next.late ? "text-red-600" : "text-ink/80")}>{l.next.due}</p>
-                                <p className="truncate text-sm">{l.next.subject}</p>
-                                {l.next.owner && <p className="text-xs text-muted">for <span className="text-navy-900">{l.next.owner}</span></p>}
-                              </>
-                            ) : null}
-                            {perms.canAddActivity && (
-                              <button type="button" onClick={(e) => openMenu("activity", l, e.currentTarget)} className="mt-0.5 text-xs text-muted hover:text-navy-900 hover:underline">+ Add activity</button>
-                            )}
-                          </td>
-                          <td className="td hidden whitespace-nowrap text-sm text-muted 2xl:table-cell">{l.created}</td>
-                          <td className="td whitespace-nowrap">
-                            {l.owner ? <span className="flex items-center gap-2 text-sm" title={l.owner}><Avatar name={l.owner} className="size-7 text-[10px]" /><span className="hidden 2xl:inline">{l.owner}</span></span> : <span className="text-muted">—</span>}
-                          </td>
+                          <td className="td">{perms.canEdit && perms.canBulk && l.editable && <input type="checkbox" checked={forAll || selected.has(l.id)} disabled={forAll} onChange={() => toggle(l.id)} className="accent-navy-900" aria-label={`Select ${l.name}`} />}</td>
+                          {cols.map(cell)}
                         </tr>
                       );
                     })}
@@ -460,6 +483,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, presets, 
         ) : null;
       })()}
 
+      {colsOpen && <ColumnSettings value={cols} isSuperAdmin={perms.isSuperAdmin} onApply={applyCols} onClose={() => setColsOpen(false)} />}
       {toast && (
         <div role="status" className={cn("anim-fade fixed bottom-24 left-1/2 z-[60] -translate-x-1/2 rounded-lg px-4 py-2.5 text-sm shadow-xl", toast.tone === "error" ? "bg-red-600 text-white" : "bg-navy-900 text-white")}>
           {toast.text}
