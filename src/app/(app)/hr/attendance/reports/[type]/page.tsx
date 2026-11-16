@@ -9,13 +9,17 @@ import { cn } from "@/lib/utils";
 import { Card, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { ReportTable } from "@/components/hr/report-table";
+import { templateByKey } from "@/lib/attendance-templates-shared";
+import { AttTemplatePage } from "@/components/hr/att-template-page";
 
 export const metadata = { title: "Attendance Reports" };
 
 /** Attendance → Reports → Time / Scheduling / Travel, for a date range, with CSV export. */
-export default async function AttendanceReportPage({ params, searchParams }: { params: Promise<{ type: string }>; searchParams: Promise<{ from?: string; to?: string }> }) {
+export default async function AttendanceReportPage({ params, searchParams }: { params: Promise<{ type: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requirePermission("hr.attendance");
   const [{ type }, sp] = await Promise.all([params, searchParams]);
+  // Ready-made templates (Daily, Calendars, Summaries, Late & early, By group).
+  if (templateByKey(type)) return <AttTemplatePage user={user} type={type} sp={sp} />;
   const def = ATT_REPORTS.find((t) => t.value === type);
   if (!def) notFound();
   const today = startOfDay(new Date());

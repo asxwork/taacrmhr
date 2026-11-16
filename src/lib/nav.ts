@@ -218,6 +218,7 @@ export const APPS: AppDef[] = [
           { href: "/hr/leave/planner", label: "Leave Planner", icon: "calendar", module: "hr.leaveplanner" },
           { href: "/hr/attendance/swaps", label: "Shift Swaps", icon: "refresh", module: "hr.shiftswap" },
           sub("Reports", [
+            { href: "/hr/attendance/reports", label: "All attendance reports", icon: "file", module: "hr.attendance" },
             { href: "/hr/attendance/reports/time", label: "Time", icon: "clock", module: "hr.attendance" },
             { href: "/hr/attendance/reports/scheduling", label: "Scheduling", icon: "calendar", module: "hr.attendance" },
             { href: "/hr/leave?tab=balances", label: "Leave", icon: "plane", module: "hr.leave" },
@@ -341,7 +342,7 @@ export const APPS: AppDef[] = [
             { href: "/reports/hr/travel", label: "Travel Reports", icon: "file", module: "reports.hr" },
             { href: "/reports/hr/expenses", label: "Expense Reports", icon: "file", module: "reports.hr" },
             { href: "/reports/hr/loans", label: "Loan & Advances Reports", icon: "file", module: "reports.hr" },
-            { href: "/hr/attendance?view=month", label: "Attendance Reports", icon: "file", module: "hr.attendance" },
+            { href: "/hr/attendance/reports", label: "Attendance Reports", icon: "file", module: "hr.attendance" },
             { href: "/reports/hr/payroll", label: "Payroll Reports", icon: "file", module: "reports.hr" },
           ], "fileplus"),
         ],

@@ -7,7 +7,7 @@ import { ACTIVITY_FILTERS, DATE_FILTERS, LEAD_FILTER_KEYS, STATUS_GROUPS, filter
 import { deleteLeadFilter, saveLeadFilter } from "@/app/(app)/crm/leads/filter-actions";
 import { cn } from "@/lib/utils";
 
-type Opt = { id: string; name: string };
+export type Opt = { id: string; name: string };
 export type FilterPreset = { id?: string; name: string; query: string; section?: string; href?: string; shared?: boolean; canDelete?: boolean };
 
 const parse = (q: string): LeadFilters => Object.fromEntries(new URLSearchParams(q)) as LeadFilters;
@@ -221,7 +221,7 @@ function DateField({ label, preset, from, to, onChange }: { label: string; prese
 }
 
 /** Multi-select shown as chips, with a checklist dropdown. Value is comma-separated ids. */
-function Multi({ options, value, onChange }: { options: Opt[]; value?: string; onChange: (v: string) => void }) {
+export function Multi({ options, value, onChange }: { options: Opt[]; value?: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const ref = useRef<HTMLDivElement>(null);

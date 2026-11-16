@@ -2503,3 +2503,21 @@ model CallDailyReport {
   @@index([agentId, date])
   @@index([date])
 }
+
+/// HR → Attendance reports: a saved template + filters, optionally emailed on a schedule (daily | weekly | monthly).
+model AttReportPreset {
+  id          String    @id @default(cuid())
+  name        String
+  template    String
+  /// JSON filters { location, branchIds, departmentIds, employeeIds, period, from, to }
+  filters     String // @text
+  createdById String
+  shared      Boolean   @default(false)
+  schedule    String?
+  /// Comma-separated user ids who get the scheduled email
+  recipients  String? // @text
+  lastSentAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([createdById])
+}

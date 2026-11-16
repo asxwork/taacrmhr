@@ -84,6 +84,8 @@ export async function GET(req: Request) {
   const financeWeekly = await (await import("@/lib/finance-weekly")).sendFinanceWeekly(new URL(req.url).searchParams.get("weekly") === "1").catch(() => 0);
 
   // 8. Mondays: the boss weekly email (add &weekly=1 to send it today).
+  // Scheduled attendance reports (HR → Attendance → Reports → saved presets).
+  await (await import("@/lib/attendance-schedule")).sendDueAttReports().catch(() => 0);
   const weekly = await sendWeeklyEmail(new URL(req.url).searchParams.get("weekly") === "1").catch(() => 0);
 
   // 9. Google Drive backup, if connected and not done in the last 20 hours (runs after this answers).
