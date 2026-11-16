@@ -53,6 +53,7 @@ export async function leadWhere(user: SessionUser, f: LeadFilters, statuses: { i
   }
   if (list(f.project).length) and.push({ projectId: { in: list(f.project) } });
   if (list(f.source).length) and.push({ sourceId: { in: list(f.source) } });
+  if (list(f.branch).length) and.push({ branchId: { in: list(f.branch) } });
   const owners = list(f.owner).map((o) => (o === "me" ? user.id : o));
   if (owners.length) and.push({ ownerId: { in: owners } });
 

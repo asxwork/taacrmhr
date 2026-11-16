@@ -50,7 +50,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
   initialView: View;
   initialColumns: string[];
   presets: FilterPreset[];
-  filterOptions: { stages: Opt[]; sources: Opt[]; projects: Opt[]; owners: Opt[] };
+  filterOptions: { stages: Opt[]; sources: Opt[]; projects: Opt[]; owners: Opt[]; branches: Opt[]; canShare: boolean };
   stages: LeadStage[];
   assignees: Opt[];
   automations: AutomationOption[];

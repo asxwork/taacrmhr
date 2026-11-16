@@ -1770,6 +1770,10 @@ model SavedFilter {
   module    String
   name      String
   query     String // @text
+  /// Folder it's listed under in the filter menu (e.g. "Projects", "Reports"); empty = My filters.
+  folder    String?
+  /// Shared with everyone (made by a Super Admin / manager); otherwise only its owner sees it.
+  shared    Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([userId, module])

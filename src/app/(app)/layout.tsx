@@ -17,7 +17,7 @@ import { PageHelp } from "@/components/page-help";
 import { BackLink } from "@/components/back-link";
 import { visibleTutorials } from "@/lib/tutorial-access";
 import { sectionVideos, videoUrl } from "@/lib/section-videos";
-import { SECTIONS, sectionForPath, type SectionTab } from "@/lib/sections";
+import { SECTIONS, type SectionTab } from "@/lib/sections";
 import { SectionTabs } from "@/components/section-tabs";
 import { redirect } from "next/navigation";
 import { securitySettings, twoStepRequired } from "@/lib/security";
@@ -52,8 +52,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Section tabs for this page (CRM: Leads / Deals / Calls / Contacts / Inventory / Reports), filtered by permission and features.
   const path = h.get("x-pathname") ?? "";
   const tabAllowed = (t: SectionTab) => (!t.module || can(user, t.module, t.action ?? "view")) && (!t.superAdmin || user.isSuperAdmin) && !featureForPath(t.href, off);
-  const section = sectionForPath(path, current.key);
-  const tabs = section ? section.tabs.filter(tabAllowed) : [];
   const pageItems = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]))).filter((item) => !item.phase);
   const sectionPages = SECTIONS.flatMap((sec) => sec.tabs.filter(tabAllowed).map((t) => ({ href: t.href, label: t.label, icon: "list" })));
   const pages = [...new Map([...pageItems.map((item) => ({ href: item.href, label: item.label, icon: item.icon })), ...sectionPages].map((p) => [p.href, p])).values()];
@@ -89,7 +87,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {/* View as is read-only: every input and button on the page is disabled (the server refuses writes too). */}
             <fieldset disabled={!!user.viewAs} className="m-0 min-w-0 border-0 p-0">
               <Suspense><BackLink pages={pages.map((x) => ({ href: x.href, label: x.label }))} apps={apps.map((a) => ({ key: a.key, name: a.name, home: a.home, prefixes: a.prefixes }))} /></Suspense>
-              {!offFeature && tabs.length > 1 && <SectionTabs tabs={tabs} />}
+              {!offFeature && <Suspense><SectionTabs sections={SECTIONS.map((sec) => ({ ...sec, tabs: sec.tabs.filter(tabAllowed) })).filter((sec) => sec.tabs.length > 1)} app={current.key} /></Suspense>}
               {offFeature ? <FeatureOff label={offFeature.label} canManage={user.isSuperAdmin || can(user, "settings.company", "edit")} /> : children}
             </fieldset>
           </PageTransition>

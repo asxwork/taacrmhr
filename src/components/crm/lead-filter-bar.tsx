@@ -8,7 +8,7 @@ import { deleteLeadFilter, saveLeadFilter } from "@/app/(app)/crm/leads/filter-a
 import { cn } from "@/lib/utils";
 
 type Opt = { id: string; name: string };
-export type FilterPreset = { id?: string; name: string; query: string };
+export type FilterPreset = { id?: string; name: string; query: string; section?: string; href?: string; shared?: boolean; canDelete?: boolean };
 
 const parse = (q: string): LeadFilters => Object.fromEntries(new URLSearchParams(q)) as LeadFilters;
 
@@ -17,7 +17,7 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
   filters: LeadFilters;
   view?: string;
   presets: FilterPreset[];
-  options: { stages: Opt[]; sources: Opt[]; projects: Opt[]; owners: Opt[] };
+  options: { stages: Opt[]; sources: Opt[]; projects: Opt[]; owners: Opt[]; branches?: Opt[]; canShare?: boolean };
   /** Given: filters are handed to the caller (the in-place list) instead of navigating. */
   onApply?: (filters: LeadFilters) => void;
   busy?: boolean;
@@ -28,6 +28,10 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<LeadFilters>(filters);
   const [saveName, setSaveName] = useState("");
+  const [saveFolder, setSaveFolder] = useState("");
+  const [saveShare, setSaveShare] = useState(false);
+  const [pq, setPq] = useState("");
+  const [folded, setFolded] = useState<Record<string, boolean>>({ Sources: true, Projects: true });
   const [saving, setSaving] = useState(false);
   const [shift, setShift] = useState(0);
   const box = useRef<HTMLDivElement>(null);
@@ -77,9 +81,9 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
   async function save() {
     if (!saveName.trim()) return;
     setSaving(true);
-    await saveLeadFilter(saveName, current);
+    await saveLeadFilter(saveName, current, saveFolder, saveShare);
     setSaving(false);
-    setSaveName("");
+    setSaveName(""); setSaveFolder(""); setSaveShare(false);
     router.refresh();
   }
 
@@ -111,24 +115,35 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
 
       {open && (
         <div style={{ left: shift }} className="palette-in absolute top-12 z-40 flex max-h-[75vh] w-[min(52rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-2xl sm:flex-row">
-          {/* Presets */}
-          <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-line p-2 sm:w-56 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r">
-            {presets.map((p) => {
-              const on = p === active || (!active && !current && !p.query);
+          {/* Presets, grouped by section (Quick, Reports, folders of saved filters, Sources, Projects…). */}
+          <nav className="flex max-h-56 shrink-0 flex-col overflow-y-auto border-b border-line p-2 sm:max-h-none sm:w-64 sm:border-b-0 sm:border-r">
+            <div className="relative mb-1.5"><Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted" /><input value={pq} onChange={(e) => setPq(e.target.value)} placeholder="Find a filter" className="input h-8 pl-8 text-sm" aria-label="Find a filter" /></div>
+            {[...new Set(presets.map((p) => p.section ?? "Filters"))].map((sec) => {
+              const items = presets.filter((p) => (p.section ?? "Filters") === sec && (!pq || p.name.toLowerCase().includes(pq.toLowerCase())));
+              if (!items.length) return null;
+              const shut = folded[sec] && !pq;
               return (
-                <div key={p.id ?? p.name} className="group flex shrink-0 items-center">
-                  <button
-                    type="button"
-                    onClick={() => { const f = { ...parse(p.query), q: draft.q }; setDraft(f); go(f); setOpen(false); }}
-                    className={cn("flex-1 truncate rounded-md px-2.5 py-1.5 text-left text-sm transition-colors", on ? "bg-navy-900/[0.07] font-medium text-navy-900" : "text-ink/80 hover:bg-canvas")}
-                  >
-                    {p.name}
+                <div key={sec} className="mb-1">
+                  <button type="button" onClick={() => setFolded((f) => ({ ...f, [sec]: !shut }))} className="flex w-full items-center gap-1 px-2 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted hover:text-ink">
+                    <ChevronDown className={cn("size-3 transition", shut && "-rotate-90")} />{sec}<span className="ml-auto font-normal normal-case">{items.length}</span>
                   </button>
-                  {p.id && (
-                    <button type="button" onClick={async () => { await deleteLeadFilter(p.id!); router.refresh(); }} className="rounded p-1 text-muted opacity-0 transition hover:text-red-600 group-hover:opacity-100" aria-label={`Delete filter ${p.name}`}>
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  )}
+                  {!shut && items.map((p) => {
+                    const on = !p.href && (p === active || (!active && !current && !p.query && p.section === "Quick"));
+                    return (
+                      <div key={p.id ?? `${sec}-${p.name}`} className="group flex items-center">
+                        <button type="button"
+                          onClick={() => { if (p.href) { router.push(p.href); return; } const f = { ...parse(p.query), q: draft.q }; setDraft(f); go(f); setOpen(false); }}
+                          className={cn("flex-1 truncate rounded-md px-2.5 py-1.5 text-left text-sm transition-colors", on ? "bg-navy-900/[0.07] font-medium text-navy-900" : "text-ink/80 hover:bg-canvas")}>
+                          {p.name}{p.shared && <span className="ml-1 text-[10px] text-muted">· team</span>}{p.href && <span className="ml-1 text-muted">↗</span>}
+                        </button>
+                        {p.id && p.canDelete && (
+                          <button type="button" onClick={async () => { if (confirm(`Delete the filter “${p.name}”${p.shared ? " for everyone" : ""}?`)) { await deleteLeadFilter(p.id!); router.refresh(); } }} className="rounded p-1 text-muted opacity-0 transition hover:text-red-600 group-hover:opacity-100" aria-label={`Delete filter ${p.name}`}>
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
@@ -149,6 +164,7 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
               <F label="Stage"><Multi options={options.stages} value={draft.stage} onChange={(v) => set({ stage: v })} /></F>
               <F label="Source"><Multi options={options.sources} value={draft.source} onChange={(v) => set({ source: v })} /></F>
               <F label="Project"><Multi options={options.projects} value={draft.project} onChange={(v) => set({ project: v })} /></F>
+              {(options.branches?.length ?? 0) > 1 && <F label="Branch"><Multi options={options.branches!} value={draft.branch} onChange={(v) => set({ branch: v })} /></F>}
               {options.owners.length > 1 && <F label="Responsible person"><Multi options={[{ id: "me", name: "Me" }, ...options.owners]} value={draft.owner} onChange={(v) => set({ owner: v })} /></F>}
               <F label="Activities">
                 <select value={draft.activity ?? ""} onChange={(e) => set({ activity: e.target.value })} className="input">{ACTIVITY_FILTERS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}</select>
@@ -164,7 +180,10 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4">
-              <input value={saveName} onChange={(e) => setSaveName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} placeholder="Name this filter to save it" className="input h-9 min-w-0 flex-1" aria-label="Filter name" />
+              <input value={saveName} onChange={(e) => setSaveName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} placeholder="Name this filter to save it" className="input h-9 w-full" aria-label="Filter name" />
+              <input value={saveFolder} onChange={(e) => setSaveFolder(e.target.value)} list="lead-filter-folders" placeholder="Folder, e.g. Projects (optional)" className="input h-9 min-w-0 flex-1" aria-label="Folder" />
+              <datalist id="lead-filter-folders">{[...new Set(presets.filter((p) => p.id && p.section && !["My filters", "Team filters"].includes(p.section)).map((p) => p.section!))].map((f) => <option key={f} value={f} />)}</datalist>
+              {options.canShare && <label className="flex items-center gap-1.5 text-sm text-muted"><input type="checkbox" checked={saveShare} onChange={(e) => setSaveShare(e.target.checked)} className="accent-navy-900" /> Share with everyone</label>}
               <button type="button" onClick={save} disabled={!saveName.trim() || saving || !current} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-navy-900 px-3 text-sm font-medium text-white disabled:opacity-40">
                 <Pin className="size-3.5" /> {saving ? "Saving…" : "Save filter"}
               </button>

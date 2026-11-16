@@ -30,24 +30,32 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     db.project.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     usersInScope(user, "crm.leads", "view"),
     assignableUsers(user, "crm.leads"),
-    db.savedFilter.findMany({ where: { userId: user.id, module: "crm.leads" }, orderBy: { createdAt: "asc" } }),
+    db.savedFilter.findMany({ where: { module: "crm.leads", OR: [{ userId: user.id }, { shared: true }] }, orderBy: [{ folder: "asc" }, { name: "asc" }] }),
     db.automation.findMany({ where: { active: true, entity: "lead" }, orderBy: { name: "asc" } }),
     loadLeadList(user, filters, view, page),
   ]);
 
+  const branches = await db.branch.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+  const newStage = statuses.find((x) => x.systemKey === "new");
+  const manageShared = user.isSuperAdmin || can(user, "settings.company", "edit");
+  // Grouped in the filter menu by section; saved filters by their folder (team ones are shared by managers).
   const presets: FilterPreset[] = [
-    { name: "Leads in progress", query: "" },
-    { name: "My leads", query: "owner=me" },
-    { name: "Today's leads", query: "created=today&group=all" },
-    { name: "Yesterday's leads", query: "created=yesterday&group=all" },
-    { name: "Not contacted 7+ days", query: "stale=7" },
-    { name: "Overdue activities", query: "activity=overdue" },
-    { name: "Reshuffled", query: "reshuffled=1" },
-    { name: "Completed (converted)", query: "group=converted" },
-    { name: "Not interested / not valid", query: "group=junk" },
-    ...saved.map((s) => ({ id: s.id, name: s.name, query: s.query })),
-    ...sources.map((s) => ({ name: s.name, query: `source=${s.id}` })),
-    ...projects.map((p) => ({ name: p.name, query: `project=${p.id}` })),
+    { name: "Leads in progress", query: "", section: "Quick" },
+    { name: "My leads", query: "owner=me", section: "Quick" },
+    { name: "Today's leads", query: "created=today&group=all", section: "Quick" },
+    { name: "Yesterday's leads", query: "created=yesterday&group=all", section: "Quick" },
+    { name: "Not contacted 7+ days", query: "stale=7", section: "Quick" },
+    { name: "Overdue activities", query: "activity=overdue", section: "Quick" },
+    ...(newStage ? [{ name: "New Request report", query: `group=all&stage=${newStage.id}`, section: "Reports" }] : []),
+    ...branches.flatMap((b) => [{ name: `${b.name} lead report`, query: `branch=${b.id}`, section: "Reports" }, { name: `${b.name} all leads`, query: `branch=${b.id}&group=all`, section: "Reports" }]),
+    { name: "Agent lead report", query: "", href: "/reports/agents", section: "Reports" },
+    { name: "Reshuffled", query: "reshuffled=1", section: "Reshuffle" },
+    { name: "Reshuffle check (nothing planned)", query: "activity=none&reshuffled=1", section: "Reshuffle" },
+    { name: "Completed (converted)", query: "group=converted", section: "Closed" },
+    { name: "Not interested / not valid", query: "group=junk", section: "Closed" },
+    ...saved.map((x) => ({ id: x.id, name: x.name, query: x.query, section: x.folder || (x.shared ? "Team filters" : "My filters"), shared: x.shared, canDelete: x.userId === user.id || (x.shared && manageShared) })),
+    ...sources.map((x) => ({ name: x.name, query: `source=${x.id}`, section: "Sources" })),
+    ...projects.map((x) => ({ name: x.name, query: `project=${x.id}`, section: "Projects" })),
   ];
 
   // Active automations, described in plain words for the run confirmation.
@@ -75,7 +83,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         initialView={view}
         initialColumns={columns}
         presets={presets}
-        filterOptions={{ stages: statuses.map((s) => ({ id: s.id, name: s.name })), sources, projects, owners }}
+        filterOptions={{ stages: statuses.map((s) => ({ id: s.id, name: s.name })), sources, projects, owners, branches, canShare: manageShared }}
         stages={statuses.map((s) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind, systemKey: s.systemKey }))}
         assignees={assignees.map((u) => ({ id: u.id, name: u.name }))}
         automations={automationOptions}

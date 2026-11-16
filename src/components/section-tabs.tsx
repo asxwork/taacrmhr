@@ -3,12 +3,20 @@
 import Link from "@/components/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { activeTab, type SectionTab } from "@/lib/sections";
+import { activeTab, type Section, type SectionTab } from "@/lib/sections";
 
-/** The screens of the current section as tabs across the top of the page (filtered to what the user may open). */
-export function SectionTabs({ tabs }: { tabs: SectionTab[] }) {
+/**
+ * The screens of the current section as tabs across the top of the page (filtered to what the user may open).
+ * Picked here from the address on every page change: the page frame (layout) isn't re-rendered when you move
+ * between sections, so tabs worked out there went stale.
+ */
+export function SectionTabs({ sections, app }: { sections: Section[]; app?: string }) {
   const path = usePathname();
   const params = useSearchParams();
+  const pathOf = (h: string) => h.split("?")[0];
+  const hits = sections.filter((s) => s.tabs.some((t) => pathOf(t.href) === path));
+  const section = hits.find((s) => s.app && path.startsWith("/me")) ?? hits.find((s) => !s.app || s.app === app) ?? hits[0];
+  const tabs: SectionTab[] = section?.tabs ?? [];
   const active = activeTab(tabs, path, params);
   if (tabs.length < 2) return null;
   return (

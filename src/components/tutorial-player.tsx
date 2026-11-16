@@ -58,7 +58,7 @@ export function TutorialPlayer({ src, poster, chapters, steps, autoPlay = true }
           <button type="button" onClick={toggle} aria-label={playing ? "Pause" : "Play"} className="rounded-md p-1 hover:bg-black/5">{playing ? <Pause className="size-4" /> : <Play className="size-4" />}</button>
           <div className="relative h-1.5 flex-1 cursor-pointer rounded-full bg-navy-900/15" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); seek(((e.clientX - r.left) / r.width) * dur); }} role="slider" aria-label="Position" aria-valuemin={0} aria-valuemax={Math.round(dur)} aria-valuenow={Math.round(time)} tabIndex={0}
             onKeyDown={(e) => { if (e.key === "ArrowRight") seek(time + 5); if (e.key === "ArrowLeft") seek(time - 5); }}>
-            <div className="absolute inset-y-0 left-0 rounded-full bg-gold-500" style={{ width: `${dur ? (time / dur) * 100 : 0}%` }} />
+            <div className="absolute inset-y-0 left-0 rounded-full bg-gold-600 transition-[width] duration-200 ease-linear" style={{ width: `${dur ? (time / dur) * 100 : 0}%` }} />
             {chapters?.map((c, i) => i > 0 && dur ? <span key={i} className="absolute top-0 h-1.5 w-0.5 bg-white" style={{ left: `${(c.t / dur) * 100}%` }} /> : null)}
           </div>
           <span className="w-20 text-right text-[11px] tabular-nums text-muted">{mmss(time)} / {mmss(dur)}</span>
@@ -73,7 +73,7 @@ export function TutorialPlayer({ src, poster, chapters, steps, autoPlay = true }
             <li key={i}>
               <button type="button" disabled={c.t < 0} onClick={() => seek(c.t)}
                 className={cn("flex w-full items-start gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition-colors", c.t >= 0 && "hover:bg-canvas", i === current && "bg-gold-400/15")}>
-                <span className={cn("mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold", i === current ? "bg-gold-500 text-white" : "bg-canvas text-muted")}>{chapters?.length ? (i === 0 ? "•" : i) : i + 1}</span>
+                <span className={cn("mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold", i === current ? "bg-gold-600 text-white" : "bg-canvas text-muted")}>{chapters?.length ? (i === 0 ? "•" : i) : i + 1}</span>
                 <span className={cn("flex-1", i === current ? "text-ink" : "text-ink/80")}>{c.text}</span>
                 {c.t >= 0 && <span className="shrink-0 text-[11px] tabular-nums text-muted">{mmss(c.t)}</span>}
               </button>
