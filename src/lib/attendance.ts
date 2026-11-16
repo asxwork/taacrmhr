@@ -296,9 +296,9 @@ export const punchLines = (punches: { at: Date; source: string }[]) =>
   punches.length ? punches.map((p) => `${format(p.at, "h:mm a")} (${p.source})`).join(", ") : "no punches";
 
 /** Saves device punches for mapped employees, skipping ones already stored. Live machine pushes pass log: false. */
-export async function importDevicePunches(rows: DevicePunch[], byUserId: string | null, opts: { log?: boolean } = {}) {
-  const employees = await db.employee.findMany({ where: { deviceUserId: { in: [...new Set(rows.map((r) => r.deviceUserId))] } }, select: { id: true, deviceUserId: true } });
-  const map = new Map(employees.map((e) => [e.deviceUserId!, e.id]));
+export async function importDevicePunches(rows: DevicePunch[], byUserId: string | null, opts: { log?: boolean; machineId?: string | null } = {}) {
+  // Each machine's own user mapping first (Machines → Mapping), then the employee's device user ID.
+  const map = await (await import("./machine-users")).machineEmployeeMap(opts.machineId, [...new Set(rows.map((r) => r.deviceUserId))]);
   const unknown = new Set(rows.filter((r) => !map.has(r.deviceUserId)).map((r) => r.deviceUserId));
   // A device clock running fast would create punches in the future — skip those.
   const latest = Date.now() + 5 * 60_000;

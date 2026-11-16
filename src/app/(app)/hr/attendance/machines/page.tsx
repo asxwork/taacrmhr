@@ -1,7 +1,7 @@
 import Link from "@/components/link";
 import { headers } from "next/headers";
 import { format, formatDistanceToNow } from "date-fns";
-import { CheckCircle2, Cpu, Fingerprint, KeyRound, Network, Pencil, Plus, Power, RefreshCw, Route, Trash2, X } from "lucide-react";
+import { CheckCircle2, Cpu, Fingerprint, KeyRound, Network, Users, Pencil, Plus, Power, RefreshCw, Route, Trash2, X } from "lucide-react";
 import { db } from "@/lib/db";
 import { requirePermission, scopeFor } from "@/lib/permissions";
 import { MACHINE_TIME_ZONES } from "@/lib/attendance-shared";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ActionForm, SubmitButton } from "@/components/action-form";
+import { MachineTabs } from "./machine-tabs";
 import { deleteMachine, saveMachine, setMachineActive, syncMachineNow, updateMachine } from "./actions";
 
 export const metadata = { title: "Attendance machines" };
@@ -40,6 +41,7 @@ export default async function MachinesPage({ searchParams }: { searchParams: Pro
   return (
     <>
       {!formOpen && <AutoRefresh seconds={30} />}
+      <MachineTabs active="machines" />
       <PageHeader title="Machines" description="Manage attendance machines from one place." actions={canEdit ? (
         <Link href="/hr/attendance/machines?new=1" scroll={false} className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-navy-900 px-4 text-sm font-medium text-white hover:bg-navy-800"><Plus className="size-4" /> Create</Link>
       ) : undefined} />
@@ -67,10 +69,10 @@ export default async function MachinesPage({ searchParams }: { searchParams: Pro
                   return (
                     <tr key={m.id} className="align-top hover:bg-canvas/40">
                       <td className="px-4 py-3">
-                        <p className="font-medium">{m.name ?? m.serial}</p>
+                        <Link href={`/hr/attendance/machines/${m.id}`} className="font-medium hover:underline">{m.name ?? m.serial}</Link>
                         <p className="text-xs text-muted">{[branch?.name, m.mode === "push" ? `Cloud Server · SN ${m.serial}` : m.transport ? `Direct · ${m.transport.toUpperCase()}` : "Direct"].filter(Boolean).join(" · ")}</p>
                         {m.lastError && m.mode === "pull" && <p className="mt-1.5 max-w-md rounded-md bg-red-50 px-2 py-1 text-xs text-red-700">{m.lastError}</p>}
-                        {m.unknownIds && <p className="mt-1.5 max-w-md rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">Machine IDs not linked: <b>{m.unknownIds.split(",").slice(0, 12).join(", ")}</b> · <Link href="/hr/attendance?import=1" className="underline">link them</Link></p>}
+                        {m.unknownIds && <p className="mt-1.5 max-w-md rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">Machine users not mapped: <b>{m.unknownIds.split(",").slice(0, 12).join(", ")}</b> · <Link href={`/hr/attendance/machines/${m.id}`} className="underline">map them</Link></p>}
                       </td>
                       <td className="px-4 py-3">ZKTeco</td>
                       <td className="px-4 py-3 font-mono text-xs">{m.host ?? m.ip ?? "—"}</td>
@@ -82,6 +84,7 @@ export default async function MachinesPage({ searchParams }: { searchParams: Pro
                       <td className="whitespace-nowrap px-2 py-2 text-right">
                         {canEdit && (
                           <div className="flex items-center justify-end gap-0.5">
+                            <Link href={`/hr/attendance/machines/${m.id}`} title="Change mapping (machine users ↔ employees)" aria-label="Change mapping" className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"><Users className="size-4" /></Link>
                             <Link href={`/hr/attendance/machines?edit=${m.id}`} scroll={false} title="Edit" aria-label="Edit machine" className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"><Pencil className="size-4" /></Link>
                             {m.mode === "pull" && isActive(m.status) && <ActionForm action={syncMachineNow}><input type="hidden" name="id" value={m.id} /><button title="Fetch logs now" aria-label="Fetch logs now" className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"><RefreshCw className="size-4" /></button></ActionForm>}
                             {m.status === "pending" && <form action={updateMachine}><input type="hidden" name="id" value={m.id} /><input type="hidden" name="status" value="approved" /><button title="Approve" aria-label="Approve machine" className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink text-emerald-600"><CheckCircle2 className="size-4" /></button></form>}

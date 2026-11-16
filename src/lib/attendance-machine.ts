@@ -37,7 +37,8 @@ export async function receive(req: Request) {
   if (table !== "ATTLOG") return text("OK"); // user lists, operation logs, photos: not needed
   if (m.status !== "approved") return text("Machine not approved", 403);
   const { rows } = parseDeviceLog(body);
-  const res = await importDevicePunches(rows, null, { log: false });
+  await (await import("./machine-users")).storeMachineLogs(m.id, rows);
+  const res = await importDevicePunches(rows, null, { log: false, machineId: m.id });
   const last = rows.reduce<Date | null>((a, r) => (!a || r.at > a ? r.at : a), null);
   const unknown = new Set([...(m.unknownIds ?? "").split(",").filter(Boolean), ...res.unknown]);
   await db.attendanceMachine.update({
@@ -137,7 +138,12 @@ export async function syncPullMachine(id: string) {
     const rows = data
       .map((r) => ({ deviceUserId: String(r.user_id).trim(), at: new Date(r.record_time) }))
       .filter((r) => r.deviceUserId && !Number.isNaN(r.at.getTime()) && r.at.getTime() >= since);
-    const res = await importDevicePunches(rows, null, { log: false });
+    const mu = await import("./machine-users");
+    // Keep every punch (mapped or not) and refresh the machine's user list for mapping.
+    await mu.storeMachineLogs(m.id, rows);
+    const users = await within(zk.getUsers(), 60_000, "reading users").catch(() => null);
+    if (users?.data?.length) await mu.saveMachineUsers(m.id, users.data.map((u) => ({ deviceUserId: String(u.userId), name: u.name, cardNo: String(u.cardno ?? ""), role: u.role })));
+    const res = await importDevicePunches(rows, null, { log: false, machineId: m.id });
     const last = rows.reduce<Date | null>((a, r) => (!a || r.at > a ? r.at : a), null);
     const unknown = new Set([...(m.unknownIds ?? "").split(",").filter(Boolean), ...res.unknown]);
     await db.attendanceMachine.update({

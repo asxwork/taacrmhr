@@ -5,6 +5,7 @@ declare module "zkteco-js" {
     getInfo(): Promise<{ userCounts: number; logCounts: number; logCapacity: number }>;
     getSerialNumber(): Promise<string>;
     getDeviceName(): Promise<string>;
+    getUsers(): Promise<{ data: { uid: number; role: number; name: string; cardno?: number; userId: string | number }[] }>;
     getAttendances(): Promise<{ data: { user_id: string | number; record_time: string }[] }>;
     disconnect(): Promise<void>;
     connectionType: "tcp" | "udp" | null;

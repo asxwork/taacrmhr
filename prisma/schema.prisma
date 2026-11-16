@@ -2527,3 +2527,31 @@ model AttReportPreset {
 
   @@index([createdById])
 }
+
+/// A user stored on an attendance machine (name + machine user ID), and the AMS employee it is mapped to.
+model MachineUser {
+  id           String    @id @default(cuid())
+  machineId    String
+  deviceUserId String
+  name         String?
+  cardNo       String?
+  role         Int?
+  employeeId   String?
+  syncedAt     DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([machineId, deviceUserId])
+  @@index([employeeId])
+}
+
+/// Every punch read from a machine, mapped or not (Attendance → Machines → Logs). Mapped ones also become AttendancePunch rows.
+model MachineLog {
+  id           String   @id @default(cuid())
+  machineId    String
+  deviceUserId String
+  at           DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([machineId, deviceUserId, at])
+  @@index([at])
+}
