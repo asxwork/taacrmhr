@@ -49,6 +49,19 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
     // Import summaries cover everyone, so only company-wide HR sees them (unless filtered to one person).
     OR: [{ employeeId: { in: ids } }, ...(companyWide && !sp.employee ? [{ employeeId: null }] : [])],
   };
+  // Why machine punches might be missing here: a machine that can't be reached, or machine users not mapped yet.
+  const machineStatus = companyWide ? await (async () => {
+    const machines = await db.attendanceMachine.findMany({ where: { status: "approved" }, select: { id: true, name: true, serial: true, mode: true, lastError: true, lastSeenAt: true } });
+    const logsInRange = await db.machineLog.findMany({ where: { at: range }, select: { machineId: true, deviceUserId: true } });
+    const { machineEmployeeMap } = await import("@/lib/machine-users");
+    let unmapped = 0;
+    for (const mid of [...new Set(logsInRange.map((l) => l.machineId))]) {
+      const mine = logsInRange.filter((l) => l.machineId === mid);
+      const map = await machineEmployeeMap(mid, [...new Set(mine.map((l) => l.deviceUserId))]);
+      unmapped += mine.filter((l) => !map.has(l.deviceUserId)).length;
+    }
+    return { failing: machines.filter((m) => m.mode === "pull" && m.lastError), never: machines.filter((m) => !m.lastSeenAt), unmapped, read: logsInRange.length, total: machines.length };
+  })() : null;
   const [punches, punchCount, logs, logCount] = await Promise.all([
     tab === "machine" ? db.attendancePunch.findMany({ where: punchWhere, include: { employee: { select: { fullName: true } } }, orderBy: { at: "desc" }, take: LIMIT }) : [],
     db.attendancePunch.count({ where: punchWhere }),
@@ -71,6 +84,19 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
   return (
     <>
       <PageHeader title="Attendance logs" description="Every machine punch and web check-in, and every change to attendance: who did it, when, and what it was before. Entries can't be edited; only a Super Admin can delete one, and that is recorded too." />
+      {machineStatus && (machineStatus.failing.length > 0 || machineStatus.unmapped > 0 || (machineStatus.total > 0 && machineStatus.read === 0)) && (
+        <div className="mb-4 space-y-2">
+          {machineStatus.failing.map((m) => (
+            <p key={m.id} className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-800"><b>{m.name ?? m.serial}</b> can&apos;t be read, so its punches haven&apos;t come in yet: {m.lastError} <Link href="/hr/attendance/machines" className="font-medium underline">Open machines</Link></p>
+          ))}
+          {machineStatus.unmapped > 0 && (
+            <p className="rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-800"><b>{machineStatus.unmapped}</b> machine punch(es) in these dates belong to machine users not mapped to an employee yet, so they aren&apos;t listed here. <Link href="/hr/attendance/machines/logs?show=unmapped" className="font-medium underline">See them and map the users</Link></p>
+          )}
+          {machineStatus.failing.length === 0 && machineStatus.unmapped === 0 && machineStatus.read === 0 && (
+            <p className="rounded-lg bg-canvas px-4 py-2.5 text-sm text-muted">No machine punches have been read for these dates yet. Click <b>Fetch logs now</b> on <Link href="/hr/attendance/machines" className="underline">Machines</Link>, or upload the machine&apos;s USB log file on its mapping page.</p>
+          )}
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
