@@ -68,18 +68,44 @@ function commKeyBytes(key: number, sessionId: number, ticks = 50) {
 
 const CMD_CONNECT = 1000, CMD_AUTH = 1102, CMD_ACK_OK = 2000, CMD_ACK_UNAUTH = 2005;
 
-/** Opens a TCP session, answering the machine's password challenge when it has a comm key. Read-only from here on. */
+/**
+ * Opens a TCP session, answering the machine's password challenge. Many ZKTeco firmwares ask every client to
+ * authenticate even when no Comm Key is set; like ZKTeco's own tools (and ResourceInn) we then answer with key 0.
+ * Read-only from here on.
+ */
 async function openSession(zk: InstanceType<typeof import("zkteco-js").default>, commKey: number) {
   await zk.ztcp.createSocket();
   const reply = await zk.ztcp.executeCmd(CMD_CONNECT, "");
   let code = reply?.readUInt16LE(0);
   if (code === CMD_ACK_UNAUTH) {
-    if (!commKey) throw new Error("COMMKEY_NEEDED");
     const auth = await zk.ztcp.executeCmd(CMD_AUTH, commKeyBytes(commKey, zk.ztcp.sessionId));
     code = auth?.readUInt16LE(0);
-    if (code !== CMD_ACK_OK) throw new Error("COMMKEY_WRONG");
+    if (code !== CMD_ACK_OK) throw new Error(commKey ? "COMMKEY_WRONG" : "COMMKEY_NEEDED");
   } else if (code !== CMD_ACK_OK) throw new Error(`CONNECT_REPLY_${code}`);
   zk.connectionType = "tcp";
+}
+
+type Zk = InstanceType<typeof import("zkteco-js").default>;
+/** Connects with the saved key; if the machine refuses it, tries once more with 0 (no password) on a fresh socket. */
+export async function connectMachine(host: string, port: number, savedKey: number): Promise<{ zk: Zk; usedKey: number }> {
+  const { default: Zkteco } = await import("zkteco-js");
+  const keys = savedKey ? [savedKey, 0] : [0];
+  let last: unknown;
+  for (const key of keys) {
+    const zk = new Zkteco(host, port, 15_000, 0);
+    try {
+      await within(openSession(zk, key), 12_000, "connect");
+      return { zk, usedKey: key };
+    } catch (e) {
+      last = e;
+      await within(zk.disconnect(), 3_000, "disconnect").catch(() => {});
+      // Only a refused key is worth a second try; network errors fail straight away.
+      if (!(e instanceof Error && /COMMKEY_/.test(e.message))) break;
+    }
+  }
+  // Both refused: the saved key (if any) is the one to fix.
+  if (savedKey && last instanceof Error && /COMMKEY_NEEDED/.test(last.message)) throw new Error("COMMKEY_WRONG");
+  throw last;
 }
 
 /** Plain "connect, read, save" for a machine AMS reaches directly (public IP + port 4370, comm key 0). */
@@ -87,10 +113,13 @@ export async function syncPullMachine(id: string) {
   const m = await db.attendanceMachine.findUnique({ where: { id } });
   if (!m || m.mode !== "pull" || !m.host) return { error: "Not a direct-connection machine." };
   if (m.status === "blocked") return { error: "This machine is blocked." };
-  const { default: Zkteco } = await import("zkteco-js");
-  const zk = new Zkteco(m.host, m.port ?? 4370, 15_000, 0);
+  let zk: Zk | null = null;
   try {
-    await within(openSession(zk, Number(openSecret(m.commKeyEnc) ?? 0) || 0), 12_000, "connect");
+    const saved = Number(openSecret(m.commKeyEnc) ?? 0) || 0;
+    const conn = await connectMachine(m.host, m.port ?? 4370, saved);
+    zk = conn.zk;
+    // The machine has no password after all: forget the wrong key so the card stops asking for one.
+    if (saved && conn.usedKey === 0) await db.attendanceMachine.update({ where: { id: m.id }, data: { commKeyEnc: null } });
     const [info, serial, name] = await within(Promise.all([zk.getInfo().catch(() => null), zk.getSerialNumber().catch(() => ""), zk.getDeviceName().catch(() => "")]), 15_000, "device info");
     const { data } = await within(zk.getAttendances(), 120_000, "reading punches");
     // Only the last few days on each sync (punches already stored are skipped anyway).
@@ -112,15 +141,15 @@ export async function syncPullMachine(id: string) {
     return { ok: true as const, added: res.added, read: rows.length, unknown: res.unknown.length };
   } catch (e) {
     const msg = e instanceof Error ? e.message : typeof e === "object" && e && "err" in e ? String((e as { err: unknown }).err) : String(e);
-    const nice = /COMMKEY_NEEDED/.test(msg) ? "The machine has a Comm Key (password). Enter it on this machine below (read it from Menu → Comm. → Connection; don't change it)."
-      : /COMMKEY_WRONG/.test(msg) ? "The machine refused the Comm Key. Check the number in Menu → Comm. → Connection."
+    const nice = /COMMKEY_NEEDED/.test(msg) ? "The machine has a Comm Key (password) and it isn't 0. Enter it on this machine below (Menu → Comm. → Connection → Comm Key; read it, don't change it)."
+      : /COMMKEY_WRONG/.test(msg) ? "The machine refused the saved Comm Key (and 0). Check the number in Menu → Comm. → Connection → Comm Key."
       : /ETIMEDOUT|timeout|TIMEOUT/i.test(msg) ? "No answer from the machine (check the IP, the router's port forwarding and that the machine is on)."
       : /ECONNREFUSED/.test(msg) ? "The connection was refused (wrong port, or port forwarding points to the wrong device)."
       : /EHOSTUNREACH|ENETUNREACH/.test(msg) ? "The address can't be reached from the server." : `Connection failed: ${msg.slice(0, 200)}`;
     await db.attendanceMachine.update({ where: { id: m.id }, data: { lastSyncAt: new Date(), lastError: nice } });
     return { error: nice };
   } finally {
-    await within(zk.disconnect(), 3_000, "disconnect").catch(() => {});
+    if (zk) await within(zk.disconnect(), 3_000, "disconnect").catch(() => {});
   }
 }
 
