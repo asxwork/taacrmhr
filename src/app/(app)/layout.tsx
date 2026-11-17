@@ -37,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [jar, h, apps, me, off, security, unread, banner] = await Promise.all([
     cookies(), headers(), appsForUser(user),
     db.employee.findUnique({ where: { userId: user.id }, select: { photo: true } }),
-    disabledFeatures(), securitySettings(), Promise.all([unreadCount(user.id), urgentUnread(user.id), can(user, "chat") ? chatUnread(user.id) : Promise.resolve(-1)]),
+    disabledFeatures(), securitySettings(), Promise.all([unreadCount(user.id), urgentUnread(user.id), can(user, "chat") ? disabledFeatures().then((o) => (o.has("app-chat") ? -1 : chatUnread(user.id))) : Promise.resolve(-1)]),
     memo("setting:banner", 30_000, async () => (await db.setting.findUnique({ where: { key: "maintenance.banner" } }))?.value ?? ""),
   ]);
 

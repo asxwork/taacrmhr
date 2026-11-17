@@ -4,6 +4,10 @@ import { db } from "./db";
 import { memo } from "./memo";
 
 export const FEATURES = [
+  // Whole apps: switched off, the app leaves the app list and its menus (its data is kept).
+  { key: "app-finance", label: "Finance app", group: "Apps", paths: ["/finance"], about: "Wallets, expenses, bills, P&L and the boss's finance view" },
+  { key: "app-invoices", label: "Invoices app", group: "Apps", paths: ["/invoices"], about: "Invoices with approval and e-signatures (links already sent to clients keep working)" },
+  { key: "app-chat", label: "Messenger", group: "Apps", paths: ["/chat"], about: "Chat between colleagues (the chat icon disappears too)" },
   { key: "calls", label: "Calls (calling centre)", group: "CRM", paths: ["/calls"], about: "Dialer, campaigns, callbacks, wallboard, softphone" },
   { key: "inventory", label: "Property inventory", group: "CRM", paths: ["/inventory"], about: "Projects, units and listings" },
   { key: "targets", label: "Targets & leaderboard", group: "CRM", paths: ["/reports/targets"], about: "Monthly calls, visits and deals goals per agent" },

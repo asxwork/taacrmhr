@@ -514,7 +514,7 @@ export const APPS: AppDef[] = [
         label: "Company", icon: "landmark",
         items: [
           { href: "/settings/company", label: "Company & Branches", icon: "landmark", module: "settings.company" },
-          { href: "/settings/features", label: "Features", icon: "sliders", module: "settings.company" },
+          { href: "/settings/features", label: "Apps & features", icon: "sliders", module: "settings.company" },
           sub("Integrations", [
             { href: "/settings/integrations", label: "Overview", icon: "plug", module: "settings.company" },
             { href: "/settings/integrations#outgoing-email", label: "Outgoing email", icon: "mail", module: "settings.company" },

@@ -13,10 +13,10 @@ export default async function FeaturesPage() {
   const editable = can(user, "settings.company", "edit");
   return (
     <>
-      <PageHeader title="Features" description="Switch off what your company doesn’t use. It disappears from everyone’s menus; the data is kept and returns when you switch it back on." />
+      <PageHeader title="Apps & features" description="Switch off whole apps or single features your company doesn’t use right now. It disappears from everyone’s menus; the data is kept and returns when you switch it back on." />
       <ActionForm action={saveFeatures} className="space-y-6">
         <fieldset disabled={!editable} className="min-w-0 space-y-6">
-          {(["CRM", "HR"] as const).map((group) => (
+          {(["Apps", "CRM", "HR"] as const).map((group) => (
             <Card key={group} className="divide-y divide-line">
               <p className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted">{group}</p>
               {FEATURES.filter((f) => f.group === group).map((f) => (
