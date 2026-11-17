@@ -2555,3 +2555,18 @@ model MachineLog {
   @@unique([machineId, deviceUserId, at])
   @@index([at])
 }
+
+/// One attempt to read an attendance machine (cron or "Fetch now"): ResourceInn-style machine fetch history.
+model MachineFetch {
+  id        String   @id @default(cuid())
+  machineId String
+  trigger   String   @default("cron") // cron | manual
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  read      Int      @default(0)
+  saved     Int      @default(0)
+  added     Int      @default(0)
+  error     String? // @text
+
+  @@index([machineId, startedAt])
+}

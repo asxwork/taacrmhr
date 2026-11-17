@@ -124,17 +124,21 @@ export async function connectMachine(host: string, port: number, savedKey: numbe
 }
 
 /** Plain "connect, read, save" for a machine AMS reaches directly (public IP + port 4370, comm key 0). */
-export async function syncPullMachine(id: string) {
+export async function syncPullMachine(id: string, trigger: "cron" | "manual" = "manual") {
   const m = await db.attendanceMachine.findUnique({ where: { id } });
   if (!m || m.mode !== "pull" || !m.host) return { error: "Not a direct-connection machine." };
   if (m.status === "blocked") return { error: "This machine is blocked." };
+  // Fetch history row (Machines → Logs → Fetch history), finished below with the result.
+  const fetch = await db.machineFetch.create({ data: { machineId: m.id, trigger } }).catch(() => null);
+  const finish = (data: { read?: number; saved?: number; added?: number; error?: string | null }) =>
+    fetch ? db.machineFetch.update({ where: { id: fetch.id }, data: { ...data, endedAt: new Date() } }).catch(() => null) : null;
   let zk: Zk | null = null;
   try {
-    const saved = Number(openSecret(m.commKeyEnc) ?? 0) || 0;
-    const conn = await connectMachine(m.host, m.port ?? 4370, saved, m.transport);
+    const savedKey = Number(openSecret(m.commKeyEnc) ?? 0) || 0;
+    const conn = await connectMachine(m.host, m.port ?? 4370, savedKey, m.transport);
     zk = conn.zk;
     // Remember what worked; if the machine has no password after all, forget the wrong key.
-    await db.attendanceMachine.update({ where: { id: m.id }, data: { transport: conn.transport, ...(saved && conn.usedKey === 0 ? { commKeyEnc: null, requiresAuth: false } : {}) } });
+    await db.attendanceMachine.update({ where: { id: m.id }, data: { transport: conn.transport, ...(savedKey && conn.usedKey === 0 ? { commKeyEnc: null, requiresAuth: false } : {}) } });
     const [info, serial, name] = await within(Promise.all([zk.getInfo().catch(() => null), zk.getSerialNumber().catch(() => ""), zk.getDeviceName().catch(() => "")]), 15_000, "device info");
     const { data } = await within(zk.getAttendances(), 120_000, "reading punches");
     const all = data
@@ -143,7 +147,7 @@ export async function syncPullMachine(id: string) {
     const mu = await import("./machine-users");
     // Every punch on the machine goes into Machine logs (duplicates skipped), mapped or not.
     const hadLogs = (await db.machineLog.count({ where: { machineId: m.id } })) > 0;
-    await mu.storeMachineLogs(m.id, all);
+    const saved = await mu.storeMachineLogs(m.id, all);
     const users = await within(zk.getUsers(), 60_000, "reading users").catch(() => null);
     if (users?.data?.length) await mu.saveMachineUsers(m.id, users.data.map((u) => ({ deviceUserId: String(u.userId), name: u.name, cardNo: String(u.cardno ?? ""), role: u.role })));
     // Attendance takes the last few days on each sync (so a punch HR deleted doesn't come back); the very first time
@@ -161,7 +165,8 @@ export async function syncPullMachine(id: string) {
         info: [String(serial).replace(/\0/g, "").trim() && `SN ${String(serial).replace(/\0/g, "").trim()}`, String(name).replace(/\0/g, "").trim(), info && `${info.userCounts} users, ${info.logCounts} punches stored on machine`].filter(Boolean).join(" · ") || m.info,
       },
     });
-    return { ok: true as const, added: res.added, read: all.length, unknown: res.unknown.length };
+    await finish({ read: all.length, saved, added: res.added, error: null });
+    return { ok: true as const, added: res.added, read: all.length, saved, unknown: res.unknown.length };
   } catch (e) {
     const msg = e instanceof Error ? e.message : typeof e === "object" && e && "err" in e ? String((e as { err: unknown }).err) : String(e);
     const tried = msg.match(/\[Tried: [^\]]*\]/)?.[0] ?? "";
@@ -173,6 +178,7 @@ export async function syncPullMachine(id: string) {
       : /EHOSTUNREACH|ENETUNREACH/.test(msg) ? "The address can't be reached from the server." : `Connection failed: ${msg.slice(0, 200)}`;
     const nice = nice0 + (tried ? ` ${tried}` : "");
     await db.attendanceMachine.update({ where: { id: m.id }, data: { lastSyncAt: new Date(), lastError: nice } });
+    await finish({ error: nice });
     return { error: nice };
   } finally {
     if (zk) await within(zk.disconnect(), 3_000, "disconnect").catch(() => {});
@@ -181,11 +187,11 @@ export async function syncPullMachine(id: string) {
 
 /** Every approved direct-connection machine (from the sync URL / daily job). */
 export async function syncAllPullMachines() {
-  const ms = await db.attendanceMachine.findMany({ where: { mode: "pull", status: "approved" }, select: { id: true } });
-  const out: { id: string; added?: number; error?: string }[] = [];
+  const ms = await db.attendanceMachine.findMany({ where: { mode: "pull", status: "approved" }, select: { id: true, name: true, serial: true } });
+  const out: { machine: string; read?: number; saved?: number; added?: number; error?: string }[] = [];
   for (const m of ms) {
-    const r = await syncPullMachine(m.id);
-    out.push({ id: m.id, ...("error" in r ? { error: r.error } : { added: r.added }) });
+    const r = await syncPullMachine(m.id, "cron");
+    out.push({ machine: m.name ?? m.serial, ...("error" in r ? { error: r.error } : { read: r.read, saved: r.saved, added: r.added }) });
   }
   return out;
 }
