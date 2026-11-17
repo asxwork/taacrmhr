@@ -2574,3 +2574,24 @@ model MachineFetch {
 
   @@index([machineId, startedAt])
 }
+
+/// Inventory → Developers: a builder with its contact details. Projects point to it by name (Project.developer).
+model Developer {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  contactName String?
+  phone       String?
+  email       String?
+  website     String?
+  notes       String? // @text
+  createdAt   DateTime @default(now())
+}
+
+/// Inventory → Areas: a society / sector used for targeting. Projects (Project.location) and listings (Unit.area) use its name.
+model InventoryArea {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  city      String   @default("Karachi")
+  notes     String? // @text
+  createdAt DateTime @default(now())
+}

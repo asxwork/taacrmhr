@@ -7,10 +7,11 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { color, fmtPKR, parseAmount } from "@/lib/crm";
-import { LISTING_TYPES, UNIT_STATUSES, UNIT_TYPES, areaNames, areaOf, areaWhere, developerNames, guessArea, sizeLabel, unitStatus, unitWhere } from "@/lib/inventory";
+import { LISTING_TYPES, UNIT_STATUSES, UNIT_TYPES, areaNames, areaOf, areaWhere, developerNames, guessArea, sizeLabel, syncInventoryCatalog, unitStatus, unitWhere } from "@/lib/inventory";
+import { AreaForm, DeveloperForm } from "./catalog-forms";
 import { fileUrl } from "@/lib/files";
 import { cn } from "@/lib/utils";
-import { Badge, Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
+import { Badge, Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { Pagination, StatusPill, hrefWith } from "@/components/crm/bits";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { SafeImg } from "@/components/safe-img";
@@ -21,7 +22,7 @@ const PAGE_SIZE = 48;
 type SP = {
   tab?: string; q?: string; project?: string; type?: string; status?: string; listing?: string; purpose?: string;
   min?: string; max?: string; view?: string; page?: string; new?: string;
-  developer?: string; area?: string; beds?: string; feat?: string; sort?: string;
+  developer?: string; area?: string; beds?: string; feat?: string; sort?: string; add?: string;
 };
 const TABS = [["units", "Units"], ["projects", "Projects"], ["developers", "Developers"], ["areas", "Areas"]] as const;
 const SORTS = [["", "Project & unit"], ["price", "Price: low to high"], ["-price", "Price: high to low"], ["new", "Newest first"], ["size", "Size: large first"]] as const;
@@ -51,8 +52,15 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     developerNames(), areaNames(),
   ]);
 
+  const canCatalog = user.isSuperAdmin || can(user, "inventory.projects", "edit") || can(user, "inventory.projects", "create");
+  if (tab === "developers" || tab === "areas") await syncInventoryCatalog();
+  const [devRecs, areaRecs] = tab === "developers" || tab === "areas" ? await Promise.all([db.developer.findMany(), db.inventoryArea.findMany()]) : [[], []];
+  const addDrawer = sp.add && canCatalog && (tab === "developers" || tab === "areas") ? (
+    <Drawer title={tab === "developers" ? "Add developer" : "Add area"} closeHref={`/inventory?tab=${tab}`}>{tab === "developers" ? <DeveloperForm /> : <AreaForm />}</Drawer>
+  ) : null;
   const header = (
     <>
+      {addDrawer}
       <PageHeader
         title="Inventory"
         actions={
@@ -65,6 +73,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   </Link>
                 ))}
               </div>
+            )}
+            {(tab === "developers" || tab === "areas") && canCatalog && (
+              <Link href={`/inventory?tab=${tab}&add=1`} scroll={false} className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-medium hover:bg-canvas"><Plus className="size-4" /> {tab === "developers" ? "Add developer" : "Add area"}</Link>
             )}
             {(tab === "projects" || tab === "developers" ? can(user, "inventory.projects", "create") : allowedTypes.length > 0) && (
               <LinkButton href={hrefWith("/inventory/new", { tab: tab === "developers" ? "projects" : sp.tab }, {})} prefetch>
@@ -133,7 +144,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       db.unit.groupBy({ by: ["projectId"], where: { AND: [visible ?? { id: "" }, { projectId: { not: null }, status: "available" }] }, _sum: { price: true }, _min: { price: true }, _max: { price: true } }),
       db.lead.groupBy({ by: ["projectId"], where: { projectId: { not: null }, createdAt: { gte: since } }, _count: true }),
     ]);
-    const groups = [...new Set(projects.map((p) => p.developer ?? ""))].sort((a, b) => (a ? (b ? a.localeCompare(b) : -1) : 1)).map((dev) => {
+    const groups = [...new Set([...devRecs.map((d) => d.name), ...projects.map((p) => p.developer ?? "")])].sort((a, b) => (a ? (b ? a.localeCompare(b) : -1) : 1)).map((dev) => {
       const ps = projects.filter((p) => (p.developer ?? "") === dev);
       const ids = new Set(ps.map((p) => p.id));
       const st = byStatus.filter((r) => r.projectId && ids.has(r.projectId));
@@ -155,7 +166,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               <Card key={g.dev || "none"} className="p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-base font-semibold">{g.dev || "No developer set"}</p>
+                    <p className="truncate text-base font-semibold">{(() => { const rec = devRecs.find((d) => d.name === g.dev); return rec ? <Link href={`/inventory/developers/${rec.id}`} className="hover:underline">{g.dev}</Link> : g.dev || "No developer set"; })()}</p>
                     <p className="text-sm text-muted">{g.ps.length} project{g.ps.length === 1 ? "" : "s"} · {g.total} units · {g.total ? Math.round((g.moved / g.total) * 100) : 0}% booked or sold</p>
                   </div>
                   {g.dev && <Link href={hrefWith("/inventory", {}, { developer: g.dev, status: "available" })} className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-canvas">Available units</Link>}
@@ -197,7 +208,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       db.unit.findMany({ where: visible ?? { id: "" }, select: { status: true, price: true, type: true, area: true, address: true, purpose: true, project: { select: { id: true, name: true, location: true } } } }),
       db.lead.findMany({ where: { createdAt: { gte: since }, OR: [{ location: { not: null } }, { projectId: { not: null } }] }, select: { location: true, project: { select: { location: true } } } }),
     ]);
-    const map = new Map<string, typeof all>();
+    const map = new Map<string, typeof all>(areaRecs.map((a) => [a.name, []]));
     for (const u of all) { const a = areaOf(u) ?? guessArea(u.address, areas) ?? "Other / not set"; map.set(a, [...(map.get(a) ?? []), u]); }
     const leadArea = leads.map((l) => (l.project?.location ?? l.location ?? "").toLowerCase()).filter(Boolean);
     const rows = [...map.entries()].map(([area, us]) => {
@@ -219,7 +230,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               return (
                 <Card key={r.area} className="flex flex-col p-4">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="flex min-w-0 items-center gap-1.5 font-semibold"><MapPin className="size-4 shrink-0 text-muted" /><span className="truncate">{r.area}</span></p>
+                    <p className="flex min-w-0 items-center gap-1.5 font-semibold"><MapPin className="size-4 shrink-0 text-muted" />{(() => { const rec = areaRecs.find((a) => a.name === r.area); return rec ? <Link href={`/inventory/areas/${rec.id}`} className="truncate hover:underline">{r.area}</Link> : <span className="truncate">{r.area}</span>; })()}</p>
                     {hot && <Badge tone="amber"><Flame className="mr-1 inline size-3" />Hot</Badge>}
                   </div>
                   <dl className="mt-3 grid grid-cols-3 gap-2 text-center">

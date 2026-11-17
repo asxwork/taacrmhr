@@ -69,3 +69,7 @@ export function buildSchedule(p: { total: number; downPct: number; installments:
   if (possession > 0) rows.push({ seq: p.installments + 1, label: "On possession", dueDate: addMonths(p.startDate, (p.installments + 1) * months), amount: possession });
   return rows;
 }
+
+/** PKR in Cr / Lac for cards ("1.5 Cr", "90.0 Lac"). */
+export const pkShort = (n: number) => (n >= 1e7 ? `${(n / 1e7).toFixed(n >= 1e9 ? 0 : 1)} Cr` : n >= 1e5 ? `${(n / 1e5).toFixed(1)} Lac` : n.toLocaleString("en-PK"));
+export const pkRange = (a: number | null | undefined, b: number | null | undefined) => (a && b ? (a === b ? pkShort(a) : `${pkShort(a)} – ${pkShort(b)}`) : "—");

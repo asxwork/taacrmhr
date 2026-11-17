@@ -120,10 +120,28 @@ export async function unitOptions(user: SessionUser) {
   }));
 }
 
-/** Developer names already used on projects (for suggestions and filters). */
+/** Developer names: the Developers list plus any name typed on a project (for suggestions and filters). */
 export async function developerNames() {
-  const rows = await db.project.findMany({ where: { developer: { not: null } }, select: { developer: true }, distinct: ["developer"], orderBy: { developer: "asc" } });
-  return rows.map((r) => r.developer!).filter(Boolean);
+  const [rows, recs] = await Promise.all([
+    db.project.findMany({ where: { developer: { not: null } }, select: { developer: true }, distinct: ["developer"] }),
+    db.developer.findMany({ select: { name: true } }),
+  ]);
+  return [...new Set([...recs.map((r) => r.name), ...rows.map((r) => r.developer!)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+/** Gives every developer / area name already used on projects and listings its own record (so it gets a page). */
+export async function syncInventoryCatalog() {
+  const [devs, areas, haveDev, haveArea] = await Promise.all([
+    db.project.findMany({ where: { developer: { not: null } }, select: { developer: true }, distinct: ["developer"] }),
+    areaNames(),
+    db.developer.findMany({ select: { name: true } }),
+    db.inventoryArea.findMany({ select: { name: true } }),
+  ]);
+  const hd = new Set(haveDev.map((d) => d.name.toLowerCase())), ha = new Set(haveArea.map((a) => a.name.toLowerCase()));
+  const newDevs = [...new Set(devs.map((d) => d.developer!.trim()).filter((n) => n && !hd.has(n.toLowerCase())))];
+  const newAreas = [...new Set(areas.filter((n) => n && !ha.has(n.toLowerCase())))];
+  if (newDevs.length) await db.developer.createMany({ data: newDevs.map((name) => ({ name })) }).catch(() => null);
+  if (newAreas.length) await db.inventoryArea.createMany({ data: newAreas.map((name) => ({ name })) }).catch(() => null);
 }
 
 /** Areas in use: project locations plus listing areas. */
@@ -134,7 +152,8 @@ export async function areaNames() {
     db.unit.findMany({ where: { area: null, projectId: null, address: { not: null } }, select: { address: true }, distinct: ["address"], take: 2000 }),
   ]);
   const guessed = old.map((x) => guessArea(x.address)).filter((x): x is string => !!x);
-  return [...new Set([...p.map((x) => x.location!), ...u.map((x) => x.area!), ...guessed].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const recs = await db.inventoryArea.findMany({ select: { name: true } });
+  return [...new Set([...recs.map((r) => r.name), ...p.map((x) => x.location!), ...u.map((x) => x.area!), ...guessed].filter(Boolean))].sort((a, b) => a.localeCompare(b));
 }
 
 /** Units in an area: own area, the project's location, or (older listings) the address mentions it. */
