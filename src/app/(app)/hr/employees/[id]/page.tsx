@@ -23,7 +23,7 @@ import { addEmployeeNote, completeExit, createLoginForEmployee, confirmEmployee,
 
 export const metadata = { title: "Employee" };
 
-type SP = { tab?: string; assign?: string; resign?: string; delete?: string };
+type SP = { from?: string; tab?: string; assign?: string; resign?: string; delete?: string };
 
 export default async function EmployeePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SP> }) {
   const user = await requireUser();
@@ -197,8 +197,8 @@ export default async function EmployeePage({ params, searchParams }: { params: P
 
   return (
     <>
-      <Link href="/hr/employees" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="size-4" /> Employees
+      <Link href={sp.from === "users" ? "/settings/users" : "/hr/employees"} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+        <ArrowLeft className="size-4" /> {sp.from === "users" ? "Users" : "Employees"}
       </Link>
 
       <ProfileView

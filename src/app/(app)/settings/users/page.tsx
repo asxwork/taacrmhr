@@ -95,14 +95,14 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                 {users.map((u) => (
                   <tr key={u.id} className={u.active ? "hover:bg-canvas/60" : "opacity-50"}>
                     <td className="td">
-                      {/* The person opens their one profile (HR employee profile); account settings are the pencil. */}
-                      <Link href={u.employee && canSeeProfiles ? `/hr/employees/${u.employee.id}` : editHref(u.id)} scroll={false} className="flex items-center gap-3">
-                        <Avatar name={u.name} />
-                        <div>
-                          <p className="font-medium hover:underline">{u.name}</p>
-                          <p className="text-xs text-muted">{u.email}</p>
+                      {/* In Settings the row edits the account; the profile is its own link under the name. */}
+                      <div className="flex items-center gap-3">
+                        <Link href={editHref(u.id)} scroll={false} className="shrink-0"><Avatar name={u.name} /></Link>
+                        <div className="min-w-0">
+                          <Link href={editHref(u.id)} scroll={false} className="font-medium hover:underline">{u.name}</Link>
+                          <p className="truncate text-xs text-muted">{u.email}{u.employee && canSeeProfiles && <> · <Link href={`/hr/employees/${u.employee.id}?from=users`} className="font-medium text-navy-900 hover:underline">View profile</Link></>}</p>
                         </div>
-                      </Link>
+                      </div>
                     </td>
                     <td className="td">
                       <div className="flex flex-wrap gap-1">
@@ -187,7 +187,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
               </a>
             )}
             {editingEmployee && canSeeProfiles && (
-              <Link href={`/hr/employees/${editingEmployee.id}`} className="flex items-center justify-between rounded-md border border-line px-3 py-2.5 text-sm hover:bg-canvas/60">
+              <Link href={`/hr/employees/${editingEmployee.id}?from=users`} className="flex items-center justify-between rounded-md border border-line px-3 py-2.5 text-sm hover:bg-canvas/60">
                 <span><span className="block font-medium">Open employee profile</span><span className="block text-xs text-muted">Personal details, job and pay, documents, attendance</span></span>
                 <span aria-hidden>→</span>
               </Link>
