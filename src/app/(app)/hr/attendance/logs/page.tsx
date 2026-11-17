@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { LogsTabs } from "./logs-tabs";
 import { addDays, format, parse, startOfDay, subDays } from "date-fns";
 import { MapPin, Pencil, Trash2 } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -74,12 +75,7 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
   const editing = sp.editPunch ? await db.attendancePunch.findUnique({ where: { id: sp.editPunch }, include: { employee: { select: { fullName: true } } } }) : null;
   const adders = new Map((await db.user.findMany({ where: { id: { in: [...new Set(punches.map((p) => p.createdById).filter((x): x is string => !!x))] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
 
-  const tabLink = (t: "machine" | "changes", label: string, n: number) => (
-    <Link href={hrefWith("/hr/attendance/logs", { ...keep, tab: t === "machine" ? undefined : t, source: undefined, kind: undefined }, {})}
-      className={cn("flex items-center gap-2 rounded-md px-3 py-1.5 text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>
-      {label} <span className="rounded-full bg-black/5 px-1.5 text-xs tabular-nums">{n}</span>
-    </Link>
-  );
+
 
   return (
     <>
@@ -90,7 +86,7 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
             <p key={m.id} className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-800"><b>{m.name ?? m.serial}</b> can&apos;t be read, so its punches haven&apos;t come in yet: {m.lastError} <Link href="/hr/attendance/machines" className="font-medium underline">Open machines</Link></p>
           ))}
           {machineStatus.unmapped > 0 && (
-            <p className="rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-800"><b>{machineStatus.unmapped}</b> machine punch(es) in these dates belong to machine users not mapped to an employee yet, so they aren&apos;t listed here. <Link href="/hr/attendance/machines/logs?show=unmapped" className="font-medium underline">See them and map the users</Link></p>
+            <p className="rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-800"><b>{machineStatus.unmapped}</b> machine punch(es) in these dates belong to machine users not mapped to an employee yet, so they aren&apos;t listed here. <Link href="/hr/attendance/logs/machine?show=unmapped" className="font-medium underline">See them and map the users</Link></p>
           )}
           {machineStatus.failing.length === 0 && machineStatus.unmapped === 0 && machineStatus.read === 0 && (
             <p className="rounded-lg bg-canvas px-4 py-2.5 text-sm text-muted">No machine punches have been read for these dates yet. Click <b>Fetch logs now</b> on <Link href="/hr/attendance/machines" className="underline">Machines</Link>, or upload the machine&apos;s USB log file on its mapping page.</p>
@@ -99,10 +95,7 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
       )}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
-          {tabLink("machine", "Machine & check-ins", punchCount)}
-          {tabLink("changes", "Change log", logCount)}
-        </div>
+        <LogsTabs active={tab} counts={{ machine: punchCount, changes: logCount }} />
         <AutoFilterForm className="flex flex-wrap items-center gap-2">
           {sp.tab && <input type="hidden" name="tab" value={sp.tab} />}
           <input type="date" name="from" defaultValue={format(from, "yyyy-MM-dd")} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="From" />

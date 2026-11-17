@@ -123,6 +123,78 @@ export async function connectMachine(host: string, port: number, savedKey: numbe
   throw new Error((errors[0]?.message ?? "TIMEOUT connect") + detail);
 }
 
+// ---- Reading data the way ZKTeco's reference client does: record sizes differ by model/firmware ----
+// (K40 / older firmware: 8- or 16-byte punch records and 28-byte users; newer: 40-byte punches and 72-byte users.)
+const REQ_ATTLOG = Buffer.from([0x01, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+const REQ_USERS = Buffer.from([0x01, 0x09, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+const CMD_OPTIONS_RRQ = 11;
+
+/** ZK packed time: seconds since 2000 in a mixed-radix form; machine wall-clock time (server runs on Karachi time). */
+function zkTime(t: number) {
+  const second = t % 60; t = Math.floor(t / 60);
+  const minute = t % 60; t = Math.floor(t / 60);
+  const hour = t % 24; t = Math.floor(t / 24);
+  const day = (t % 31) + 1; t = Math.floor(t / 31);
+  const month = t % 12; t = Math.floor(t / 12);
+  return new Date(t + 2000, month, day, hour, minute, second);
+}
+const zkString = (b: Buffer) => b.toString("latin1").split("\0")[0]!.trim();
+
+async function readBlock(zk: Zk, transport: Transport, req: Buffer) {
+  const t = transport === "udp" ? zk.zudp : zk.ztcp;
+  await t.freeData().catch(() => null);
+  const r = await t.readWithBuffer(req);
+  await t.freeData().catch(() => null);
+  const buf = r?.data;
+  if (!buf || buf.length < 4) return Buffer.alloc(0);
+  const size = buf.readUInt32LE(0);
+  return buf.subarray(4, 4 + Math.min(size, buf.length - 4));
+}
+
+/** One option from the machine, e.g. "~SerialNumber". */
+async function readOption(zk: Zk, transport: Transport, key: string) {
+  const t = transport === "udp" ? zk.zudp : zk.ztcp;
+  const reply = await t.executeCmd(CMD_OPTIONS_RRQ, `${key}\0`);
+  const text = zkString(reply.subarray(8));
+  return text.includes("=") ? text.split("=").slice(1).join("=").trim() : "";
+}
+
+export type ZkUser = { uid: number; userId: string; name: string; role: number; cardNo: string };
+async function readUsers(zk: Zk, transport: Transport, count: number | null): Promise<ZkUser[]> {
+  return decodeUsers(await readBlock(zk, transport, REQ_USERS), count);
+}
+export function decodeUsers(body: Buffer, count: number | null): ZkUser[] {
+  if (!body.length) return [];
+  const size = count && body.length % count === 0 ? body.length / count : body.length % 72 === 0 ? 72 : 28;
+  const out: ZkUser[] = [];
+  for (let o = 0; o + size <= body.length; o += size) {
+    const r = body.subarray(o, o + size);
+    if (size === 28) out.push({ uid: r.readUInt16LE(0), role: r[2]!, name: zkString(r.subarray(8, 16)), cardNo: String(r.readUInt32LE(16)), userId: String(r.readUInt32LE(24)) });
+    else out.push({ uid: r.readUInt16LE(0), role: r[2]!, name: zkString(r.subarray(11, 35)), cardNo: String(r.readUInt32LE(35)), userId: zkString(r.subarray(48, 72)) || String(r.readUInt16LE(0)) });
+  }
+  return out;
+}
+
+async function readPunches(zk: Zk, transport: Transport, count: number | null, users: ZkUser[]) {
+  return decodePunches(await readBlock(zk, transport, REQ_ATTLOG), count, users);
+}
+export function decodePunches(body: Buffer, count: number | null, users: ZkUser[]) {
+  if (!body.length) return [];
+  const byUid = new Map(users.map((u) => [u.uid, u.userId]));
+  const guess = body.length % 40 === 0 ? 40 : body.length % 16 === 0 ? 16 : 8;
+  const size = count && body.length % count === 0 && [8, 16, 40].includes(body.length / count) ? body.length / count : guess;
+  const out: { deviceUserId: string; at: Date }[] = [];
+  for (let o = 0; o + size <= body.length; o += size) {
+    const r = body.subarray(o, o + size);
+    if (size === 8) { const uid = r.readUInt16LE(0); out.push({ deviceUserId: byUid.get(uid) ?? String(uid), at: zkTime(r.readUInt32LE(3)) }); }
+    else if (size === 16) out.push({ deviceUserId: String(r.readUInt32LE(0)), at: zkTime(r.readUInt32LE(4)) });
+    else { const uid = r.readUInt16LE(0); out.push({ deviceUserId: zkString(r.subarray(2, 26)) || byUid.get(uid) || String(uid), at: zkTime(r.readUInt32LE(27)) }); }
+  }
+  // Drop impossible dates (a misread record), keep the rest.
+  const now = Date.now() + 86_400_000;
+  return out.filter((p) => p.deviceUserId && p.deviceUserId !== "0" && !Number.isNaN(+p.at) && p.at.getFullYear() >= 2010 && +p.at <= now);
+}
+
 /** Plain "connect, read, save" for a machine AMS reaches directly (public IP + port 4370, comm key 0). */
 export async function syncPullMachine(id: string, trigger: "cron" | "manual" = "manual") {
   const m = await db.attendanceMachine.findUnique({ where: { id } });
@@ -139,17 +211,17 @@ export async function syncPullMachine(id: string, trigger: "cron" | "manual" = "
     zk = conn.zk;
     // Remember what worked; if the machine has no password after all, forget the wrong key.
     await db.attendanceMachine.update({ where: { id: m.id }, data: { transport: conn.transport, ...(savedKey && conn.usedKey === 0 ? { commKeyEnc: null, requiresAuth: false } : {}) } });
-    const [info, serial, name] = await within(Promise.all([zk.getInfo().catch(() => null), zk.getSerialNumber().catch(() => ""), zk.getDeviceName().catch(() => "")]), 15_000, "device info");
-    const { data } = await within(zk.getAttendances(), 120_000, "reading punches");
-    const all = data
-      .map((r) => ({ deviceUserId: String(r.user_id).trim(), at: new Date(r.record_time) }))
-      .filter((r) => r.deviceUserId && !Number.isNaN(r.at.getTime()));
+    const t = conn.transport;
+    const info = await within(zk.getInfo(), 15_000, "device info").catch(() => null);
+    const serial = await within(readOption(zk, t, "~SerialNumber"), 10_000, "device info").catch(() => "");
+    const name = await within(readOption(zk, t, "~DeviceName"), 10_000, "device info").catch(() => "");
+    const zkUsers = await within(readUsers(zk, t, info?.userCounts ?? null), 60_000, "reading users").catch(() => [] as ZkUser[]);
+    const all = await within(readPunches(zk, t, info?.logCounts ?? null, zkUsers), 180_000, "reading punches");
     const mu = await import("./machine-users");
     // Every punch on the machine goes into Machine logs (duplicates skipped), mapped or not.
     const hadLogs = (await db.machineLog.count({ where: { machineId: m.id } })) > 0;
     const saved = await mu.storeMachineLogs(m.id, all);
-    const users = await within(zk.getUsers(), 60_000, "reading users").catch(() => null);
-    if (users?.data?.length) await mu.saveMachineUsers(m.id, users.data.map((u) => ({ deviceUserId: String(u.userId), name: u.name, cardNo: String(u.cardno ?? ""), role: u.role })));
+    if (zkUsers.length) await mu.saveMachineUsers(m.id, zkUsers.map((u) => ({ deviceUserId: u.userId, name: u.name, cardNo: u.cardNo, role: u.role })));
     // Attendance takes the last few days on each sync (so a punch HR deleted doesn't come back); the very first time
     // this machine's logs are kept, everything on it is brought in for the users already mapped.
     const since = hadLogs && m.lastPunchAt ? m.lastPunchAt.getTime() - 3 * 86_400_000 : 0;

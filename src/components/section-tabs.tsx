@@ -3,7 +3,7 @@
 import Link from "@/components/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { activeTab, type Section, type SectionTab } from "@/lib/sections";
+import { activeTab, underNestedTab, type Section, type SectionTab } from "@/lib/sections";
 
 /**
  * The screens of the current section as tabs across the top of the page (filtered to what the user may open).
@@ -14,7 +14,8 @@ export function SectionTabs({ sections, app }: { sections: Section[]; app?: stri
   const path = usePathname();
   const params = useSearchParams();
   const pathOf = (h: string) => h.split("?")[0];
-  const hits = sections.filter((s) => s.tabs.some((t) => pathOf(t.href) === path));
+  const exact = sections.filter((s) => s.tabs.some((t) => pathOf(t.href) === path));
+  const hits = exact.length ? exact : sections.filter((s) => s.tabs.some((t) => underNestedTab(t, path)));
   const section = hits.find((s) => s.app && path.startsWith("/me")) ?? hits.find((s) => !s.app || s.app === app) ?? hits[0];
   const tabs: SectionTab[] = section?.tabs ?? [];
   const active = activeTab(tabs, path, params);

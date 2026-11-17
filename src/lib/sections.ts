@@ -7,6 +7,8 @@ export type SectionTab = {
   module?: string; action?: Action; superAdmin?: boolean;
   /** Query values this tab requires (null = must be absent); tabs on the same path are told apart by these. */
   params?: Record<string, string | null>;
+  /** Pages under this path (e.g. /hr/attendance/logs/machine) keep this section's tabs, with this tab active. */
+  nested?: boolean;
 };
 /** `app`: only in that app (e.g. My Space tabs don't show on HR's Approvals page). */
 export type Section = { key: string; app?: string; tabs: SectionTab[] };
@@ -111,8 +113,8 @@ export const SECTIONS: Section[] = [
       { href: "/hr/attendance", label: "Daily & monthly", module: "hr.attendance" },
       { href: "/hr/attendance/schedule", label: "Scheduling", module: "hr.attendance" },
       { href: "/hr/attendance/shifts", label: "Shifts", module: "hr.attendance" },
-      { href: "/hr/attendance/logs", label: "Logs", module: "hr.attendance" },
-      { href: "/hr/attendance/machines", label: "Machines", module: "hr.attendance" },
+      { href: "/hr/attendance/logs", label: "Logs", module: "hr.attendance", nested: true },
+      { href: "/hr/attendance/machines", label: "Machines", module: "hr.attendance", nested: true },
       { href: "/hr/attendance/device-changes", label: "Device approvals", module: "hr.attendance" },
       { href: "/hr/attendance/swaps", label: "Shift swaps", module: "hr.shiftswap" },
       { href: "/hr/attendance/reports/time", label: "Reports", module: "hr.attendance" },
@@ -159,5 +161,8 @@ export const sectionForPath = (path: string, app?: string) => SECTIONS.find((s) 
 
 /** Which tab is active for a path and query: same path, and every required query value matches. */
 export function activeTab(tabs: SectionTab[], path: string, params: URLSearchParams) {
-  return tabs.find((t) => pathOf(t.href) === path && Object.entries(t.params ?? {}).every(([k, v]) => (v === null ? !params.get(k) : params.get(k) === v)));
+  return tabs.find((t) => pathOf(t.href) === path && Object.entries(t.params ?? {}).every(([k, v]) => (v === null ? !params.get(k) : params.get(k) === v)))
+    ?? tabs.find((t) => t.nested && path.startsWith(`${pathOf(t.href)}/`));
 }
+/** A page under a `nested` tab's path (e.g. a machine's mapping page). */
+export const underNestedTab = (t: SectionTab, path: string) => !!t.nested && path.startsWith(`${pathOf(t.href)}/`);

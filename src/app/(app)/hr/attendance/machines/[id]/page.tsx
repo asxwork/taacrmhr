@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { requirePermission, scopeFor } from "@/lib/permissions";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { MachineTabs } from "../machine-tabs";
 import { autoMapUsers, mapMachineUser, syncMachineUsers, unmapMachineUser, uploadMachineLogs, uploadMapping } from "../actions";
 
 export const metadata = { title: "Machine user mapping" };
@@ -36,7 +35,6 @@ export default async function MachineMappingPage({ params, searchParams }: { par
 
   return (
     <>
-      <MachineTabs active="mapping" mappingHref={`/hr/attendance/machines/${id}`} />
       <PageHeader title="Employee mappings to machine users" description={`${m.name ?? m.serial} · map each person on the machine to their AMS employee once; their punches then count for that employee.`} />
 
       <Card className="mb-5 p-5">

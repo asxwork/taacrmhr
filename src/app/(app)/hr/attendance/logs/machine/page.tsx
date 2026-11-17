@@ -7,11 +7,11 @@ import { machineEmployeeMap } from "@/lib/machine-users";
 import { cn } from "@/lib/utils";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
-import { MachineTabs } from "../machine-tabs";
+import { LogsTabs } from "../logs-tabs";
 import { formatDistanceToNow } from "date-fns";
 import { RefreshCw } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { syncMachineNow } from "../actions";
+import { syncMachineNow } from "../../machines/actions";
 
 export const metadata = { title: "Machine logs" };
 const PAGE = 200;
@@ -53,8 +53,8 @@ export default async function MachineLogsPage({ searchParams }: { searchParams: 
 
   return (
     <>
-      <MachineTabs active="logs" />
-      <PageHeader title="Logs" description={`Every punch read from the machines${total > all.length ? ` (latest ${all.length.toLocaleString()} of ${total.toLocaleString()} shown)` : ""}. Punches of users not mapped yet wait here and count as soon as they are mapped.`} />
+      <PageHeader title="Raw machine punches" description={`Every punch read from the machines${total > all.length ? ` (latest ${all.length.toLocaleString()} of ${total.toLocaleString()} shown)` : ""}. Punches of users not mapped yet wait here and count as soon as they are mapped.`} />
+      <div className="mb-4"><LogsTabs active="raw" /></div>
       {/* Each machine: was it read, how many punches are saved here, or why not. */}
       <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         {machines.filter((m) => m.status !== "blocked").map((m) => {
@@ -82,7 +82,7 @@ export default async function MachineLogsPage({ searchParams }: { searchParams: 
       <Card className="overflow-hidden">
         <div className="flex items-center gap-1 border-b border-line px-3">
           {([["all", "All", all.length], ["mapped", "Mapped", all.length - unmappedCount], ["unmapped", "Not mapped", unmappedCount]] as const).map(([k, l, n]) => (
-            <Link key={k} href={`/hr/attendance/machines/logs${q({ show: k === "all" ? undefined : k, page: undefined })}`} className={cn("-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm", show === k ? "border-navy-900 font-medium" : "border-transparent text-muted hover:text-ink")}>
+            <Link key={k} href={`/hr/attendance/logs/machine${q({ show: k === "all" ? undefined : k, page: undefined })}`} className={cn("-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm", show === k ? "border-navy-900 font-medium" : "border-transparent text-muted hover:text-ink")}>
               <span className={cn("rounded-md px-1.5 text-xs font-semibold tabular-nums", k === "unmapped" && n ? "bg-amber-100 text-amber-800" : "bg-canvas")}>{n.toLocaleString()}</span>{l}
             </Link>
           ))}
@@ -111,8 +111,8 @@ export default async function MachineLogsPage({ searchParams }: { searchParams: 
         {filtered.length > PAGE && (
           <div className="flex items-center justify-end gap-3 border-t border-line px-4 py-2.5 text-sm text-muted">
             <span>{(page - 1) * PAGE + 1}–{Math.min(page * PAGE, filtered.length)} of {filtered.length.toLocaleString()}</span>
-            {page > 1 && <Link href={`/hr/attendance/machines/logs${q({ page: page - 1 })}`} className="rounded border border-line px-2 py-1 hover:bg-canvas">Previous</Link>}
-            {page * PAGE < filtered.length && <Link href={`/hr/attendance/machines/logs${q({ page: page + 1 })}`} className="rounded border border-line px-2 py-1 hover:bg-canvas">Next</Link>}
+            {page > 1 && <Link href={`/hr/attendance/logs/machine${q({ page: page - 1 })}`} className="rounded border border-line px-2 py-1 hover:bg-canvas">Previous</Link>}
+            {page * PAGE < filtered.length && <Link href={`/hr/attendance/logs/machine${q({ page: page + 1 })}`} className="rounded border border-line px-2 py-1 hover:bg-canvas">Next</Link>}
           </div>
         )}
       </Card>

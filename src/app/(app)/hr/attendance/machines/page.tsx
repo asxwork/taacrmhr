@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { MachineTabs } from "./machine-tabs";
 import { deleteMachine, saveMachine, setMachineActive, syncMachineNow, updateMachine } from "./actions";
 
 export const metadata = { title: "Attendance machines" };
@@ -41,7 +40,6 @@ export default async function MachinesPage({ searchParams }: { searchParams: Pro
   return (
     <>
       {!formOpen && <AutoRefresh seconds={30} />}
-      <MachineTabs active="machines" />
       <PageHeader title="Machines" description="Manage attendance machines from one place." actions={canEdit ? (
         <Link href="/hr/attendance/machines?new=1" scroll={false} className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-navy-900 px-4 text-sm font-medium text-white hover:bg-navy-800"><Plus className="size-4" /> Create</Link>
       ) : undefined} />
@@ -58,9 +56,9 @@ export default async function MachinesPage({ searchParams }: { searchParams: Pro
           <EmptyState title={machines.length ? "No machines here" : "No machines yet"} description={machines.length ? "Try the All tab." : "Click Create and enter the machine's public IP and port (usually 4370), like in ResourceInn."} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-full min-w-[820px] text-sm">
               <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted">
-                <tr>{["Name", "Machine type", "IP", "Port", "Active", "Status", "Last logs retrieved", "Total attendance", ""].map((x) => <th key={x} className="px-4 py-3 font-medium">{x}</th>)}</tr>
+                <tr>{["Name", "Machine type", "IP : Port", "Active", "Status", "Last logs retrieved", "Total attendance", ""].map((x) => <th key={x} className="px-4 py-3 font-medium">{x}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {shown.map((m) => {
@@ -71,12 +69,11 @@ export default async function MachinesPage({ searchParams }: { searchParams: Pro
                       <td className="px-4 py-3">
                         <Link href={`/hr/attendance/machines/${m.id}`} className="font-medium hover:underline">{m.name ?? m.serial}</Link>
                         <p className="text-xs text-muted">{[branch?.name, m.mode === "push" ? `Cloud Server · SN ${m.serial}` : m.transport ? `Direct · ${m.transport.toUpperCase()}` : "Direct"].filter(Boolean).join(" · ")}</p>
-                        {m.lastError && m.mode === "pull" && <p className="mt-1.5 max-w-md rounded-md bg-red-50 px-2 py-1 text-xs text-red-700">{m.lastError}</p>}
-                        {m.unknownIds && <p className="mt-1.5 max-w-md rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">Machine users not mapped: <b>{m.unknownIds.split(",").slice(0, 12).join(", ")}</b> · <Link href={`/hr/attendance/machines/${m.id}`} className="underline">map them</Link></p>}
+                        {m.lastError && m.mode === "pull" && <p className="mt-1.5 max-w-[15rem] rounded-md bg-red-50 px-2 py-1 text-xs text-red-700">{m.lastError}</p>}
+                        {m.unknownIds && <p className="mt-1.5 max-w-[15rem] rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">Machine users not mapped: <b>{m.unknownIds.split(",").slice(0, 12).join(", ")}</b> · <Link href={`/hr/attendance/machines/${m.id}`} className="underline">map them</Link></p>}
                       </td>
                       <td className="px-4 py-3">ZKTeco</td>
-                      <td className="px-4 py-3 font-mono text-xs">{m.host ?? m.ip ?? "—"}</td>
-                      <td className="px-4 py-3 tabular-nums">{m.port ?? (m.mode === "push" ? "—" : 4370)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">{m.host ?? m.ip ?? "—"}{m.mode === "pull" ? `:${m.port ?? 4370}` : ""}</td>
                       <td className="px-4 py-3">{m.status === "pending" ? <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Waiting</span> : <span className={cn("rounded px-2 py-0.5 text-xs font-semibold", isActive(m.status) ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700")}>{isActive(m.status) ? "Active" : "Inactive"}</span>}</td>
                       <td className="px-4 py-3"><span className={cn("inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-semibold", on ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600")}><span className={cn("size-1.5 rounded-full", on ? "bg-emerald-500" : "bg-slate-400")} />{on ? "Online" : "Offline"}</span></td>
                       <td className="whitespace-nowrap px-4 py-3 text-xs">{m.lastSeenAt ? <><span className="block">{format(m.lastSeenAt, "MMM d, yyyy h:mm a")}</span><span className="text-muted">{formatDistanceToNow(m.lastSeenAt, { addSuffix: true })}</span></> : <span className="text-muted">Never</span>}</td>

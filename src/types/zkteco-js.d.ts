@@ -9,7 +9,7 @@ declare module "zkteco-js" {
     getAttendances(): Promise<{ data: { user_id: string | number; record_time: string }[] }>;
     disconnect(): Promise<void>;
     connectionType: "tcp" | "udp" | null;
-    ztcp: { sessionId: number; createSocket(cbErr?: (e: unknown) => void, cbClose?: (t: string) => void): Promise<unknown>; executeCmd(command: number, data: Buffer | string): Promise<Buffer> };
-    zudp: { sessionId: number; createSocket(cbErr?: (e: unknown) => void, cbClose?: (t: string) => void): Promise<unknown>; executeCmd(command: number, data: Buffer | string): Promise<Buffer> };
+    ztcp: { sessionId: number; createSocket(cbErr?: (e: unknown) => void, cbClose?: (t: string) => void): Promise<unknown>; executeCmd(command: number, data: Buffer | string): Promise<Buffer>; readWithBuffer(req: Buffer, cb?: unknown): Promise<{ data: Buffer; mode?: number }>; freeData(): Promise<unknown> };
+    zudp: { sessionId: number; createSocket(cbErr?: (e: unknown) => void, cbClose?: (t: string) => void): Promise<unknown>; executeCmd(command: number, data: Buffer | string): Promise<Buffer>; readWithBuffer(req: Buffer, cb?: unknown): Promise<{ data: Buffer; mode?: number }>; freeData(): Promise<unknown> };
   }
 }

@@ -26,7 +26,7 @@ export async function updateMachine(fd: FormData) {
   const name = fd.has("name") ? str(fd, "name").slice(0, 80) || null : m.name;
   await db.attendanceMachine.update({ where: { id: m.id }, data: { status, name } });
   if (status !== m.status) await audit(user.id, "update", "attendanceMachine", m.id, `Machine ${m.serial} ${status}`);
-  revalidatePath("/hr/attendance/machines", "layout");
+  revalidatePath("/hr/attendance/machines", "layout"); revalidatePath("/hr/attendance/logs", "layout");
 }
 
 /** Super Admin: forget a machine (it reappears as pending if it calls in again). */
@@ -37,7 +37,7 @@ export async function deleteMachine(fd: FormData) {
   if (!m) return;
   await db.attendanceMachine.delete({ where: { id: m.id } });
   await audit(user.id, "delete", "attendanceMachine", m.id, `Machine ${m.serial} removed`);
-  revalidatePath("/hr/attendance/machines", "layout");
+  revalidatePath("/hr/attendance/machines", "layout"); revalidatePath("/hr/attendance/logs", "layout");
 }
 
 /** Adds a machine AMS connects to directly (public IP / domain and port, usually 4370) and tests it straight away. */
@@ -58,7 +58,7 @@ export async function addPullMachine(_: FormState, fd: FormData): Promise<FormSt
   });
   await audit(user.id, "create", "attendanceMachine", m.id, `Direct machine ${serial} added`);
   const res = await syncPullMachine(m.id);
-  revalidatePath("/hr/attendance/machines", "layout");
+  revalidatePath("/hr/attendance/machines", "layout"); revalidatePath("/hr/attendance/logs", "layout");
   return "error" in res ? { error: `Saved, but: ${res.error}` } : { ok: true, message: `Connected. Read ${res.read} punch(es), ${res.added} new${res.unknown ? `, ${res.unknown} machine ID(s) not linked to employees` : ""}.` };
 }
 
@@ -81,7 +81,7 @@ export async function saveCommKey(_: FormState, fd: FormData): Promise<FormState
   const m = await db.attendanceMachine.update({ where: { id: str(fd, "id") }, data: { commKeyEnc: key.value ?? null } });
   await audit(user.id, "update", "attendanceMachine", m.id, `Comm Key updated for ${m.serial}`);
   const res = await syncPullMachine(m.id);
-  revalidatePath("/hr/attendance/machines", "layout");
+  revalidatePath("/hr/attendance/machines", "layout"); revalidatePath("/hr/attendance/logs", "layout");
   return "error" in res ? { error: res.error } : { ok: true, message: `Connected. ${res.added} new punch(es).` };
 }
 
@@ -89,7 +89,7 @@ export async function saveCommKey(_: FormState, fd: FormData): Promise<FormState
 export async function syncMachineNow(_: FormState, fd: FormData): Promise<FormState> {
   if (!(await admin())) return { error: "Not allowed." };
   const res = await syncPullMachine(str(fd, "id"));
-  revalidatePath("/hr/attendance/machines", "layout");
+  revalidatePath("/hr/attendance/machines", "layout"); revalidatePath("/hr/attendance/logs", "layout");
   return "error" in res ? { error: res.error } : { ok: true, message: `Connected. ${res.added} new punch(es).` };
 }
 
@@ -118,7 +118,7 @@ export async function saveMachine(_: FormState, fd: FormData): Promise<FormState
     // Cloud Server machines identify themselves by serial number when they call in.
     if (!existing) return { error: "A Cloud Server machine appears here by itself once it calls in (see “Machine sends to AMS” below). Then edit it to fill in these details." };
     await db.attendanceMachine.update({ where: { id: existing.id }, data: details });
-    revalidatePath("/hr/attendance/machines", "layout");
+    revalidatePath("/hr/attendance/machines", "layout"); revalidatePath("/hr/attendance/logs", "layout");
     return { ok: true, message: "Saved." };
   }
 
@@ -144,7 +144,7 @@ export async function saveMachine(_: FormState, fd: FormData): Promise<FormState
     : await db.attendanceMachine.create({ data: { ...data, status: "approved" } });
   await audit(user.id, existing ? "update" : "create", "attendanceMachine", m.id, `Machine “${name}” (${serial}) ${existing ? "updated" : "added"}`);
   const res = await syncPullMachine(m.id);
-  revalidatePath("/hr/attendance/machines", "layout");
+  revalidatePath("/hr/attendance/machines", "layout"); revalidatePath("/hr/attendance/logs", "layout");
   return "error" in res ? { error: `Saved, but the test failed: ${res.error}` } : { ok: true, message: `Saved and connected. Read ${res.read} punch(es), ${res.added} new${res.unknown ? `, ${res.unknown} machine ID(s) not linked to employees` : ""}.` };
 }
 
@@ -157,7 +157,7 @@ export async function setMachineActive(fd: FormData) {
   const status = str(fd, "active") === "1" ? "approved" : "blocked";
   await db.attendanceMachine.update({ where: { id: m.id }, data: { status } });
   await audit(user.id, "update", "attendanceMachine", m.id, `Machine ${m.name ?? m.serial} ${status === "approved" ? "activated" : "deactivated"}`);
-  revalidatePath("/hr/attendance/machines", "layout");
+  revalidatePath("/hr/attendance/machines", "layout"); revalidatePath("/hr/attendance/logs", "layout");
 }
 
 // ---------- Employee ↔ machine user mapping (ResourceInn "Change Mapping") ----------

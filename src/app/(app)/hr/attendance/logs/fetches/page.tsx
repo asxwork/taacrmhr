@@ -5,7 +5,7 @@ import { requirePermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
-import { MachineTabs } from "../machine-tabs";
+import { LogsTabs } from "../logs-tabs";
 
 export const metadata = { title: "Machine fetch history" };
 export const dynamic = "force-dynamic";
@@ -27,8 +27,8 @@ export default async function MachineFetchesPage({ searchParams }: { searchParam
 
   return (
     <>
-      <MachineTabs active="fetches" />
       <PageHeader title="Fetch history" description="Every time AMS tried to read a machine: automatically every 10 minutes (cron) or when someone clicked Fetch now. Read = punches on the machine, Saved = new in Logs, Added = new in attendance." />
+      <div className="mb-4"><LogsTabs active="fetches" /></div>
       <AutoFilterForm className="mb-4 flex flex-wrap items-center gap-2">
         <select name="machine" defaultValue={sp.machine ?? ""} className="input h-9 w-48" aria-label="Machine"><option value="">All machines</option>{machines.map((m) => <option key={m.id} value={m.id}>{m.name ?? m.serial}</option>)}</select>
         <select name="errors" defaultValue={sp.errors ?? ""} className="input h-9 w-40" aria-label="Result"><option value="">All results</option><option value="1">Errors only</option></select>
@@ -58,8 +58,8 @@ export default async function MachineFetchesPage({ searchParams }: { searchParam
         {total > PAGE && (
           <div className="flex items-center justify-end gap-3 border-t border-line px-4 py-2.5 text-sm text-muted">
             <span>{(page - 1) * PAGE + 1}–{Math.min(page * PAGE, total)} of {total.toLocaleString()}</span>
-            {page > 1 && <Link href={`/hr/attendance/machines/fetches${q({ page: page - 1 })}`} className="rounded border border-line px-2 py-1 hover:bg-canvas">Previous</Link>}
-            {page * PAGE < total && <Link href={`/hr/attendance/machines/fetches${q({ page: page + 1 })}`} className="rounded border border-line px-2 py-1 hover:bg-canvas">Next</Link>}
+            {page > 1 && <Link href={`/hr/attendance/logs/fetches${q({ page: page - 1 })}`} className="rounded border border-line px-2 py-1 hover:bg-canvas">Previous</Link>}
+            {page * PAGE < total && <Link href={`/hr/attendance/logs/fetches${q({ page: page + 1 })}`} className="rounded border border-line px-2 py-1 hover:bg-canvas">Next</Link>}
           </div>
         )}
       </Card>
