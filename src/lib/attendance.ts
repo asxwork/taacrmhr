@@ -56,7 +56,11 @@ export function evaluateDay(input: {
 
   // A day imported from the old HR system (not an HR edit) that says absent / no check-out gives way to real punches:
   // people mapped only in AMS were "absent" there, but the machine has their punches.
-  const importedNoShow = !!input.override && input.override.corrected === false && !input.override.checkIn && ["absent", "missing"].includes(input.override.status) && punches.length > 0;
+  // A full day on the machine (in and out) also wins over an imported day: the import can be a snapshot taken mid-day.
+  const o0 = input.override;
+  const importedNoShow = !!o0 && o0.corrected === false && (
+    (!o0.checkIn && ["absent", "missing"].includes(o0.status) && punches.length > 0) ||
+    (["present", "late", "half", "absent", "missing", "auto"].includes(o0.status) && punches.length > 1));
   if (input.override && input.override.status !== "auto" && !importedNoShow) {
     // Days imported from the old HR system keep their reported times and minutes.
     const o = input.override;
@@ -90,7 +94,9 @@ export function evaluateDay(input: {
     return { ...base, overtimeMin, status: half ? "half" : "present", note: base.note ?? (workedMin < need ? `Flexible: ${Math.round(((need - workedMin) / 60) * 10) / 10}h short` : null) };
   }
 
-  const lateMin = checkIn > at(day, toMin(shift.start) + shift.graceMin) ? differenceInMinutes(checkIn, start) : 0;
+  // Compared to the minute, like the machine shows it: 11:15:40 with 15 minutes' grace is on time.
+  const inMin = Math.floor((checkIn.getTime() - day.getTime()) / 60_000);
+  const lateMin = inMin > toMin(shift.start) + shift.graceMin ? differenceInMinutes(checkIn, start) : 0;
   if (!checkOut) {
     return { ...base, lateMin, status: isSameDay(day, now) ? (lateMin ? "late" : "present") : "missing" };
   }

@@ -103,7 +103,8 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
             const due = days.filter((d) => !["weekend", "holiday", "leave", "upcoming"].includes(d.status)).length;
             const expected = due * shiftMin(e);
             const short = Math.max(0, expected - sum.workedMin);
-            const score = due ? Math.round(((sum.present + sum.half * 0.5) / due) * 100) : 0;
+            // Same as ResourceInn: the share of expected time actually worked.
+            const score = expected ? Math.min(100, Math.round((sum.workedMin / expected) * 100)) : 0;
             const workedPct = expected ? Math.min(100, (sum.workedMin / expected) * 100) : 0;
             const ring = score >= 85 ? "text-emerald-500" : score >= 60 ? "text-amber-500" : "text-red-500";
             return (
