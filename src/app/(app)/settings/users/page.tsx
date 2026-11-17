@@ -1,5 +1,5 @@
 import Link from "@/components/link";
-import { Plus, Search } from "lucide-react";
+import { Pencil, Plus, Search } from "lucide-react";
 import { db } from "@/lib/db";
 import { managerUserIds } from "@/lib/managers";
 import { can, requirePermission } from "@/lib/permissions";
@@ -25,7 +25,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
         ...(q && { OR: [{ name: { contains: q } }, { email: { contains: q } }, { phone: { contains: q } }] }),
         ...(sp.branch && { branchId: sp.branch }),
       },
-      include: { branch: true, manager: true, roles: { include: { role: true } }, _count: { select: { permissionOverrides: true } } },
+      include: { branch: true, manager: true, employee: { select: { id: true } }, roles: { include: { role: true } }, _count: { select: { permissionOverrides: true } } },
       orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
     db.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -38,6 +38,8 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
   const closeHref = `/settings/users${keep ? `?${keep}` : ""}`;
   const editHref = (id: string) => `/settings/users?${new URLSearchParams({ ...(q && { q }), ...(sp.branch && { branch: sp.branch }), edit: id })}`;
 
+  const canSeeProfiles = can(actor, "hr.employees");
+  const editingEmployee = editing ? await db.employee.findUnique({ where: { userId: editing.id }, select: { id: true } }) : null;
   const managerIds = await managerUserIds(); // "Reports to": only admin / HR / supervisor / manager access
   return (
     <>
@@ -86,16 +88,18 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                   <th className="th">Branch</th>
                   <th className="th">Reports to</th>
                   <th className="th">Last sign-in</th>
+                  <th className="th w-12"><span className="sr-only">Account</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {users.map((u) => (
                   <tr key={u.id} className={u.active ? "hover:bg-canvas/60" : "opacity-50"}>
                     <td className="td">
-                      <Link href={editHref(u.id)} scroll={false} className="flex items-center gap-3">
+                      {/* The person opens their one profile (HR employee profile); account settings are the pencil. */}
+                      <Link href={u.employee && canSeeProfiles ? `/hr/employees/${u.employee.id}` : editHref(u.id)} scroll={false} className="flex items-center gap-3">
                         <Avatar name={u.name} />
                         <div>
-                          <p className="font-medium">{u.name}</p>
+                          <p className="font-medium hover:underline">{u.name}</p>
                           <p className="text-xs text-muted">{u.email}</p>
                         </div>
                       </Link>
@@ -113,6 +117,9 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                     <td className="td text-muted">{u.branch?.name ?? "—"}</td>
                     <td className="td text-muted">{u.manager?.name ?? "—"}</td>
                     <td className="td text-muted">{fmtAgo(u.lastLoginAt)}</td>
+                    <td className="td text-right">
+                      {can(actor, "settings.users", "edit") && <Link href={editHref(u.id)} scroll={false} title="Edit account (roles, branch, password)" aria-label={`Edit account of ${u.name}`} className="inline-flex size-8 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"><Pencil className="size-4" /></Link>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -178,6 +185,12 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                 <span><span className="block font-medium">View as {editing.name}</span><span className="block text-xs text-muted">See exactly their menus and data (read-only), to check their access</span></span>
                 <span aria-hidden>→</span>
               </a>
+            )}
+            {editingEmployee && canSeeProfiles && (
+              <Link href={`/hr/employees/${editingEmployee.id}`} className="flex items-center justify-between rounded-md border border-line px-3 py-2.5 text-sm hover:bg-canvas/60">
+                <span><span className="block font-medium">Open employee profile</span><span className="block text-xs text-muted">Personal details, job and pay, documents, attendance</span></span>
+                <span aria-hidden>→</span>
+              </Link>
             )}
             {editing && can(actor, "settings.roles") && (
               <Link href={`/settings/users/${editing.id}/access`} className="flex items-center justify-between rounded-md border border-line px-3 py-2.5 text-sm hover:bg-canvas/60">

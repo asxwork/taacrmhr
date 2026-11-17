@@ -94,7 +94,7 @@ export async function requestPasswordReset(_: FormState, fd: FormData): Promise<
       if (await sendResetEmail(user)) { await audit(user.id, "password_reset_request", "user", user.id, `Reset link emailed (${ip})`); return { ok: true, message: RESET_MSG }; }
       const { notify } = await import("@/lib/notify");
       const admins = await db.user.findMany({ where: { isSuperAdmin: true, active: true }, select: { id: true } });
-      for (const a of admins) await notify(a.id, `Password reset requested: ${user.name}`, { body: `${email} asked for a new password from the sign-in page.`, link: `/settings/users/${user.id}`, email: true });
+      for (const a of admins) await notify(a.id, `Password reset requested: ${user.name}`, { body: `${email} asked for a new password from the sign-in page.`, link: `/settings/users?edit=${user.id}`, email: true });
       await audit(user.id, "password_reset_request", "user", user.id, `Asked for a password reset from ${ip}`);
     }
   } catch {}
