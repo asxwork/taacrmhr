@@ -38,7 +38,7 @@ export type DayResult = {
 /** The single source of truth for what a day counts as. */
 export function evaluateDay(input: {
   date: Date; shift: ShiftLike | null; punches: Date[]; holiday?: string | null; leave?: { halfDay: boolean; type: string } | null;
-  override?: { status: string; note: string | null; checkIn?: Date | null; checkOut?: Date | null; workedMin?: number; lateMin?: number; earlyMin?: number; overtimeMin?: number } | null; now?: Date;
+  override?: { status: string; note: string | null; checkIn?: Date | null; checkOut?: Date | null; workedMin?: number; lateMin?: number; earlyMin?: number; overtimeMin?: number; corrected?: boolean } | null; now?: Date;
   /** Policy Planner rules (lib/attendance-policy.ts); defaults when left out. */
   policy?: { absentUnderMin: number; overtimeAfterMin: number };
   /** Minutes on break that day. */
@@ -54,7 +54,10 @@ export function evaluateDay(input: {
   const workedMin = checkIn && checkOut ? Math.max(0, differenceInMinutes(checkOut, checkIn) - breakMin) : 0;
   const base = { date: day, checkIn, checkOut, workedMin, lateMin: 0, earlyMin: 0, overtimeMin: 0, note: input.override?.note ?? null, overridden: false, ...(breakMin ? { breakMin } : {}) };
 
-  if (input.override && input.override.status !== "auto") {
+  // A day imported from the old HR system (not an HR edit) that says absent / no check-out gives way to real punches:
+  // people mapped only in AMS were "absent" there, but the machine has their punches.
+  const importedNoShow = !!input.override && input.override.corrected === false && !input.override.checkIn && ["absent", "missing"].includes(input.override.status) && punches.length > 0;
+  if (input.override && input.override.status !== "auto" && !importedNoShow) {
     // Days imported from the old HR system keep their reported times and minutes.
     const o = input.override;
     return { ...base, ...(o.checkIn && { checkIn: o.checkIn, checkOut: o.checkOut ?? null, workedMin: o.workedMin ?? 0, lateMin: o.lateMin ?? 0, earlyMin: o.earlyMin ?? 0, overtimeMin: o.overtimeMin ?? 0 }), status: o.status as DayStatus, overridden: true };
