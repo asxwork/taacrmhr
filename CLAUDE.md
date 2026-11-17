@@ -8,6 +8,11 @@
   switched off on its own. Switched off = gone from every menu, pages show a notice, data kept.
 - My Space, Tutorials and Settings stay always on.
 
+## Emails
+- Every email link is a button with the plain link under it ("Button not working? Copy this link…"). With
+  `brandedEmail` just put the link on its own line (`Label: https://…`, or a line ending in `:` then the link);
+  custom HTML emails use `emailButton()` from `src/lib/email-template.ts`.
+
 ## Working rules
 - All work goes to `main`; commits are authored by ASX Labs with no AI attribution lines.
 - Never commit uploaded spreadsheets, CSVs or personal HR data (CNIC, salaries, IBANs) — only code and layouts.

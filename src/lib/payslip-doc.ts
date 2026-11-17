@@ -130,7 +130,8 @@ ${d.lines.map((l) => `<tr>${cell(esc(l.label), false)}${cell(l.hours != null ? n
 <tr><td style="padding:12px 8px;background:#F1F3F6;border-left:3px solid ${G};font-size:13px;font-weight:700">NET PAY</td><td style="padding:12px 8px;background:#F1F3F6;font-size:19px;font-weight:700;text-align:right">${n2(d.net)}</td></tr>
 </table></td></tr>
 <tr><td style="padding:26px 32px 0">${lab("Payment Detail")}<table style="margin-top:6px">${kv("Payment Method", d.payment.method, "190px")}${kv("Bank Name", d.payment.bank, "190px")}${kv("IBAN / Account Number", d.payment.account, "190px")}${kv("Branch", d.payment.branch, "190px")}</table>
-<p style="margin:20px 0 0"><a href="${esc(link)}" style="display:inline-block;background:${N};color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:10px 18px;border-radius:6px">Open / download PDF</a></p></td></tr>
+<p style="margin:20px 0 0"><a href="${esc(link)}" style="display:inline-block;background:${N};color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:10px 18px;border-radius:6px">Open / download PDF</a></p>
+<p style="margin:10px 0 0;font-size:11px;color:#6B7280">Button not working? Copy this link into your browser:<br><a href="${esc(link)}" style="color:${N};word-break:break-all">${esc(link)}</a></p></td></tr>
 <tr><td style="padding:28px 32px 22px"><div style="border-top:1px solid #9aa3b2;padding-top:8px;text-align:center;font-size:11px;color:${M}">This is a computer-generated payslip and is confidential.</div><div style="text-align:center;font-size:11px;font-weight:700;margin-top:8px">${esc(d.employer.name)}</div></td></tr>
 </table></div>`;
 }

@@ -4,13 +4,20 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 export function brandedEmail(subject: string, body: string, opts: { company?: string; appUrl?: string } = {}) {
   const base = (opts.appUrl ?? process.env.APP_URL ?? "").replace(/\/+$/, "");
   const company = opts.company ?? "The Advisor Associates";
-  // Lines like "Open: https://…" or a bare link become buttons; the rest are paragraphs.
+  // A link on its own line ("Open: https://…", or a line of text ending in ":" followed by the link) becomes a button,
+  // with the plain link under it for mail apps that block buttons. The rest are paragraphs.
   const blocks = body.split(/\n{2,}/).map((para) => {
     const lines = para.split("\n");
-    const btn = lines.length === 1 && lines[0]!.match(/^(?:(.{1,40}?):\s*)?(https?:\/\/\S+)$/);
-    if (btn) {
-      const label = btn[1] && !/^(open|link|here)$/i.test(btn[1]) ? btn[1] : /set-password/.test(btn[2]!) ? "Set your password" : "Open in AMS";
-      return `<tr><td style="padding:8px 0 16px"><a href="${esc(btn[2]!)}" style="display:inline-block;background:#d4a94a;color:#06111d;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:8px">${esc(label)} &rarr;</a></td></tr>`;
+    const last = lines.at(-1)!.trim();
+    const one = lines.length === 1 && last.match(/^(?:(.{1,60}?):\s*)?(https?:\/\/\S+)$/);
+    const two = lines.length >= 2 && /^https?:\/\/\S+$/.test(last) && lines.at(-2)!.trim();
+    if (one || two) {
+      const url = one ? one[2]! : last;
+      const lead = one ? one[1] : String(two).replace(/:\s*$/, "");
+      const label = lead && lead.length <= 40 && !/^(open|link|here)$/i.test(lead) ? lead.replace(/\s+here$/i, "") : /set-password/.test(url) ? "Set your password" : /verify-email/.test(url) ? "Verify my email" : /\/i\//.test(url) ? "View invoice" : "Open in AMS";
+      const before = two ? lines.slice(0, -1) : [];
+      const intro = before.length && (!lead || lead.length > 40) ? `<tr><td style="padding:0 0 10px;font-size:15px;line-height:1.6;color:#1f2a37">${before.map((l) => esc(l)).join("<br>")}</td></tr>` : "";
+      return `${intro}${emailButton(url, label)}`;
     }
     const html = lines.map((l) => esc(l).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#0a223c">$1</a>').replace(/^[•\-] /, "&bull;&nbsp;")).join("<br>");
     return `<tr><td style="padding:0 0 14px;font-size:15px;line-height:1.6;color:#1f2a37">${html}</td></tr>`;
@@ -26,4 +33,17 @@ ${blocks}
 </table></td></tr>
 <tr><td style="padding:16px 28px 22px;border-top:1px solid #f0f1f3;font-size:12px;color:#6b7280;line-height:1.5">${esc(company)} &middot; Advisor Management System${base ? ` &middot; <a href="${base}" style="color:#6b7280">${base.replace(/^https?:\/\//, "")}</a>` : ""}<br>You get this email because of your account in AMS.</td></tr>
 </table></td></tr></table></body></html>`;
+}
+
+/**
+ * A button that works in every mail app (table-based, so Outlook shows it too), with the full link written out under
+ * it in case the button is blocked.
+ */
+export function emailButton(url: string, label: string, color = "#d4a94a", text = "#06111d") {
+  return `<tr><td style="padding:6px 0 18px">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${color}" style="border-radius:8px">
+<a href="${esc(url)}" target="_blank" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:600;color:${text};text-decoration:none;border-radius:8px">${esc(label)} &rarr;</a>
+</td></tr></table>
+<p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:#6b7280">Button not working? Copy this link into your browser:<br><a href="${esc(url)}" style="color:#0a223c;word-break:break-all">${esc(url)}</a></p>
+</td></tr>`;
 }
