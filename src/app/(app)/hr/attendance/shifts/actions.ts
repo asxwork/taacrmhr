@@ -52,9 +52,14 @@ export async function saveCustomSchedule(_: FormState, fd: FormData): Promise<Fo
 export async function deleteShift(fd: FormData) {
   const user = await hrAdmin();
   if (!user) return;
-  const shift = await db.shift.findUnique({ where: { id: str(fd, "id") }, include: { _count: { select: { employees: true } } } });
-  if (!shift || shift._count.employees > 0 || shift.isDefault) return;
-  if (!(await db.shift.delete({ where: { id: shift.id } }).catch(() => null))) return; // still used in a roster
+  const shift = await db.shift.findUnique({ where: { id: str(fd, "id") } });
+  if (!shift || shift.isDefault) return;
+  // Only current staff keep a shift alive (the card shows "Nobody on it" for them too); people who left and roster
+  // days pointing at it are unlinked first, so the delete always goes through.
+  if (await db.employee.count({ where: { shiftId: shift.id, status: { not: "left" } } })) return;
+  await db.employee.updateMany({ where: { shiftId: shift.id }, data: { shiftId: null } });
+  await db.rosterDay.updateMany({ where: { shiftId: shift.id }, data: { shiftId: null } });
+  if (!(await db.shift.delete({ where: { id: shift.id } }).catch(() => null))) return;
   await audit(user.id, "delete", "shift", shift.id, `Deleted shift ${shift.name}`);
   refresh();
 }
