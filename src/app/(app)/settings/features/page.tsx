@@ -1,38 +1,27 @@
 import { requirePermission, can } from "@/lib/permissions";
-import { saveFeatures } from "./actions";
-import { FEATURES, disabledFeatures } from "@/lib/features";
+import { APP_SWITCHES, FEATURES, disabledFeatures } from "@/lib/features";
+import { PageHeader } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Card, PageHeader } from "@/components/ui";
+import { saveFeatures } from "./actions";
+import { AppCard } from "./app-card";
 
-export const metadata = { title: "Features" };
+export const metadata = { title: "Apps & features" };
 
-/** Settings → Features: switch whole features off for the company (menus and pages disappear; data is kept). */
+/** Settings → Apps & features: per app, one switch for the whole app and a dropdown with each of its features. */
 export default async function FeaturesPage() {
   const user = await requirePermission("settings.company");
-  const off = await disabledFeatures();
+  const off = [...(await disabledFeatures())];
   const editable = can(user, "settings.company", "edit");
   return (
     <>
-      <PageHeader title="Apps & features" description="Switch off whole apps or single features your company doesn’t use right now. It disappears from everyone’s menus; the data is kept and returns when you switch it back on." />
-      <ActionForm action={saveFeatures} className="space-y-6">
-        <fieldset disabled={!editable} className="min-w-0 space-y-6">
-          {(["Apps", "CRM", "HR"] as const).map((group) => (
-            <Card key={group} className="divide-y divide-line">
-              <p className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted">{group}</p>
-              {FEATURES.filter((f) => f.group === group).map((f) => (
-                <label key={f.key} className="flex cursor-pointer items-center gap-4 px-5 py-3.5 hover:bg-canvas/50">
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium">{f.label}</span>
-                    <span className="block text-xs text-muted">{f.about}</span>
-                  </span>
-                  <input type="checkbox" name={`on:${f.key}`} defaultChecked={!off.has(f.key)} className="peer sr-only" />
-                  <span aria-hidden className="relative h-6 w-11 shrink-0 rounded-full bg-line transition after:absolute after:left-0.5 after:top-0.5 after:size-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:bg-emerald-600 peer-checked:after:translate-x-5" />
-                </label>
-              ))}
-            </Card>
-          ))}
-          {editable && <SubmitButton>Save features</SubmitButton>}
-        </fieldset>
+      <PageHeader title="Apps & features" description="Each app has one switch to turn the whole app off, and a dropdown with every feature inside it. What you switch off disappears from everyone’s menus; the data is kept and comes back when you switch it on." />
+      <ActionForm action={saveFeatures} className="space-y-3">
+        {APP_SWITCHES.map((a) => (
+          <AppCard key={a.app} appKey={a.app} label={a.label} about={a.about} master={`app-${a.app}`} off={off} disabled={!editable}
+            features={FEATURES.filter((f) => f.app === a.app && !f.key.startsWith("app-")).map((f) => ({ key: f.key, label: f.label, about: f.about }))} />
+        ))}
+        <p className="text-xs text-muted">My Space, Tutorials and Settings are always on.</p>
+        {editable && <div className="sticky bottom-4 z-10"><SubmitButton className="shadow-lg">Save</SubmitButton></div>}
       </ActionForm>
     </>
   );

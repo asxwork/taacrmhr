@@ -32,7 +32,8 @@ function hide(items: NavItem[], hidden: Set<string>): NavItem[] {
 
 /** Apps with at least one page the user's permissions open (My Space is everyone's), arranged by their layouts. */
 export function appsFor(user: SessionUser, layouts: Map<string, ResolvedLayout> = new Map(), off: Set<string> = new Set()): UserApp[] {
-  const apps = APPS.map((app) => {
+  // An app switched off in Settings → Apps & features leaves the app list and the app switcher completely.
+  const apps = APPS.filter((app) => !off.has(`app-${app.key}`)).map((app) => {
     const l = layouts.get(app.key);
     let groups = app.groups.map((g) => ({ ...g, items: hide(trim(user, g.items), l?.hidden ?? new Set()).filter((i) => !featureForPath(i.href, off)) })).filter((g) => g.items.length);
     if (l?.order.length) groups = [...groups].sort((a, b) => (l.order.indexOf(a.label ?? "") + 1 || 999) - (l.order.indexOf(b.label ?? "") + 1 || 999));
