@@ -27,7 +27,7 @@
     "date-fns": "^4.4.0",
     "exceljs": "^4.4.0",
     "html2canvas-pro": "^1.6.7",
-    "jspdf": "^3.0.4",
+    "jspdf": "^4.2.1",
     "jssip": "^3.13.9",
     "jszip": "^3.10.1",
     "lucide-react": "^1.61.0",

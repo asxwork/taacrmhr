@@ -137,16 +137,19 @@ export async function syncPullMachine(id: string) {
     await db.attendanceMachine.update({ where: { id: m.id }, data: { transport: conn.transport, ...(saved && conn.usedKey === 0 ? { commKeyEnc: null, requiresAuth: false } : {}) } });
     const [info, serial, name] = await within(Promise.all([zk.getInfo().catch(() => null), zk.getSerialNumber().catch(() => ""), zk.getDeviceName().catch(() => "")]), 15_000, "device info");
     const { data } = await within(zk.getAttendances(), 120_000, "reading punches");
-    // Only the last few days on each sync (punches already stored are skipped anyway).
-    const since = m.lastPunchAt ? m.lastPunchAt.getTime() - 3 * 86_400_000 : 0;
-    const rows = data
+    const all = data
       .map((r) => ({ deviceUserId: String(r.user_id).trim(), at: new Date(r.record_time) }))
-      .filter((r) => r.deviceUserId && !Number.isNaN(r.at.getTime()) && r.at.getTime() >= since);
+      .filter((r) => r.deviceUserId && !Number.isNaN(r.at.getTime()));
     const mu = await import("./machine-users");
-    // Keep every punch (mapped or not) and refresh the machine's user list for mapping.
-    await mu.storeMachineLogs(m.id, rows);
+    // Every punch on the machine goes into Machine logs (duplicates skipped), mapped or not.
+    const hadLogs = (await db.machineLog.count({ where: { machineId: m.id } })) > 0;
+    await mu.storeMachineLogs(m.id, all);
     const users = await within(zk.getUsers(), 60_000, "reading users").catch(() => null);
     if (users?.data?.length) await mu.saveMachineUsers(m.id, users.data.map((u) => ({ deviceUserId: String(u.userId), name: u.name, cardNo: String(u.cardno ?? ""), role: u.role })));
+    // Attendance takes the last few days on each sync (so a punch HR deleted doesn't come back); the very first time
+    // this machine's logs are kept, everything on it is brought in for the users already mapped.
+    const since = hadLogs && m.lastPunchAt ? m.lastPunchAt.getTime() - 3 * 86_400_000 : 0;
+    const rows = all.filter((r) => r.at.getTime() >= since);
     const res = await importDevicePunches(rows, null, { log: false, machineId: m.id });
     const last = rows.reduce<Date | null>((a, r) => (!a || r.at > a ? r.at : a), null);
     const unknown = new Set([...(m.unknownIds ?? "").split(",").filter(Boolean), ...res.unknown]);
@@ -158,7 +161,7 @@ export async function syncPullMachine(id: string) {
         info: [String(serial).replace(/\0/g, "").trim() && `SN ${String(serial).replace(/\0/g, "").trim()}`, String(name).replace(/\0/g, "").trim(), info && `${info.userCounts} users, ${info.logCounts} punches stored on machine`].filter(Boolean).join(" · ") || m.info,
       },
     });
-    return { ok: true as const, added: res.added, read: rows.length, unknown: res.unknown.length };
+    return { ok: true as const, added: res.added, read: all.length, unknown: res.unknown.length };
   } catch (e) {
     const msg = e instanceof Error ? e.message : typeof e === "object" && e && "err" in e ? String((e as { err: unknown }).err) : String(e);
     const tried = msg.match(/\[Tried: [^\]]*\]/)?.[0] ?? "";
