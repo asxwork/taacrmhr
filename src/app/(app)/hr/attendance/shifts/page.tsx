@@ -14,7 +14,7 @@ export const metadata = { title: "Shifts" };
 
 const hours = (start: string, end: string) => {
   const [a, b] = start.split(":").map(Number); const [c, d] = end.split(":").map(Number);
-  const m = c! * 60 + d! - (a! * 60 + b!);
+  const m = ((c! * 60 + d!) - (a! * 60 + b!) + 1440) % 1440 || 1440; // past midnight wraps (22:00–06:00 = 8h)
   return `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}`;
 };
 const days = (w: string) => WEEKDAYS.filter((d) => w.split(",").includes(String(d.value))).map((d) => d.label.slice(0, 3)).join(" ");
@@ -57,6 +57,7 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{s.name.replace("Custom · ", "")}</p>
           <p className="text-sm tabular-nums text-muted">{s.start} – {s.end} · {hours(s.start, s.end)}</p>
+          {(() => { const [a, b] = s.start.split(":").map(Number); const [c, d] = s.end.split(":").map(Number); const m = ((c! * 60 + d!) - (a! * 60 + b!) + 1440) % 1440 || 1440; return m > 13 * 60 ? <p className="mt-1 rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">Longer than 13 hours: is the end time AM/PM right? (e.g. 19:00 for 7 pm). It makes Expected time, late and early wrong.</p> : null; })()}
         </div>
         {s.isDefault && <Badge tone="navy">Default</Badge>}
       </div>

@@ -117,6 +117,12 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
                   <p className="text-sm"><Link href={`/hr/employees/${e.id}?tab=attendance`} className="font-semibold hover:underline">{e.fullName}</Link> <span className="text-muted">· {e.code}{e.designation ? ` · ${e.designation.name}` : ""}</span></p>
                   <div className="my-2 h-2 overflow-hidden rounded-full bg-amber-200/60"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${workedPct}%` }} /></div>
                   <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted">
+                    {(() => {
+                      // The shift behind "Expected" and late/early: a shift over 13 hours is almost always an AM/PM slip (7:00 saved instead of 19:00).
+                      const sh = e.shift ?? { start: "09:00", end: "18:00", name: "Default" };
+                      const long = shiftMin(e) > 13 * 60;
+                      return <Link href="/hr/attendance/shifts" className={cn("hover:underline", long && "rounded bg-amber-100 px-1.5 font-medium text-amber-800")} title={long ? "This shift is longer than 13 hours. Check the end time (AM/PM) in Shifts." : "Shift used for expected time, late and early"}>Shift <b className={long ? "" : "text-ink"}>{sh.start}–{sh.end}</b>{long ? ` · ${Math.round(shiftMin(e) / 60)}h, check AM/PM` : ""}</Link>;
+                    })()}
                     <span>Expected <b className="text-ink">{fmtMinutes(expected)}</b></span>
                     <span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-500" />Worked <b className="text-ink">{fmtMinutes(sum.workedMin)}</b></span>
                     <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-400" />Short <b className="text-ink">{fmtMinutes(short)}</b></span>
