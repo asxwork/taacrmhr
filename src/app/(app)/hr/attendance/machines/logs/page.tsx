@@ -1,5 +1,5 @@
 import Link from "@/components/link";
-import { format, startOfDay, subDays } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
@@ -8,23 +8,29 @@ import { cn } from "@/lib/utils";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { MachineTabs } from "../machine-tabs";
+import { formatDistanceToNow } from "date-fns";
+import { RefreshCw } from "lucide-react";
+import { ActionForm, SubmitButton } from "@/components/action-form";
+import { syncMachineNow } from "../actions";
 
 export const metadata = { title: "Machine logs" };
 const PAGE = 200;
+export const dynamic = "force-dynamic";
 
 /** Machines → Logs: every punch read from the machines (like ResourceInn's Logs), with who it belongs to in AMS. */
 export default async function MachineLogsPage({ searchParams }: { searchParams: Promise<{ machine?: string; from?: string; to?: string; show?: string; page?: string }> }) {
   await requirePermission("hr.attendance");
   const sp = await searchParams;
-  const ymd = (d: Date) => format(d, "yyyy-MM-dd");
-  const from = sp.from || ymd(subDays(new Date(), 6));
-  const to = sp.to || ymd(new Date());
+  // No dates chosen = all dates (old machine logs must show without hunting for them).
+  const from = sp.from ?? "";
+  const to = sp.to ?? "";
   const page = Math.max(1, Number(sp.page) || 1);
-  const machines = await db.attendanceMachine.findMany({ select: { id: true, name: true, serial: true }, orderBy: { name: "asc" } });
+  const machines = await db.attendanceMachine.findMany({ select: { id: true, name: true, serial: true, mode: true, status: true, lastError: true, lastSyncAt: true, lastSeenAt: true, info: true }, orderBy: { name: "asc" } });
   const where: Prisma.MachineLogWhereInput = {
-    at: { gte: startOfDay(new Date(`${from}T00:00:00`)), lt: new Date(startOfDay(new Date(`${to}T00:00:00`)).getTime() + 86_400_000) },
+    ...(from || to ? { at: { ...(from ? { gte: startOfDay(new Date(`${from}T00:00:00`)) } : {}), ...(to ? { lt: new Date(startOfDay(new Date(`${to}T00:00:00`)).getTime() + 86_400_000) } : {}) } } : {}),
     ...(sp.machine ? { machineId: sp.machine } : {}),
   };
+  const perMachine = new Map((await db.machineLog.groupBy({ by: ["machineId"], _count: true })).map((g) => [g.machineId, g._count]));
   const [all, total] = await Promise.all([db.machineLog.findMany({ where, orderBy: { at: "desc" }, take: 5000 }), db.machineLog.count({ where })]);
   // Who each punch belongs to, per machine.
   const owner = new Map<string, string>();
@@ -49,9 +55,27 @@ export default async function MachineLogsPage({ searchParams }: { searchParams: 
     <>
       <MachineTabs active="logs" />
       <PageHeader title="Logs" description={`Every punch read from the machines${total > all.length ? ` (latest ${all.length.toLocaleString()} of ${total.toLocaleString()} shown)` : ""}. Punches of users not mapped yet wait here and count as soon as they are mapped.`} />
+      {/* Each machine: was it read, how many punches are saved here, or why not. */}
+      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+        {machines.filter((m) => m.status !== "blocked").map((m) => {
+          const saved = perMachine.get(m.id) ?? 0;
+          const failing = m.mode === "pull" && !!m.lastError;
+          return (
+            <Card key={m.id} className={cn("flex items-start gap-3 p-4", failing && "border-red-200")}>
+              <div className="min-w-0 flex-1 text-sm">
+                <p className="font-medium">{m.name ?? m.serial} <span className="text-xs font-normal text-muted">{saved.toLocaleString()} punch(es) saved in Logs</span></p>
+                {failing ? <p className="mt-1 text-xs text-red-700">Last fetch {m.lastSyncAt ? formatDistanceToNow(m.lastSyncAt, { addSuffix: true }) : ""} failed: {m.lastError}</p>
+                  : m.lastSeenAt ? <p className="mt-1 text-xs text-emerald-700">Read {formatDistanceToNow(m.lastSeenAt, { addSuffix: true })}{m.info ? ` · ${m.info}` : ""}</p>
+                  : <p className="mt-1 text-xs text-muted">Never read yet. Click Fetch now.</p>}
+              </div>
+              {m.mode === "pull" && m.status === "approved" && <ActionForm action={syncMachineNow}><input type="hidden" name="id" value={m.id} /><SubmitButton className="h-9" variant="secondary"><RefreshCw className="size-4" /> Fetch now</SubmitButton></ActionForm>}
+            </Card>
+          );
+        })}
+      </div>
       <AutoFilterForm className="mb-4 flex flex-wrap gap-2">
         <select name="machine" defaultValue={sp.machine ?? ""} className="input h-9 w-48" aria-label="Machine"><option value="">All machines</option>{machines.map((m) => <option key={m.id} value={m.id}>{m.name ?? m.serial}</option>)}</select>
-        <input type="date" name="from" defaultValue={from} className="input h-9 w-40" aria-label="From" />
+        <input type="date" name="from" defaultValue={from} className="input h-9 w-40" aria-label="From (empty = all dates)" title="Empty = all dates" />
         <input type="date" name="to" defaultValue={to} className="input h-9 w-40" aria-label="To" />
         {show !== "all" && <input type="hidden" name="show" value={show} />}
       </AutoFilterForm>
