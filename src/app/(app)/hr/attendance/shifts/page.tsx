@@ -12,6 +12,9 @@ import { assignShift, deleteShift, saveCustomSchedule } from "./actions";
 
 export const metadata = { title: "Shifts" };
 
+const shiftLen = (s: { start: string; end: string }) => { const [a, b] = s.start.split(":").map(Number); const [c, d] = s.end.split(":").map(Number); return ((c! * 60 + d!) - (a! * 60 + b!) + 1440) % 1440 || 1440; };
+/** Over 13 hours is almost always a wrong end time (AM/PM, or an imported check-out window). */
+const tooLong = (s: { start: string; end: string }) => shiftLen(s) > 13 * 60;
 const hours = (start: string, end: string) => {
   const [a, b] = start.split(":").map(Number); const [c, d] = end.split(":").map(Number);
   const m = ((c! * 60 + d!) - (a! * 60 + b!) + 1440) % 1440 || 1440; // past midnight wraps (22:00–06:00 = 8h)
@@ -57,7 +60,7 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{s.name.replace("Custom · ", "")}</p>
           <p className="text-sm tabular-nums text-muted">{s.start} – {s.end} · {hours(s.start, s.end)}</p>
-          {(() => { const [a, b] = s.start.split(":").map(Number); const [c, d] = s.end.split(":").map(Number); const m = ((c! * 60 + d!) - (a! * 60 + b!) + 1440) % 1440 || 1440; return m > 13 * 60 ? <p className="mt-1 rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">Longer than 13 hours: is the end time AM/PM right? (e.g. 19:00 for 7 pm). It makes Expected time, late and early wrong.</p> : null; })()}
+          {tooLong(s) && <p className="mt-1 rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">Longer than 13 hours, so Expected time, late and early are wrong for everyone on it. Fix the times with Edit, or move everyone to the right shift below.</p>}
         </div>
         {s.isDefault && <Badge tone="navy">Default</Badge>}
       </div>
@@ -75,6 +78,16 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
           </div>
         )}
       </div>
+      {admin && tooLong(s) && s.employees.length > 0 && (
+        <ActionForm action={assignShift} className="mt-3 flex flex-wrap gap-2 rounded-lg bg-amber-50 p-2">
+          {s.employees.map((e) => <input key={e.id} type="hidden" name="employeeIds" value={e.id} />)}
+          <select name="shiftId" required defaultValue="" className="input h-9 min-w-0 flex-1 text-sm" aria-label="Move everyone to">
+            <option value="" disabled>Move all {s.employees.length} to…</option>
+            {regular.filter((o) => o.id !== s.id && !tooLong(o)).map((o) => <option key={o.id} value={o.id}>{o.name} ({o.start}–{o.end})</option>)}
+          </select>
+          <SubmitButton className="h-9">Move everyone</SubmitButton>
+        </ActionForm>
+      )}
     </Card>
   );
 
