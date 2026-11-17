@@ -145,7 +145,7 @@ export async function saveMachine(_: FormState, fd: FormData): Promise<FormState
   await audit(user.id, existing ? "update" : "create", "attendanceMachine", m.id, `Machine “${name}” (${serial}) ${existing ? "updated" : "added"}`);
   const res = await syncPullMachine(m.id);
   revalidatePath("/hr/attendance/machines", "layout"); revalidatePath("/hr/attendance/logs", "layout");
-  return "error" in res ? { error: `Saved, but the test failed: ${res.error}` } : { ok: true, message: `Saved and connected. Read ${res.read} punch(es), ${res.added} new${res.unknown ? `, ${res.unknown} machine ID(s) not linked to employees` : ""}.` };
+  return "error" in res ? { ok: true, message: `Saved. The connection test failed: ${res.error}` } : { ok: true, message: `Saved and connected. Read ${res.read} punch(es), ${res.added} new${res.unknown ? `, ${res.unknown} machine ID(s) not linked to employees` : ""}.` };
 }
 
 /** Active / Inactive switch (Inactive = not fetched and its pushes are ignored). */

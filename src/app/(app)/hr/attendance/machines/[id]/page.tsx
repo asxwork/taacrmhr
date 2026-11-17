@@ -72,20 +72,22 @@ export default async function MachineMappingPage({ params, searchParams }: { par
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-canvas"><div className="h-full rounded-full bg-gold-600 transition-[width]" style={{ width: `${total ? (done / total) * 100 : 0}%` }} /></div>
 
         {canEdit && (
-          <div className="mt-5 flex flex-wrap items-start gap-2 rounded-xl bg-canvas/60 p-3">
-            <ActionForm action={mapMachineUser} className="flex min-w-0 flex-1 flex-wrap gap-2"><input type="hidden" name="machineId" value={id} />
-              <select name="employeeId" required defaultValue="" className="input h-9 min-w-48 flex-1" aria-label="Select employee">
+          <div className="mt-5 space-y-3 rounded-xl bg-canvas/60 p-3">
+            <ActionForm action={mapMachineUser} className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"><input type="hidden" name="machineId" value={id} />
+              <select name="employeeId" required defaultValue="" className="input h-10 min-w-0" aria-label="Select employee">
                 <option value="" disabled>Select employee</option>
                 {employees.map((e) => <option key={e.id} value={e.id}>{e.fullName} · {e.code}{mappedEmp.has(e.id) ? " (mapped)" : ""}</option>)}
               </select>
-              <select name="machineUserId" required defaultValue="" className="input h-9 min-w-48 flex-1" aria-label="Select machine user">
+              <select name="machineUserId" required defaultValue="" className="input h-10 min-w-0" aria-label="Select machine user">
                 <option value="" disabled>Select machine user</option>
                 {[...users].sort(byNum).map((u) => <option key={u.id} value={u.id}>{label(u)}{u.employeeId ? " (mapped)" : ""}</option>)}
               </select>
-              <SubmitButton className="h-9"><Plus className="size-4" /> Add</SubmitButton>
+              <SubmitButton className="h-10"><Plus className="size-4" /> Add</SubmitButton>
             </ActionForm>
-            {m.mode === "pull" && <ActionForm action={syncMachineUsers}><input type="hidden" name="machineId" value={id} /><SubmitButton className="h-9" variant="secondary"><RefreshCw className="size-4" /> Sync users</SubmitButton></ActionForm>}
-            <ActionForm action={autoMapUsers}><input type="hidden" name="machineId" value={id} /><SubmitButton className="h-9" variant="secondary"><Sparkles className="size-4" /> Auto-map employees</SubmitButton></ActionForm>
+            <div className="flex flex-wrap items-start gap-2 border-t border-line pt-3">
+              {m.mode === "pull" && <ActionForm action={syncMachineUsers} className="flex flex-wrap items-center gap-2"><input type="hidden" name="machineId" value={id} /><SubmitButton className="h-9" variant="secondary"><RefreshCw className="size-4" /> Sync users</SubmitButton></ActionForm>}
+              <ActionForm action={autoMapUsers} className="flex flex-wrap items-center gap-2"><input type="hidden" name="machineId" value={id} /><SubmitButton className="h-9" variant="secondary"><Sparkles className="size-4" /> Auto-map employees</SubmitButton></ActionForm>
+            </div>
           </div>
         )}
       </Card>

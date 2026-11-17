@@ -1,3 +1,4 @@
+import { FlashToast } from "@/components/after-save";
 import { Suspense } from "react";
 import { cookies, headers } from "next/headers";
 import { Eye } from "lucide-react";
@@ -86,6 +87,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {/* View as is read-only: every input and button on the page is disabled (the server refuses writes too). */}
             <fieldset disabled={!!user.viewAs} className="m-0 min-w-0 border-0 p-0">
               <Suspense><BackLink pages={pages.map((x) => ({ href: x.href, label: x.label }))} apps={apps.map((a) => ({ key: a.key, name: a.name, home: a.home, prefixes: a.prefixes }))} /></Suspense>
+              <Suspense><FlashToast /></Suspense>
               {!offFeature && <Suspense><SectionTabs sections={SECTIONS.map((sec) => ({ ...sec, tabs: sec.tabs.filter(tabAllowed) })).filter((sec) => sec.tabs.length > 1)} app={current.key} /></Suspense>}
               {offFeature ? <FeatureOff label={offFeature.label} canManage={user.isSuperAdmin || can(user, "settings.company", "edit")} /> : children}
             </fieldset>

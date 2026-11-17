@@ -1,6 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+
+import { useActionState, useContext, useEffect, useRef } from "react";
+import { AfterSaveContext, flash } from "./after-save";
 import { useFormStatus } from "react-dom";
 import type { FormState } from "@/lib/utils";
 import { buttonClass } from "./ui";
@@ -46,6 +49,7 @@ export function ActionForm({
   className,
   successMessage,
   onSuccess,
+  successHref,
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   children: React.ReactNode;
@@ -53,7 +57,13 @@ export function ActionForm({
   successMessage?: string;
   /** Called after a save that worked (e.g. close a panel). */
   onSuccess?: () => void;
+  /** After a save that worked, go here (e.g. close a create dialog back to the list instead of leaving an empty form). */
+  successHref?: string;
 }) {
+  const router = useRouter();
+  // Inside a drawer: close it after a save that worked (unless this form says where to go itself).
+  const drawerClose = useContext(AfterSaveContext);
+  const goTo = successHref ?? drawerClose ?? undefined;
   const [state, formAction] = useActionState(async (prev: FormState, fd: FormData): Promise<FormState> => {
     const t0 = Date.now();
     try {
@@ -72,12 +82,21 @@ export function ActionForm({
   useEffect(() => {
     if (state?.error || state?.confirm) feedback.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [state]);
-  useEffect(() => { if (state?.ok) onSuccess?.(); }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!state?.ok) return;
+    onSuccess?.();
+    if (goTo) {
+      const text = state.message ?? successMessage;
+      if (text) flash(text);
+      router.push(goTo, { scroll: false });
+      router.refresh();
+    }
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
   const okMessage = state?.ok ? state.message ?? successMessage : undefined;
   return (
     <form action={formAction} className={className}>
       {(state?.error || state?.confirm || okMessage) && (
-      <div ref={feedback} className="w-full">
+      <div ref={feedback} className="order-last col-span-full w-full basis-full">
       {state?.error && <p role="alert" className="mb-4 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
       {state?.confirm && (
         <label role="alert" className="mb-4 flex gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">

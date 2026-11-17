@@ -136,7 +136,7 @@ function MachineForm({ m, branches }: { m: M | null; branches: { id: string; nam
           <h2 className="text-lg font-semibold">Machine <span className="font-normal text-muted">{m ? "Edit" : "Create"}</span></h2>
           <Link href="/hr/attendance/machines" scroll={false} className="rounded-lg p-2 text-muted hover:bg-canvas" aria-label="Close"><X className="size-4" /></Link>
         </header>
-        <ActionForm action={saveMachine} className="flex min-h-0 flex-1 flex-col">
+        <ActionForm action={saveMachine} successHref="/hr/attendance/machines" className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             {m && <input type="hidden" name="id" value={m.id} />}
             {section(Cpu, "Machine information")}

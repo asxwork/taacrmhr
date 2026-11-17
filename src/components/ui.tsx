@@ -1,4 +1,5 @@
 import { DrawerPortal } from "./drawer-portal";
+import { AfterSave } from "./after-save";
 import Link from "@/components/link";
 import { Inbox, X } from "lucide-react";
 import { cn, initials } from "@/lib/utils";
@@ -118,7 +119,8 @@ export function Drawer({ title, closeHref, children, width = "max-w-lg" }: { tit
             <X className="size-4" />
           </Link>
         </header>
-        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">{children}</div>
+        {/* Forms inside close the drawer after a successful save (and show the message as a toast). */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5"><AfterSave href={closeHref}>{children}</AfterSave></div>
       </aside>
     </div>
     </DrawerPortal>
