@@ -141,20 +141,34 @@ export async function importNumbers(campaignId: string, rows: ReturnType<typeof 
   return { added: data.length, duplicates: rows.length - data.length - dnc.filter((d) => keys.includes(d.phoneKey)).length, dnc: dnc.length };
 }
 
-/** Splits unassigned numbers into batches of `size`, dealt round-robin to the chosen agents. */
-export async function makeBatches(campaignId: string, agentIds: string[], size: number) {
+/**
+ * Splits unassigned numbers into batches of `size`. With `plan` each agent gets their own number of batches (dealt in
+ * turn, so a short list is shared fairly); without it, all remaining numbers are dealt round-robin to the agents.
+ */
+export async function makeBatches(campaignId: string, agentIds: string[], size: number, plan?: Record<string, number>) {
   const free = await db.callTarget.findMany({ where: { campaignId, assigneeId: null, status: { in: ["new", "retry"] } }, select: { id: true }, orderBy: { createdAt: "asc" } });
-  if (!free.length || !agentIds.length) return { batches: 0, numbers: 0 };
-  const agents = await db.user.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } });
+  if (!free.length || !agentIds.length) return { batches: 0, numbers: 0, left: free.length };
+  const agents = (await db.user.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } })).sort((a, b) => agentIds.indexOf(a.id) - agentIds.indexOf(b.id));
   const count = await db.callBatch.count({ where: { campaignId } });
-  let made = 0;
-  for (let i = 0, a = 0; i < free.length; i += size, a++) {
-    const agent = agents[a % agents.length]!;
-    const batch = await db.callBatch.create({ data: { campaignId, name: `Batch ${count + made + 1} · ${agent.name}`, assigneeId: agent.id } });
-    await db.callTarget.updateMany({ where: { id: { in: free.slice(i, i + size).map((t) => t.id) } }, data: { batchId: batch.id, assigneeId: agent.id } });
-    made++;
+  // The order agents get batches in: one each per round, until everyone has their number (or numbers run out).
+  const turns: { id: string; name: string }[] = [];
+  if (plan) {
+    const want = new Map(agents.map((a) => [a.id, Math.max(0, Math.floor(plan[a.id] ?? 0))]));
+    for (let round = 0; turns.length * size < free.length && [...want.values()].some((n) => n > round); round++) {
+      for (const a of agents) if ((want.get(a.id) ?? 0) > round) turns.push(a);
+    }
+  } else {
+    for (let i = 0; i * size < free.length; i++) turns.push(agents[i % agents.length]!);
   }
-  return { batches: made, numbers: free.length };
+  let made = 0, used = 0;
+  for (const agent of turns) {
+    const slice = free.slice(used, used + size);
+    if (!slice.length) break;
+    const batch = await db.callBatch.create({ data: { campaignId, name: `Batch ${count + made + 1} · ${agent.name}`, assigneeId: agent.id } });
+    await db.callTarget.updateMany({ where: { id: { in: slice.map((t) => t.id) } }, data: { batchId: batch.id, assigneeId: agent.id } });
+    made++; used += slice.length;
+  }
+  return { batches: made, numbers: used, left: free.length - used };
 }
 
 /** People who can be given numbers: anyone whose roles allow working calls (Super Admins too, if asked). */

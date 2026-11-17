@@ -62,13 +62,16 @@ export async function createBatches(_: FormState, fd: FormData): Promise<FormSta
   const campaignId = str(fd, "campaignId");
   const agents = fd.getAll("agents").map(String);
   const size = Math.max(1, Math.min(5000, Number(str(fd, "size")) || 100));
-  if (!agents.length) return { error: "Choose at least one agent." };
-  const res = await makeBatches(campaignId, agents, size);
+  if (!agents.length) return { error: "Tick at least one agent." };
+  // "Give batches": each ticked agent gets their own number of batches. "Split all": everything left, shared equally.
+  const plan = str(fd, "mode") === "all" ? undefined : Object.fromEntries(agents.map((a) => [a, Math.max(0, Math.min(100, Math.floor(Number(str(fd, `count_${a}`)) || 0)))]));
+  if (plan && !Object.values(plan).some((n) => n > 0)) return { error: "Enter how many batches each ticked agent gets (or use Split all equally)." };
+  const res = await makeBatches(campaignId, agents, size, plan);
   if (!res.numbers) return { error: "There are no unassigned numbers left in this campaign." };
   await audit(user.id, "assign", "callBatch", campaignId, `${res.batches} batch(es), ${res.numbers} numbers`);
   revalidatePath(`/calls/campaigns/${campaignId}`);
   refresh();
-  return { ok: true, message: `Made ${res.batches} batch${res.batches === 1 ? "" : "es"} (${res.numbers} numbers).` };
+  return { ok: true, message: `Made ${res.batches} batch${res.batches === 1 ? "" : "es"} (${res.numbers} numbers).${res.left ? ` ${res.left} number(s) still unassigned.` : ""}` };
 }
 
 /** Moves a batch's unfinished numbers to another agent, or back to unassigned. */
@@ -134,4 +137,24 @@ export async function removeDnc(fd: FormData) {
   if (!manager(user)) return;
   await db.dncNumber.deleteMany({ where: { id: str(fd, "id") } });
   revalidatePath("/calls/dnc");
+}
+
+/** A practice campaign with clearly fake numbers (0300-0000xxx), to try the dialer, batches and reports safely. */
+export async function createDemoCampaign() {
+  const user = await requireUser();
+  if (!manager(user)) return;
+  const names = ["Ahmed Raza", "Sana Iqbal", "Bilal Khan", "Ayesha Siddiqui", "Usman Ali", "Hira Javed", "Faisal Mehmood", "Mariam Tariq", "Hamza Sheikh", "Zainab Akhtar", "Omar Farooq", "Nida Hassan", "Kamran Butt", "Saba Qureshi", "Imran Malik", "Fatima Noor", "Adeel Aslam", "Rabia Yousuf", "Junaid Iqbal", "Mehwish Anwar", "Talha Rauf", "Iqra Saleem", "Shahid Latif", "Amna Rashid", "Waqas Ahmed", "Komal Shah", "Danish Raza", "Sadia Khalid", "Arslan Haider", "Maham Zafar"];
+  const areas = ["DHA Phase 8", "Bahria Town Karachi", "Scheme 33", "Clifton", "DHA Phase 6", "Gulshan-e-Iqbal"];
+  const budgets = ["50 Lac", "90 Lac", "1.5 Cr", "2.5 Cr", "4 Cr"];
+  const n = (await db.callCampaign.count({ where: { name: { startsWith: "Demo practice campaign" } } })) + 1;
+  const c = await db.callCampaign.create({ data: {
+    name: `Demo practice campaign${n > 1 ? ` ${n}` : ""}`, description: "DEMO: fake numbers (0300-0000xxx) for practice. Safe to delete.", createdById: user.id, sourceName: "Demo",
+    script: "Assalam-o-Alaikum {{name}}, this is {{agent}} from The Advisor Associates.\n\nYou enquired about property earlier. We have new options in your area with easy installments.\n\nWould you like the details on WhatsApp, or shall we book a site visit this week?",
+    waMessage: "Assalam-o-Alaikum {{name}}, {{agent}} here from The Advisor Associates. Sharing the details we discussed. Reply to book a site visit.",
+  } });
+  const rows = names.map((name, i) => ({ name, phone: `0300${String(n * 1000 + i + 1).padStart(7, "0")}`, extra: { area: areas[i % areas.length]!, budget: budgets[i % budgets.length]!, source: i % 2 ? "Facebook" : "Zameen" } }));
+  await importNumbers(c.id, rows as never);
+  await audit(user.id, "create", "callCampaign", c.id, `Demo campaign (${rows.length} fake numbers)`);
+  refresh();
+  redirect(`/calls/campaigns/${c.id}`);
 }

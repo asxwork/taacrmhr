@@ -65,14 +65,26 @@ export default async function CampaignPage({ params, searchParams }: { params: P
         </Card>
         <Card className="p-5">
           <h2 className="mb-1 text-sm font-semibold">Make batches</h2>
-          <p className="mb-3 text-xs text-muted">{unassigned} unassigned number{unassigned === 1 ? "" : "s"}. Batches are dealt to the ticked agents in turn.</p>
+          <p className="mb-3 text-xs text-muted"><b className="text-ink">{unassigned}</b> unassigned number{unassigned === 1 ? "" : "s"}. Tick agents and set how many batches each gets.</p>
           <ActionForm action={createBatches} className="space-y-3">
             <input type="hidden" name="campaignId" value={id} />
-            <Field label="Numbers per batch"><input name="size" type="number" min={1} max={5000} defaultValue={100} className="input w-32" /></Field>
-            <div className="max-h-40 space-y-1 overflow-y-auto text-sm">
-              {agents.length === 0 ? <p className="text-xs text-muted">Give someone the CSR Agent role first.</p> : agents.map((a) => <label key={a.id} className="flex items-center gap-2"><input type="checkbox" name="agents" value={a.id} /> {a.name}</label>)}
+            <Field label="Numbers per batch"><input name="size" type="number" min={1} max={5000} defaultValue={Math.min(50, Math.max(1, unassigned)) || 50} className="input w-32" /></Field>
+            {agents.length === 0 ? <p className="text-xs text-muted">Give someone the CSR Agent role first.</p> : (
+              <div className="max-h-56 divide-y divide-line overflow-y-auto rounded-lg border border-line">
+                <div className="flex items-center justify-between bg-canvas/60 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted"><span>Agent</span><span>Batches</span></div>
+                {agents.map((a) => (
+                  <label key={a.id} className="flex items-center gap-2 px-3 py-1.5 text-sm has-[:checked]:bg-navy-900/[0.04]">
+                    <input type="checkbox" name="agents" value={a.id} className="accent-navy-900" />
+                    <span className="min-w-0 flex-1 truncate">{a.name}</span>
+                    <input type="number" name={`count_${a.id}`} min={0} max={100} defaultValue={1} className="input h-8 w-16 text-center" aria-label={`Batches for ${a.name}`} />
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <SubmitButton pendingText="Assigning…">Give batches</SubmitButton>
+              <button type="submit" name="mode" value="all" className="inline-flex h-10 items-center rounded-lg border border-line px-3 text-sm hover:bg-canvas">Split all equally</button>
             </div>
-            <SubmitButton variant="secondary" pendingText="Assigning…">Create batches</SubmitButton>
           </ActionForm>
         </Card>
         <Card className="p-5">
