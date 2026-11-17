@@ -48,6 +48,17 @@ export async function agentDay(agentId: string, start: Date, end: Date): Promise
   };
 }
 
+const two = (n: number) => String(n).padStart(2, "0");
+/** The calls report as the team writes it (copied to WhatsApp): totals, connected, no answer, qualified, feedback. */
+export function callReportText(s: Pick<DaySummary, "calls" | "reached" | "notAnswered" | "interested">, feedback?: string | null, who?: string) {
+  return [who ? `${who}` : null, `Total Calls = ${two(s.calls)}`, `Connected = ${two(s.reached)}`, `No Answer = ${two(s.notAnswered)}`, `Qualified = ${two(s.interested)}`, `Feedback = ${feedback?.trim() || "—"}`].filter(Boolean).join("\n");
+}
+/** The team block at the end of a day's reports. */
+export function callTotalsText(rows: Pick<DaySummary, "calls" | "reached" | "interested">[]) {
+  const t = rows.reduce((a, r) => ({ calls: a.calls + r.calls, reached: a.reached + r.reached, interested: a.interested + r.interested }), { calls: 0, reached: 0, interested: 0 });
+  return [`Total Calls = ${two(t.calls)}`, `Total Connected = ${two(t.reached)}`, `Total Qualified = ${two(t.interested)}`].join("\n");
+}
+
 /** Calling agents: everyone with a softphone extension, plus anyone who logged a call today. */
 async function callingAgents(start: Date, end: Date) {
   const [sip, called] = await Promise.all([
@@ -67,7 +78,6 @@ export async function sendDueCallReports(now = new Date()) {
   const nowMin = new Date(+now + PK).getUTCHours() * 60 + new Date(+now + PK).getUTCMinutes();
   const agents = await callingAgents(start, end);
   const done = new Set((await db.callDailyReport.findMany({ where: { date }, select: { agentId: true } })).map((r) => r.agentId));
-  const supervisors = await db.user.findMany({ where: { active: true, OR: [{ isSuperAdmin: true }, { roles: { some: { role: { permissions: { some: { module: "calls", action: "assign", scope: { not: "none" } } } } } } }] }, select: { id: true } });
   let sent = 0;
   for (const a of agents) {
     if (done.has(a.id)) continue;
@@ -76,12 +86,12 @@ export async function sendDueCallReports(now = new Date()) {
     const s = await agentDay(a.id, start, end);
     if (!s.calls && !(await db.sipAccount.findUnique({ where: { userId: a.id } }))) continue;
     const r = await db.callDailyReport.create({ data: { agentId: a.id, date, data: JSON.stringify(s) } });
-    const line = `${s.calls} calls · ${s.reached} reached (${s.reachPct}%) · ${s.talkMin} min talk · ${s.interested} interested · ${s.callbacks} callbacks${s.first ? ` · ${s.first}–${s.last}` : ""}`;
+    const note = await db.callDayNote.findUnique({ where: { agentId_date: { agentId: a.id, date } } });
+    const line = callReportText(s, note?.feedback);
     const link = `/calls/reports/daily/${r.id}`;
-    await notify(a.id, `Your calls today: ${s.calls} calls, ${s.interested} interested`, { body: line, link, email: true }).catch(() => {});
-    for (const uid of new Set([...(a.managerId ? [a.managerId] : []), ...supervisors.map((x) => x.id)])) {
-      if (uid !== a.id) await notify(uid, `Daily calls report: ${a.name}`, { body: line, link }).catch(() => {});
-    }
+    await notify(a.id, `Your calls today: ${s.calls} calls, ${s.interested} qualified`, { body: line, link, email: true }).catch(() => {});
+    // The agent's own manager is told; call supervisors see all reports together in their morning summary instead.
+    if (a.managerId && a.managerId !== a.id) await notify(a.managerId, `Daily calls report: ${a.name}`, { body: line, link }).catch(() => {});
     sent++;
   }
   return sent;

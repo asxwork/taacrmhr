@@ -4,7 +4,8 @@ import { Download, FileText } from "lucide-react";
 import { can, requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { agentStats, campaignStats, hourStats, outcomeStats } from "@/lib/call-reports";
-import { pkDay, type DaySummary } from "@/lib/call-daily";
+import { callReportText, callTotalsText, pkDay, type DaySummary } from "@/lib/call-daily";
+import { CopyText } from "@/components/calls/copy-text";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { BarList } from "@/components/charts";
 import { AutoFilterForm } from "@/components/auto-filter-form";
@@ -55,17 +56,25 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
       orderBy: [{ date: "desc" }, { sentAt: "desc" }], take: 300,
     });
     const names = new Map((await db.user.findMany({ where: { id: { in: [...new Set(reports.map((r) => r.agentId))] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
+    const notes = new Map((await db.callDayNote.findMany({ where: { agentId: { in: [...new Set(reports.map((r) => r.agentId))] }, date: { in: [...new Set(reports.map((r) => r.date))] } } })).map((n) => [`${n.agentId}|${n.date}`, n.feedback]));
     const today = pkDay().date;
     return (
       <>
         {header}
         <p className="mb-4 text-sm text-muted">Made automatically for every calling agent when their shift ends, and sent to them, their manager and the call supervisors.
           {" "}<Link href={`/calls/reports/daily/live?date=${today}`} className="font-medium text-ink underline">See my day so far</Link></p>
+        {reports.length > 0 && (() => {
+          // The latest day in the list, written the way the team shares it: each agent, then the totals.
+          const day = reports[0]!.date;
+          const ofDay = reports.filter((r) => r.date === day).map((r) => ({ r, s: JSON.parse(r.data) as DaySummary }));
+          const text = [...ofDay.map(({ r, s }) => callReportText(s, notes.get(`${r.agentId}|${day}`), names.get(r.agentId) ?? "")), callTotalsText(ofDay.map((x) => x.s))].join("\n\n");
+          return <Card className="mb-4 p-5"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{format(new Date(`${day}T12:00:00`), "EEE d MMM")} · copy for WhatsApp</p><CopyText text={text} label="Copy all" /></Card>;
+        })()}
         {!reports.length ? <Card><EmptyState title="No daily reports in this period" description="The first ones arrive after today’s shifts end." /></Card> : (
           <Card className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                {["Date", ...(supervisor ? ["Agent"] : []), "Calls", "Reached", "Interested", "Callbacks", "Talk", "Avg call", "Hours", ""].map((h) => <th key={h} className="px-4 py-2.5 font-medium">{h}</th>)}
+                {["Date", ...(supervisor ? ["Agent"] : []), "Calls", "Connected", "Qualified", "Callbacks", "Talk", "Avg call", "Hours", ""].map((h) => <th key={h} className="px-4 py-2.5 font-medium">{h}</th>)}
               </tr></thead>
               <tbody>
                 {reports.map((r) => {

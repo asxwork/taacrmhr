@@ -1,5 +1,5 @@
 import Link from "@/components/link";
-import { ShieldCheck } from "lucide-react";
+import { Bell, ShieldCheck } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { MyEmployment } from "../me/my-employment";
@@ -38,8 +38,13 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
 function TwoStepLink({ on }: { on: boolean }) {
   return (
+    <>
     <Link href="/profile/security" className="mb-4 flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm hover:bg-canvas/60">
       <ShieldCheck className="size-4 text-navy-900" /> <span className="flex-1">Two-step login</span> {on ? <Badge tone="green">On</Badge> : <Badge>Off · set up</Badge>}
     </Link>
+    <Link href="/profile/notifications" className="mb-4 flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm hover:bg-canvas/60">
+      <Bell className="size-4 text-navy-900" /> <span className="flex-1">Notifications &amp; emails</span> <span className="text-xs text-muted">One summary email a day</span>
+    </Link>
+    </>
   );
 }

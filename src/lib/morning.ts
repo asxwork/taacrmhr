@@ -46,7 +46,7 @@ export async function sendMorningSummaries() {
       ]);
       lines.push(`Your team: ${teamNew} new lead(s) yesterday, ${teamOverdue} overdue follow-up(s)`);
     }
-    await notify(id, `Good morning, ${user.name.split(" ")[0]} — your day`, { body: lines.filter(Boolean).join("\n"), link: "/crm/my-day", email: true });
+    await notify(id, `Good morning, ${user.name.split(" ")[0]} — your day`, { body: lines.filter(Boolean).join("\n"), link: "/crm/my-day" }); // in-app; the daily summary email carries the same numbers
     sent++;
   }
   return sent;

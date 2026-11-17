@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { can, requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
-import { agentDay, pkDay, type DaySummary } from "@/lib/call-daily";
+import { agentDay, callReportText, pkDay, type DaySummary } from "@/lib/call-daily";
+import { CopyText } from "@/components/calls/copy-text";
 import { Card, PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { DayReport } from "@/components/calls/day-report";
@@ -31,6 +32,7 @@ export default async function DailyCallReport({ params, searchParams }: { params
   }
   const agent = await db.user.findUnique({ where: { id: agentId }, select: { name: true, managerId: true } });
   if (!agent) notFound();
+  const note = await db.callDayNote.findUnique({ where: { agentId_date: { agentId, date } } });
   const allowed = agentId === viewer.id || viewer.isSuperAdmin || can(viewer, "calls", "assign") || agent.managerId === viewer.id;
   if (!allowed) notFound();
 
@@ -39,6 +41,10 @@ export default async function DailyCallReport({ params, searchParams }: { params
       <PageHeader title={`${agent.name} · ${format(new Date(`${date}T12:00:00`), "EEE d MMM yyyy")}`}
         description={sentAt ? `End-of-shift report, sent ${format(sentAt, "h:mm a")}` : "Live — updates as calls are logged"}
         actions={<PrintButton fileName={`calls-${agent.name}-${date}`} />} />
+      <Card className="mb-5 p-5">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Report (copy for WhatsApp)</p>
+        <CopyText text={callReportText(s, note?.feedback, agent.name)} />
+      </Card>
       <Card className="p-5 sm:p-6" data-print-area>
         <DayReport s={s} />
       </Card>

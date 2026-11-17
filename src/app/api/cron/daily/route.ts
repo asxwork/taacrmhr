@@ -72,6 +72,9 @@ export async function GET(req: Request) {
 
   // 6. CRM morning summary for everyone with the permission (Settings → Features → Morning summary).
   const summaries = await sendMorningSummaries().catch(() => 0);
+  // One summary email per person (their leads, call reports, everything since yesterday) instead of many emails.
+  const digests = await (await import("@/lib/daily-digest")).sendDailyDigests().catch(() => 0);
+  void digests;
 
   // 7. Remind employees before their own CNIC / passport / licence / documents expire.
   const docReminders = await sendDocumentReminders().catch(() => 0);

@@ -12,20 +12,44 @@ export async function notify(userId: string | null | undefined, title: string, o
   if (!userId) return;
   const category = opts.category ?? categoryOf(opts.link);
   const priority = opts.priority ?? priorityOf(title);
-  await db.notification.create({ data: { userId, title, body: opts.body ?? null, link: opts.link ?? null, category, priority } });
+  const prefs = await (await import("./notify-prefs")).notifyPrefs(userId);
+  // A muted category (Profile → Notifications) skips everything except urgent items.
+  if (prefs.muted.includes(category) && priority !== "urgent") return;
+  if (priority !== "urgent" && !(await forSuperAdmin(userId, opts.link))) return;
+  // Email: urgent items (or "every notification") go now; the rest wait for the person's one daily summary email.
+  const wantsEmail = !!opts.email && prefs.email !== "off";
+  const now = wantsEmail && (prefs.email === "instant" || priority === "urgent");
+  const n = await db.notification.create({ data: { userId, title, body: opts.body ?? null, link: opts.link ?? null, category, priority, emailWanted: wantsEmail && !now && prefs.email === "daily" } });
   // Phone / desktop push for people who turned it on (after the response, never slowing the page).
   inBackground(async () => (await import("./push")).sendPush(userId, title, opts.body, opts.link));
-  if (opts.email && smtpConfigured()) {
+  if (now && smtpConfigured()) {
     // The email goes out after the page has responded, so a slow mail server never slows down saving.
     const send = async () => {
       const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, active: true } });
       if (user?.active && !user.email.endsWith(".local")) {
         const lines = [opts.body, opts.link && `Open: ${APP_URL()}${opts.link}`].filter(Boolean).join("\n\n");
         await sendMail(user.email, title, lines || title, { userId });
+        await db.notification.update({ where: { id: n.id }, data: { emailedAt: new Date() } });
       }
     };
     inBackground(send);
   }
+}
+
+/**
+ * Super Admins see everything in AMS, so they are not copied on other people's work: they get a notification only when
+ * it is urgent, about a lead or deal they own, or about themselves (their profile, leave, payslips, security).
+ */
+async function forSuperAdmin(userId: string, link?: string) {
+  const u = await db.user.findUnique({ where: { id: userId }, select: { isSuperAdmin: true } });
+  if (!u?.isSuperAdmin) return true;
+  if (!link) return false;
+  if (/^\/(me|profile|payslips|chat)(\/|$|\?)/.test(link)) return true;
+  const lead = link.match(/^\/crm\/leads\/([^/?#]+)/)?.[1];
+  if (lead) return (await db.lead.findUnique({ where: { id: lead }, select: { ownerId: true } }))?.ownerId === userId;
+  const deal = link.match(/^\/crm\/deals\/([^/?#]+)/)?.[1];
+  if (deal) return (await db.deal.findUnique({ where: { id: deal }, select: { ownerId: true } }))?.ownerId === userId;
+  return false;
 }
 
 /** Runs work after the response when inside a request (Next.js after()), otherwise straight away (scripts, cron). */

@@ -163,6 +163,9 @@ model Notification {
   /// urgent | high | normal
   priority  String    @default("normal")
   readAt    DateTime?
+  /// Waiting for the person's daily summary email (not emailed straight away), and when it went out.
+  emailWanted Boolean   @default(false)
+  emailedAt   DateTime?
   createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
@@ -2594,4 +2597,16 @@ model InventoryArea {
   city      String   @default("Karachi")
   notes     String? // @text
   createdAt DateTime @default(now())
+}
+
+/// An agent's end-of-day feedback for the calls report ("Most calls unanswered…"), one per agent per day.
+model CallDayNote {
+  id        String   @id @default(cuid())
+  agentId   String
+  /// yyyy-MM-dd (Karachi)
+  date      String
+  feedback  String // @text
+  updatedAt DateTime @updatedAt
+
+  @@unique([agentId, date])
 }

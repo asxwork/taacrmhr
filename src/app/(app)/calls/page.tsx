@@ -7,7 +7,8 @@ import { OUTCOMES, nextTarget, outcome, queueWhere } from "@/lib/calls";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { DrillTiles } from "@/components/drill-tiles";
 import { CallCard } from "@/components/calls/call-card";
-import { logCall } from "./actions";
+import { logCall, saveCallFeedback } from "./actions";
+import { ActionForm, SubmitButton } from "@/components/action-form";
 import { agentDay, pkDay } from "@/lib/call-daily";
 import { HourChart } from "@/components/calls/day-report";
 
@@ -37,6 +38,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   try { extra = target?.extra ? JSON.parse(target.extra) : {}; } catch {}
   const waText = (target?.campaign.waMessage ?? "").replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
 
+  const note = await db.callDayNote.findUnique({ where: { agentId_date: { agentId: user.id, date: day.date } } });
   const todayCard = (
     <Card className="p-5">
       <div className="mb-3 flex items-baseline justify-between gap-2">
@@ -50,7 +52,12 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       </dl>
       <HourChart hours={s.hours} />
       {s.outcomes.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{s.outcomes.slice(0, 6).map((o) => <Badge key={o.label} tone="neutral">{o.label} · {o.n}</Badge>)}</div>}
-      <p className="mt-3 text-[11px] text-muted">Your end-of-shift report is sent automatically when your shift ends.</p>
+      <ActionForm action={saveCallFeedback} className="mt-4 space-y-2 border-t border-line pt-3">
+        <label className="block text-xs font-medium text-muted" htmlFor="call-feedback">Feedback for today&apos;s report</label>
+        <textarea id="call-feedback" name="feedback" rows={3} defaultValue={note?.feedback ?? ""} placeholder="e.g. Most calls unanswered; those who answered aren't planning to buy or sell right now." className="input text-sm" />
+        <SubmitButton className="h-9" variant="secondary">{note ? "Update feedback" : "Save feedback"}</SubmitButton>
+      </ActionForm>
+      <p className="mt-3 text-[11px] text-muted">Your report (calls, connected, no answer, qualified, feedback) is sent automatically when your shift ends.</p>
     </Card>
   );
 

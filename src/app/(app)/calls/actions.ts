@@ -158,3 +158,15 @@ export async function createDemoCampaign() {
   refresh();
   redirect(`/calls/campaigns/${c.id}`);
 }
+
+/** The agent's end-of-day feedback for their calls report (can be updated until the day ends). */
+export async function saveCallFeedback(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const feedback = str(fd, "feedback").slice(0, 2000);
+  if (!feedback) return { error: "Write a line about how the calls went." };
+  const { pkDay } = await import("@/lib/call-daily");
+  const date = pkDay().date;
+  await db.callDayNote.upsert({ where: { agentId_date: { agentId: user.id, date } }, update: { feedback }, create: { agentId: user.id, date, feedback } });
+  revalidatePath("/calls");
+  return { ok: true, message: "Saved. It goes into today's calls report." };
+}
