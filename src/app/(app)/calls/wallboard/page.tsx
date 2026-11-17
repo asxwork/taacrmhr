@@ -22,6 +22,13 @@ export default async function Wallboard() {
     db.callTarget.count({ where: { status: "callback", callbackAt: { lte: new Date() } } }),
     db.sipAccount.findMany({ where: { enabled: true } }),
   ]);
+  // Work given to each agent in active campaigns: batches, and numbers still to call.
+  const [batchCounts, leftCounts] = await Promise.all([
+    db.callBatch.groupBy({ by: ["assigneeId"], where: { assigneeId: { not: null }, campaign: { status: "active" } }, _count: true }),
+    db.callTarget.groupBy({ by: ["assigneeId"], where: { assigneeId: { not: null }, status: { in: ["new", "retry", "callback"] }, campaign: { status: "active" } }, _count: true }),
+  ]);
+  const batchesOf = (id: string) => batchCounts.find((b) => b.assigneeId === id)?._count ?? 0;
+  const leftOf = (id: string) => leftCounts.find((b) => b.assigneeId === id)?._count ?? 0;
   // Live softphone state (heartbeat every minute); older than 2.5 minutes means the phone is closed.
   const live = new Map(sip.map((x) => [x.userId, x]));
   const phoneState = (id: string) => {
@@ -62,6 +69,10 @@ export default async function Wallboard() {
                   <div key={k} className="rounded-lg bg-canvas/60 py-2"><p className="text-xl font-semibold tabular-nums">{v}</p><p className="text-[11px] text-muted">{k}</p></div>
                 ))}
               </div>
+              <p className="mt-3 flex items-center justify-between rounded-lg border border-line px-3 py-1.5 text-xs text-muted">
+                <span><b className="text-sm tabular-nums text-ink">{batchesOf(r.id)}</b> batch{batchesOf(r.id) === 1 ? "" : "es"}</span>
+                <span><b className="text-sm tabular-nums text-ink">{leftOf(r.id)}</b> numbers left to call</span>
+              </p>
               {p?.presence === "talking" && <SpyButtons extension={p.extension} />}
             </Card>
           );
