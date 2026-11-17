@@ -66,3 +66,42 @@ export async function sendEncashment(_: FormState, fd: FormData): Promise<FormSt
   revalidatePath("/me/leave");
   return { ok: true, message: "Sent for approval. Once approved it is paid with the next payroll." };
 }
+
+/**
+ * Past revisions pasted from the old HR system (ResourceInn's Salary Revisions list): history only, recorded as approved
+ * and already applied, so today's salary is left alone. Each row needs an employee code, a date and two amounts.
+ */
+export async function importPastRevisions(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!payrollAdmin(user)) return { error: "Only payroll admins can add salary history." };
+  const text = str(fd, "text");
+  if (!text.trim()) return { error: "Paste the revisions list first." };
+  // One block per revision: split on the SR- codes when present, otherwise one per line.
+  const blocks = /SR-\d+/.test(text) ? text.split(/SR-\d+/).slice(1) : text.split(/\n+/);
+  const MONTHS = "January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec";
+  const emps = await db.employee.findMany({ select: { id: true, code: true } });
+  const byCode = new Map(emps.map((e) => [e.code.toUpperCase(), e.id]));
+  let added = 0, skipped = 0;
+  const problems: string[] = [];
+  for (const b of blocks) {
+    if (!b.trim()) continue;
+    const code = [...b.matchAll(/\b([A-Z]{1,5}-?\d{2,6})\b/g)].map((m) => m[1]!.toUpperCase()).find((c) => byCode.has(c));
+    const dm = b.match(new RegExp(`(${MONTHS})\\.? (\\d{1,2}),? (\\d{4})`, "i")) ?? b.match(/(\d{4})-(\d{2})-(\d{2})/);
+    const date = dm ? new Date(dm[0].includes("-") ? `${dm[0]}T00:00:00` : `${dm[1]} ${dm[2]}, ${dm[3]} 00:00:00`) : null;
+    // Amounts: numbers after ₨/Rs/PKR, or any number with a thousands comma.
+    const amounts = [...b.matchAll(/(?:₨|Rs\.?|PKR)\s*([\d,]+(?:\.\d+)?)|\b(\d{1,3}(?:,\d{3})+)\b/gi)].map((m) => parseFloat((m[1] ?? m[2])!.replace(/,/g, ""))).filter((n) => n > 0);
+    const label = b.trim().split(/\s+/).slice(0, 4).join(" ");
+    if (!code) { problems.push(`${label}: employee code not found`); continue; }
+    if (!date || Number.isNaN(date.getTime())) { problems.push(`${code}: no date`); continue; }
+    if (amounts.length < 2) { problems.push(`${code}: needs previous and revised salary`); continue; }
+    const [oldGross, newGross] = amounts as [number, number];
+    const employeeId = byCode.get(code)!;
+    if (await db.salaryRevision.findFirst({ where: { employeeId, effectiveFrom: date, newGross } })) { skipped++; continue; }
+    // createdAt = effective date, so the SR- numbers follow the history in date order.
+    await db.salaryRevision.create({ data: { employeeId, oldGross, newGross, effectiveFrom: date, kind: newGross >= oldGross ? "increment" : "decrement", reason: "Imported from the old HR system", status: "approved", appliedAt: date, createdAt: date, createdById: user.id } });
+    added++;
+  }
+  revalidatePath("/hr/salary-revisions");
+  if (!added && !skipped) return { error: problems.length ? problems.join(" · ") : "Couldn’t read any revisions from that text." };
+  return { ok: true, message: `${added} past revision${added === 1 ? "" : "s"} added${skipped ? `, ${skipped} already there` : ""}.${problems.length ? ` Not added: ${problems.join(" · ")}` : ""}` };
+}

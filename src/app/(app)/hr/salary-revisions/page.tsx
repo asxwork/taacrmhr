@@ -1,6 +1,6 @@
 import Link from "@/components/link";
 import { addDays, format, startOfYear } from "date-fns";
-import { ArrowRight, Plus, Search, TrendingUp } from "lucide-react";
+import { ArrowRight, History, Plus, Search, TrendingUp } from "lucide-react";
 import { PersonAvatar } from "@/components/person-avatar";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { db } from "@/lib/db";
@@ -11,11 +11,11 @@ import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
 import { DrillTiles } from "@/components/drill-tiles";
-import { proposeRevision } from "../compensation-actions";
+import { importPastRevisions, proposeRevision } from "../compensation-actions";
 
 export const metadata = { title: "Salary Revisions" };
 
-type SP = { q?: string; tab?: string; status?: string; new?: string; bulk?: string; emp?: string };
+type SP = { q?: string; tab?: string; status?: string; new?: string; bulk?: string; emp?: string; past?: string };
 const pkr = (n: number) => `PKR ${Math.round(n).toLocaleString("en-PK")}`;
 const STATUS_TONE = { pending: "amber", approved: "green", rejected: "red", cancelled: "neutral" } as const;
 
@@ -56,6 +56,7 @@ export default async function SalaryRevisionsPage({ searchParams }: { searchPara
       <PageHeader title="Salary Revisions" description="Increments, promotions and adjustments. Approved revisions update the salary from the effective date and set the next increment date."
         actions={admin && (
           <div className="flex gap-2">
+            <LinkButton href="/hr/salary-revisions?past=1" variant="secondary" scroll={false}><History className="size-4" /> Add past revisions</LinkButton>
             <LinkButton href="/hr/salary-revisions?bulk=1" variant="secondary" scroll={false}><TrendingUp className="size-4" /> Bulk increment</LinkButton>
             <LinkButton href="/hr/salary-revisions?new=1" scroll={false}><Plus className="size-4" /> New revision</LinkButton>
           </div>
@@ -175,6 +176,15 @@ export default async function SalaryRevisionsPage({ searchParams }: { searchPara
             <Field label="Effective from"><input name="effectiveFrom" type="date" required defaultValue={format(now, "yyyy-MM-dd")} className="input" /></Field>
             <Field label="Reason"><textarea name="reason" rows={3} className="input" placeholder="e.g. Annual appraisal: exceeds expectations" /></Field>
             <SubmitButton>Send for approval</SubmitButton>
+          </ActionForm>
+        </Drawer>
+      )}
+      {admin && sp.past && (
+        <Drawer title="Add past revisions" closeHref="/hr/salary-revisions">
+          <ActionForm action={importPastRevisions} className="space-y-4">
+            <p className="text-sm text-muted">Paste the Salary Revisions list from ResourceInn (or one per line: employee code, date, previous salary, revised salary). They are saved as history, already approved; today&apos;s salary is not changed. Pasting the same list twice doesn&apos;t double it.</p>
+            <Field label="Revisions"><textarea name="text" rows={12} required className="input font-mono text-xs" placeholder={"SR-00001\nHaya Asghar\nTA111\nJune 1, 2026  ₨ 30,000  ₨ 40,000"} /></Field>
+            <SubmitButton>Add to history</SubmitButton>
           </ActionForm>
         </Drawer>
       )}
