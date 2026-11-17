@@ -14,10 +14,15 @@ import { HourChart } from "@/components/calls/day-report";
 export const metadata = { title: "Dialer" };
 
 /** Calls → Dialer: the agent's next number, the campaign script, and one-click outcomes. */
-export default async function DialerPage() {
+export default async function DialerPage({ searchParams }: { searchParams: Promise<{ dial?: string }> }) {
   const viewer = await requirePermission("calls");
-  // Calls section landing: supervisors who don't make calls themselves start on Callbacks.
+  // Calls section landing: people who don't make calls start on Callbacks; Super Admins and supervisors who have no
+  // numbers of their own start on Campaigns (to upload numbers and assign them to agents). ?dial=1 opens the dialer anyway.
   if (!can(viewer, "calls", "edit")) redirect("/calls/callbacks");
+  if ((viewer.isSuperAdmin || can(viewer, "calls", "assign")) && !(await searchParams).dial) {
+    const mine = await db.callTarget.count({ where: { assigneeId: viewer.id } });
+    if (!mine) redirect("/calls/campaigns");
+  }
   const user = viewer;
   const day = pkDay();
   const [target, queued, callbacks, s, lastLog] = await Promise.all([

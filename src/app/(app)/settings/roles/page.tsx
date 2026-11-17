@@ -1,5 +1,5 @@
 import Link from "@/components/link";
-import { Briefcase, Building2, ChartBar, Phone, Plus, Search, Settings2, ShieldCheck, Target, Wallet } from "lucide-react";
+import { Briefcase, Building2, ChartBar, Plus, Search, Settings2, ShieldCheck, Target, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { ACTION_LABELS, MODULES, type ModuleDef } from "@/lib/rbac";
@@ -16,7 +16,6 @@ export const metadata = { title: "Access permissions" };
 const KNOWN_GROUPS: { key: ModuleDef["group"]; icon: typeof Target; tone: string }[] = [
   { key: "CRM", icon: Target, tone: "bg-emerald-500" },
   { key: "Inventory", icon: Building2, tone: "bg-sky-500" },
-  { key: "Calls", icon: Phone, tone: "bg-rose-500" },
   { key: "HR", icon: Briefcase, tone: "bg-violet-500" },
   { key: "Finance", icon: Wallet, tone: "bg-lime-600" },
   { key: "Reports", icon: ChartBar, tone: "bg-amber-500" },

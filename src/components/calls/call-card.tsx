@@ -40,24 +40,27 @@ export function CallCard({ target, outcomes, action, waText }: {
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-2xl font-semibold">{target.name || "Unknown name"}</p>
-          <p className="font-mono text-lg tabular-nums text-muted">{fmtPhone(target.phone)}</p>
           <p className="text-xs text-muted">{target.status === "callback" ? "Callback due" : target.attempts ? `Attempt ${target.attempts + 1}` : "First call"}</p>
         </div>
-        {live ? (
-          <button type="button" onClick={phone!.hangup} className="flex h-14 items-center gap-2 rounded-xl bg-red-600 px-6 text-lg font-semibold text-white shadow hover:bg-red-700">
-            <PhoneCall className="size-5 animate-pulse" /> {live.state === "talking" ? "Hang up" : "Cancel"}
-          </button>
-        ) : viaPbx ? (
-          <button type="button" disabled={!!phone.call} onClick={() => { setEnded(null); phone.dial(target.phone, { targetId: target.id }); }}
-            className="flex h-14 items-center gap-2 rounded-xl bg-emerald-600 px-6 text-lg font-semibold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50">
-            <Phone className="size-5" /> {ended ? "Call again" : "Call"}
-          </button>
-        ) : (
-          <a href={telHref(target.phone)} onClick={() => setStartedAt(Date.now())}
-            className={cn("flex h-14 items-center gap-2 rounded-xl px-6 text-lg font-semibold text-white shadow transition", startedAt ? "bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700")}>
-            {startedAt ? <PhoneCall className="size-5 animate-pulse" /> : <Phone className="size-5" />} {startedAt ? "Calling…" : "Call"}
-          </a>
-        )}
+        {/* The call button with the number right under it (tap or copy it on any phone). */}
+        <div className="flex flex-col items-center gap-1">
+          {live ? (
+            <button type="button" onClick={phone!.hangup} className="flex h-14 items-center gap-2 rounded-xl bg-red-600 px-6 text-lg font-semibold text-white shadow hover:bg-red-700">
+              <PhoneCall className="size-5 animate-pulse" /> {live.state === "talking" ? "Hang up" : "Cancel"}
+            </button>
+          ) : viaPbx ? (
+            <button type="button" disabled={!!phone.call} onClick={() => { setEnded(null); phone.dial(target.phone, { targetId: target.id }); }}
+              className="flex h-14 items-center gap-2 rounded-xl bg-emerald-600 px-6 text-lg font-semibold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50">
+              <Phone className="size-5" /> {ended ? "Call again" : "Call"}
+            </button>
+          ) : (
+            <a href={telHref(target.phone)} onClick={() => setStartedAt(Date.now())}
+              className={cn("flex h-14 items-center gap-2 rounded-xl px-6 text-lg font-semibold text-white shadow transition", startedAt ? "bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700")}>
+              {startedAt ? <PhoneCall className="size-5 animate-pulse" /> : <Phone className="size-5" />} {startedAt ? "Calling…" : "Call"}
+            </a>
+          )}
+          <a href={telHref(target.phone)} className="select-all font-mono text-base font-semibold tabular-nums text-ink hover:underline">{fmtPhone(target.phone)}</a>
+        </div>
         <a href={wa} target="_blank" rel="noreferrer" className="flex h-14 items-center gap-2 rounded-xl border border-emerald-500/50 px-5 font-semibold text-emerald-700 hover:bg-emerald-500/10">
           <MessageCircle className="size-5" /> WhatsApp
         </a>
