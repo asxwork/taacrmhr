@@ -59,7 +59,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
             <input type="hidden" name="campaignId" value={id} />
             <textarea name="numbers" rows={5} className="input font-mono text-xs" placeholder={"03001234567\nAli Khan, 0321-7654321\n…or paste rows from Excel"} aria-label="Numbers" />
             <input name="file" type="file" accept=".csv,text/csv,text/plain" aria-label="CSV file" className="block w-full text-xs file:mr-2 file:rounded file:border-0 file:bg-navy-900 file:px-2 file:py-1 file:text-white" />
-            <p className="text-xs text-muted">CSV: a header row with a phone/mobile column (name and other columns are shown to agents). Duplicates and do-not-call numbers are skipped.</p>
+            <p className="text-xs text-muted">CSV with a header row: a <b>phone</b> (or mobile) column is required; <b>name</b> and any other columns (area, source, budget, notes…) are shown to the agent. Duplicates and do-not-call numbers are skipped. <a href={`/api/calls/sample`} download className="font-medium text-ink underline">Download a sample file</a></p>
             <SubmitButton variant="secondary" pendingText="Importing…">Add numbers</SubmitButton>
           </ActionForm>
         </Card>

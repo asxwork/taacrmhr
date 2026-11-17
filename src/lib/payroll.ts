@@ -54,7 +54,7 @@ export async function computePayslip(employeeId: string, month: string, runId: s
   const start = startOfMonth(monthDate(month));
   const end = endOfMonth(start);
   const [emp, components, slabs, settings] = await Promise.all([
-    db.employee.findUniqueOrThrow({ where: { id: employeeId }, include: { salary: true, designation: true, department: true } }),
+    db.employee.findUniqueOrThrow({ where: { id: employeeId }, include: { salary: true, designation: true, department: true, shift: { select: { mode: true, latesPerDay: true } } } }),
     db.payComponent.findMany({ orderBy: { sortOrder: "asc" } }),
     db.taxSlab.findMany({ where: { fiscalYear: fiscalYearOf(month) } }),
     payrollSettings(),
@@ -91,7 +91,9 @@ export async function computePayslip(employeeId: string, month: string, runId: s
   const s = summarize(att);
   const absentDays = s.absent + s.half * 0.5;
   if (absentDays) lines.push({ kind: "deduction", label: `Absent (${absentDays} day${absentDays === 1 ? "" : "s"})`, amount: r0(absentDays * perDay), source: "absence" });
-  const lateDays = settings.latesPerDay ? Math.floor(s.late / settings.latesPerDay) : 0;
+  // The person's shift can set its own "N lates = 1 day" (flexible shifts have no lates at all).
+  const perDayLates = emp.shift?.mode === "flexible" ? 0 : emp.shift?.latesPerDay ?? settings.latesPerDay;
+  const lateDays = perDayLates ? Math.floor(s.late / perDayLates) : 0;
   if (lateDays) lines.push({ kind: "deduction", label: `Late arrivals (${s.late} → ${lateDays} day${lateDays === 1 ? "" : "s"})`, amount: r0(lateDays * perDay), source: "late" });
 
   const unpaidReqs = await db.leaveRequest.findMany({ where: { employeeId: emp.id, status: "approved", type: { paid: false }, from: { lte: to }, to: { gte: from } } });

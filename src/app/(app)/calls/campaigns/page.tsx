@@ -19,8 +19,8 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <PageHeader title="Campaigns & batches" description="Upload numbers into a campaign, then split them into batches for your agents."
-        actions={<LinkButton href="/calls/campaigns?new=1" scroll={false}><Plus className="size-4" /> New campaign</LinkButton>} />
+      <PageHeader title="Campaigns & batches" description="1. New campaign  2. Open it and add numbers (paste, or a CSV like the sample)  3. Make batches: tick the agents, and their numbers appear on their dialer."
+        actions={<><a href={`/api/calls/sample`} download className="inline-flex h-10 items-center rounded-lg border border-line bg-surface px-3 text-sm hover:bg-canvas">Sample CSV</a><LinkButton href="/calls/campaigns?new=1" scroll={false}><Plus className="size-4" /> New campaign</LinkButton></>} />
       <Card className="overflow-x-auto">
         {campaigns.length === 0 ? <EmptyState title="No campaigns yet" description="Create one, paste or upload numbers, and hand out batches." /> : (
           <table className="w-full min-w-[720px] text-sm">

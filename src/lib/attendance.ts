@@ -13,7 +13,7 @@ export * from "./attendance-shared";
 // the employee's shift, holidays and approved leave. AttendanceDay rows only store HR overrides.
 // All dates are in company local time (see instrumentation.ts).
 
-type ShiftLike = { start: string; end: string; graceMin: number; halfDayMin: number; workDays: string };
+type ShiftLike = { start: string; end: string; graceMin: number; halfDayMin: number; workDays: string; mode?: string | null };
 const FALLBACK_SHIFT: ShiftLike = { start: "09:00", end: "18:00", graceMin: 15, halfDayMin: 240, workDays: "1,2,3,4,5,6" };
 const OVERTIME_AFTER_MIN = 30;
 
@@ -77,6 +77,18 @@ export function evaluateDay(input: {
 
   // Worked on a holiday / off day: present, all time counts as overtime.
   if (offDay) return { ...base, status: checkOut || !isSameDay(day, now) ? "present" : "present", overtimeMin: workedMin, note: base.note ?? input.holiday ?? "Worked on off day" };
+
+  // Flexible hours: no start time. Only the hours worked count against the shift length (12:30–21:30 = a full 9h day).
+  if (shift.mode === "flexible") {
+    if (!checkOut) return { ...base, status: isSameDay(day, now) ? "present" : "missing" };
+    const need = endMin - toMin(shift.start);
+    const extra = workedMin - need;
+    const overtimeMin = extra > (input.policy?.overtimeAfterMin ?? OVERTIME_AFTER_MIN) ? extra : 0;
+    if (input.policy?.absentUnderMin && workedMin < input.policy.absentUnderMin && !input.leave) return { ...base, status: "absent", note: base.note ?? "Too short to count (attendance policy)" };
+    const half = workedMin < shift.halfDayMin || input.leave?.halfDay;
+    // Never late or early-left; hours short of the day show in the note and in Short time on the summary.
+    return { ...base, overtimeMin, status: half ? "half" : "present", note: base.note ?? (workedMin < need ? `Flexible: ${Math.round(((need - workedMin) / 60) * 10) / 10}h short` : null) };
+  }
 
   const lateMin = checkIn > at(day, toMin(shift.start) + shift.graceMin) ? differenceInMinutes(checkIn, start) : 0;
   if (!checkOut) {

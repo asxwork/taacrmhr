@@ -1158,6 +1158,10 @@ model Shift {
   halfDayMin Int        @default(240)
   workDays   String     @default("1,2,3,4,5,6")
   isDefault  Boolean    @default(false)
+  /// fixed: start time + grace, late / early count. flexible: only hours worked count (the shift length is the hours needed).
+  mode        String    @default("fixed")
+  /// Fixed shifts: every N lates = 1 day's salary deducted (empty = the payroll setting).
+  latesPerDay Int?
   employees  Employee[]
 }
 

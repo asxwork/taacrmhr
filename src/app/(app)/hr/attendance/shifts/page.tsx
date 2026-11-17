@@ -5,6 +5,7 @@ import { requirePermission, scopeFor } from "@/lib/permissions";
 import { WEEKDAYS } from "@/lib/attendance-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
+import { payrollSettings } from "@/lib/payroll";
 import { Badge, Card, EmptyState, Field, PageHeader } from "@/components/ui";
 import { PersonAvatar } from "@/components/person-avatar";
 import { saveShift } from "@/app/(app)/settings/hr/actions";
@@ -34,20 +35,33 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
   const regular = shifts.filter((s) => !s.name.startsWith("Custom · "));
   const custom = shifts.filter((s) => s.name.startsWith("Custom · "));
   const noShift = staff.filter((e) => !e.shiftId).length;
-  const editing = sp.edit ? shifts.find((s) => s.id === sp.edit) : sp.edit === "new" ? null : undefined;
+  // ?edit=new opens an empty form, ?edit=<id> that shift; nothing = no form.
+  const editing = sp.edit === "new" ? null : sp.edit ? shifts.find((s) => s.id === sp.edit) : undefined;
 
+  const globalLates = (await payrollSettings()).latesPerDay;
   const shiftForm = (s: (typeof shifts)[number] | null) => (
-    <ActionForm action={saveShift} className="grid gap-3 sm:grid-cols-4">
+    <ActionForm action={saveShift} successHref="/hr/attendance/shifts" className="grid gap-3 sm:grid-cols-4">
       {s && <input type="hidden" name="id" value={s.id} />}
-      <Field label="Name" className="sm:col-span-4"><input name="name" defaultValue={s?.name} required className="input" placeholder="e.g. Morning 10–7" /></Field>
+      <Field label="Shift name (who it is for)" className="sm:col-span-4"><input name="name" list="shift-names" defaultValue={s?.name} required className="input text-base font-medium" placeholder="e.g. Default, Sales, Marketing, Peon / office boy" /></Field>
+      <datalist id="shift-names">{["Default", "Sales", "Marketing", "Admin & accounts", "Peon / office boy", "Security guard", "Night shift", "Part time"].map((n) => <option key={n} value={n} />)}</datalist>
+      <fieldset className="grid gap-2 sm:col-span-4 sm:grid-cols-2">
+        <legend className="mb-1 text-sm font-medium">Timing type</legend>
+        {([["fixed", "Fixed time", "Must arrive by the start time. After the grace minutes it counts as late; every N lates cut 1 day's salary."], ["flexible", "Flexible hours", "Any time of day; only the hours count. In at 12:30, out at 21:30 = a full 9h day, never late."]] as const).map(([v, t, d]) => (
+          <label key={v} className="flex cursor-pointer gap-3 rounded-lg border border-line p-3 has-[:checked]:border-navy-900 has-[:checked]:bg-navy-900/[0.04]">
+            <input type="radio" name="mode" value={v} defaultChecked={(s?.mode ?? "fixed") === v} className="mt-1 accent-navy-900" />
+            <span><span className="block text-sm font-medium">{t}</span><span className="block text-xs text-muted">{d}</span></span>
+          </label>
+        ))}
+      </fieldset>
       <Field label="Start"><input name="start" type="time" defaultValue={s?.start ?? "10:00"} required className="input" /></Field>
-      <Field label="End"><input name="end" type="time" defaultValue={s?.end ?? "19:00"} required className="input" /></Field>
-      <Field label="Late after (min)"><input name="graceMin" type="number" min={0} max={120} defaultValue={s?.graceMin ?? 15} className="input" /></Field>
+      <Field label="End" hint="Flexible: end − start = hours needed"><input name="end" type="time" defaultValue={s?.end ?? "19:00"} required className="input" /></Field>
+      <Field label="Late after (min)" hint="Fixed time only"><input name="graceMin" type="number" min={0} max={120} defaultValue={s?.graceMin ?? 15} className="input" /></Field>
+      <Field label="Lates = 1 day salary" hint={`Fixed time only · empty = payroll setting (${globalLates || "off"})`}><input name="latesPerDay" type="number" min={1} max={31} defaultValue={s?.latesPerDay ?? ""} placeholder={String(globalLates || "")} className="input" /></Field>
       <Field label="Half day under (h)"><input name="halfDayHours" type="number" step="0.5" min={0.5} max={12} defaultValue={(s?.halfDayMin ?? 240) / 60} className="input" /></Field>
       <fieldset className="flex flex-wrap gap-x-3 gap-y-1 sm:col-span-4">
         <legend className="mb-1 text-sm font-medium">Working days</legend>
         {WEEKDAYS.map((d) => <label key={d.value} className="flex items-center gap-1.5 text-sm"><input type="checkbox" name="workDays" value={d.value} defaultChecked={(s?.workDays ?? "1,2,3,4,5,6").split(",").includes(String(d.value))} className="accent-navy-900" /> {d.label}</label>)}
-        <label className="ml-auto flex items-center gap-1.5 text-sm text-muted"><input type="checkbox" name="isDefault" defaultChecked={s?.isDefault} className="accent-navy-900" /> Default for new staff</label>
+        <label className="ml-auto flex items-center gap-1.5 text-sm font-medium"><input type="checkbox" name="isDefault" defaultChecked={s?.isDefault} className="accent-navy-900" /> Default shift (new staff and anyone without a shift)</label>
       </fieldset>
       <div className="flex gap-2 sm:col-span-4"><SubmitButton>{s ? "Save shift" : "Add shift"}</SubmitButton><Link href="/hr/attendance/shifts" className="rounded-lg px-3 py-2 text-sm text-muted hover:bg-canvas">Close</Link></div>
     </ActionForm>
@@ -64,7 +78,10 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
         </div>
         {s.isDefault && <Badge tone="navy">Default</Badge>}
       </div>
-      <p className="mt-3 text-xs text-muted">{days(s.workDays)} · late after {s.graceMin} min · half day under {s.halfDayMin / 60}h</p>
+      <p className="mt-3 text-xs text-muted">
+        <span className={cn("mr-1.5 rounded px-1.5 py-0.5 font-medium", s.mode === "flexible" ? "bg-sky-50 text-sky-700" : "bg-canvas text-ink")}>{s.mode === "flexible" ? "Flexible hours" : "Fixed time"}</span>
+        {days(s.workDays)} · {s.mode === "flexible" ? `${hours(s.start, s.end)} a day, any time` : `late after ${s.graceMin} min · ${s.latesPerDay ?? globalLates ?? 0 ? `${s.latesPerDay ?? globalLates} lates = 1 day salary` : "no late deduction"}`} · half day under {s.halfDayMin / 60}h
+      </p>
       <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
         <div className="flex items-center -space-x-2">
           {s.employees.slice(0, 6).map((e) => <span key={e.id} title={e.fullName} className="rounded-full ring-2 ring-surface"><PersonAvatar name={e.fullName} photo={e.photo} className="size-7 text-[10px]" /></span>)}

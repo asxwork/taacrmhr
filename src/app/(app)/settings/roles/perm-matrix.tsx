@@ -158,7 +158,7 @@ export function ModuleBlock({ moduleKey, label, scoped, actions, roles, initial,
           <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
             className="flex w-full items-center gap-2 px-4 py-3 text-left font-medium transition-colors hover:bg-canvas">
             <ChevronRight className={cn("size-4 shrink-0 text-muted transition-transform duration-300 ease-out", open && "rotate-90")} />
-            <span className="truncate">{label}</span>
+            <span className="truncate" title={label}>{label}</span>
             <span className="ml-auto shrink-0 rounded-full bg-canvas px-2 py-0.5 text-[11px] font-normal text-muted">{actions.length}</span>
           </button>
         </td>

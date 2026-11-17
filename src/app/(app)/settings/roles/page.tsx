@@ -92,7 +92,7 @@ export default async function AccessPermissionsPage({ searchParams }: { searchPa
                     <th className="sticky left-0 top-0 z-30 min-w-52 border-b border-r border-line bg-surface px-4 py-3 text-left font-medium">Roles <span className="font-normal text-muted">{roles.length}</span></th>
                     {roles.map((r) => (
                       <th key={r.id} id={`role-${r.id}`} className="sticky top-0 z-20 min-w-[6.5rem] border-b border-r border-line bg-surface px-3 py-3 text-center align-top font-normal">
-                        <Link href={`/settings/roles/${r.id}`} className="block truncate font-medium hover:underline" title={r.description ?? undefined}>{r.name}</Link>
+                        <Link href={`/settings/roles/${r.id}`} className="block truncate font-medium hover:underline" title={r.description ? `${r.name}: ${r.description}` : r.name}>{r.name}</Link>
                         <div className="mt-1.5 flex items-center justify-center gap-1">
                           <span className="flex -space-x-1.5">
                             {r.users.slice(0, 4).map((u) => (

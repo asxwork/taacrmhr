@@ -19,9 +19,10 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   // Calls section landing: people who don't make calls start on Callbacks; Super Admins and supervisors who have no
   // numbers of their own start on Campaigns (to upload numbers and assign them to agents). ?dial=1 opens the dialer anyway.
   if (!can(viewer, "calls", "edit")) redirect("/calls/callbacks");
-  if ((viewer.isSuperAdmin || can(viewer, "calls", "assign")) && !(await searchParams).dial) {
-    const mine = await db.callTarget.count({ where: { assigneeId: viewer.id } });
-    if (!mine) redirect("/calls/campaigns");
+  if (!(await searchParams).dial) {
+    // Super Admins manage calling (campaigns, assigning agents), they don't work a queue.
+    if (viewer.isSuperAdmin) redirect("/calls/campaigns");
+    if (can(viewer, "calls", "assign") && !(await db.callTarget.count({ where: { assigneeId: viewer.id } }))) redirect("/calls/campaigns");
   }
   const user = viewer;
   const day = pkDay();

@@ -111,7 +111,10 @@ export async function saveShift(_: FormState, fd: FormData): Promise<FormState> 
   if (clash && clash.id !== id) return { error: `“${name}” already exists.` };
   const isDefault = fd.get("isDefault") === "on";
   if (isDefault) await db.shift.updateMany({ data: { isDefault: false } });
-  const data = { name, start, end, graceMin, halfDayMin, workDays, ...(isDefault && { isDefault }) };
+  const mode = str(fd, "mode") === "flexible" ? "flexible" : "fixed";
+  const lpd = Math.round(Number(str(fd, "latesPerDay")));
+  const latesPerDay = mode === "fixed" && lpd > 0 ? Math.min(31, lpd) : null;
+  const data = { name, start, end, graceMin, halfDayMin, workDays, mode, latesPerDay, ...(isDefault && { isDefault }) };
   if (id) await db.shift.update({ where: { id }, data });
   else await db.shift.create({ data: { ...data, isDefault: isDefault || !(await db.shift.count()) } });
   await audit(user.id, id ? "update" : "create", "shift", id || null, `${id ? "Updated" : "Added"} shift ${name}`);
