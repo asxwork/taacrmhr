@@ -21,6 +21,13 @@ function trim(user: SessionUser, items: NavItem[]): NavItem[] {
   });
 }
 
+/** Drops switched-off features from a menu item, inside sub-menus too (a sub-menu with nothing left goes). */
+function dropOff(i: NavItem, off: Set<string>): NavItem[] {
+  if (!i.children) return featureForPath(i.href, off) ? [] : [i];
+  const children = i.children.flatMap((c) => dropOff(c, off));
+  return children.length ? [{ ...i, href: children[0]!.href, children }] : [];
+}
+
 /** Hides the layout's menu items (sub-menus keep their remaining entries). */
 function hide(items: NavItem[], hidden: Set<string>): NavItem[] {
   return items.flatMap((i) => {
@@ -48,7 +55,7 @@ export function appsFor(user: SessionUser, layouts: Map<string, ResolvedLayout> 
   // Employees (and managers, if so set) don't get the HR app; My Space has their part of it ("My team" for managers).
   const apps = APPS.filter((app) => !off.has(`app-${app.key}`) && (app.key !== "hr" || hrApp)).map((app) => {
     const l = layouts.get(app.key);
-    let groups = app.groups.filter((g) => !(app.key === "me" && g.label === "My team" && (hrApp || off.has("app-hr")))).map((g) => ({ ...g, items: hide(trim(user, g.items), l?.hidden ?? new Set()).filter((i) => !featureForPath(i.href, off)) })).filter((g) => g.items.length);
+    let groups = app.groups.filter((g) => !(app.key === "me" && g.label === "My team" && (hrApp || off.has("app-hr")))).map((g) => ({ ...g, items: hide(trim(user, g.items), l?.hidden ?? new Set()).flatMap((i) => dropOff(i, off)) })).filter((g) => g.items.length);
     if (l?.order.length) groups = [...groups].sort((a, b) => (l.order.indexOf(a.label ?? "") + 1 || 999) - (l.order.indexOf(b.label ?? "") + 1 || 999));
     const items = groups.flatMap((g) => g.items.flatMap((i) => i.children ?? [i]));
     const home = l?.landing && items.some((i) => i.href === l.landing) ? l.landing : app.home;

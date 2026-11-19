@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { fileUrl } from "@/lib/files";
+import { disabledFeatures } from "@/lib/features";
 import { myThreads, threadMessages } from "@/lib/chat";
 import { ChatApp } from "./chat-app";
 
@@ -13,9 +14,10 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
   const user = await requireUser();
   if (!can(user, "chat")) redirect("/no-access");
   const sp = await searchParams;
-  const [threads, people] = await Promise.all([
+  const [threads, people, off] = await Promise.all([
     myThreads(user.id),
     db.user.findMany({ where: { active: true, id: { not: user.id } }, select: { id: true, name: true, title: true, lastLoginAt: true, roles: { select: { role: { select: { name: true } } } }, employee: { select: { photo: true } } }, orderBy: { name: "asc" } }),
+    disabledFeatures(),
   ]);
   let active: { id: string; kind: string; title: string; members: { id: string; name: string }[]; canManage: boolean } | null = null;
   let initial: Awaited<ReturnType<typeof threadMessages>> = null;
@@ -30,7 +32,7 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
   }
   return (
     <ChatApp
-      me={{ id: user.id, name: user.name, canGroup: can(user, "chat", "create") }}
+      me={{ id: user.id, name: user.name, canGroup: can(user, "chat", "create") && !off.has("chat-groups"), canFiles: !off.has("chat-files") }}
       threads={threads.map((t) => (t.id === active?.id ? { ...t, unread: 0 } : t))}
       people={people.map((p) => ({ id: p.id, name: p.name, sub: p.title || p.roles.map((r) => r.role.name).join(", ") || "", photo: p.employee?.photo ? fileUrl(p.employee.photo, 160) : null }))}
       active={active}

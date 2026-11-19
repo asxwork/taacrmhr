@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui";
 import { hrefWith } from "@/components/crm/bits";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { bossLinks } from "./links";
+import { disabledFeatures } from "@/lib/features";
 import { BossOverview } from "./overview";
 import { BossCrmReport } from "./crm-report";
 import { BossHrReport } from "./hr-report";
@@ -22,7 +23,10 @@ export default async function BossPage({ searchParams }: { searchParams: Promise
   const user = await requireUser();
   if (!user.isBoss && !user.isSuperAdmin) redirect("/no-access");
   const sp = await searchParams;
-  const tab = TABS.some(([t]) => t === sp.tab) ? sp.tab! : "overview";
+  // Report tabs switched off in Settings → Apps & features (or whose whole app is off) disappear.
+  const off = await disabledFeatures();
+  const tabs = TABS.filter(([t]) => t === "overview" || !(off.has(`boss-${t}`) || off.has(`app-${t}`)));
+  const tab = tabs.some(([t]) => t === sp.tab) ? sp.tab! : "overview";
   const { from, to } = resolvePeriod(sp.period, sp.from, sp.to);
   const links = await bossLinks(from, to);
   const keep = { period: sp.period, from: sp.from, to: sp.to };
@@ -32,7 +36,7 @@ export default async function BossPage({ searchParams }: { searchParams: Promise
       <PageHeader title="Boss dashboard" description={`${format(from, "d MMM")} – ${format(to, "d MMM yyyy")}`} />
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
-          {TABS.map(([t, label]) => (
+          {tabs.map(([t, label]) => (
             <Link key={t} href={hrefWith("/boss", keep, { tab: t === "overview" ? undefined : t })} className={cn("whitespace-nowrap rounded-md px-3 py-1.5 text-sm", tab === t ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-ink")}>{label}</Link>
           ))}
         </div>

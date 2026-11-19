@@ -32,7 +32,7 @@ function Linked({ text }: { text: string }) {
   return <>{parts.map((p, i) => (i % 2 ? <a key={i} href={p} target={p.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" className="break-all underline underline-offset-2">{p}</a> : <Fragment key={i}>{p}</Fragment>))}</>;
 }
 
-export function ChatApp({ me, threads: initialThreads, people, active, initial }: { me: { id: string; name: string; canGroup: boolean }; threads: ThreadRow[]; people: Person[]; active: Active; initial: { messages: MessageRow[]; seenAt: string | null } | null }) {
+export function ChatApp({ me, threads: initialThreads, people, active, initial }: { me: { id: string; name: string; canGroup: boolean; canFiles: boolean }; threads: ThreadRow[]; people: Person[]; active: Active; initial: { messages: MessageRow[]; seenAt: string | null } | null }) {
   const router = useRouter();
   const [threads, setThreads] = useState(initialThreads);
   const [messages, setMessages] = useState<MessageRow[]>(initial?.messages ?? []);
@@ -218,10 +218,12 @@ export function ChatApp({ me, threads: initialThreads, people, active, initial }
           {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
           {file && <p className="mb-2 flex items-center gap-2 rounded-lg bg-canvas px-3 py-1.5 text-xs"><Paperclip className="size-3.5" /><span className="min-w-0 flex-1 truncate">{file.name}</span><button type="button" onClick={() => { setFile(null); if (fileInput.current) fileInput.current.value = ""; }} aria-label="Remove file"><X className="size-3.5" /></button></p>}
           <div className="flex items-end gap-2">
-            <label className="relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted hover:bg-canvas hover:text-ink" title="Attach a photo or PDF">
-              <Paperclip className="size-5" />
-              <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-            </label>
+            {me.canFiles && (
+              <label className="relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted hover:bg-canvas hover:text-ink" title="Attach a photo or PDF">
+                <Paperclip className="size-5" />
+                <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              </label>
+            )}
             <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={1} placeholder="Type a message"
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }}
               className="input max-h-32 min-h-10 flex-1 resize-none py-2" style={{ fieldSizing: "content" } as React.CSSProperties} aria-label="Message" />

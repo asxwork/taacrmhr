@@ -7,6 +7,7 @@ import { can } from "@/lib/permissions";
 import { directThread } from "@/lib/chat";
 import { saveUpload } from "@/lib/files";
 import { str, type FormState } from "@/lib/utils";
+import { disabledFeatures } from "@/lib/features";
 
 async function chatUser() {
   const user = await requireUser();
@@ -23,6 +24,7 @@ export async function sendMessage(fd: FormData): Promise<{ ok?: true; error?: st
   const f = fd.get("file");
   let file: string | null = null, fileName: string | null = null;
   if (f instanceof File && f.size > 0) {
+    if ((await disabledFeatures()).has("chat-files")) return { error: "Sending files is switched off." };
     const up = await saveUpload(f, `chat/${threadId}`, { maxBytes: 10_000_000, allowPdf: true });
     if ("error" in up) return { error: up.error };
     file = up.path; fileName = f.name.slice(0, 120);
@@ -45,6 +47,7 @@ export async function startDirect(fd: FormData) {
 export async function createGroup(_: FormState, fd: FormData): Promise<FormState> {
   const user = await chatUser();
   if (!can(user, "chat", "create")) return { error: "Your role can't start group chats." };
+  if ((await disabledFeatures()).has("chat-groups")) return { error: "Group chats are switched off." };
   const name = str(fd, "name").slice(0, 60);
   const ids = [...new Set(fd.getAll("members").map(String).filter((id) => id && id !== user.id))];
   if (!name) return { error: "Give the group a name." };
