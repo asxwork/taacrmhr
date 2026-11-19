@@ -88,7 +88,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <fieldset disabled={!!user.viewAs} className="m-0 min-w-0 border-0 p-0">
               <Suspense><BackLink pages={pages.map((x) => ({ href: x.href, label: x.label }))} apps={apps.map((a) => ({ key: a.key, name: a.name, home: a.home, prefixes: a.prefixes }))} /></Suspense>
               <Suspense><FlashToast /></Suspense>
-              {!offFeature && <Suspense><SectionTabs sections={SECTIONS.map((sec) => ({ ...sec, tabs: sec.tabs.filter(tabAllowed) })).filter((sec) => sec.tabs.length > 1)} app={current.key} /></Suspense>}
+              {!offFeature && <Suspense><SectionTabs sections={SECTIONS
+                // In My Space (e.g. a manager's My team pages) HR's own tabs — shifts, machines, logs — stay hidden.
+                .filter((sec) => current.key !== "me" || sec.app === "me" || !sec.tabs.some((t) => t.href.startsWith("/hr")))
+                .map((sec) => ({ ...sec, tabs: sec.tabs.filter(tabAllowed) })).filter((sec) => sec.tabs.length > 1)} app={current.key} /></Suspense>}
               {offFeature ? <FeatureOff label={offFeature.label} canManage={user.isSuperAdmin || can(user, "settings.company", "edit")} /> : children}
             </fieldset>
           </PageTransition>

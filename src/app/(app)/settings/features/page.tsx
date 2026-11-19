@@ -26,8 +26,8 @@ export default async function FeaturesPage() {
           <p className="mb-3 text-xs text-muted">Employees always do their own things (attendance, leave and other requests, payslips, documents, profile) in My Space and never see the HR app. Choose who else works in the HR app.</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {([
+              ["hr", "HR staff only (recommended)", "Only people with company-wide HR access (HR Manager, Administrator, Super Admin) get the HR app. Managers see their team in My Space → My team."],
               ["managers", "HR staff and managers", "Managers get the HR app for their team’s attendance, leave and approvals."],
-              ["hr", "HR staff only", "Only people with company-wide HR access get the HR app. Managers see their team in My Space → My team."],
             ] as const).map(([v, l, d]) => (
               <label key={v} className="flex cursor-pointer gap-3 rounded-lg border border-line p-3 has-[:checked]:border-navy-900 has-[:checked]:bg-canvas">
                 <input type="radio" name="hrAccess" value={v} defaultChecked={hrMode === v} className="mt-1" />

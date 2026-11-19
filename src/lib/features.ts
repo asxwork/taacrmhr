@@ -96,11 +96,11 @@ export function featureForPath(path: string, off: Set<string>) {
 
 /**
  * Who works in the HR app and who uses My Space (Settings → Apps & features). Employees whose HR rights cover only
- * themselves always use My Space. "managers": HR staff and managers get the HR app. "hr": only people with company-wide
- * HR access get it; managers see their team under My Space → My team.
+ * themselves always use My Space. "hr" (default): only people with company-wide HR access (HR Manager, Administrator,
+ * Super Admin) get the HR app; managers see their team under My Space → My team. "managers": managers get it too.
  */
 export type HrAccess = "managers" | "hr";
 export const HR_ACCESS_SETTING = "hr.access";
 export function hrAccess(): Promise<HrAccess> {
-  return memo("setting:hrAccess", 60_000, async () => ((await db.setting.findUnique({ where: { key: HR_ACCESS_SETTING } }))?.value === "hr" ? "hr" : "managers"));
+  return memo("setting:hrAccess", 60_000, async () => ((await db.setting.findUnique({ where: { key: HR_ACCESS_SETTING } }))?.value === "managers" ? "managers" : "hr"));
 }

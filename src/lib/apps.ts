@@ -34,7 +34,7 @@ function hide(items: NavItem[], hidden: Set<string>): NavItem[] {
 const HR_STAFF = ["hr.recruitment", "hr.assets", "hr.onboarding", "hr.payrollchecklist"];
 const HR_SCOPED = ["hr.employees", "hr.attendance", "hr.leave", "hr.payroll", "hr.performance", "hr.expenses", "hr.leaveplanner", "hr.shiftswap", "hr.checkins", "hr.exit"];
 /** Whether the user works in the HR app, or does everything from My Space (see HrAccess in lib/features.ts). */
-export function usesHrApp(user: SessionUser, mode: HrAccess = "managers") {
+export function usesHrApp(user: SessionUser, mode: HrAccess = "hr") {
   if (user.isSuperAdmin || HR_STAFF.some((m) => can(user, m))) return true;
   const scopes = HR_SCOPED.flatMap((m) => [scopeFor(user, m, "view"), scopeFor(user, m, "approve")]);
   if (scopes.includes("all")) return true;
@@ -42,7 +42,7 @@ export function usesHrApp(user: SessionUser, mode: HrAccess = "managers") {
 }
 
 /** Apps with at least one page the user's permissions open (My Space is everyone's), arranged by their layouts. */
-export function appsFor(user: SessionUser, layouts: Map<string, ResolvedLayout> = new Map(), off: Set<string> = new Set(), mode: HrAccess = "managers"): UserApp[] {
+export function appsFor(user: SessionUser, layouts: Map<string, ResolvedLayout> = new Map(), off: Set<string> = new Set(), mode: HrAccess = "hr"): UserApp[] {
   const hrApp = !off.has("app-hr") && usesHrApp(user, mode);
   // An app switched off in Settings → Apps & features leaves the app list and the app switcher completely.
   // Employees (and managers, if so set) don't get the HR app; My Space has their part of it ("My team" for managers).
