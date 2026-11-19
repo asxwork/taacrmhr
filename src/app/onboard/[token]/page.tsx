@@ -5,6 +5,7 @@ import { ONB_FIELDS, ONB_SECTIONS, onbStatus } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { submitOnboarding } from "./actions";
+import { PhotoCropInput } from "@/components/photo-crop-input";
 
 export const metadata = { title: "Welcome: your details" };
 
@@ -52,20 +53,28 @@ export default async function OnboardPage({ params }: { params: Promise<{ token:
             {ONB_FIELDS.filter((f) => f.section === sec).map((f) => {
               const bad = wrong.has(f.key);
               const cls = cn("input", bad && "border-red-500 ring-2 ring-red-200");
+              // Not a <label> for the photo: clicks inside its crop window would open the file picker again.
+              const Wrap = f.key === "photo" ? "div" : "label";
               return (
-                <label key={f.key} className="block text-sm">
+                <Wrap key={f.key} className="block text-sm">
                   <span className={cn("mb-1 block font-medium", bad && "text-red-700")}>{f.label} <span className="text-red-600">*</span>{bad && <span className="ml-1 text-xs font-normal">· please fix</span>}</span>
                   {f.kind === "select" ? (
                     <select name={f.key} required defaultValue={value(f.key)} className={cls}><option value="">Choose…</option>{f.options!.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
                   ) : f.kind === "file" ? (
                     <>
-                      <input name={f.key} type="file" required={!saved[f.key] || bad} accept={f.key === "photo" ? "image/jpeg,image/png,image/webp" : "image/*,application/pdf"} capture={f.key === "photo" ? "user" : undefined} className={cn(fileCls, bad && "rounded-md ring-2 ring-red-200")} />
+                      {f.key === "photo" ? (
+                        <span className="flex items-center gap-3">
+                          <PhotoCropInput name="photo" initials={(e?.fullName ?? "").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "+"} required={!saved.photo || bad} autoSubmit={false} invalid={bad} submitLabel="Use this photo" />
+                        </span>
+                      ) : (
+                        <input name={f.key} type="file" required={!saved[f.key] || bad} accept="image/*,application/pdf" className={cn(fileCls, bad && "rounded-md ring-2 ring-red-200")} />
+                      )}
                       {saved[f.key] && !bad && <span className="mt-1 flex items-center gap-1 text-xs text-emerald-700"><CheckCircle2 className="size-3" /> Already uploaded; attach again only to replace it</span>}
                     </>
                   ) : (
                     <input name={f.key} type={f.kind} required defaultValue={value(f.key)} placeholder={f.ph} pattern={f.pattern} title={f.pattern ? `Format: ${f.ph}` : undefined} max={f.kind === "date" ? new Date().toISOString().slice(0, 10) : undefined} className={cls} />
                   )}
-                </label>
+                </Wrap>
               );
             })}
           </fieldset>

@@ -22,7 +22,8 @@ function Placed({ src, w, h, view, size }: { src: string; w: number; h: number; 
   );
 }
 
-export function PhotoCropInput({ name = "photo", current, initials, submitLabel = "Save photo" }: { name?: string; current?: string | null; initials: string; submitLabel?: string }) {
+/** `autoSubmit` sends the form as soon as the crop is saved (profile); off for longer forms (onboarding), where it just fills the field. */
+export function PhotoCropInput({ name = "photo", current, initials, submitLabel = "Save photo", autoSubmit = true, required = false, invalid = false }: { name?: string; current?: string | null; initials: string; submitLabel?: string; autoSubmit?: boolean; required?: boolean; invalid?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [src, setSrc] = useState<{ url: string; w: number; h: number } | null>(null);
   const [view, setView] = useState<View>({ zoom: 1, x: 0, y: 0 });
@@ -91,7 +92,7 @@ export function PhotoCropInput({ name = "photo", current, initials, submitLabel 
         input.current.files = dt.files;
         setSaved(c.toDataURL("image/jpeg", 0.9));
         setSrc(null);
-        input.current.form?.requestSubmit();
+        if (autoSubmit) input.current.form?.requestSubmit();
       }, "image/jpeg", 0.9);
     };
     img.src = src.url;
@@ -100,13 +101,13 @@ export function PhotoCropInput({ name = "photo", current, initials, submitLabel 
   const shown = saved ?? current;
   return (
     <>
-      <button type="button" onClick={() => input.current?.click()} className="group relative size-14 shrink-0 overflow-hidden rounded-full bg-navy-900 text-base font-semibold text-white" aria-label="Change profile picture">
+      <button type="button" onClick={() => input.current?.click()} className={`group relative size-14 shrink-0 overflow-hidden rounded-full bg-navy-900 text-base font-semibold text-white ${invalid ? "ring-2 ring-red-400" : ""}`} aria-label="Change profile picture">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {shown ? <img src={shown} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center">{initials}</span>}
         <span className="absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition group-hover:opacity-100"><Camera className="size-5" /></span>
       </button>
-      <button type="button" onClick={() => input.current?.click()} className="h-8 rounded-md bg-navy-900 px-3 text-xs font-medium text-white hover:bg-navy-800">{current ? "Change picture" : "Choose picture"}</button>
-      <input ref={input} name={name} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" tabIndex={-1} aria-label="Profile picture" onChange={(e) => { setSaved(null); pick(e.target.files?.[0]); }} />
+      <button type="button" onClick={() => input.current?.click()} className="h-8 rounded-md bg-navy-900 px-3 text-xs font-medium text-white hover:bg-navy-800">{shown ? "Change picture" : "Choose picture"}</button>
+      <input ref={input} name={name} type="file" required={required} accept="image/jpeg,image/png,image/webp" className="sr-only" tabIndex={-1} aria-label="Profile picture" onChange={(e) => { setSaved(null); pick(e.target.files?.[0]); }} />
 
       {src && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Crop profile picture" onMouseDown={(e) => e.target === e.currentTarget && close()}>
