@@ -3,7 +3,7 @@ import { APP_SWITCHES, FEATURES, disabledFeatures, hrAccess } from "@/lib/featur
 import { PageHeader } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { saveFeatures } from "./actions";
-import { AppCard } from "./app-card";
+import { AppCards } from "./app-card";
 
 export const metadata = { title: "Apps & features" };
 
@@ -17,10 +17,8 @@ export default async function FeaturesPage() {
     <>
       <PageHeader title="Apps & features" description="Each app has one switch to turn the whole app off, and a dropdown with every feature inside it. What you switch off disappears from everyone’s menus; the data is kept and comes back when you switch it on." />
       <ActionForm action={saveFeatures} className="space-y-3">
-        {APP_SWITCHES.map((a) => (
-          <AppCard key={a.app} appKey={a.app} label={a.label} about={a.about} master={`app-${a.app}`} off={off} disabled={!editable}
-            features={FEATURES.filter((f) => f.app === a.app && !f.key.startsWith("app-")).map((f) => ({ key: f.key, label: f.label, about: f.about }))} />
-        ))}
+        <AppCards off={off} disabled={!editable} apps={APP_SWITCHES.map((a) => ({ appKey: a.app, label: a.label, about: a.about, master: `app-${a.app}`,
+          features: FEATURES.filter((f) => f.app === a.app && !f.key.startsWith("app-")).map((f) => ({ key: f.key, label: f.label, about: f.about })) }))} />
         <fieldset className="rounded-xl border border-line bg-surface p-4" disabled={!editable}>
           <legend className="px-1 text-sm font-semibold">HR app or My Space</legend>
           <p className="mb-3 text-xs text-muted">Employees always do their own things (attendance, leave and other requests, payslips, documents, profile) in My Space and never see the HR app. Choose who else works in the HR app.</p>

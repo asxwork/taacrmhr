@@ -1,3 +1,4 @@
+import { memo } from "@/lib/memo";
 import Link from "@/components/link";
 import { format, parse } from "date-fns";
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, Download, Paperclip, Plus, Search, ShieldCheck, Trash2, Copy, Lock, FileText } from "lucide-react";
@@ -21,8 +22,13 @@ const PAGE = 50;
 
 /** The entries list (all, or Sir personal) with filters, totals and the add/edit panel. */
 export async function EntriesView({ user, sp, personal, base }: { user: SessionUser; sp: EntrySP; personal: boolean; base: string }) {
-  await ensureFinanceDefaults();
-  const tree = await categoryTree();
+  // Round 1, together: categories, this user's default view, finance settings and the entry being edited/copied.
+  const [, tree, defaultView, cfg, editing, copyRow, bill0] = await Promise.all([
+    ensureFinanceDefaults(), categoryTree(), defaultViewFor(user.id), financeConfig(),
+    sp.edit ? db.finEntry.findUnique({ where: { id: sp.edit } }) : null,
+    sp.copy ? db.finEntry.findUnique({ where: { id: sp.copy } }) : null,
+    sp.bill ? db.finRecurring.findUnique({ where: { id: sp.bill } }) : null,
+  ]);
   const limit = financeLimit(user), hLimit = holderLimit(user);
   const where: Prisma.FinEntryWhereInput = limit ? { AND: [entryWhere(sp, personal, tree), limit] } : entryWhere(sp, personal, tree);
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? parse(sp.month, "yyyy-MM", new Date()) : null;
@@ -33,8 +39,9 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
     db.finEntry.count({ where }),
     db.finEntry.groupBy({ by: ["kind"], where: { AND: [where, { status: "approved" }] }, _sum: { amount: true } }),
     db.finAccount.findMany({ where: { active: true, ...hLimit }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-    db.finEntry.groupBy({ by: ["party"], where: { party: { not: null } }, _count: true, orderBy: { _count: { party: "desc" } }, take: 400 }),
-    db.finEntry.findMany({ where: { tags: { not: null } }, select: { tags: true }, distinct: ["tags"], take: 500 }),
+    // Payee and tag suggestions scan the whole table: cached, and cleared whenever an entry is saved.
+    memo("fin:payees", 10 * 60_000, () => db.finEntry.groupBy({ by: ["party"], where: { party: { not: null } }, _count: true, orderBy: { _count: { party: "desc" } }, take: 400 })),
+    memo("fin:tags", 10 * 60_000, () => db.finEntry.findMany({ where: { tags: { not: null } }, select: { tags: true }, distinct: ["tags"], take: 500 })),
   ]);
   const allTags = [...new Set(tagRows.flatMap((t) => tagList(t.tags)))].sort();
   const total = (k: string) => sums.find((s) => s.kind === k)?._sum.amount ?? 0;
@@ -45,18 +52,15 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
   };
   const mod = personal ? "finance.personal" : "finance";
   const canAdd = can(user, mod, "create"), canEdit = can(user, mod, "edit"), canDel = can(user, mod, "delete");
-  const editing = sp.edit ? await db.finEntry.findUnique({ where: { id: sp.edit } }) : null;
-  // Default view (holder, sort, filters) the Entries list opens on for this user.
-  const defaultView = await defaultViewFor(user.id);
+  // Default view (holder, sort, filters) the Entries list opens on for this user: defaultView, loaded above.
   const defaultHolder = new URLSearchParams(defaultView ?? "").get("holder");
   const currentView = viewQuery(sp);
   // Duplicate: a copy of an entry (e.g. last month's K-Electric bill) with today's date and no proof.
-  const copy = !editing && sp.copy ? await db.finEntry.findUnique({ where: { id: sp.copy } }) : null;
-  const bill = !editing && sp.bill ? await db.finRecurring.findUnique({ where: { id: sp.bill } }) : null;
+  const copy = !editing ? copyRow : null;
+  const bill = !editing ? bill0 : null;
   const src = editing ?? copy ?? (bill && { kind: "expense", amount: bill.amount, accountId: bill.accountId ?? "", toAccountId: null, categoryId: bill.categoryId, description: `${bill.name} · ${format(new Date(), "MMMM yyyy")}`, party: bill.party, notes: null, date: new Date() });
   const newKind = copy ? copy.kind : bill ? "expense" : sp.new === "in" || sp.new === "transfer" ? sp.new : sp.new ? "expense" : null;
   const formKind = editing?.kind ?? newKind;
-  const cfg = await financeConfig();
   const proofRequired = cfg.proofAbove > 0 ? `Required for ${pkr(cfg.proofAbove)} and above` : "Bill, receipt or transfer screenshot. Your boss sees it on the entry.";
   const catName = (c: { name: string; parent: { name: string } | null } | null) => (c ? (c.parent ? `${c.parent.name} › ${c.name}` : c.name) : "");
   const exportHref = `/api/finance/export?${new URLSearchParams(Object.entries({ ...keep, personal: personal ? "1" : "" }).filter(([, v]) => v) as [string, string][])}`;

@@ -23,7 +23,7 @@ export default async function MyHome() {
   if (!emp) return (<><PageHeader title="My Space" /><Card><EmptyState title="Your login isn't linked to an employee record" description="Ask HR to link it to see attendance, leave and payslips." /></Card></>);
 
   const now = new Date();
-  const [att, punches, balances, slip, pendingReqs, policies, surveys, posts, mode] = await Promise.all([
+  const [att, punches, balances, slip, pendingReqs, policies, surveys, posts, mode, selfie] = await Promise.all([
     loadAttendance([emp.id], startOfMonth(now), now),
     db.attendancePunch.findMany({ where: { employeeId: emp.id, at: { gte: startOfDay(now) } }, orderBy: { at: "asc" } }),
     balancesFor(emp.id).catch(() => []),
@@ -33,6 +33,7 @@ export default async function MyHome() {
     db.engagementSurvey.findMany({ where: { status: "open", OR: [{ closesAt: null }, { closesAt: { gte: new Date() } }] }, select: { id: true } }),
     db.hrPost.findMany({ orderBy: { createdAt: "desc" }, take: 4 }),
     geofenceMode(),
+    selfieMode(),
   ]);
   const days = att.get(emp.id) ?? [];
   const today = days.find((d) => isToday(d.date));
@@ -78,7 +79,7 @@ export default async function MyHome() {
             </div>
             {today && today.status !== "upcoming" && <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", color(DAY_STATUSES[today.status].color).pill)}>{DAY_STATUSES[today.status].label}</span>}
           </div>
-          <CheckInButton checkedIn={punches.length % 2 === 1} needsLocation={mode !== "off" && emp.branch?.lat != null} selfie={await selfieMode()} />
+          <CheckInButton checkedIn={punches.length % 2 === 1} needsLocation={mode !== "off" && emp.branch?.lat != null} selfie={selfie} />
           <p className="mt-3 text-center text-xs text-muted">
             {emp.shift ? `Shift ${emp.shift.start}–${emp.shift.end}` : ""}{punches.length ? ` · ${punches.map((p, i) => `${i % 2 ? "out" : "in"} ${format(p.at, "h:mm a")}`).join(" · ")}` : ""}
           </p>

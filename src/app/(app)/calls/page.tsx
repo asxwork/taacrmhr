@@ -27,18 +27,18 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   }
   const user = viewer;
   const day = pkDay();
-  const [target, queued, callbacks, s, lastLog] = await Promise.all([
+  const [target, queued, callbacks, s, lastLog, note] = await Promise.all([
     nextTarget(user.id),
     db.callTarget.count({ where: queueWhere(user.id) }),
     db.callTarget.count({ where: { assigneeId: user.id, status: "callback" } }),
     agentDay(user.id, day.start, day.end),
     db.callLog.findFirst({ where: { agentId: user.id, startedAt: { gte: new Date(Date.now() - 90_000) } }, orderBy: { startedAt: "desc" }, include: { target: { select: { name: true, phone: true, leadId: true } } } }),
+    db.callDayNote.findUnique({ where: { agentId_date: { agentId: user.id, date: day.date } } }),
   ]);
   let extra: Record<string, string> = {};
   try { extra = target?.extra ? JSON.parse(target.extra) : {}; } catch {}
   const waText = (target?.campaign.waMessage ?? "").replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
 
-  const note = await db.callDayNote.findUnique({ where: { agentId_date: { agentId: user.id, date: day.date } } });
   const todayCard = (
     <Card className="p-5">
       <div className="mb-3 flex items-baseline justify-between gap-2">

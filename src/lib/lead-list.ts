@@ -1,3 +1,4 @@
+import { memo } from "./memo";
 // Rows for the lead list/board. Used for the first render (crm/leads/page.tsx) and for every in-place
 // refresh (crm/leads/list-actions.ts → fetchLeadList), so filters and paging never reload the page.
 import type { Prisma } from "@prisma/client";
@@ -81,9 +82,13 @@ function leadOrderBy(sort?: string): Prisma.LeadOrderByWithRelationInput[] {
 }
 
 export async function loadLeadList(user: SessionUser, filters: LeadFilters, view: "list" | "board", page: number): Promise<LeadListData> {
-  const statuses = await db.leadStatus.findMany({ where: { active: true }, select: { id: true, kind: true, sortOrder: true }, orderBy: { sortOrder: "asc" } });
+  // Stages are cached (cleared when a stage is edited); the user's scope and field rules load alongside.
+  const [statuses, scope, canEditRow, fields] = await Promise.all([
+    memo("leadStatus:list", 5 * 60_000, () => db.leadStatus.findMany({ where: { active: true }, select: { id: true, kind: true, sortOrder: true }, orderBy: { sortOrder: "asc" } })),
+    scopeWhere(user, "crm.leads"), scopeMatcher(user, "crm.leads", "edit"), fieldAccess(user),
+  ]);
   const openIds = statuses.filter((s) => s.kind === "open").map((s) => s.id);
-  const [where, scope, canEditRow, fields] = await Promise.all([leadWhere(user, filters, statuses), scopeWhere(user, "crm.leads"), scopeMatcher(user, "crm.leads", "edit"), fieldAccess(user)]);
+  const where = await leadWhere(user, filters, statuses);
   const phoneMode = fields["lead.phone"];
   const openWhere = { ...scope, statusId: { in: statuses.filter((s) => s.kind === "open").map((s) => s.id) } };
   const today = startOfDay(new Date());
@@ -104,20 +109,19 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
   // Next planned activity per lead (the Bitrix "Activity" column).
   const next = new Map<string, LeadRow["next"]>();
   const nextDue = new Map<string, Date>();
-  for (const a of await db.activity.findMany({
-    where: { leadId: { in: leads.map((l) => l.id) }, doneAt: null, dueAt: { not: null } },
-    select: { leadId: true, subject: true, dueAt: true, owner: { select: { name: true } } },
-    orderBy: { dueAt: "asc" },
-  })) if (a.leadId && !next.has(a.leadId)) { next.set(a.leadId, nextActivity(a)); nextDue.set(a.leadId, a.dueAt!); }
-
-  // Score inputs: how each source converts, and how engaged each lead on this page is.
-  const { sourceRates } = await import("./lead-score-data");
-  const rates = await sourceRates();
+  // Score inputs too (how each source converts, how engaged each lead on this page is): all in one round.
   const ids = leads.map((l) => l.id);
-  const [doneCounts, visits] = await Promise.all([
+  const [planned, rates, doneCounts, visits] = await Promise.all([
+    db.activity.findMany({
+      where: { leadId: { in: ids }, doneAt: null, dueAt: { not: null } },
+      select: { leadId: true, subject: true, dueAt: true, owner: { select: { name: true } } },
+      orderBy: { dueAt: "asc" },
+    }),
+    import("./lead-score-data").then((m) => m.sourceRates()),
     db.activity.groupBy({ by: ["leadId"], where: { leadId: { in: ids }, doneAt: { not: null } }, _count: true }),
     db.activity.findMany({ where: { leadId: { in: ids }, type: "visit", OR: [{ doneAt: { not: null } }, { checkInAt: { not: null } }] }, select: { leadId: true }, distinct: ["leadId"] }),
   ]);
+  for (const a of planned) if (a.leadId && !next.has(a.leadId)) { next.set(a.leadId, nextActivity(a)); nextDue.set(a.leadId, a.dueAt!); }
   const visited = new Set(visits.map((v) => v.leadId));
 
   return {

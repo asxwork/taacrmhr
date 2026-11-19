@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type F = { key: string; label: string; about: string };
@@ -18,15 +18,22 @@ const Toggle = ({ name, checked, onChange, big }: { name: string; checked: boole
  * One app: a master switch that turns the whole app off for everyone, and a dropdown with each of its features.
  * Everything is one form; Save applies it.
  */
-export function AppCard({ appKey, label, about, master, features, off, disabled }: { appKey: string; label: string; about: string; master: string; features: F[]; off: string[]; disabled?: boolean }) {
+export function AppCard({ appKey, label, about, master, features, off, disabled, query = "" }: { appKey: string; label: string; about: string; master: string; features: F[]; off: string[]; disabled?: boolean; query?: string }) {
   const [appOn, setAppOn] = useState(!off.includes(master));
   const [on, setOn] = useState<Record<string, boolean>>(Object.fromEntries(features.map((f) => [f.key, !off.includes(f.key)])));
   const [open, setOpen] = useState(false);
   const count = Object.values(on).filter(Boolean).length;
+  // Search: the card opens on matching features; a card with no match (by app or feature name) hides. Hidden rows stay
+  // in the form, so saving never turns anything off by accident.
+  const q = query.trim().toLowerCase();
+  const hit = (f: F) => `${f.label} ${f.about} ${f.key}`.toLowerCase().includes(q);
+  const appHit = !q || `${label} ${about}`.toLowerCase().includes(q);
+  const matches = q ? features.filter(hit).length : 0;
+  const shownOpen = open || (!!q && matches > 0);
   return (
-    <div className={cn("overflow-hidden rounded-xl border bg-surface transition", appOn ? "border-line" : "border-red-200 bg-red-50/30")}>
+    <div className={cn("overflow-hidden rounded-xl border bg-surface transition", appOn ? "border-line" : "border-red-200 bg-red-50/30", q && !appHit && !matches && "hidden")}>
       <div className="flex items-center gap-4 px-5 py-4">
-        <button type="button" onClick={() => setOpen((o) => !o)} disabled={!features.length} aria-expanded={open} aria-controls={`f-${appKey}`}
+        <button type="button" onClick={() => setOpen((o) => !o)} disabled={!features.length} aria-expanded={shownOpen} aria-controls={`f-${appKey}`}
           className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default">
           {features.length > 0 && <ChevronDown className={cn("size-5 shrink-0 text-muted transition-transform", open && "rotate-180")} />}
           <span className="min-w-0">
@@ -43,15 +50,34 @@ export function AppCard({ appKey, label, about, master, features, off, disabled 
         </label>
       </div>
       {/* Feature switches stay in the form even when folded away, so saving never turns them off by accident. */}
-      <div id={`f-${appKey}`} className={cn("divide-y divide-line border-t border-line", !open && "hidden", !appOn && "opacity-50")}>
+      <div id={`f-${appKey}`} className={cn("divide-y divide-line border-t border-line", !shownOpen && "hidden", !appOn && "opacity-50")}>
         {!appOn && <p className="px-5 py-2 text-xs text-red-700">The whole app is off; these settings are kept for when you switch it back on.</p>}
         {features.map((f) => (
-          <label key={f.key} className="flex cursor-pointer items-center gap-4 px-5 py-3 pl-12 hover:bg-canvas/50">
+          <label key={f.key} className={cn("flex cursor-pointer items-center gap-4 px-5 py-3 pl-12 hover:bg-canvas/50", q && !appHit && !hit(f) && "hidden")}>
             <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{f.label}</span>{f.about && <span className="block text-xs text-muted">{f.about}</span>}</span>
             <fieldset disabled={disabled} className="contents"><Toggle name={`on:${f.key}`} checked={!!on[f.key]} onChange={(v) => setOn((c) => ({ ...c, [f.key]: v }))} /></fieldset>
           </label>
         ))}
       </div>
     </div>
+  );
+}
+
+/** All app cards with one search box over every app and feature. */
+export function AppCards({ apps, off, disabled }: { apps: { appKey: string; label: string; about: string; master: string; features: F[] }[]; off: string[]; disabled?: boolean }) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const none = !!q && !apps.some((a) => `${a.label} ${a.about}`.toLowerCase().includes(q) || a.features.some((f) => `${f.label} ${f.about} ${f.key}`.toLowerCase().includes(q)));
+  return (
+    <>
+      <div className="sticky top-2 z-10">
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && e.preventDefault()} placeholder="Search apps and features (e.g. wallboard, payslips, machines)" aria-label="Search apps and features" className="input h-11 bg-surface pl-9 shadow-sm" />
+        </label>
+      </div>
+      {none && <p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-muted">Nothing matches “{query}”.</p>}
+      {apps.map((a) => <AppCard key={a.appKey} {...a} off={off} disabled={disabled} query={query} />)}
+    </>
   );
 }

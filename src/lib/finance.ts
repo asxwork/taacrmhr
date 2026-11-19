@@ -30,12 +30,16 @@ export const DEFAULT_CATEGORIES: { name: string; subs: string[]; personal?: bool
   { name: "Owner personal", subs: [], personal: true },
 ];
 
+let financeReady = false;
 export async function ensureFinanceDefaults() {
-  if (await db.finCategory.count()) return;
+  // Checked once per server process: after the first page, the categories exist and this costs no database trip.
+  if (financeReady) return;
+  if (await db.finCategory.count()) { financeReady = true; return; }
   for (const [i, c] of DEFAULT_CATEGORIES.entries()) {
     const parent = await db.finCategory.create({ data: { name: c.name, sortOrder: i, personal: !!c.personal } });
     for (const [j, s] of c.subs.entries()) await db.finCategory.create({ data: { name: s, parentId: parent.id, sortOrder: j, personal: !!c.personal } });
   }
+  financeReady = true;
 }
 
 /** Balance of every holder (optionally up to a date). */

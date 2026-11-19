@@ -24,7 +24,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const page = Math.max(1, Number(sp.page) || 1);
   const filters = filtersFrom(sp);
 
-  const [statuses, sources, projects, owners, assignees, saved, automations, initial] = await Promise.all([
+  const [statuses, sources, projects, owners, assignees, saved, automations, initial, branches] = await Promise.all([
     db.leadStatus.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     db.project.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
@@ -33,9 +33,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     db.savedFilter.findMany({ where: { module: "crm.leads", OR: [{ userId: user.id }, { shared: true }] }, orderBy: [{ folder: "asc" }, { name: "asc" }] }),
     db.automation.findMany({ where: { active: true, entity: "lead" }, orderBy: { name: "asc" } }),
     loadLeadList(user, filters, view, page),
+    db.branch.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
-
-  const branches = await db.branch.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } });
   const newStage = statuses.find((x) => x.systemKey === "new");
   const manageShared = user.isSuperAdmin || can(user, "settings.company", "edit");
   // Grouped in the filter menu by section; saved filters by their folder (team ones are shared by managers).

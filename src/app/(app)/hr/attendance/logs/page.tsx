@@ -38,10 +38,27 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
   const range = { gte: from, lt: addDays(to, 1) };
   const keep = { tab: sp.tab, from: sp.from, to: sp.to, employee: sp.employee, source: sp.source, kind: sp.kind };
 
+  const companyWide = scopeFor(user, "hr.attendance") === "all";
+  // Why machine punches might be missing here: a machine that can't be reached, or machine users not mapped yet.
+  // Counted per machine user (not row by row), and worked out alongside the rest of the page.
+  const machineStatusP = companyWide ? (async () => {
+    const [machines, perUser, { machineEmployeeMap }] = await Promise.all([
+      db.attendanceMachine.findMany({ where: { status: "approved" }, select: { id: true, name: true, serial: true, mode: true, lastError: true, lastSeenAt: true } }),
+      db.machineLog.groupBy({ by: ["machineId", "deviceUserId"], where: { at: range }, _count: true }),
+      import("@/lib/machine-users"),
+    ]);
+    const unmappedPer = await Promise.all([...new Set(perUser.map((l) => l.machineId))].map(async (mid) => {
+      const mine = perUser.filter((l) => l.machineId === mid);
+      const map = await machineEmployeeMap(mid, mine.map((l) => l.deviceUserId));
+      return mine.filter((l) => !map.has(l.deviceUserId)).reduce((n, l) => n + l._count, 0);
+    }));
+    const read = perUser.reduce((n, l) => n + l._count, 0);
+    return { failing: machines.filter((m) => m.mode === "pull" && m.lastError), never: machines.filter((m) => !m.lastSeenAt), unmapped: unmappedPer.reduce((a, b) => a + b, 0), read, total: machines.length };
+  })() : Promise.resolve(null);
+
   const scope = (await attendanceEmployeeWhere(user))!;
   const employees = await db.employee.findMany({ where: scope, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } });
   const ids = sp.employee && employees.some((e) => e.id === sp.employee) ? [sp.employee] : employees.map((e) => e.id);
-  const companyWide = scopeFor(user, "hr.attendance") === "all";
 
   const punchWhere: Prisma.AttendancePunchWhereInput = { employeeId: { in: ids }, at: range, ...(sp.source && { source: sp.source }) };
   const logWhere: Prisma.AttendanceLogWhereInput = {
@@ -50,32 +67,21 @@ export default async function AttendanceLogsPage({ searchParams }: { searchParam
     // Import summaries cover everyone, so only company-wide HR sees them (unless filtered to one person).
     OR: [{ employeeId: { in: ids } }, ...(companyWide && !sp.employee ? [{ employeeId: null }] : [])],
   };
-  // Why machine punches might be missing here: a machine that can't be reached, or machine users not mapped yet.
-  const machineStatus = companyWide ? await (async () => {
-    const machines = await db.attendanceMachine.findMany({ where: { status: "approved" }, select: { id: true, name: true, serial: true, mode: true, lastError: true, lastSeenAt: true } });
-    const logsInRange = await db.machineLog.findMany({ where: { at: range }, select: { machineId: true, deviceUserId: true } });
-    const { machineEmployeeMap } = await import("@/lib/machine-users");
-    let unmapped = 0;
-    for (const mid of [...new Set(logsInRange.map((l) => l.machineId))]) {
-      const mine = logsInRange.filter((l) => l.machineId === mid);
-      const map = await machineEmployeeMap(mid, [...new Set(mine.map((l) => l.deviceUserId))]);
-      unmapped += mine.filter((l) => !map.has(l.deviceUserId)).length;
-    }
-    return { failing: machines.filter((m) => m.mode === "pull" && m.lastError), never: machines.filter((m) => !m.lastSeenAt), unmapped, read: logsInRange.length, total: machines.length };
-  })() : null;
-  const [punches, punchCount, logs, logCount] = await Promise.all([
+  const [punches, punchCount, logs, logCount, editing, machineStatus] = await Promise.all([
     tab === "machine" ? db.attendancePunch.findMany({ where: punchWhere, include: { employee: { select: { fullName: true } } }, orderBy: { at: "desc" }, take: LIMIT }) : [],
     db.attendancePunch.count({ where: punchWhere }),
     tab === "changes" ? db.attendanceLog.findMany({ where: logWhere, include: { employee: { select: { fullName: true } } }, orderBy: { createdAt: "desc" }, take: LIMIT }) : [],
     db.attendanceLog.count({ where: logWhere }),
+    sp.editPunch ? db.attendancePunch.findUnique({ where: { id: sp.editPunch }, include: { employee: { select: { fullName: true } } } }) : null,
+    machineStatusP,
   ]);
   const canEdit = can(user, "hr.attendance", "edit");
-  // Super Admin only: what the machine originally recorded for punches HR edited.
-  const originals = user.isSuperAdmin ? await db.punchOriginal.findMany({ where: { punchId: { in: punches.filter((p) => p.source === "hr_edit").map((p) => p.id) } }, orderBy: { editedAt: "asc" } }) : [];
-  const editing = sp.editPunch ? await db.attendancePunch.findUnique({ where: { id: sp.editPunch }, include: { employee: { select: { fullName: true } } } }) : null;
-  const adders = new Map((await db.user.findMany({ where: { id: { in: [...new Set(punches.map((p) => p.createdById).filter((x): x is string => !!x))] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
-
-
+  // Super Admin only: what the machine originally recorded for punches HR edited. And who added manual punches.
+  const [originals, adderRows] = await Promise.all([
+    user.isSuperAdmin ? db.punchOriginal.findMany({ where: { punchId: { in: punches.filter((p) => p.source === "hr_edit").map((p) => p.id) } }, orderBy: { editedAt: "asc" } }) : [],
+    db.user.findMany({ where: { id: { in: [...new Set(punches.map((p) => p.createdById).filter((x): x is string => !!x))] } }, select: { id: true, name: true } }),
+  ]);
+  const adders = new Map(adderRows.map((u) => [u.id, u.name]));
 
   return (
     <>

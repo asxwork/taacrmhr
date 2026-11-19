@@ -15,13 +15,15 @@ import { SafeImg } from "@/components/safe-img";
 /** Self-service: the signed-in user's own employee record, documents and change requests. */
 export async function MyEmployment({ userId, tab }: { userId: string; tab?: string }) {
   const row = await db.employee.findUnique({ where: { userId }, select: { id: true } });
-  const p = row ? await loadProfile(row.id) : null;
-  if (!p) return null;
-  const { emp } = p;
-  const [pending, options] = await Promise.all([
-    db.approvalRequest.findFirst({ where: { employeeId: emp.id, type: "profile_update", status: "pending" } }),
+  if (!row) return null;
+  // Profile, pending change request and form options in one round.
+  const [p, pending, options] = await Promise.all([
+    loadProfile(row.id),
+    db.approvalRequest.findFirst({ where: { employeeId: row.id, type: "profile_update", status: "pending" } }),
     profileOptions(),
   ]);
+  if (!p) return null;
+  const { emp } = p;
 
   const latest = (type: string) => emp.documents.find((d) => d.type === type);
   const fileInput = "block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white";

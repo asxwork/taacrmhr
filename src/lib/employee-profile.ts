@@ -9,7 +9,8 @@ import { attendancePolicy } from "./attendance-policy";
 import { COMPLETION_KEYS, customSection, type OptionSource } from "./profile-fields";
 
 export async function loadProfile(id: string) {
-  const emp = await db.employee.findUnique({
+  // The record, the custom fields and the default shift load together.
+  const [emp, customFields, fallbackShift] = await Promise.all([db.employee.findUnique({
     where: { id },
     include: {
       department: true, designation: true, branch: true, manager: true, shift: true, salary: true,
@@ -24,12 +25,11 @@ export async function loadProfile(id: string) {
       banks: { orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }] },
       letters: { orderBy: { issuedAt: "desc" }, select: { id: true, title: true, issuedAt: true } },
     },
-  });
+  }), db.customField.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }), defaultShift()]);
   if (!emp) return null;
 
   const [first, ...rest] = emp.fullName.trim().split(/\s+/);
   const parts = emp.firstName ? { firstName: emp.firstName, lastName: emp.lastName } : { firstName: first ?? "", lastName: rest.join(" ") || null };
-  const customFields = await db.customField.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } });
   let custom: Record<string, string> = {};
   try { custom = emp.customData ? JSON.parse(emp.customData) : {}; } catch {}
   const finalAuthority = emp.finalAuthorityId ? await db.employee.findUnique({ where: { id: emp.finalAuthorityId }, select: { id: true, fullName: true } }) : null;
@@ -75,7 +75,7 @@ export async function loadProfile(id: string) {
   const experienceText = `${Math.floor(months / 12)}Y ${months % 12}M`;
 
   // Salary division: what one hour / minute of this person's time costs, from their shift.
-  const shift = emp.shift ?? (await defaultShift());
+  const shift = emp.shift ?? fallbackShift;
   const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return (h ?? 0) * 60 + (m ?? 0); };
   const dayMin = shift ? ((toMin(shift.end) - toMin(shift.start) + 1440) % 1440 || 480) : 480;
   const workDays = shift ? shift.workDays.split(",").filter(Boolean).length : 6;

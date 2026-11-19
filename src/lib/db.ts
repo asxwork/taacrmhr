@@ -11,20 +11,21 @@ const CACHE_PREFIX: Record<string, string> = {
   LayoutProfile: "layout:",
   Pipeline: "pipelines", Stage: "pipelines",
   LeadStatus: "leadStatus:",
+  FinEntry: "fin:",
   // Cached attendance summaries (HR dashboard month-wise absents) are rebuilt when any input changes.
   AttendancePunch: "att:", AttendanceDay: "att:", LeaveRequest: "att:", Holiday: "att:", RosterDay: "att:", Employee: "att:", Shift: "att:",
 };
 const READS = new Set(["findUnique", "findUniqueOrThrow", "findFirst", "findFirstOrThrow", "findMany", "count", "aggregate", "groupBy"]);
 
 /**
- * MySQL on shared hosting (Hostinger) caps connections per database user. Keep each server process to a small
+ * MySQL on Hostinger caps connections per database user. Keep each server process to a modest (10; DB_CONNECTION_LIMIT overrides)
  * pool, and give up waiting after a while instead of hanging the page when the pool is busy.
  */
 function datasourceUrl() {
   const url = process.env.DATABASE_URL ?? "";
   if (!url.startsWith("mysql://")) return undefined;
   const u = new URL(url);
-  if (!u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", process.env.DB_CONNECTION_LIMIT ?? "5");
+  if (!u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", process.env.DB_CONNECTION_LIMIT ?? "10");
   if (!u.searchParams.has("pool_timeout")) u.searchParams.set("pool_timeout", "20");
   if (!u.searchParams.has("connect_timeout")) u.searchParams.set("connect_timeout", "10");
   return u.toString();

@@ -30,14 +30,18 @@ function nextYearly(d: Date, today: Date) {
 export async function companyWidgets(scope: Prisma.EmployeeWhereInput) {
   const now = new Date();
   const today = startOfDay(now);
-  const all = await db.employee.findMany({
+  // First round: people, the first punch on record and the feed posts, together.
+  const [all, firstPunch, posts] = await Promise.all([db.employee.findMany({
     where: scope,
     select: {
       id: true, fullName: true, photo: true, gender: true, dob: true, joiningDate: true, status: true, employmentType: true, leftAt: true, exitType: true,
       lastWorkingDay: true, probationEnd: true, confirmedAt: true, branchId: true, departmentId: true, designationId: true, code: true,
       branch: { select: { name: true, address: true } }, department: { select: { name: true } }, designation: { select: { name: true } },
     },
-  });
+  }),
+  memo("att:firstPunch", 30 * 60_000, () => db.attendancePunch.findFirst({ orderBy: { at: "asc" }, select: { at: true } })),
+  db.hrPost.findMany({ orderBy: { createdAt: "desc" }, take: 30 }),
+  ]);
   const active = all.filter((e) => e.status !== "left");
   const ids = active.map((e) => e.id);
 
@@ -90,43 +94,50 @@ export async function companyWidgets(scope: Prisma.EmployeeWhereInput) {
     attrition: grouped(all.filter((e) => e.leftAt && e.leftAt >= subMonths(today, 12)), (e) => exitLabel[e.exitType ?? ""] ?? "Other", () => "/hr/exits?tab=left"),
   };
 
-  const expenses = await db.expense.groupBy({
-    by: ["category"], where: { employeeId: { in: ids }, date: { gte: startOfMonth(now) }, status: { in: ["pending", "approved", "paid"] } },
-    _sum: { amount: true }, _count: true,
-  });
-  const expenseRows: Row[] = expenses.sort((a, b) => (b._sum.amount ?? 0) - (a._sum.amount ?? 0)).map((x) => ({
-    name: x.category, value: x._sum.amount ?? 0, display: `PKR ${Math.round(x._sum.amount ?? 0).toLocaleString("en-PK")} · ${x._count}`, href: "/hr/expenses",
-  }));
 
   // Month-wise absents for the last 12 months and this month's daily report. Past months come from a cache
   // (cleared whenever punches, corrections, leave or holidays change); only the current month is evaluated live.
   // Days before the first punch on record are before attendance tracking began, not absences.
-  const firstPunch = await db.attendancePunch.findFirst({ orderBy: { at: "asc" }, select: { at: true } });
   const monthStart = startOfMonth(now);
   const yearAgo = startOfMonth(subMonths(now, 11));
   const tracked = (d: Date) => (firstPunch && startOfDay(firstPunch.at) > d ? startOfDay(firstPunch.at) : d);
   const months = Array.from({ length: 12 }, (_, i) => startOfMonth(subMonths(now, 11 - i)));
   const scopeKey = createHash("sha1").update(ids.slice().sort().join(",")).digest("hex").slice(0, 16);
-  const pastAbsents = !ids.length || !firstPunch || tracked(yearAgo) >= monthStart ? new Map<string, number>()
-    : await memo(`att:monthAbsents:${scopeKey}:${format(monthStart, "yyyy-MM")}`, 30 * 60_000, async () => {
+  // Second round, together: expenses, the past months (cached), this month (cached 2 minutes) and the posts' people.
+  const [expenses, pastAbsents, monthNow, postPeople] = await Promise.all([
+  db.expense.groupBy({
+    by: ["category"], where: { employeeId: { in: ids }, date: { gte: startOfMonth(now) }, status: { in: ["pending", "approved", "paid"] } },
+    _sum: { amount: true }, _count: true,
+  }),
+  !ids.length || !firstPunch || tracked(yearAgo) >= monthStart ? new Map<string, number>()
+    : memo(`att:monthAbsents:${scopeKey}:${format(monthStart, "yyyy-MM")}`, 30 * 60_000, async () => {
       const counts = new Map<string, number>();
       for (const list of (await loadAttendance(ids, tracked(yearAgo), subDays(monthStart, 1))).values())
         for (const d of list) if (d.status === "absent") { const k = format(d.date, "yyyy-MM"); counts.set(k, (counts.get(k) ?? 0) + 1); }
       return counts;
-    });
-  const att = ids.length && firstPunch ? await loadAttendance(ids, tracked(monthStart), today) : new Map<string, DayResult[]>();
-  // One pass over this month's days into per-day buckets.
+    }),
+  // This month in per-day buckets (one pass). Cached briefly; any punch, leave or shift change clears it ("att:").
+  memo(`att:monthNow:${scopeKey}:${format(today, "yyyy-MM-dd")}`, 2 * 60_000, async () => {
+    const att = ids.length && firstPunch ? await loadAttendance(ids, tracked(monthStart), today) : new Map<string, DayResult[]>();
+    const buckets = new Map<string, { presents: number; absents: number; leaves: number }>();
+    let currentAbsents = 0;
+    for (const list of att.values()) for (const d of list) {
+      const k = format(d.date, "yyyy-MM-dd");
+      const b = buckets.get(k) ?? { presents: 0, absents: 0, leaves: 0 };
+      if (["present", "late", "half", "missing"].includes(d.status)) b.presents++;
+      else if (d.status === "absent") { b.absents++; currentAbsents++; }
+      else if (d.status === "leave") b.leaves++;
+      buckets.set(k, b);
+    }
+    return { buckets, currentAbsents };
+  }),
+  db.employee.findMany({ where: { id: { in: posts.map((p) => p.employeeId).filter(Boolean) as string[] } }, select: { id: true, fullName: true, photo: true } }),
+  ]);
+  const expenseRows: Row[] = expenses.sort((a, b) => (b._sum.amount ?? 0) - (a._sum.amount ?? 0)).map((x) => ({
+    name: x.category, value: x._sum.amount ?? 0, display: `PKR ${Math.round(x._sum.amount ?? 0).toLocaleString("en-PK")} · ${x._count}`, href: "/hr/expenses",
+  }));
+  const { buckets, currentAbsents } = monthNow;
   const monthDays = Array.from({ length: differenceInCalendarDays(today, monthStart) + 1 }, (_, i) => addDays(monthStart, i));
-  const buckets = new Map<string, { presents: number; absents: number; leaves: number }>();
-  let currentAbsents = 0;
-  for (const list of att.values()) for (const d of list) {
-    const k = format(d.date, "yyyy-MM-dd");
-    const b = buckets.get(k) ?? { presents: 0, absents: 0, leaves: 0 };
-    if (["present", "late", "half", "missing"].includes(d.status)) b.presents++;
-    else if (d.status === "absent") { b.absents++; currentAbsents++; }
-    else if (d.status === "leave") b.leaves++;
-    buckets.set(k, b);
-  }
   const monthAbsents = months.map((m) => (+m === +monthStart ? currentAbsents : pastAbsents.get(format(m, "yyyy-MM")) ?? 0));
   const day = (d: Date) => buckets.get(format(d, "yyyy-MM-dd")) ?? { presents: 0, absents: 0, leaves: 0 };
   const monthly = {
@@ -137,8 +148,7 @@ export async function companyWidgets(scope: Prisma.EmployeeWhereInput) {
   };
 
 
-  const posts = await db.hrPost.findMany({ orderBy: { createdAt: "desc" }, take: 30 });
-  const postEmployees = new Map((await db.employee.findMany({ where: { id: { in: posts.map((p) => p.employeeId).filter(Boolean) as string[] } }, select: { id: true, fullName: true, photo: true } })).map((e) => [e.id, e]));
+  const postEmployees = new Map(postPeople.map((e) => [e.id, e]));
 
   return {
     kpis, kpiDelta, birthdays, anniversaries, joiners, headcount, expenseRows,

@@ -18,8 +18,7 @@ export const metadata = { title: "Finance" };
 export default async function FinanceDashboard({ searchParams }: { searchParams: Promise<{ month?: string; office?: string }> }) {
   const user = await requirePermission("finance");
   const seePersonal = can(user, "finance.personal");
-  await ensureFinanceDefaults();
-  const sp = await searchParams;
+  const [, sp] = await Promise.all([ensureFinanceDefaults(), searchParams]);
   const now = new Date();
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? parse(sp.month, "yyyy-MM", now) : now;
   const mFrom = startOfMonth(month), mTo = endOfMonth(month), yFrom = startOfYear(month);
@@ -28,9 +27,13 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
   // Office filter and the user's own limit (branch staff see only their office).
   const extra = [officeWhere(sp.office), financeLimit(user)].filter((x): x is Prisma.FinEntryWhereInput => !!x);
   const X: Prisma.FinEntryWhereInput = extra.length ? { AND: extra } : {};
-  const offices = await officeNames();
-
-  const [tree, monthByCat, yearByCat, inMonth, personalMonth, byHolder, byParty, trend, holders] = await Promise.all([
+  // Everything for the dashboard in one round (it used to be four trips one after another).
+  const [offices, pendingApproval, noProof, noProofYear, [tree, monthByCat, yearByCat, inMonth, personalMonth, byHolder, byParty, trend, holders]] = await Promise.all([
+  officeNames(),
+  db.finEntry.aggregate({ where: { ...X, status: "pending" }, _count: true, _sum: { amount: true } }),
+  db.finEntry.aggregate({ where: { ...X, ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(mFrom, mTo) }, _count: true, _sum: { amount: true } }),
+  db.finEntry.count({ where: { ...X, ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(yFrom, mTo) } }),
+  Promise.all([
     categoryTree(),
     db.finEntry.groupBy({ by: ["categoryId"], where: { ...X, status: "approved", kind: "expense", personal: false, date: range(mFrom, mTo) }, _sum: { amount: true } }),
     db.finEntry.groupBy({ by: ["categoryId"], where: { ...X, status: "approved", kind: "expense", personal: false, date: range(yFrom, mTo) }, _sum: { amount: true } }),
@@ -45,11 +48,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
     const ok = hl ? new Set((await db.finAccount.findMany({ where: hl, select: { id: true } })).map((a) => a.id)) : null;
     r[8] = r[8].filter((h) => (!ok || ok.has(h.id)) && (!sp.office || (sp.office === "head" ? !h.branch : h.branch === sp.office)));
     return r;
-  });
-  const pendingApproval = await db.finEntry.aggregate({ where: { ...X, status: "pending" }, _count: true, _sum: { amount: true } });
-  const [noProof, noProofYear] = await Promise.all([
-    db.finEntry.aggregate({ where: { ...X, ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(mFrom, mTo) }, _count: true, _sum: { amount: true } }),
-    db.finEntry.count({ where: { ...X, ...PROOF_WHERE.missing, kind: "expense", personal: false, date: range(yFrom, mTo) } }),
+  }),
   ]);
   const sumFor = (rows: { categoryId: string | null; _sum: { amount: number | null } }[], ids: string[]) => rows.filter((r) => r.categoryId && ids.includes(r.categoryId)).reduce((s, r) => s + (r._sum.amount ?? 0), 0);
   const spentMonth = monthByCat.reduce((s, r) => s + (r._sum.amount ?? 0), 0);

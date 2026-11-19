@@ -34,11 +34,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   maybeRunHoldRules(); // background, at most every 5 minutes
   // Everything the frame needs, fetched side by side (each is a database round trip on the live server).
   // apps = only the apps and pages this user's roles allow — this is what makes Admin and Agent see different apps.
-  const [jar, h, apps, me, off, security, unread, banner] = await Promise.all([
+  const [jar, h, apps, me, off, security, unread, banner, videos] = await Promise.all([
     cookies(), headers(), appsForUser(user),
     db.employee.findUnique({ where: { userId: user.id }, select: { photo: true } }),
     disabledFeatures(), securitySettings(), Promise.all([unreadCount(user.id), urgentUnread(user.id), can(user, "chat") ? disabledFeatures().then((o) => (o.has("app-chat") ? -1 : chatUnread(user.id))) : Promise.resolve(-1)]),
     memo("setting:banner", 30_000, async () => (await db.setting.findUnique({ where: { key: "maintenance.banner" } }))?.value ?? ""),
+    sectionVideos(),
   ]);
 
   const collapsed = jar.get("sidebar")?.value === "collapsed";
@@ -56,7 +57,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const sectionPages = SECTIONS.flatMap((sec) => sec.tabs.filter(tabAllowed).map((t) => ({ href: t.href, label: t.label, icon: "list" })));
   const pages = [...new Map([...pageItems.map((item) => ({ href: item.href, label: item.label, icon: item.icon })), ...sectionPages].map((p) => [p.href, p])).values()];
 
-  const videos = await sectionVideos();
   return (
     <div className="app-wallpaper min-h-screen" data-sidebar={sidebarMode(current.layout, collapsed)}>
       <NavProgress />

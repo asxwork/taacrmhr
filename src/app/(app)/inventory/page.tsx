@@ -35,7 +35,12 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   if (sp.new) redirect(hrefWith("/inventory/new", { tab: sp.tab }, {})); // old links
   const canProjects = can(user, "inventory.projects");
-  const visible = await unitWhere(user, "view");
+  // Who may see which units, and the project / developer / area lists, in one round.
+  const [visible, projects, developers, areas] = await Promise.all([
+    unitWhere(user, "view"),
+    db.project.findMany({ include: { blocks: { orderBy: { sortOrder: "asc" } }, images: { orderBy: { sortOrder: "asc" }, take: 1 } }, orderBy: { name: "asc" } }),
+    developerNames(), areaNames(),
+  ]);
   if (!visible && !canProjects) redirect("/no-access");
   const tab = (TABS.some(([t]) => t === sp.tab) ? sp.tab : "units") as (typeof TABS)[number][0];
   if (tab === "projects" && !canProjects) redirect("/inventory");
@@ -46,11 +51,6 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     ...(can(user, "inventory.projects", "create") ? ["project"] : []),
     ...(can(user, "inventory.units", "create") ? ["resale", "rental"] : []),
   ];
-
-  const [projects, developers, areas] = await Promise.all([
-    db.project.findMany({ include: { blocks: { orderBy: { sortOrder: "asc" } }, images: { orderBy: { sortOrder: "asc" }, take: 1 } }, orderBy: { name: "asc" } }),
-    developerNames(), areaNames(),
-  ]);
 
   const canCatalog = user.isSuperAdmin || can(user, "inventory.projects", "edit") || can(user, "inventory.projects", "create");
   if (tab === "developers" || tab === "areas") await syncInventoryCatalog();

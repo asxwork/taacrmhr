@@ -42,7 +42,9 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
   const date = Number.isNaN(picked.getTime()) || picked > now ? startOfDay(now) : startOfDay(picked);
   const dateKey = format(date, "yyyy-MM-dd");
 
-  const scope = (await attendanceEmployeeWhere(user))!;
+  // Settings and the user's scope load together (each is a database trip; one after another added up).
+  const [scopeRaw, hidden, offFeatures, layout, selfie] = await Promise.all([attendanceEmployeeWhere(user), hiddenWidgets(), disabledFeatures(), myDashboardLayout(user.id), selfieMode()]);
+  const scope = scopeRaw!;
   const isHr = can(user, "hr.employees", "edit");
   const [employees, branches, company, mine, mode, staff] = await Promise.all([
     db.employee.findMany({
@@ -56,8 +58,10 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
     geofenceMode(),
     isHr ? db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }) : [],
   ]);
-  const att = employees.length ? await loadAttendance(employees.map((e) => e.id), date, date) : new Map<string, DayResult[]>();
-  const policies = mine ? await policiesFor(mine.employeeId) : (await db.policy.findMany({ where: { status: "published" }, orderBy: { publishedAt: "desc" } })).map((p) => ({ ...p, ackAt: null }));
+  const [att, policies] = await Promise.all([
+    employees.length ? loadAttendance(employees.map((e) => e.id), date, date) : new Map<string, DayResult[]>(),
+    mine ? policiesFor(mine.employeeId) : db.policy.findMany({ where: { status: "published" }, orderBy: { publishedAt: "desc" } }).then((ps) => ps.map((p) => ({ ...p, ackAt: null }))),
+  ]);
   const rows = employees.map((e) => ({ e, d: att.get(e.id)?.[0] })).filter((r): r is { e: (typeof employees)[number]; d: DayResult } => !!r.d);
 
   const link = (status?: string) => hrefWith("/hr/attendance", { date: isToday(date) ? undefined : dateKey, branch: sp.branch, status }, {});
@@ -68,9 +72,8 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
   const earlyRisers = rows.filter((r) => r.d.checkIn).sort((a, b) => +a.d.checkIn! - +b.d.checkIn!).slice(0, 6);
   const lateComers = rows.filter((r) => r.d.lateMin > 0).sort((a, b) => b.d.lateMin - a.d.lateMin).slice(0, 6);
   const k = company.kpis;
-  const hidden = await hiddenWidgets(); // System Settings → Customization → Dashboard
-  const breaksOn = !(await disabledFeatures()).has("breaks");
-  const layout = await myDashboardLayout(user.id); // this person's own choice and order
+  // hidden: System Settings → Customization → Dashboard; layout: this person's own choice and order.
+  const breaksOn = !offFeatures.has("breaks");
   const show = (w: WidgetKey) => !hidden.has(w) && !layout.hidden.has(w);
   const h = company.headcount;
 
@@ -120,7 +123,7 @@ export default async function HrDashboard({ searchParams }: { searchParams: Prom
               <p className="text-center font-display text-2xl tabular-nums">
                 {mine.punches.length ? fmtMinutes(differenceInMinutes(mine.punches.length % 2 ? now : mine.punches.at(-1)!.at, mine.punches[0]!.at)) : "00:00"}
               </p>
-              <CheckInButton checkedIn={mine.punches.length % 2 === 1} needsLocation={mode !== "off" && mine.needsLocation} selfie={await selfieMode()} />
+              <CheckInButton checkedIn={mine.punches.length % 2 === 1} needsLocation={mode !== "off" && mine.needsLocation} selfie={selfie} />
               {breaksOn && (mine.punches.length % 2 === 1 || mine.onBreakSince || mine.breakMin > 0) && (
                 <BreakButton onBreakSince={mine.onBreakSince} todayMin={mine.breakMin} disabled={mine.punches.length % 2 === 0 && !mine.onBreakSince} />
               )}
