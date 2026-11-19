@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
@@ -208,82 +209,162 @@ export async function convertLead(_: FormState, fd: FormData): Promise<FormState
 }
 
 const HEADER_ALIASES: Record<string, string[]> = {
-  name: ["name", "full name", "client", "client name", "customer"],
-  phone: ["phone", "mobile", "phone number", "contact", "contact no", "cell"],
-  email: ["email", "e-mail", "email address"],
-  source: ["source", "lead source"],
-  campaign: ["campaign", "ad", "ad name"],
+  name: ["name", "full name", "fullname", "client", "client name", "customer", "customer name", "lead name", "contact name", "title"],
+  firstName: ["first name", "firstname", "given name"],
+  lastName: ["last name", "lastname", "surname", "family name"],
+  phone: ["phone", "mobile", "phone number", "mobile number", "mobile no", "contact", "contact no", "contact number", "cell", "cell number", "whatsapp", "whatsapp number", "phone 1", "work phone", "number", "phone no"],
+  phone2: ["phone 2", "alternate phone", "alternate number", "other phone", "second phone", "phone2", "mobile 2"],
+  email: ["email", "e mail", "email address", "mail"],
+  source: ["source", "lead source", "platform"],
+  campaign: ["campaign", "campaign name", "ad", "ad name", "adset name", "form name"],
   interest: ["interest", "purpose"],
   propertyType: ["property type", "type", "property"],
-  location: ["location", "area", "project"],
+  location: ["location", "area", "project", "city"],
   budget: ["budget", "price", "amount"],
-  notes: ["notes", "note", "comments", "remarks", "message"],
+  notes: ["notes", "note", "comments", "comment", "remarks", "message", "description", "details"],
 };
+// "Phone_Number", "E-mail", " Full  Name " all match: lower case, _ and - become spaces.
+const normHeader = (h: string) => h.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[_\-.]+/g, " ").replace(/\s+/g, " ");
+const MAX_IMPORT = 50_000;
 
+/** Rows of a CSV or the first sheet of an .xlsx, with normalised headers. */
+async function readLeadFile(file: File): Promise<{ headers: string[]; rows: Record<string, string>[] }> {
+  if (/\.xlsx$/i.test(file.name)) {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const ws = wb.worksheets[0];
+    if (!ws) return { headers: [], rows: [] };
+    const text = (v: unknown): string => v == null ? "" : typeof v === "object" ? ("text" in (v as object) ? String((v as { text: unknown }).text) : "result" in (v as object) ? String((v as { result: unknown }).result ?? "") : "richText" in (v as object) ? (v as { richText: { text: string }[] }).richText.map((r) => r.text).join("") : v instanceof Date ? v.toISOString() : "") : String(v);
+    const headers: string[] = [];
+    ws.getRow(1).eachCell({ includeEmpty: true }, (c, i) => { headers[i] = normHeader(text(c.value)); });
+    const rows: Record<string, string>[] = [];
+    ws.eachRow({ includeEmpty: false }, (row, n) => {
+      if (n === 1) return;
+      const r: Record<string, string> = {};
+      row.eachCell({ includeEmpty: false }, (c, i) => { if (headers[i]) r[headers[i]!] = text(c.value); });
+      rows.push(r);
+    });
+    return { headers: headers.filter(Boolean), rows };
+  }
+  const parsed = Papa.parse<Record<string, string>>((await file.text()).replace(/^\uFEFF/, ""), { header: true, skipEmptyLines: "greedy", transformHeader: normHeader });
+  return { headers: parsed.meta.fields ?? [], rows: parsed.data };
+}
+
+/**
+ * Leads from a CSV or Excel file. Every row with a name, phone or email comes in (a row with only a phone is named
+ * "No name"); saved in bulk so thousands of rows finish well inside the server's time limit. The result says exactly
+ * how many rows were read, imported and skipped, and why.
+ */
 export async function importLeads(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requirePermission("crm.leads", "create");
   if (!can(user, "crm.leads", "import")) return { error: "Your role can't import leads (Roles & Permissions → Leads → Import files)." };
   const file = fd.get("file");
-  if (!(file instanceof File) || file.size === 0) return { error: "Choose a CSV file." };
-  if (file.size > 5_000_000) return { error: "File is larger than 5 MB." };
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a CSV or Excel file." };
+  if (file.size > 25_000_000) return { error: "File is larger than 25 MB. Split it into two files." };
 
-  const parsed = Papa.parse<Record<string, string>>(await file.text(), { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim().toLowerCase() });
-  const rows = parsed.data.slice(0, 5000);
-  if (!rows.length) return { error: "No rows found. The first row must be column headers." };
-
-  const headers = parsed.meta.fields ?? [];
+  let read: Awaited<ReturnType<typeof readLeadFile>>;
+  try { read = await readLeadFile(file); } catch { return { error: "Couldn't read that file. Use a .csv or .xlsx file." }; }
+  const { headers, rows: all } = read;
+  if (!all.length) return { error: "No rows found. The first row must be column headers." };
+  if (all.length > MAX_IMPORT) return { error: `The file has ${all.length.toLocaleString()} rows; import at most ${MAX_IMPORT.toLocaleString()} at a time (split the file).` };
   const col = (field: string) => headers.find((h) => HEADER_ALIASES[field]!.includes(h));
   const cols = Object.fromEntries(Object.keys(HEADER_ALIASES).map((f) => [f, col(f)]));
-  if (!cols.name || (!cols.phone && !cols.email)) return { error: "CSV needs a “name” column and a “phone” or “email” column." };
+  if (!cols.name && !cols.firstName && !cols.phone && !cols.email) return { error: `No name, phone or email column found. Columns in the file: ${headers.slice(0, 12).join(", ")}.` };
 
   // Owners: me, one person, or round-robin across the chosen people.
   const assignable = await assignableUsers(user, "crm.leads");
   const mode = str(fd, "assign");
   const rr = fd.getAll("rr").map(String).filter((id) => assignable.some((u) => u.id === id));
-  const pickOwner = (i: number) =>
-    mode === "rr" && rr.length ? rr[i % rr.length]! : assignable.find((u) => u.id === mode)?.id ?? user.id;
+  const pickOwner = (i: number) => mode === "rr" && rr.length ? rr[i % rr.length]! : assignable.find((u) => u.id === mode)?.id ?? user.id;
   const branchOf = new Map(assignable.map((u) => [u.id, u.branchId]));
-
   const [sources, status] = await Promise.all([
     db.leadSource.findMany(),
     db.leadStatus.findFirst({ where: { kind: "open", active: true }, orderBy: { sortOrder: "asc" } }),
   ]);
+  if (!status) return { error: "No open lead stage exists (Settings → CRM → Lead statuses)." };
   const defaultSource = str(fd, "sourceId") || null;
   const skipDupes = fd.get("skipDuplicates") === "on";
 
-  let created = 0, skipped = 0;
-  const perOwner = new Map<string, number>();
-  for (const r of rows) {
-    const get = (f: string) => (cols[f] ? (r[cols[f]!] ?? "").trim() : "");
-    const name = get("name");
-    const phone = get("phone");
+  // Read every row first.
+  type Row = { line: number; name: string; phone: string | null; phone2: string | null; key: string | null; email: string | null; r: Record<string, string> };
+  const ready: Row[] = [];
+  let empty = 0;
+  all.forEach((r, i) => {
+    const get = (f: string) => (cols[f] ? String(r[cols[f]!] ?? "").trim() : "");
+    // A cell can hold two numbers ("0300 1234567, 0321 7654321"): first is the phone, second the alternate.
+    const nums = get("phone").split(/\s*[,;/|]\s*|\s{2,}/).map((x) => x.trim()).filter((x) => /\d{6,}/.test(x.replace(/\D/g, "")));
+    const phone = nums[0] ?? (get("phone") || null);
+    const phone2 = get("phone2") || nums[1] || null;
     const email = get("email").toLowerCase() || null;
-    if (!name || (!phone && !email)) { skipped++; continue; }
-    const key = phoneKey(phone);
-    if (skipDupes && key && (await db.lead.findFirst({ where: { phoneKey: key }, select: { id: true } }))) { skipped++; continue; }
+    const name = get("name") || [get("firstName"), get("lastName")].filter(Boolean).join(" ");
+    if (!name && !phone && !email) { empty++; return; }
+    ready.push({ line: i + 2, name: (name || "No name").slice(0, 190), phone, phone2, key: phoneKey(phone), email, r });
+  });
 
-    const srcName = get("source").toLowerCase();
-    const ownerId = pickOwner(created);
-    const budget = parseAmount(get("budget"));
-    const lead = await db.lead.create({
-      data: {
-        number: await nextNumber("lead"), name, phone: phone || null, phoneKey: key, email,
-        sourceId: sources.find((s) => s.name.toLowerCase() === srcName)?.id ?? defaultSource,
-        campaign: get("campaign") || null, interest: get("interest").toLowerCase() || null,
-        propertyType: get("propertyType") || null, location: get("location") || null,
-        budgetMin: budget, budgetMax: budget, notes: get("notes") || null,
-        statusId: status!.id, ownerId, branchId: branchOf.get(ownerId) ?? user.branchId, createdById: user.id,
-      },
+  // Duplicates: phones already in AMS (one query per 1,000 numbers) and repeats inside the file.
+  const dupes: number[] = [];
+  let rowsIn = ready;
+  if (skipDupes) {
+    const keys = [...new Set(ready.map((x) => x.key).filter((k): k is string => !!k))];
+    const known = new Set<string>();
+    for (let i = 0; i < keys.length; i += 1000) {
+      for (const l of await db.lead.findMany({ where: { phoneKey: { in: keys.slice(i, i + 1000) } }, select: { phoneKey: true } })) if (l.phoneKey) known.add(l.phoneKey);
+    }
+    const seen = new Set<string>();
+    rowsIn = ready.filter((x) => {
+      if (!x.key) return true;
+      if (known.has(x.key) || seen.has(x.key)) { dupes.push(x.line); return false; }
+      seen.add(x.key);
+      return true;
     });
-    await logSystem({ leadId: lead.id }, "Imported from CSV", user.id);
+  }
+
+  // Lead numbers for the whole file in one step, then save in batches.
+  const now = new Date();
+  const seq = rowsIn.length ? await db.sequence.upsert({ where: { name: "lead" }, update: { value: { increment: rowsIn.length } }, create: { name: "lead", value: rowsIn.length } }) : null;
+  const firstNo = seq ? seq.value - rowsIn.length + 1 : 0;
+  const perOwner = new Map<string, number>();
+  const leads = rowsIn.map((x, i) => {
+    const get = (f: string) => (cols[f] ? String(x.r[cols[f]!] ?? "").trim() : "");
+    const srcName = get("source").toLowerCase();
+    const ownerId = pickOwner(i);
     perOwner.set(ownerId, (perOwner.get(ownerId) ?? 0) + 1);
-    created++;
+    const budget = parseAmount(get("budget"));
+    return {
+      id: randomUUID().replace(/-/g, "").slice(0, 25),
+      number: firstNo + i, name: x.name, phone: x.phone, phone2: x.phone2, phoneKey: x.key, email: x.email,
+      sourceId: sources.find((s) => s.name.toLowerCase() === srcName)?.id ?? defaultSource,
+      campaign: get("campaign").slice(0, 190) || null, interest: get("interest").toLowerCase().slice(0, 60) || null,
+      propertyType: get("propertyType").slice(0, 190) || null, location: get("location").slice(0, 190) || null,
+      budgetMin: budget, budgetMax: budget, notes: get("notes").slice(0, 8000) || null,
+      statusId: status.id, ownerId, branchId: branchOf.get(ownerId) ?? user.branchId, createdById: user.id,
+      createdAt: now, assignedAt: now, statusChangedAt: now,
+    };
+  });
+  let created = 0;
+  try {
+    for (let i = 0; i < leads.length; i += 500) {
+      const part = leads.slice(i, i + 500);
+      await db.lead.createMany({ data: part });
+      await db.activity.createMany({ data: part.map((l) => ({ leadId: l.id, type: "system", subject: `Imported from ${file.name.slice(0, 120)}`, doneAt: now, createdAt: now, createdById: user.id, ownerId: user.id })) });
+      created += part.length;
+    }
+  } catch (e) {
+    await audit(user.id, "create", "lead", null, `Imported ${created} of ${leads.length} lead(s) from ${file.name} (stopped: ${e instanceof Error ? e.message.slice(0, 120) : "error"})`);
+    revalidatePath("/crm/leads");
+    return { error: `Stopped after ${created.toLocaleString()} of ${leads.length.toLocaleString()} leads: ${e instanceof Error ? e.message.slice(0, 200) : "unknown error"}. Import the file again with “Skip rows whose phone already exists” ticked to add the rest.` };
   }
 
   await audit(user.id, "create", "lead", null, `Imported ${created} lead(s) from ${file.name}`);
   for (const [ownerId, n] of perOwner) if (ownerId !== user.id) await notify(ownerId, `${n} imported lead(s) assigned to you`, { body: `By ${user.name}`, link: "/crm/leads", email: true });
   revalidatePath("/crm/leads");
-  return { ok: true, message: `Imported ${created} lead(s)${skipped ? `, skipped ${skipped}` : ""}.` };
+  const lines = (l: number[]) => `${l.slice(0, 8).join(", ")}${l.length > 8 ? "…" : ""}`;
+  const skippedText = [
+    dupes.length ? `${dupes.length.toLocaleString()} already in AMS or repeated in the file (rows ${lines(dupes)})` : "",
+    empty ? `${empty.toLocaleString()} empty rows` : "",
+  ].filter(Boolean).join("; ");
+  return { ok: true, message: `Read ${all.length.toLocaleString()} rows: imported ${created.toLocaleString()} lead(s)${skippedText ? `. Skipped ${skippedText}` : ""}.` };
 }
 
 /** Imports a full Excel export (leads + activities). Company-wide lead access or Super Admin only, since it can update any lead. */

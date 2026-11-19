@@ -31,7 +31,7 @@ export async function bitrixStep(prev: BitrixState, fd: FormData): Promise<Bitri
     try {
       const done = await importBitrix(p.files, { deleteDemo: fd.get("deleteDemo") === "on", userId: user.id });
       pending.delete(String(fd.get("id")));
-      await audit(user.id, "import", "lead", null, `Bitrix import: ${done.leads} leads, ${done.activities} activities, ${done.history} stage changes${done.deleted ? `, ${done.deleted} demo leads deleted` : ""}`);
+      await audit(user.id, "import", "lead", null, `Bitrix import: ${done.leads} leads, ${done.activities} activities, ${done.history} stage changes${done.failed ? `, ${done.failed} rows failed` : ""}${done.deleted ? `, ${done.deleted} demo leads deleted` : ""}`);
       revalidatePath("/crm/leads");
       return { done };
     } catch (e) {

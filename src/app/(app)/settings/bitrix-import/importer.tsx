@@ -21,6 +21,11 @@ export function BitrixImporter() {
           <li><b>{d.leads}</b> leads imported{d.skipped ? ` (${d.skipped} were already in AMS and were skipped)` : ""}</li>
           <li><b>{d.activities}</b> activities (tasks, to-dos, calls)</li>
           <li><b>{d.history}</b> stage changes on the leads&apos; timelines</li>
+          {d.failed > 0 && (
+            <li className="text-red-700"><b>{d.failed}</b> rows could not be saved (everything else was):
+              <ul className="mt-1 list-disc pl-5 text-xs">{d.failedList.map((f, i) => <li key={i}>{f.what}: {f.why}</li>)}</ul>
+            </li>
+          )}
         </ul>
         <Link href="/crm/leads" className="mt-4 inline-block font-medium text-navy-900 hover:underline">Open Leads →</Link>
       </Card>
@@ -40,7 +45,7 @@ export function BitrixImporter() {
           <div className="grid grid-cols-3 gap-3 text-center">
             {[["Leads", p.leads], ["Activities", p.activities], ["Stage changes", p.history]].map(([l, n]) => <div key={l} className="rounded-lg bg-canvas p-3"><p className="text-2xl font-semibold tabular-nums">{n}</p><p className="text-xs text-muted">{l}</p></div>)}
           </div>
-          {p.already > 0 && <p className="mt-3 text-sm text-muted">{p.already} of these leads are already in AMS and will be skipped.</p>}
+          {p.already > 0 && <p className="mt-3 text-sm text-muted">{p.already} of these leads are already in AMS: they aren&apos;t added twice, but any activities and stage history they&apos;re missing are added.</p>}
           {p.ignored.length > 0 && <p className="mt-2 text-xs text-muted">Not used: {p.ignored.join(", ")} (summary files).</p>}
         </Card>
         <Card className="p-5">
@@ -60,9 +65,9 @@ export function BitrixImporter() {
           <p className="mt-2 text-xs text-muted">Gold ones are added to AMS. The Bitrix lead ID becomes the AMS lead number.</p>
         </Card>
         <Card className="space-y-3 p-5">
-          <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="deleteDemo" defaultChecked={p.demo > 0} className="mt-0.5 accent-red-600" /><span><b>Delete the {p.demo} leads already in AMS that didn&apos;t come from Bitrix</b> (the demo leads), with their activities. Deals and contacts stay.</span></label>
+          <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="deleteDemo" className="mt-0.5 accent-red-600" /><span><b>Delete the {p.demo} leads already in AMS that didn&apos;t come from Bitrix</b>, with their activities. Only for clearing demo leads: it also deletes real leads added in AMS (Facebook, website, typed in). Deals and contacts stay.</span></label>
           <div className="flex flex-wrap gap-2">
-            <SubmitButton pendingText="Importing… (about a minute)">Import {p.leads - p.already} leads</SubmitButton>
+            <SubmitButton pendingText="Importing… (about a minute)">{p.leads - p.already > 0 ? `Import ${p.leads - p.already} leads` : "Add their missing activities & history"}</SubmitButton>
           </div>
         </Card>
       </form>

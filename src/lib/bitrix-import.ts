@@ -34,6 +34,26 @@ const clean = (s: string | undefined) => (s ?? "").replace(/\[url=([^\]]+)\]([^[
 const multi = (s: string | undefined) => (s ?? "").split(/,\s*(?=\[)/).map((p) => ({ type: (/^\[([A-Z]+)\]/.exec(p.trim())?.[1] ?? "OTHER").toLowerCase(), value: p.replace(/^\s*\[[A-Z]+\]\s*/, "").trim() })).filter((p) => p.value);
 const prettyPhone = (v: string) => { const d = v.replace(/\D/g, ""); return d.startsWith("92") && d.length === 12 ? `+92 ${d.slice(2, 5)} ${d.slice(5)}` : v; };
 
+/** Short text columns hold 191 characters on MySQL; a longer value made the whole batch fail. */
+const cap = (v: string | null | undefined, n = 190) => (v ? v.slice(0, n) : null);
+
+/**
+ * Saves rows in batches; if a batch is refused, saves that batch one row at a time so one bad row never stops the
+ * rest. Returns the rows that still failed, with the database's reason.
+ */
+export async function saveAll<T>(rows: T[], size: number, many: (part: T[]) => Promise<unknown>, one: (row: T) => Promise<unknown>, label: (row: T) => string) {
+  const failed: { what: string; why: string }[] = [];
+  let saved = 0;
+  for (let i = 0; i < rows.length; i += size) {
+    const part = rows.slice(i, i + size);
+    try { await many(part); saved += part.length; continue; } catch { /* fall back to one by one */ }
+    for (const r of part) {
+      try { await one(r); saved++; } catch (e) { failed.push({ what: label(r), why: (e instanceof Error ? e.message : String(e)).split("\n").filter(Boolean).pop()?.slice(0, 160) ?? "error" }); }
+    }
+  }
+  return { saved, failed };
+}
+
 const STAGE_MAP: Record<string, string> = { Appointment: "Site Visit", "Good lead": "Complete lead" };
 const JUNK = new Set(["Not Interested", "Not Valid", "Junk Lead"]);
 
@@ -103,8 +123,11 @@ export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; 
   }
 
   // Leads (skipping ones already imported). The Bitrix ID becomes the AMS lead number, so agents keep using it.
-  const existing = new Set((await db.lead.findMany({ where: { bitrixId: { not: null } }, select: { bitrixId: true } })).map((l) => l.bitrixId));
-  const idFor = new Map<number, { id: string; ownerId: string | null; closed: boolean }>();
+  // Leads imported on an earlier run keep their place: they are not added again, but their activities and stage
+  // history still come in (an earlier run that stopped half way left them without a timeline).
+  const already = await db.lead.findMany({ where: { bitrixId: { not: null } }, select: { id: true, bitrixId: true, ownerId: true, status: { select: { kind: true } } } });
+  const existing = new Set(already.map((l) => l.bitrixId));
+  const idFor = new Map<number, { id: string; ownerId: string | null; closed: boolean }>(already.map((l) => [l.bitrixId!, { id: l.id, ownerId: l.ownerId, closed: l.status.kind !== "open" }]));
   const leadRows = [];
   let skipped = 0, maxNo = 0;
   for (const l of f.leads) {
@@ -122,7 +145,7 @@ export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; 
     const notes = [clean(l.comments), l.source_description && clean(l.source_description), !ownerId && l.assigned_by_name ? `Bitrix owner: ${l.assigned_by_name}` : ""].filter(Boolean).join("\n\n");
     leadRows.push({
       id, bitrixId: bx, number: bx, name: (l.full_name || l.title || "Unknown").trim().slice(0, 190) || "Unknown",
-      phone: phones[0]?.value ?? null, phoneKey: phoneKey(phones[0]?.value), phone2: phones[1]?.value ?? null, email: emails[0]?.value ?? null,
+      phone: cap(phones[0]?.value), phoneKey: cap(phoneKey(phones[0]?.value)), phone2: cap(phones[1]?.value), email: cap(emails[0]?.value),
       phones: phones.length ? JSON.stringify(phones) : null, emails: emails.length ? JSON.stringify(emails) : null,
       sourceId: sourceFor.get(l.source_name) ?? null, campaign: (l.utm_campaign || "").slice(0, 190) || null,
       sourceInfo: clean(l.source_description).slice(0, 2000) || null, notes: notes.slice(0, 8000) || null,
@@ -132,10 +155,20 @@ export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; 
       convertedAt: l.status_semantic_id === "S" ? when(l.date_closed) ?? when(l.moved_time) : null,
     });
   }
-  for (let i = 0; i < leadRows.length; i += 300) await db.lead.createMany({ data: leadRows.slice(i, i + 300) });
+  const leadSave = await saveAll(leadRows, 300, (part) => db.lead.createMany({ data: part }), (row) => db.lead.create({ data: row }), (row) => `Lead ${row.bitrixId} (${row.name})`);
+  // Leads that could not be saved don't get activities either.
+  for (const f of leadSave.failed) { const n = Number(/Lead (\d+)/.exec(f.what)?.[1]); if (n) idFor.delete(n); }
   // Lead numbers carry on after the highest Bitrix ID.
   const seq = await db.sequence.findUnique({ where: { name: "lead" } });
   if (!seq || seq.value < maxNo) await db.sequence.upsert({ where: { name: "lead" }, update: { value: maxNo }, create: { name: "lead", value: maxNo } });
+
+  // What is already on these leads' timelines (from an earlier run), so nothing comes in twice.
+  const have = new Set<string>();
+  const sig = (leadId: string, subject: string, at: Date) => `${leadId}|${subject}|${+at}`;
+  const ids = already.map((l) => l.id);
+  for (let i = 0; i < ids.length; i += 1000) {
+    for (const a of await db.activity.findMany({ where: { leadId: { in: ids.slice(i, i + 1000) } }, select: { leadId: true, subject: true, createdAt: true } })) if (a.leadId) have.add(sig(a.leadId, a.subject, a.createdAt));
+  }
 
   // Activities: to-dos and tasks become tasks (done or still open), calls become calls. Same activity id once.
   const seen = new Set<string>();
@@ -161,7 +194,8 @@ export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; 
       createdAt: when(a.date_create) ?? new Date(),
     });
   }
-  for (let i = 0; i < acts.length; i += 500) await db.activity.createMany({ data: acts.slice(i, i + 500) });
+  const newActs = acts.filter((a) => { const k = sig(a.leadId, a.subject, a.createdAt); if (have.has(k)) return false; have.add(k); return true; });
+  const actSave = await saveAll(newActs, 500, (part) => db.activity.createMany({ data: part }), (row) => db.activity.create({ data: row }), (row) => `Activity "${row.subject}"`);
 
   // Stage history → timeline entries "Status: A → B" at the time it happened.
   const byLead = new Map<number, Row[]>();
@@ -178,6 +212,8 @@ export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; 
       prev = name;
     }
   }
-  for (let i = 0; i < hist.length; i += 500) await db.activity.createMany({ data: hist.slice(i, i + 500) });
-  return { deleted, leads: leadRows.length, skipped, activities: acts.length, history: hist.length, seconds: Math.round((Date.now() - t0) / 1000) };
+  const newHist = hist.filter((a) => { const k = sig(a.leadId, a.subject, a.createdAt); if (have.has(k)) return false; have.add(k); return true; });
+  const histSave = await saveAll(newHist, 500, (part) => db.activity.createMany({ data: part }), (row) => db.activity.create({ data: row }), (row) => `Stage change "${row.subject}"`);
+  const failed = [...leadSave.failed, ...actSave.failed, ...histSave.failed];
+  return { deleted, leads: leadSave.saved, skipped, activities: actSave.saved, history: histSave.saved, failed: failed.length, failedList: failed.slice(0, 20), seconds: Math.round((Date.now() - t0) / 1000) };
 }

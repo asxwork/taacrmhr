@@ -103,11 +103,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         <Drawer title="Import leads" closeHref={closeHref}>
           <ActionForm action={importLeads} className="space-y-4">
             <p className="text-sm text-muted">
-              Upload a <b className="font-medium text-ink">CSV</b> (from Excel: <i>File → Save As → CSV</i>). First row = headers. Recognised columns:{" "}
-              <span className="text-ink">name, phone, email, source, campaign, interest, property type, location, budget, notes</span>.
+              Upload an <b className="font-medium text-ink">Excel (.xlsx)</b> or <b className="font-medium text-ink">CSV</b> file, up to 50,000 rows. First row = headers. Recognised columns:{" "}
+              <span className="text-ink">name (or first + last name), phone, phone 2, email, source, campaign, interest, property type, location, budget, notes</span>.
+              Every row with a name, phone or email comes in; afterwards you see how many were imported and which rows were skipped.
             </p>
-            <Field label="CSV file">
-              <input name="file" type="file" accept=".csv,text/csv" required className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
+            <Field label="File">
+              <input name="file" type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
             </Field>
             <Field label="Source (when the file has none)">
               <select name="sourceId" className="input" defaultValue="">

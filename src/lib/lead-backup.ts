@@ -1,11 +1,11 @@
 // Full lead export/import as an Excel workbook: a "Leads" sheet (every field) and an "Activities" sheet
 // (every call, note, task and system entry, linked by lead ID). The same file imports back:
 // existing IDs are updated, new IDs are created (keeping their number), activities already present are skipped.
+import { randomUUID } from "node:crypto";
 import ExcelJS from "exceljs";
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { phoneKey } from "./crm-shared";
-import { nextNumber } from "./sequence";
 import { unitLabel } from "./inventory";
 
 const LEAD_COLUMNS = [
@@ -112,7 +112,7 @@ function readSheet(ws: ExcelJS.Worksheet | undefined) {
 export async function importLeadsWorkbook(data: ArrayBuffer, actorId: string) {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(data);
-  const leadRows = readSheet(wb.getWorksheet("Leads") ?? wb.worksheets[0]).slice(0, 20000);
+  const leadRows = readSheet(wb.getWorksheet("Leads") ?? wb.worksheets[0]).slice(0, 50000);
   const actRows = readSheet(wb.getWorksheet("Activities")).slice(0, 100000);
   if (!leadRows.length) return { error: "No leads found. Use a file exported from here (sheet “Leads”)." };
 
@@ -126,11 +126,25 @@ export async function importLeadsWorkbook(data: ArrayBuffer, actorId: string) {
   const unitByLabel = new Map(units.map((u) => [unitLabel(u).toLowerCase(), u.id]));
   const firstOpen = statuses.filter((s) => s.kind === "open").sort((a, b) => a.sortOrder - b.sortOrder)[0];
 
+  // Leads already in AMS, by their number: one query per 1,000 numbers instead of one per row.
+  const nums = [...new Set(leadRows.map((r) => cellNum(r["id"] ?? null)).filter((n): n is number => !!n).map(Math.round))];
+  const existingBy = new Map<number, { id: string; statusId: string }>();
+  for (let i = 0; i < nums.length; i += 1000) {
+    for (const l of await db.lead.findMany({ where: { number: { in: nums.slice(i, i + 1000) } }, select: { id: true, number: true, statusId: true } })) if (l.number != null) existingBy.set(l.number, l);
+  }
+
   let created = 0, updated = 0, acts = 0;
   const leadIdByNumber = new Map<number, string>();
+  const toCreate: Prisma.LeadCreateManyInput[] = [];
+  const toUpdate: { id: string; data: Prisma.LeadUncheckedUpdateInput }[] = [];
+  const unnumbered: Prisma.LeadCreateManyInput[] = [];
+  let maxNo = 0;
   for (const r of leadRows) {
     const g = (k: string) => cellText(r[k.toLowerCase()] ?? null);
-    const name = g("Name");
+    const phones = textList(g("Phones"), "Mobile");
+    const emails = textList(g("Emails"), "Work");
+    // Every row with a name, phone or email comes in (a nameless row is named "No name").
+    const name = g("Name") || (phones.length || emails.length ? "No name" : "");
     if (!name) continue;
     let sourceId: string | null = null;
     if (g("Source")) {
@@ -141,8 +155,6 @@ export async function importLeadsWorkbook(data: ArrayBuffer, actorId: string) {
       }
       sourceId = source.id;
     }
-    const phones = textList(g("Phones"), "Mobile");
-    const emails = textList(g("Emails"), "Work");
     const owner = userBy(g("Responsible email"), g("Responsible"));
     const status = byName(statuses, g("Stage")) ?? firstOpen!;
     const data = {
@@ -155,26 +167,45 @@ export async function importLeadsWorkbook(data: ArrayBuffer, actorId: string) {
       ownerId: owner?.id ?? null, branchId: byName(branches, g("Branch"))?.id ?? owner?.branchId ?? null,
     };
     const num = cellNum(r["id"] ?? null);
-    const existing = num ? await db.lead.findFirst({ where: { number: Math.round(num) } }) : null;
+    const number = num ? Math.round(num) : null;
+    const existing = number ? existingBy.get(number) : undefined;
     // On-hold is only set by the system: a file can keep a lead on hold, never put one there.
     if (status.systemKey === "onhold" && existing?.statusId !== status.id) data.statusId = existing?.statusId ?? firstOpen!.id;
     if (existing) {
-      await db.lead.update({ where: { id: existing.id }, data });
-      leadIdByNumber.set(existing.number!, existing.id);
+      toUpdate.push({ id: existing.id, data });
+      leadIdByNumber.set(number!, existing.id);
       updated++;
     } else {
-      const number = num ? Math.round(num) : await nextNumber("lead");
-      // Keep the counter above any imported number so new leads never reuse it.
-      if (num) {
-        const seq = await db.sequence.findUnique({ where: { name: "lead" } });
-        if (!seq || seq.value < number) await db.sequence.upsert({ where: { name: "lead" }, update: { value: number }, create: { name: "lead", value: number } });
-      }
-      const lead = await db.lead.create({ data: { ...data, number, createdById: actorId, createdAt: cellDate(r["created"] ?? null) ?? new Date(), lastActivityAt: cellDate(r["last activity"] ?? null) } });
-      leadIdByNumber.set(number, lead.id);
+      const now = new Date();
+      const row: Prisma.LeadCreateManyInput = { ...data, id: randomUUID().replace(/-/g, "").slice(0, 25), createdById: actorId, createdAt: cellDate(r["created"] ?? null) ?? now, lastActivityAt: cellDate(r["last activity"] ?? null), assignedAt: now, statusChangedAt: now };
+      if (number) {
+        if (leadIdByNumber.has(number)) continue; // the same ID twice in the file: keep the first
+        row.number = number; maxNo = Math.max(maxNo, number);
+        leadIdByNumber.set(number, row.id!);
+        existingBy.set(number, { id: row.id!, statusId: data.statusId });
+        toCreate.push(row);
+      } else unnumbered.push(row);
       created++;
     }
   }
+  // Rows without an ID get the next numbers in one step; the counter always ends above every imported number.
+  const seq = await db.sequence.findUnique({ where: { name: "lead" } });
+  let next = Math.max(seq?.value ?? 0, maxNo);
+  for (const row of unnumbered) row.number = ++next;
+  if (!seq || seq.value < next) await db.sequence.upsert({ where: { name: "lead" }, update: { value: next }, create: { name: "lead", value: next } });
+  const allNew = [...toCreate, ...unnumbered];
+  for (let i = 0; i < allNew.length; i += 500) await db.lead.createMany({ data: allNew.slice(i, i + 500) });
+  // Updates: ten at a time side by side.
+  for (let i = 0; i < toUpdate.length; i += 10) await Promise.all(toUpdate.slice(i, i + 10).map((u) => db.lead.update({ where: { id: u.id }, data: u.data })));
 
+  // Activities: skip ones already there (same lead, type, subject and time), then save in batches.
+  const leadIds = [...new Set(leadIdByNumber.values())];
+  const have = new Set<string>();
+  const sig = (leadId: string, type: string, subject: string, at: Date) => `${leadId}|${type}|${subject}|${+at}`;
+  for (let i = 0; i < leadIds.length; i += 1000) {
+    for (const a of await db.activity.findMany({ where: { leadId: { in: leadIds.slice(i, i + 1000) } }, select: { leadId: true, type: true, subject: true, createdAt: true } })) if (a.leadId) have.add(sig(a.leadId, a.type, a.subject, a.createdAt));
+  }
+  const newActs: Prisma.ActivityCreateManyInput[] = [];
   for (const r of actRows) {
     const num = cellNum(r["lead id"] ?? null);
     const leadId = num ? leadIdByNumber.get(Math.round(num)) : undefined;
@@ -182,16 +213,17 @@ export async function importLeadsWorkbook(data: ArrayBuffer, actorId: string) {
     if (!leadId || !subject) continue;
     const createdAt = cellDate(r["created"] ?? null) ?? new Date();
     const type = cellText(r["type"] ?? null) || "note";
-    if (await db.activity.findFirst({ where: { leadId, type, subject, createdAt } })) continue;
+    const k = sig(leadId, type, subject, createdAt);
+    if (have.has(k)) continue;
+    have.add(k);
     const owner = userBy(cellText(r["responsible email"] ?? null));
     const creator = userBy(cellText(r["created by email"] ?? null));
-    await db.activity.create({
-      data: {
-        leadId, type, subject, body: cellText(r["details"] ?? null) || null, dueAt: cellDate(r["due"] ?? null), doneAt: cellDate(r["done"] ?? null),
-        ownerId: owner?.id ?? null, createdById: creator?.id ?? actorId, createdAt, branchId: owner?.branchId ?? null,
-      },
+    newActs.push({
+      leadId, type, subject, body: cellText(r["details"] ?? null) || null, dueAt: cellDate(r["due"] ?? null), doneAt: cellDate(r["done"] ?? null),
+      ownerId: owner?.id ?? null, createdById: creator?.id ?? actorId, createdAt, branchId: owner?.branchId ?? null,
     });
-    acts++;
   }
+  for (let i = 0; i < newActs.length; i += 500) await db.activity.createMany({ data: newActs.slice(i, i + 500) });
+  acts = newActs.length;
   return { created, updated, activities: acts };
 }
