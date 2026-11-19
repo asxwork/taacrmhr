@@ -35,7 +35,7 @@ export function AppCard({ appKey, label, about, master, features, off, disabled,
       <div className="flex items-center gap-4 px-5 py-4">
         <button type="button" onClick={() => setOpen((o) => !o)} disabled={!features.length} aria-expanded={shownOpen} aria-controls={`f-${appKey}`}
           className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default">
-          {features.length > 0 && <ChevronDown className={cn("size-5 shrink-0 text-muted transition-transform", open && "rotate-180")} />}
+          {features.length > 0 && <ChevronDown className={cn("size-5 shrink-0 text-muted transition-transform", shownOpen && "rotate-180")} />}
           <span className="min-w-0">
             <span className="flex flex-wrap items-center gap-2 text-base font-semibold">{label}
               <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", appOn ? "bg-emerald-50 text-emerald-700" : "bg-red-100 text-red-700")}>{appOn ? "On" : "Off for everyone"}</span>
