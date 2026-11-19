@@ -3,6 +3,7 @@
 // Qualifications & Experiences, Documents, Policies, Banks — plus any extra tabs the page adds (history, checklists).
 // HR editors get inline forms; everyone else (including the employee in My Space) sees values.
 import Link from "@/components/link";
+import { PhotoCropInput } from "@/components/photo-crop-input";
 import { format } from "date-fns";
 import { Briefcase, CreditCard, Download, FileText, Hourglass, IdCard, Landmark, Mail, MapPin, Phone, Plus, ShieldCheck, Trash2, User, Users } from "lucide-react";
 import { fileUrl } from "@/lib/files";
@@ -85,10 +86,9 @@ export function ProfileView({ p, options, canEdit, canSalary, showSalary, action
             {mine ? (
               <ActionForm action={canEdit ? uploadPhoto : updateMyPhoto} className="flex flex-wrap items-center gap-3">
                 <input type="hidden" name="id" value={id} />
-                <PersonAvatar name={emp.fullName} photo={emp.photo} className="size-14 text-base" />
-                <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required aria-label="Profile picture" className="min-w-0 flex-1 text-xs file:mr-2 file:rounded file:border-0 file:bg-navy-900 file:px-2 file:py-1 file:text-white" />
-                <SubmitButton variant="secondary" pendingText="Uploading…" className="h-8 px-3 text-xs">{canEdit ? "Upload" : "Send to HR"}</SubmitButton>
-                <span className="w-full text-xs text-muted">{canEdit ? (emp.photo ? emp.photo.split("/").pop() : "No picture yet") : "A new picture shows once HR approves it"} · JPG, PNG or WebP · max 4MB.</span>
+                <PhotoCropInput current={emp.photo ? fileUrl(emp.photo, 160) : null} initials={emp.fullName.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()} submitLabel={canEdit ? "Save photo" : "Send to HR"} />
+                <SubmitButton variant="secondary" pendingText="Saving…" className="sr-only">{canEdit ? "Upload" : "Send to HR"}</SubmitButton>
+                <span className="w-full text-xs text-muted">{canEdit ? (emp.photo ? emp.photo.split("/").pop() : "No picture yet") : "A new picture shows once HR approves it"} · click the picture to choose, crop and preview.</span>
               </ActionForm>
             ) : emp.photo ? emp.photo.split("/").pop() : <span className="text-muted">—</span>}
           </Row>
