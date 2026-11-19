@@ -2,8 +2,10 @@
 
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import type { FormState } from "@/lib/utils";
 import { analyzeBitrix, importBitrix, readBitrixFiles, type BitrixFiles } from "@/lib/bitrix-import";
 
 // Checked files wait here (memory only, never on disk) until the Super Admin confirms. A restart just means re-uploading.
@@ -39,4 +41,23 @@ export async function bitrixStep(prev: BitrixState, fd: FormData): Promise<Bitri
     }
   }
   return undefined;
+}
+
+/** Start fresh: back up every lead to Excel on the server, then delete them all. Needs the words typed to confirm. */
+export async function deleteAllLeads(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!user.isSuperAdmin || user.viewAs) return { error: "Only a Super Admin can do this." };
+  if (String(fd.get("confirm") ?? "").trim().toUpperCase() !== "DELETE ALL LEADS") return { error: "Type DELETE ALL LEADS to confirm." };
+  let deleted = 0;
+  try {
+    const { backupAndDeleteAllLeads } = await import("@/lib/lead-wipe");
+    const r = await backupAndDeleteAllLeads();
+    deleted = r.deleted;
+    await audit(user.id, "delete", "lead", null, `Deleted all ${r.deleted} leads before re-importing (backup: ${r.backup ?? "none"})`);
+  } catch (e) {
+    return { error: `Nothing deleted: ${e instanceof Error ? e.message.slice(0, 200) : "unknown error"}` };
+  }
+  revalidatePath("/crm/leads");
+  // The form disappears once there are no leads, so the confirmation goes on the page itself.
+  redirect(`/settings/bitrix-import?deleted=${deleted}`);
 }

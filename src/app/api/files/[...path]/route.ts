@@ -16,6 +16,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ path: st
   const rel = parts.join("/");
   // Call recordings are only served by /api/calls/recordings (Super Admin, audited).
   if (rel.startsWith("calls/")) return new Response("Not found", { status: 404 });
+  // Lead backups (every phone and email) are downloaded only through /api/lead-backups, by a Super Admin.
+  if (rel.startsWith("lead-backups/")) return new Response("Not found", { status: 404 });
   // HR documents (CNIC scans, contracts…) are private: only the employee and people who can see their record.
   if (rel.startsWith("hr/")) {
     const doc = await db.employeeDocument.findUnique({ where: { path: rel }, include: { employee: { select: { userId: true, branchId: true } } } });
