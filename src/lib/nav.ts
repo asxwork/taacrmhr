@@ -387,6 +387,18 @@ export const APPS: AppDef[] = [
           { href: "/me", label: "My profile", icon: "user", also: ["/me/performance", "/me/check-ins", "/me/exit-interview", "/me/surveys"] },
         ],
       },
+      {
+        // Managers who don't use the HR app (Settings → Apps & features → HR app or My Space): their team, here.
+        label: "My team",
+        items: [
+          { href: "/hr/attendance", label: "Team attendance", icon: "clock", module: "hr.attendance" },
+          { href: "/hr/leave", label: "Team leave", icon: "plane", module: "hr.leave" },
+          { href: "/hr/leave/planner", label: "Leave planner", icon: "calendar", module: "hr.leaveplanner" },
+          { href: "/hr/attendance/swaps", label: "Shift swaps", icon: "refresh", module: "hr.shiftswap" },
+          { href: "/hr/check-ins", label: "Check-ins", icon: "chatplus", module: "hr.checkins" },
+          { href: "/approvals", label: "Approvals", icon: "check", module: "hr.leave", action: "approve" },
+        ],
+      },
     ],
   },
   {
