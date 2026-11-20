@@ -1,4 +1,6 @@
 import { leadScoreParts, scoreLabel } from "@/lib/lead-score";
+import { ListLink } from "@/components/list-memory";
+import { LeadNav } from "@/components/crm/lead-nav";
 import { leadChangeMatcher } from "@/lib/lead-lock";
 import Link from "@/components/link";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
@@ -106,13 +108,14 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
   })();
   return (
     <>
-      <Link href="/crm/leads" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <ListLink href="/crm/leads" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
         <ArrowLeft className="size-4" /> Leads
-      </Link>
+      </ListLink>
 
       {/* Title + quick actions */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{lead.name}</h1>
+        <LeadNav id={lead.id} />
         {lead.number && <span className="rounded-md bg-black/5 px-2 py-0.5 text-xs font-medium tabular-nums text-muted">#{lead.number}</span>}
         {canEdit && !editing && (
           <Link href={`${path}?edit=1`} scroll={false} className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink" title="Edit lead" aria-label="Edit lead"><Pencil className="size-4" /></Link>

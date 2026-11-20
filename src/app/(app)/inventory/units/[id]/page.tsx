@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { ListLink } from "@/components/list-memory";
 import Link from "@/components/link";
 import { unitTypeOf } from "@/lib/deal-types-shared";
 import { notFound } from "next/navigation";
@@ -54,9 +55,9 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
 
   return (
     <>
-      <Link href={unit.projectId ? `/inventory/projects/${unit.projectId}` : "/inventory"} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <ListLink href={unit.projectId ? `/inventory/projects/${unit.projectId}` : "/inventory"} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
         <ArrowLeft className="size-4" /> {unit.project?.name ?? "Inventory"}
-      </Link>
+      </ListLink>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">

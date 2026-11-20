@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Mail, MessageCircle, Pencil, Phone, Plus, Trash2 } from "lucide-react";
@@ -59,9 +60,9 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
 
   return (
     <>
-      <Link href="/crm/contacts" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <ListLink href="/crm/contacts" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
         <ArrowLeft className="size-4" /> Contacts
-      </Link>
+      </ListLink>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-4">
           <Avatar name={contact.name} className="size-12 text-base" />

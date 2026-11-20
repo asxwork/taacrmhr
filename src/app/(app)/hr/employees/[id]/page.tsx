@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import type { Prisma } from "@prisma/client";
 import { exitReasons } from "@/lib/exit-reasons";
 import { notFound } from "next/navigation";
@@ -197,9 +198,9 @@ export default async function EmployeePage({ params, searchParams }: { params: P
 
   return (
     <>
-      <Link href={sp.from === "users" ? "/settings/users" : "/hr/employees"} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <ListLink href={sp.from === "users" ? "/settings/users" : "/hr/employees"} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
         <ArrowLeft className="size-4" /> {sp.from === "users" ? "Users" : "Employees"}
-      </Link>
+      </ListLink>
 
       <ProfileView
         fields={emp.userId === user.id ? undefined : await fieldAccess(user)}

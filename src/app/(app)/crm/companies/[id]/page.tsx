@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { fmtPhone } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
@@ -39,9 +40,9 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
 
   return (
     <>
-      <Link href="/crm/contacts?tab=companies" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <ListLink href="/crm/contacts?tab=companies" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
         <ArrowLeft className="size-4" /> Companies
-      </Link>
+      </ListLink>
       <div className="mb-6 flex items-start justify-between gap-4">
         <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{company.name}</h1>
         {canEdit && (

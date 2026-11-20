@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { notFound } from "next/navigation";
 import { comingSoon } from "@/components/coming-soon";
 import { format } from "date-fns";
@@ -39,7 +40,7 @@ export default async function PayrollRunPage({ params, searchParams }: { params:
 
   return (
     <>
-      <Link href="/hr/payroll" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Payroll</Link>
+      <ListLink href="/hr/payroll" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Payroll</ListLink>
       <PageHeader
         eyebrow={`Payroll · ${run.status}`}
         title={format(monthDate(month), "MMMM yyyy")}

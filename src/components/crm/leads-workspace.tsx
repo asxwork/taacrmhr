@@ -2,6 +2,7 @@
 import { DrawerPortal } from "@/components/drawer-portal";
 
 import Link from "@/components/link";
+import { saveLeadNav } from "./lead-nav";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { format } from "date-fns";
 import {
@@ -107,6 +108,19 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
       if (id === request.current) setData(next);
     });
   }, []);
+  // Back button: the browser can show a saved copy of this page from before the filters were set. If the address
+  // (which keeps the filters) differs from what was drawn, load what the address says.
+  useEffect(() => {
+    const url = new URLSearchParams(window.location.search);
+    const fromUrl = Object.fromEntries(LEAD_FILTER_KEYS.filter((k) => url.get(k)).map((k) => [k, url.get(k)!])) as LeadFilters;
+    const v: View = url.get("view") === "board" ? "board" : "list";
+    const page = Math.max(1, Number(url.get("page")) || 1);
+    const size = Number(url.get("size")) || initial.size;
+    if (queryOf(fromUrl).toString() === queryOf(initialFilters).toString() && v === initialView && page === initial.page && size === initial.size) return;
+    setFilters(fromUrl); setView(v);
+    load(fromUrl, v, page, size);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const setPageSize = (size: number) => {
     try { localStorage.setItem("leads:size", String(size)); } catch { /* private mode */ }
     setSelected(new Set());
@@ -199,6 +213,12 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
     for (const [k, v] of Object.entries(extra ?? {})) p.set(k, v);
     return `${path}${p.size ? `?${p}` : ""}`;
   };
+  // Remember this list for "previous / next lead" on the lead page (components/crm/lead-nav.tsx).
+  useEffect(() => {
+    if (view !== "list") return;
+    const size = data.size || PAGE_SIZE;
+    saveLeadNav({ ids: data.rows.map((r) => r.id), page: data.page, pages: Math.max(1, Math.ceil(data.total / size)), total: data.total, size, query: queryOf(filters).toString() });
+  }, [data, view, filters]);
   const pageSize = data.size || PAGE_SIZE;
   const pages = Math.max(1, Math.ceil(data.total / pageSize));
   // Page numbers around the current one: 1 … 4 5 [6] 7 8 … 40

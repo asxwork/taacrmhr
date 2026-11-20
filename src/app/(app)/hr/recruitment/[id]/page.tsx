@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
@@ -36,7 +37,7 @@ export default async function OpeningPage({ params, searchParams }: { params: Pr
 
   return (
     <>
-      <Link href="/hr/recruitment" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Recruitment</Link>
+      <ListLink href="/hr/recruitment" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Recruitment</ListLink>
       <PageHeader
         eyebrow={`${opening.positions} position${opening.positions === 1 ? "" : "s"} · ${opening.status.replace("_", " ")}`}
         title={opening.title}

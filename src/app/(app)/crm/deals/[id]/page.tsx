@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MessageCircle, Pencil, Phone, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
@@ -86,9 +87,9 @@ export default async function DealPage({ params, searchParams }: { params: Promi
 
   return (
     <>
-      <Link href={`/crm/deals?pipeline=${deal.pipelineId}`} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <ListLink href={`/crm/deals?pipeline=${deal.pipelineId}`} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
         <ArrowLeft className="size-4" /> {deal.pipeline.name} pipeline
-      </Link>
+      </ListLink>
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>

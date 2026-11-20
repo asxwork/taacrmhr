@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
@@ -31,9 +32,9 @@ export default async function RoleEditPage({ params }: { params: Promise<{ id: s
 
   return (
     <>
-      <Link href="/settings/roles" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <ListLink href="/settings/roles" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
         <ArrowLeft className="size-4" /> Roles
-      </Link>
+      </ListLink>
       <PageHeader
         title={role.name}
         description={role.users.length ? `Assigned to ${role.users.map((u) => u.user.name).join(", ")}` : "Not assigned to anyone yet."}

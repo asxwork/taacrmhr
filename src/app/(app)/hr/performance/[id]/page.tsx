@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { notFound } from "next/navigation";
 import { comingSoon } from "@/components/coming-soon";
 import type { Prisma } from "@prisma/client";
@@ -38,7 +39,7 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
 
   return (
     <>
-      <Link href="/hr/performance" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Performance</Link>
+      <ListLink href="/hr/performance" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Performance</ListLink>
       <PageHeader
         title={cycle.name}
         description={`${format(cycle.from, "d MMM yyyy")} – ${format(cycle.to, "d MMM yyyy")} · ${appraisals.length} employee(s)`}

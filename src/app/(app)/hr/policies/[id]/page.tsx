@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft, Download } from "lucide-react";
@@ -30,7 +31,7 @@ export default async function PolicyPage({ params }: { params: Promise<{ id: str
 
   return (
     <>
-      <Link href="/hr/policies" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Policy Documents</Link>
+      <ListLink href="/hr/policies" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Policy Documents</ListLink>
       <PageHeader title={p.title} description={`${p.category} · version ${p.version}${p.publishedAt ? ` · published ${format(p.publishedAt, "d MMM yyyy")}` : ""}`}
         actions={p.filePath && <a href={fileUrl(p.filePath)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-2 text-sm hover:bg-surface"><Download className="size-4" /> Open PDF</a>} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">

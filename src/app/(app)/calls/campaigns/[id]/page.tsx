@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft } from "lucide-react";
@@ -37,7 +38,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
 
   return (
     <>
-      <Link href="/calls/campaigns" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Campaigns</Link>
+      <ListLink href="/calls/campaigns" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Campaigns</ListLink>
       <PageHeader title={c.name} description={c.description ?? undefined} actions={
         <div className="flex gap-2">
           <LinkButton href={`/calls/campaigns/${id}?edit=1`} variant="secondary" scroll={false}>Edit</LinkButton>

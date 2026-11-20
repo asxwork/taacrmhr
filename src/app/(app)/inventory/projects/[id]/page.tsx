@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Layers, Pencil, Plus, Rows3 } from "lucide-react";
 import { db } from "@/lib/db";
@@ -53,9 +54,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
 
   return (
     <>
-      <Link href="/inventory?tab=projects" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <ListLink href="/inventory?tab=projects" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
         <ArrowLeft className="size-4" /> Projects
-      </Link>
+      </ListLink>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">

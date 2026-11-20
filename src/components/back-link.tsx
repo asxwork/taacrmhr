@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { rememberedHref } from "./list-memory";
 
 const DRAWER_PARAMS = ["new", "edit", "open", "members", "convert", "correct", "editPunch", "a", "import"];
 
-const ID = "c[a-z0-9]{15,}"; // record ids (cuid), so sub-pages like /hr/payroll/payslips don't match
+const ID = "[a-z0-9]{20,}"; // record ids (cuid, or 25-character ids made by imports); section names like "payslips" are shorter
 /** Detail pages that draw their own "← Leads" style link at the top. */
 const OWN_BACK = [
   `^/crm/(companies|deals|leads|contacts)/${ID}$`, "^/crm/leads/new$", `^/crm/deals/[^/]+/payments$`,
@@ -25,6 +26,10 @@ const clean = (h: string) => h.split(/[?#]/)[0]!.replace(/\/+$/, "") || "/";
  * e.g. an employee's payslip → Payslips → HR dashboard → All apps.
  */
 export function BackLink({ pages, apps }: { pages: Page[]; apps: App[] }) {
+  // Going up to a list returns to it as it was left (filters, search, page): see list-memory.tsx.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const remembered = (href: string) => (mounted ? rememberedHref(href) : href);
   const path = clean(usePathname());
   const params = useSearchParams();
   // The app you're in (the sidebar remembers it in the "app" cookie). Read after mount so server and browser agree.
@@ -48,7 +53,7 @@ export function BackLink({ pages, apps }: { pages: Page[]; apps: App[] }) {
   else { target = "/home?all=1"; label = "All apps"; }
 
   return (
-    <Link href={target} className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted transition-colors hover:bg-canvas hover:text-ink print:hidden">
+    <Link href={drawer ? target : remembered(target)} className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted transition-colors hover:bg-canvas hover:text-ink print:hidden">
       <ArrowLeft className="size-4" /> {label}
     </Link>
   );

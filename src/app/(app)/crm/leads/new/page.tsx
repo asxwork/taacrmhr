@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { ArrowLeft, Info, Plus } from "lucide-react";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
@@ -23,9 +24,9 @@ export default async function NewLeadPage() {
 
   return (
     <>
-      <Link href="/crm/leads" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <ListLink href="/crm/leads" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
         <ArrowLeft className="size-4" /> Leads
-      </Link>
+      </ListLink>
       <h1 className="mb-4 font-display text-2xl font-semibold tracking-tight sm:text-[28px]">New lead</h1>
 
       {/* Stages preview (the starting stage is chosen in the form) */}

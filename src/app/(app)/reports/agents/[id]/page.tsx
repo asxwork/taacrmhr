@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { ListLink } from "@/components/list-memory";
 import { notFound, redirect } from "next/navigation";
 import { eachDayOfInterval, endOfDay, format, isSameDay, min } from "date-fns";
 import { ArrowLeft, CalendarCheck, CircleDot, MapPin, MessageSquare, Phone, StickyNote, Users } from "lucide-react";
@@ -45,7 +46,7 @@ export default async function AgentDetailPage({ params, searchParams }: { params
 
   return (
     <>
-      <Link href={`/reports/agents${sp.period ? `?period=${sp.period}` : ""}`} className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Agent performance</Link>
+      <ListLink href={`/reports/agents${sp.period ? `?period=${sp.period}` : ""}`} className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Agent performance</ListLink>
       <PageHeader title={agent.name} eyebrow="Agent detail" description={[agent.title, agent.branch?.name, `${format(from, "d MMM")} – ${format(to, "d MMM yyyy")}`].filter(Boolean).join(" · ")} />
 
       <AutoFilterForm className="mb-6 flex flex-wrap items-end gap-2">
