@@ -65,6 +65,8 @@ model User {
   theme             String?
   accent            String?
   wallpaper         String?
+  /// comfortable | compact (null = company default).
+  density           String?
   lastLoginAt       DateTime?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt

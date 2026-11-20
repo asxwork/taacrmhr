@@ -24,7 +24,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // (the page itself then shows what's wrong, e.g. on the login form).
   const appearance = await getAppearance().catch((e) => { console.error("[layout] appearance unavailable:", e?.code ?? e?.message); return DEFAULT_APPEARANCE; });
   return (
-    <html lang="en" data-theme={appearance.theme} style={appearanceStyle(appearance, fileUrl) as React.CSSProperties}>
+    <html lang="en" data-theme={appearance.theme} data-density={appearance.density} style={appearanceStyle(appearance, fileUrl) as React.CSSProperties}>
       <body className="font-sans">{children}</body>
     </html>
   );

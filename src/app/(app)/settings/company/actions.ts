@@ -50,6 +50,7 @@ export async function saveCompanyAppearance(_: FormState, fd: FormData): Promise
   const set = (key: string, value: string) => db.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
   if (res.theme) await set(APPEARANCE_KEYS.theme, res.theme);
   if (res.accent) await set(APPEARANCE_KEYS.accent, res.accent);
+  if (res.density) await set(APPEARANCE_KEYS.density, res.density);
   if (res.wallpaper && res.wallpaper !== "keep") {
     if (current?.value.startsWith("upload:") && current.value !== res.wallpaper) await deleteUpload(current.value.slice(7));
     await set(APPEARANCE_KEYS.wallpaper, res.wallpaper);

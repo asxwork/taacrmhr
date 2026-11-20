@@ -1,9 +1,18 @@
 // Client-safe appearance options. Accent palettes remap the --color-navy-* tokens used across the app.
 
+/** Themes with what their preview shows: page background, cards, text. */
 export const THEMES = [
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "system", label: "Match device" },
+  { value: "light", label: "Light", canvas: "#f6f7f9", card: "#ffffff", text: "#0f1a2a" },
+  { value: "soft", label: "Soft grey", canvas: "#e3e8ee", card: "#ffffff", text: "#0f1a2a" },
+  { value: "sand", label: "Sand", canvas: "#efe8dc", card: "#fffdf8", text: "#2a2117" },
+  { value: "contrast", label: "Night & Day", canvas: "#0e1a2b", card: "#ffffff", text: "#0f1a2a" },
+  { value: "dark", label: "Dark", canvas: "#0b1420", card: "#121d2b", text: "#e6ebf2" },
+  { value: "system", label: "Match device", canvas: "linear-gradient(90deg,#f6f7f9 50%,#0b1420 50%)", card: "#ffffff", text: "#0f1a2a" },
+] as const;
+
+export const DENSITIES = [
+  { value: "comfortable", label: "Comfortable", hint: "Roomy, easy to read" },
+  { value: "compact", label: "Compact", hint: "Smaller text and spacing: more on screen" },
 ] as const;
 
 export const ACCENTS = [
@@ -13,6 +22,10 @@ export const ACCENTS = [
   { value: "emerald", label: "Emerald", shades: ["#022c22", "#064e3b", "#065f46", "#047857"] },
   { value: "maroon", label: "Maroon", shades: ["#2a0a10", "#5b1220", "#7a1a2c", "#9b2338"] },
   { value: "charcoal", label: "Charcoal", shades: ["#0b0b0f", "#18181b", "#27272a", "#3f3f46"] },
+  { value: "teal", label: "Teal", shades: ["#042f2e", "#134e4a", "#115e59", "#0f766e"] },
+  { value: "plum", label: "Plum", shades: ["#1e0b2e", "#3b0764", "#581c87", "#6b21a8"] },
+  { value: "ocean", label: "Ocean", shades: ["#05202e", "#0c4a6e", "#075985", "#0369a1"] },
+  { value: "copper", label: "Copper", shades: ["#2a1308", "#5c2c0f", "#7c3a12", "#9a4a18"] },
 ] as const;
 
 /** Preset wallpapers are pure CSS so they cost nothing to load. Uploaded ones are stored as "upload:<path>". */
@@ -26,8 +39,8 @@ export const WALLPAPERS = [
   { value: "night", label: "Night", css: "radial-gradient(circle at 70% 10%, #1c3f63 0, transparent 45%), linear-gradient(180deg, #06111d, #0a223c)" },
 ] as const;
 
-export type Appearance = { theme: string; accent: string; wallpaper: string };
-export const DEFAULT_APPEARANCE: Appearance = { theme: "light", accent: "navy", wallpaper: "none" };
+export type Appearance = { theme: string; accent: string; wallpaper: string; density: string };
+export const DEFAULT_APPEARANCE: Appearance = { theme: "light", accent: "navy", wallpaper: "none", density: "comfortable" };
 
 export function wallpaperCss(value: string, fileUrl: (p: string) => string) {
   if (value.startsWith("upload:")) return `url("${fileUrl(value.slice(7))}") center / cover no-repeat`;

@@ -1,4 +1,4 @@
-import { ACCENTS, THEMES, WALLPAPERS, type Appearance } from "@/lib/appearance";
+import { ACCENTS, DENSITIES, THEMES, WALLPAPERS, type Appearance } from "@/lib/appearance";
 import { fileUrl } from "@/lib/files";
 import type { FormState } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "./action-form";
@@ -13,7 +13,7 @@ export function AppearanceForm({
   inherit,
 }: {
   action: (s: FormState, fd: FormData) => Promise<FormState>;
-  values: { theme: string | null; accent: string | null; wallpaper: string | null };
+  values: { theme: string | null; accent: string | null; wallpaper: string | null; density?: string | null };
   inherit?: Appearance;
 }) {
   const upload = values.wallpaper?.startsWith("upload:") ? values.wallpaper.slice(7) : null;
@@ -23,10 +23,44 @@ export function AppearanceForm({
     <ActionForm action={action} className="space-y-6">
       <fieldset className="min-w-0">
         <legend className="mb-2 text-xs font-medium text-ink/80">Theme</legend>
-        <div className="flex flex-wrap gap-2">
-          {inherit && <Choice name="theme" value="default" checked={!values.theme} label={`Company (${THEMES.find((t) => t.value === inherit.theme)?.label})`} />}
+        {/* Each theme as a small preview: page background, the dark menu, and white (or dark) cards on it. */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {inherit && (
+            <label className="cursor-pointer">
+              <input type="radio" name="theme" value="default" defaultChecked={!values.theme} className="peer sr-only" />
+              <span className={`flex aspect-[16/10] items-center justify-center rounded-lg border border-dashed border-line text-center text-xs text-muted ${tile}`}>Company default<br />({THEMES.find((t) => t.value === inherit.theme)?.label})</span>
+            </label>
+          )}
           {THEMES.map((t) => (
-            <Choice key={t.value} name="theme" value={t.value} checked={values.theme === t.value} label={t.label} />
+            <label key={t.value} className="cursor-pointer">
+              <input type="radio" name="theme" value={t.value} defaultChecked={values.theme === t.value} className="peer sr-only" />
+              <span className={`flex aspect-[16/10] overflow-hidden rounded-lg border border-line ${tile}`} style={{ background: t.canvas }} aria-hidden>
+                <span className="w-1/5" style={{ background: "#0a223c" }} />
+                <span className="flex flex-1 flex-col gap-1 p-1.5">
+                  <span className="h-1.5 w-2/5 rounded-full" style={{ background: t.value === "contrast" || t.value === "dark" ? "#e8edf4" : "#0f1a2a", opacity: 0.7 }} />
+                  <span className="flex-1 rounded" style={{ background: t.card, boxShadow: "0 1px 2px rgba(0,0,0,.12)" }}>
+                    <span className="m-1 block h-1 w-3/5 rounded-full" style={{ background: t.text, opacity: 0.5 }} />
+                    <span className="m-1 block h-1 w-2/5 rounded-full" style={{ background: t.text, opacity: 0.3 }} />
+                  </span>
+                </span>
+              </span>
+              <span className="mt-1 block text-center text-xs font-medium">{t.label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="min-w-0">
+        <legend className="mb-2 text-xs font-medium text-ink/80">Density</legend>
+        <div className="flex flex-wrap gap-2">
+          {inherit && <Choice name="density" value="default" checked={!values.density} label="Company" />}
+          {DENSITIES.map((d) => (
+            <label key={d.value} className="cursor-pointer">
+              <input type="radio" name="density" value={d.value} defaultChecked={values.density === d.value || (!inherit && !values.density && d.value === "comfortable")} className="peer sr-only" />
+              <span className="block rounded-lg border border-line px-3 py-2 text-sm peer-checked:border-navy-900 peer-checked:bg-navy-900 peer-checked:text-white">
+                <span className="block font-medium">{d.label}</span><span className="block text-xs opacity-70">{d.hint}</span>
+              </span>
+            </label>
           ))}
         </div>
       </fieldset>

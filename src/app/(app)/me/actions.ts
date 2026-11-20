@@ -35,7 +35,7 @@ export async function saveMyAppearance(_: FormState, fd: FormData): Promise<Form
   if (!keep && current.wallpaper?.startsWith("upload:") && current.wallpaper !== res.wallpaper) await deleteUpload(current.wallpaper.slice(7));
   await db.user.update({
     where: { id: user.id },
-    data: { ...(res.theme !== undefined && { theme: res.theme }), ...(res.accent !== undefined && { accent: res.accent }), ...(!keep && { wallpaper: res.wallpaper }) },
+    data: { ...(res.theme !== undefined && { theme: res.theme }), ...(res.accent !== undefined && { accent: res.accent }), ...(res.density !== undefined && { density: res.density }), ...(!keep && { wallpaper: res.wallpaper }) },
   });
   revalidatePath("/", "layout");
   return { ok: true, message: "Appearance saved." };

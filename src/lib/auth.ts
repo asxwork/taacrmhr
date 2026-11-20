@@ -25,7 +25,7 @@ export type SessionUser = {
   roleNames: string[];
   perms: PermissionMap;
   /** Personal appearance overrides (null = company default). */
-  prefs: { theme: string | null; accent: string | null; wallpaper: string | null };
+  prefs: { theme: string | null; accent: string | null; wallpaper: string | null; density: string | null };
   /** Set while a Super Admin is using "View as" (read-only): who is really signed in. */
   viewAs?: { realId: string; realName: string };
   /** Hours this user may use the app (from their roles); null = any time. */
@@ -121,7 +121,7 @@ async function buildSessionUser(user: UserWithRoles): Promise<SessionUser> {
     isBoss: user.roles.some((r) => r.role.key === "boss"),
     roleNames: user.isSuperAdmin ? ["Super Admin"] : user.roles.map((r) => r.role.name),
     perms,
-    prefs: { theme: user.theme, accent: user.accent, wallpaper: user.wallpaper },
+    prefs: { theme: user.theme, accent: user.accent, wallpaper: user.wallpaper, density: user.density },
     loginWindow: user.isSuperAdmin ? null : windowFromRoles(user.roles.map((r) => r.role)),
     totpEnabled: user.totpEnabled,
   };

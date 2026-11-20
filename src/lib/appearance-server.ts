@@ -2,10 +2,10 @@ import { cache } from "react";
 import { db } from "./db";
 import { memo } from "./memo";
 import { getCurrentUser } from "./auth";
-import { ACCENTS, DEFAULT_APPEARANCE, THEMES, WALLPAPERS, type Appearance } from "./appearance";
+import { ACCENTS, DEFAULT_APPEARANCE, DENSITIES, THEMES, WALLPAPERS, type Appearance } from "./appearance";
 import { saveImage } from "./files";
 
-const KEYS = { theme: "appearance.theme", accent: "appearance.accent", wallpaper: "appearance.wallpaper" } as const;
+const KEYS = { theme: "appearance.theme", accent: "appearance.accent", wallpaper: "appearance.wallpaper", density: "appearance.density" } as const;
 
 // Read on every page; cached until a setting is written (db.ts clears "setting:").
 export const getCompanyAppearance = cache(async (): Promise<Appearance> => {
@@ -15,6 +15,7 @@ export const getCompanyAppearance = cache(async (): Promise<Appearance> => {
     theme: get(KEYS.theme) ?? DEFAULT_APPEARANCE.theme,
     accent: get(KEYS.accent) ?? DEFAULT_APPEARANCE.accent,
     wallpaper: get(KEYS.wallpaper) ?? DEFAULT_APPEARANCE.wallpaper,
+    density: get(KEYS.density) ?? DEFAULT_APPEARANCE.density,
   };
 });
 
@@ -28,6 +29,7 @@ export const getAppearance = cache(async (): Promise<Appearance> => {
     theme: prefs.theme ?? company.theme,
     accent: prefs.accent ?? company.accent,
     wallpaper: prefs.wallpaper ?? company.wallpaper,
+    density: prefs.density ?? company.density,
   };
 });
 
@@ -45,6 +47,7 @@ export async function readAppearanceForm(fd: FormData, uploadDir: string, allowD
   };
   const theme = pick("theme", THEMES.map((t) => t.value));
   const accent = pick("accent", ACCENTS.map((a) => a.value));
+  const density = pick("density", DENSITIES.map((d) => d.value));
   let wallpaper = pick("wallpaper", [...WALLPAPERS.map((w) => w.value), "keep"]);
   const file = fd.get("wallpaperFile");
   if (file instanceof File && file.size > 0) {
@@ -52,5 +55,5 @@ export async function readAppearanceForm(fd: FormData, uploadDir: string, allowD
     if ("error" in res) return { error: res.error };
     wallpaper = `upload:${res.path}`;
   }
-  return { theme, accent, wallpaper };
+  return { theme, accent, wallpaper, density };
 }

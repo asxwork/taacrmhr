@@ -64,6 +64,31 @@ html[data-theme="dark"] .only-light, html[data-theme="light"] .only-dark, html[d
   html[data-theme="system"] .only-dark { display: initial; }
 }
 
+/* ─── More themes ─── */
+/* Soft grey and Sand: tinted page background so white cards stand out. */
+html[data-theme="soft"] { --color-canvas: #e3e8ee; --color-line: #d5dce5; }
+html[data-theme="sand"] { --color-canvas: #efe8dc; --color-surface: #fffdf8; --color-line: #e2d8c6; --color-ink: #2a2117; --color-muted: #7a6e5f; }
+/* Night & Day: dark page, white cards. Text on the page turns light; cards, inputs, menus and dialogs are light
+   islands that switch the tokens back, so everything inside them stays dark-on-white. */
+html[data-theme="contrast"] {
+  --color-canvas: #0e1a2b; --color-surface: #ffffff; --color-line: #24354b; --color-ink: #e8edf4; --color-muted: #9aa8ba;
+  --chart: var(--color-gold-400);
+}
+html[data-theme="contrast"] :is(.bg-surface, .card, .input, [role="dialog"], [role="listbox"], [role="menu"], dialog, details > div, details > nav) {
+  --color-canvas: #f6f7f9; --color-line: #e6e8ec; --color-ink: #0f1a2a; --color-muted: #6b7280;
+  --chart: var(--color-navy-700);
+  color: var(--color-ink);
+}
+html[data-theme="contrast"] .text-navy-900 { color: var(--color-gold-300); }
+html[data-theme="contrast"] :is(.bg-surface, .card, [role="dialog"], [role="listbox"], details > div, details > nav) .text-navy-900 { color: var(--color-navy-900); }
+html[data-theme="contrast"] .bg-navy-900:not(aside *) { background-color: var(--color-navy-700); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12); }
+html[data-theme="contrast"] :is(.bg-surface, .card, [role="dialog"]) .bg-navy-900 { background-color: var(--color-navy-900); box-shadow: none; }
+html[data-theme="contrast"] .bg-black\/5 { background-color: rgb(255 255 255 / 0.08); }
+html[data-theme="contrast"] :is(.bg-surface, .card) .bg-black\/5 { background-color: rgb(0 0 0 / 0.05); }
+
+/* Compact density: everything is sized in rem, so a smaller root makes text and spacing tighter everywhere. */
+html[data-density="compact"] { font-size: 14.5px; }
+
 /* Wallpaper sits behind the main content; a canvas-tinted veil keeps cards and text readable. */
 /* The wallpaper sits on its own fixed layer behind the page. A "background-attachment: fixed" page background
    makes the browser repaint everything on every scroll frame (the main cause of scroll lag); a fixed layer is

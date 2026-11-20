@@ -75,7 +75,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
       <Card className="mt-6 p-6">
         <h2 className="mb-1 font-medium">Appearance</h2>
         <p className="mb-5 text-sm text-muted">Personalise how the app looks for you. Only you see these choices.</p>
-        <AppearanceForm action={saveMyAppearance} values={{ theme: user.theme, accent: user.accent, wallpaper: user.wallpaper }} inherit={company} />
+        <AppearanceForm action={saveMyAppearance} values={{ theme: user.theme, accent: user.accent, wallpaper: user.wallpaper, density: user.density }} inherit={company} />
       </Card>
     </>
   );
