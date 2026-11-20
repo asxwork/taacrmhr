@@ -20,6 +20,7 @@ import { visibleTutorials } from "@/lib/tutorial-access";
 import { sectionVideos, videoUrl } from "@/lib/section-videos";
 import { SECTIONS, type SectionTab } from "@/lib/sections";
 import { SectionTabs } from "@/components/section-tabs";
+import { NotificationPulse } from "@/components/notification-pulse";
 import { redirect } from "next/navigation";
 import { securitySettings, twoStepRequired } from "@/lib/security";
 import { IdleSignOut } from "@/components/idle-sign-out";
@@ -60,6 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="app-wallpaper min-h-screen" data-sidebar={sidebarMode(current.layout, collapsed)}>
       <NavProgress />
+      {!user.viewAs && <NotificationPulse unread={unread[0]} chat={unread[2]} />}
       {/* "?" help button: the guide for the page you're on, from the sections you use. */}
       <PageHelp items={visibleTutorials(user).filter((t) => t.href || t.paths?.length).map((t) => ({ key: t.key, title: t.title, summary: t.summary, paths: [...(t.href ? [t.href] : []), ...(t.paths ?? [])], video: videos[t.key] ? videoUrl(t.key) : undefined }))} />
       <Sidebar

@@ -1,12 +1,13 @@
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Field, LinkButton } from "@/components/ui";
+import { ProjectPicker } from "@/components/crm/project-picker";
 import { INTERESTS, PROPERTY_TYPES } from "@/lib/crm-shared";
 import { EmailList, PhoneList, UnitPicker, type UnitOption } from "@/components/crm/contact-lists";
 import { saveLead } from "./actions";
 
 type LeadValues = {
   id: string; name: string; phone: string | null; phone2: string | null; email: string | null; sourceId: string | null;
-  sourceInfo: string | null; projectId: string | null; unitId: string | null; phones: string | null; emails: string | null;
+  sourceInfo: string | null; projectId: string | null; projectName?: string | null; unitId: string | null; phones: string | null; emails: string | null;
   campaign: string | null; interest: string | null; propertyType: string | null; location: string | null;
   budgetMin: number | null; budgetMax: number | null; notes: string | null; ownerId: string | null;
 };
@@ -82,10 +83,7 @@ export function LeadForm({
           <UnitPicker name="unitId" options={units} initial={lead?.unitId} />
         </Field>
         <Field label="Project">
-          <select name="projectId" defaultValue={lead?.projectId ?? ""} className="input">
-            <option value="">—</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          <ProjectPicker projects={projects} projectId={lead?.projectId} projectName={lead?.projectName} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Interest">

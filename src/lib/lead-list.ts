@@ -143,7 +143,7 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
       phoneTel: !l.phone || phoneMode === "hidden" ? null : phoneMode === "mask" ? `/api/leads/${l.id}/dial?via=tel` : telHref(l.phone),
       phoneWa: !l.phone || phoneMode === "hidden" ? null : phoneMode === "mask" ? `/api/leads/${l.id}/dial?via=wa` : waHref(l.phone),
       source: l.source?.name ?? null,
-      project: l.project?.name ?? null,
+      project: l.project?.name ?? l.projectName ?? null,
       subtitle: [l.project?.name ?? l.propertyType, l.location].filter(Boolean).join(" · ") || null,
       budget: fields["lead.budget"] === "hidden" ? null : l.budgetMax ?? l.budgetMin ?? null,
       statusId: l.statusId,

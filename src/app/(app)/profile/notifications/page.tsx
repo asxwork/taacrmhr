@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { EMAIL_MODES, notifyPrefs } from "@/lib/notify-prefs";
 import { NOTIFY_CATEGORIES } from "@/lib/notify";
 import { digestFor } from "@/lib/daily-digest";
+import { SoundSetting } from "@/components/sound-setting";
 import { Card, PageHeader } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { saveMyNotifications } from "./actions";
@@ -45,6 +46,10 @@ export default async function MyNotificationsPage() {
           <div className="mt-4"><SubmitButton>Save</SubmitButton></div>
         </Card>
       </ActionForm>
+      <Card className="mt-5 p-5">
+        <h2 className="mb-3 font-semibold">Sound</h2>
+        <SoundSetting />
+      </Card>
       <Card className="mt-5 p-5">
         <h2 className="mb-1 font-semibold">Your next summary email</h2>
         <p className="mb-3 text-xs text-muted">What tomorrow morning&apos;s email would say if it went out now.</p>

@@ -31,7 +31,9 @@ export async function bitrixStep(prev: BitrixState, fd: FormData): Promise<Bitri
     const p = pending.get(String(fd.get("id")));
     if (!p || p.actorId !== user.id) return { error: "Please upload the files again (they were checked too long ago or the server restarted)." };
     try {
-      const done = await importBitrix(p.files, { deleteDemo: fd.get("deleteDemo") === "on", userId: user.id });
+      // Responsible person chosen per Bitrix name in the preview (owner:<name> → AMS user id).
+      const owners = Object.fromEntries([...fd.entries()].filter(([k, v]) => k.startsWith("owner:") && typeof v === "string" && v).map(([k, v]) => [k.slice(6), String(v)]));
+      const done = await importBitrix(p.files, { deleteDemo: fd.get("deleteDemo") === "on", userId: user.id, owners });
       pending.delete(String(fd.get("id")));
       await audit(user.id, "import", "lead", null, `Bitrix import: ${done.leads} leads, ${done.activities} activities, ${done.history} stage changes${done.failed ? `, ${done.failed} rows failed` : ""}${done.deleted ? `, ${done.deleted} demo leads deleted` : ""}`);
       revalidatePath("/crm/leads");

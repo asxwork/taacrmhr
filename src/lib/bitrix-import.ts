@@ -57,46 +57,91 @@ export async function saveAll<T>(rows: T[], size: number, many: (part: T[]) => P
 const STAGE_MAP: Record<string, string> = { Appointment: "Site Visit", "Good lead": "Complete lead" };
 const JUNK = new Set(["Not Interested", "Not Valid", "Junk Lead"]);
 
+/** Names compared loosely: case, extra spaces and dots don't matter. */
+const nameKey = (s: string) => s.trim().toLowerCase().replace(/[.\s]+/g, " ").trim();
+/**
+ * The AMS person for a Bitrix name: exact match on a login's name or an employee's name first, then a unique
+ * "starts with" match word by word ("Asadullah C" → "Asadullah Chaudhry", "Huzaifa" → "Huzaifa Khan").
+ */
+function ownerMatcher(people: { userId: string; name: string }[]) {
+  const words = (s: string) => nameKey(s).split(" ").filter(Boolean);
+  return (bitrixName: string): string | null => {
+    const k = nameKey(bitrixName);
+    if (!k) return null;
+    const exact = [...new Set(people.filter((p) => nameKey(p.name) === k).map((p) => p.userId))];
+    if (exact.length === 1) return exact[0]!;
+    const want = words(bitrixName);
+    const loose = [...new Set(people.filter((p) => { const have = words(p.name); return want.length <= have.length && want.every((w, i) => have[i]!.startsWith(w)); }).map((p) => p.userId))];
+    return loose.length === 1 ? loose[0]! : null;
+  };
+}
+async function amsPeople() {
+  const [users, employees] = await Promise.all([
+    db.user.findMany({ where: { active: true }, select: { id: true, name: true } }),
+    db.employee.findMany({ where: { userId: { not: null }, user: { active: true } }, select: { fullName: true, userId: true } }),
+  ]);
+  return { users, people: [...users.map((u) => ({ userId: u.id, name: u.name })), ...employees.map((e) => ({ userId: e.userId!, name: e.fullName }))] };
+}
+/** The project column, if the export has one (Bitrix custom fields look like uf_crm_1700000000 / "Project"). */
+const projectColumn = (rows: Row[]) => Object.keys(rows[0] ?? {}).find((k) => /project/i.test(k));
+/** Bitrix list values come as "[12] Askari VI". */
+const listValue = (v: string | undefined) => (v ?? "").replace(/^\s*\[\d+\]\s*/, "").trim();
+
 /** What the import will do, before doing it. */
 export async function analyzeBitrix(f: BitrixFiles) {
-  const [users, employees, statuses, sources, demo, already] = await Promise.all([
-    db.user.findMany({ where: { active: true }, select: { id: true, name: true } }),
-    db.employee.findMany({ where: { userId: { not: null } }, select: { fullName: true, userId: true } }),
+  const [{ users, people }, statuses, sources, demo, already, projects] = await Promise.all([
+    amsPeople(),
     db.leadStatus.findMany({ select: { id: true, name: true } }),
     db.leadSource.findMany({ select: { id: true, name: true } }),
     db.lead.count({ where: { bitrixId: null } }),
     db.lead.count({ where: { bitrixId: { in: f.leads.map((l) => Number(l.id)).filter(Boolean) } } }),
+    db.project.findMany({ select: { name: true } }),
   ]);
   const key = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
-  const userFor = (name: string) => users.find((u) => key(u.name) === key(name))?.id ?? employees.find((e) => key(e.fullName) === key(name))?.userId ?? null;
+  const userFor = ownerMatcher(people);
   const count = (rows: Row[], k: string) => { const m = new Map<string, number>(); for (const r of rows) m.set(r[k] ?? "", (m.get(r[k] ?? "") ?? 0) + 1); return [...m.entries()].sort((a, b) => b[1] - a[1]); };
   const owners = count(f.leads, "assigned_by_name").map(([name, n]) => ({ name, n, userId: name === "The Advisor Associates" ? "admin" : userFor(name) }));
+  const pcol = projectColumn(f.leads);
+  const projectNames = pcol ? count(f.leads.map((l) => ({ p: listValue(l[pcol]) })), "p").filter(([p]) => p).map(([name, n]) => ({ name, n, inList: projects.some((x) => key(x.name) === key(name)) })) : [];
   const stageName = (s: string) => STAGE_MAP[s] ?? s;
   const stages = count(f.leads, "status_name").filter(([s]) => s).map(([name, n]) => ({ name, n, as: stageName(name), exists: statuses.some((x) => key(x.name) === key(stageName(name))) }));
   const srcs = count(f.leads, "source_name").filter(([s]) => s).map(([name, n]) => ({ name, n, exists: sources.some((x) => key(x.name) === key(name)) }));
   const actIds = new Set(f.activities.map((a) => a.id));
-  return { leads: f.leads.length, activities: actIds.size, history: f.history.length, ignored: f.ignored, owners, stages, sources: srcs, demo, already };
+  return { leads: f.leads.length, activities: actIds.size, history: f.history.length, ignored: f.ignored, owners, people: users.map((u) => ({ id: u.id, name: u.name })).sort((a, b) => a.name.localeCompare(b.name)), projectColumn: pcol ?? null, projects: projectNames, stages, sources: srcs, demo, already };
 }
 
 /**
  * Imports. deleteDemo removes every lead that didn't come from Bitrix first (with its activities). Agents are
  * matched by name to AMS logins; the Bitrix company account goes to the person importing.
  */
-export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; userId: string }) {
+export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; userId: string; owners?: Record<string, string> }) {
   const t0 = Date.now();
   let deleted = 0;
   if (opts.deleteDemo) deleted = (await db.lead.deleteMany({ where: { bitrixId: null } })).count;
 
   const key = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
-  const [users, employees] = await Promise.all([
-    db.user.findMany({ where: { active: true }, select: { id: true, name: true, branchId: true } }),
-    db.employee.findMany({ where: { userId: { not: null } }, select: { fullName: true, userId: true } }),
+  const [{ people }, branchRows, projects] = await Promise.all([
+    amsPeople(),
+    db.user.findMany({ select: { id: true, branchId: true } }),
+    db.project.findMany({ select: { id: true, name: true } }),
   ]);
-  const branchOf = new Map(users.map((u) => [u.id, u.branchId]));
+  const branchOf = new Map(branchRows.map((u) => [u.id, u.branchId]));
+  const match = ownerMatcher(people);
+  const validIds = new Set(branchRows.map((u) => u.id));
+  // The person chosen in the preview for a Bitrix name wins; then the name match.
   const userFor = (name: string | undefined) => {
     if (!name) return null;
+    const chosen = opts.owners?.[name];
+    if (chosen && validIds.has(chosen)) return chosen;
     if (name === "The Advisor Associates") return opts.userId;
-    return users.find((u) => key(u.name) === key(name))?.id ?? employees.find((e) => key(e.fullName) === key(name))?.userId ?? null;
+    return match(name);
+  };
+  const pcol = projectColumn(f.leads);
+  const projectFor = (raw: string | undefined) => {
+    const name = listValue(raw);
+    if (!name) return { projectId: null, projectName: null };
+    const p = projects.find((x) => key(x.name) === key(name));
+    return p ? { projectId: p.id, projectName: null } : { projectId: null, projectName: name.slice(0, 190) };
   };
 
   // Stages and sources: use the ones that exist (by name), create the rest.
@@ -142,11 +187,13 @@ export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; 
     const statusId = statusFor.get(l.status_name) ?? fallbackStatus;
     idFor.set(bx, { id, ownerId, closed: statuses.find((s) => s.id === statusId)?.kind !== "open" });
     const created = when(l.date_create) ?? new Date();
-    const notes = [clean(l.comments), l.source_description && clean(l.source_description), !ownerId && l.assigned_by_name ? `Bitrix owner: ${l.assigned_by_name}` : ""].filter(Boolean).join("\n\n");
+    // Notes are only what was written in Bitrix's comments (the form answers stay in Source information).
+    const notes = clean(l.comments);
     leadRows.push({
       id, bitrixId: bx, number: bx, name: (l.full_name || l.title || "Unknown").trim().slice(0, 190) || "Unknown",
       phone: cap(phones[0]?.value), phoneKey: cap(phoneKey(phones[0]?.value)), phone2: cap(phones[1]?.value), email: cap(emails[0]?.value),
       phones: phones.length ? JSON.stringify(phones) : null, emails: emails.length ? JSON.stringify(emails) : null,
+      ...projectFor(pcol ? l[pcol] : undefined),
       sourceId: sourceFor.get(l.source_name) ?? null, campaign: (l.utm_campaign || "").slice(0, 190) || null,
       sourceInfo: clean(l.source_description).slice(0, 2000) || null, notes: notes.slice(0, 8000) || null,
       statusId, ownerId, createdById: userFor(l.created_by?.replace(/^\[\d+\]\s*/, "")) ?? opts.userId,

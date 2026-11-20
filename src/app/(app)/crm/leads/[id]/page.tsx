@@ -208,10 +208,10 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
                 <Row label="Phone">{phoneItems.length > 0 && <ContactValues items={phoneItems} />}</Row>
                 <Row label="E-mail">{emailItems.length > 0 && <ContactValues items={emailItems} />}</Row>
                 <Row label="Source">{lead.source?.name}</Row>
-                <Row label="Source information">{lead.sourceInfo}</Row>
+                <Row label="Source information">{lead.sourceInfo && <span className="whitespace-pre-line">{lead.sourceInfo}</span>}</Row>
                 {lead.campaign && <Row label="Campaign">{lead.campaign}</Row>}
                 <Row label="Property">{lead.unit && <Link href={`/inventory/units/${lead.unit.id}`} className="text-navy-900 hover:underline">{unitLabel(lead.unit)}</Link>}</Row>
-                <Row label="Project">{lead.project && <Link href={`/inventory/projects/${lead.project.id}`} className="text-navy-900 hover:underline">{lead.project.name}</Link>}</Row>
+                <Row label="Project">{lead.project ? <Link href={`/inventory/projects/${lead.project.id}`} className="text-navy-900 hover:underline">{lead.project.name}</Link> : lead.projectName}</Row>
                 <Row label="Interest">{[INTERESTS.find((i) => i.value === lead.interest)?.label, lead.propertyType].filter(Boolean).join(" · ")}</Row>
                 <Row label="Preferred location">{lead.location}</Row>
                 <Row label="Budget">{budget}</Row>

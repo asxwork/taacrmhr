@@ -82,7 +82,7 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
   const [ownerId, unit, project] = await Promise.all([
     resolveOwner(user, "crm.leads", str(fd, "ownerId"), existing?.ownerId),
     str(fd, "unitId") ? db.unit.findUnique({ where: { id: str(fd, "unitId") }, select: { id: true, projectId: true } }) : null,
-    str(fd, "projectId") ? db.project.findUnique({ where: { id: str(fd, "projectId") }, select: { id: true } }) : null,
+    str(fd, "projectId") && str(fd, "projectId") !== "__other" ? db.project.findUnique({ where: { id: str(fd, "projectId") }, select: { id: true } }) : null,
   ]);
   const projectId = project?.id || unit?.projectId || null;
   const data = {
@@ -91,7 +91,9 @@ export async function saveLead(_: FormState, fd: FormData): Promise<FormState> {
     ...(phones && { phones: phones.length ? JSON.stringify(phones) : null }),
     ...(emails && { emails: emails.length ? JSON.stringify(emails) : null }),
     sourceId: str(fd, "sourceId") || null, campaign: str(fd, "campaign") || null, sourceInfo: str(fd, "sourceInfo") || null,
-    projectId, ...(fd.has("unitId") && { unitId: unit?.id ?? null }),
+    // "Other": a project typed in that isn't in the Inventory list.
+    projectId, projectName: !projectId && str(fd, "projectId") === "__other" ? str(fd, "projectName").slice(0, 190) || null : null,
+    ...(fd.has("unitId") && { unitId: unit?.id ?? null }),
     interest: str(fd, "interest") || null, propertyType: str(fd, "propertyType") || null,
     location: str(fd, "location") || null, budgetMin, budgetMax, notes: str(fd, "notes") || null,
     ownerId, branchId: await ownerBranch(ownerId),
