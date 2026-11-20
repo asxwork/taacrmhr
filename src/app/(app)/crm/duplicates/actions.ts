@@ -41,3 +41,16 @@ export async function mergeAllLeads(_: FormState, fd: FormData): Promise<FormSta
   // The button disappears when nothing is left, so the result goes on the page itself.
   redirect(`/crm/duplicates?${new URLSearchParams({ ...(by === "email" && { by }), merged: String(merged), groups: String(groupsDone), skipped: String(skipped), left: String(Math.max(0, left)) })}`);
 }
+
+/** The one-group merge screen: the main lead, plus values picked per field from the others. Then on to the next group. */
+export async function mergeReviewed(fd: FormData) {
+  const user = await requirePermission("crm.merge", "edit");
+  const ids = [...new Set(fd.getAll("ids").map(String))];
+  const pick: Record<string, string> = {};
+  for (const [k, v] of fd.entries()) if (k.startsWith("f_") && typeof v === "string" && v) pick[k.slice(2)] = v;
+  const r = await mergeLeadGroup(user, str(fd, "keep"), ids, pick);
+  const back = new URLSearchParams({ ...(str(fd, "by") === "email" && { by: "email" }), i: str(fd, "i") || "0", m: String((Number(str(fd, "m")) || 0) + (r.error ? 0 : 1)), ...(str(fd, "skip") && { skip: str(fd, "skip") }), ...(r.error && { err: r.error }) });
+  revalidatePath("/crm/duplicates");
+  if (r.keep) revalidatePath(`/crm/leads/${r.keep.id}`);
+  redirect(`/crm/duplicates/review?${back}`);
+}

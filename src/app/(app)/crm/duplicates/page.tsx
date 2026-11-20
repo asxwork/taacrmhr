@@ -56,7 +56,10 @@ export default async function DuplicatesPage({ searchParams }: { searchParams: P
         </div>
         {groups.length > 0 && <p className="text-sm text-muted"><b className="tabular-nums text-ink">{groups.length}</b> group{groups.length === 1 ? "" : "s"}, <b className="tabular-nums text-ink">{extra(groups)}</b> extra lead{extra(groups) === 1 ? "" : "s"}</p>}
         {canMerge && groups.length > 0 && (
-          <ActionForm action={mergeAllLeads} className="ml-auto">
+          <Link href={`/crm/duplicates/review${by === "email" ? "?by=email" : ""}`} className="ml-auto inline-flex h-10 items-center gap-1.5 rounded-lg border border-line bg-surface px-4 text-sm font-medium hover:bg-canvas">Review one by one</Link>
+        )}
+        {canMerge && groups.length > 0 && (
+          <ActionForm action={mergeAllLeads}>
             <input type="hidden" name="by" value={by} />
             <SubmitButton pendingText="Merging…"><Merge className="size-4" /> Merge all {groups.length} group{groups.length === 1 ? "" : "s"}</SubmitButton>
           </ActionForm>

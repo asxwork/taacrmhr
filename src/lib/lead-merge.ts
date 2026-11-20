@@ -13,7 +13,15 @@ export function bestOf<T extends { createdAt: Date; _count: { activities: number
   return [...rows].sort((a, b) => b._count.deals - a._count.deals || b._count.activities - a._count.activities || +a.createdAt - +b.createdAt)[0]!;
 }
 
-export async function mergeLeadGroup(user: SessionUser, keepId: string, ids: string[]): Promise<{ error?: string; keep?: LeadRow; merged?: number }> {
+/** Fields you can pick per lead on the merge screen, and the columns each one carries over. */
+export const MERGE_FIELDS = {
+  name: ["name"], phone: ["phone", "phoneKey", "phones"], phone2: ["phone2"], email: ["email", "emails"],
+  project: ["projectId", "projectName"], source: ["sourceId"], stage: ["statusId", "convertedAt"], owner: ["ownerId", "branchId"],
+  campaign: ["campaign"], sourceInfo: ["sourceInfo"], interest: ["interest"], location: ["location"], budget: ["budgetMin", "budgetMax"],
+} as const;
+export type MergeField = keyof typeof MERGE_FIELDS;
+
+export async function mergeLeadGroup(user: SessionUser, keepId: string, ids: string[], pick: Partial<Record<MergeField, string>> = {}): Promise<{ error?: string; keep?: LeadRow; merged?: number }> {
   if (!keepId || ids.length < 2 || !ids.includes(keepId)) return { error: "Pick the lead to keep." };
   const leads = await db.lead.findMany({ where: { id: { in: ids } }, include: { owner: { select: { active: true } } } });
   if (leads.length !== ids.length) return { error: "Some of these leads no longer exist — refresh the page." };
@@ -26,7 +34,21 @@ export async function mergeLeadGroup(user: SessionUser, keepId: string, ids: str
   const otherIds = others.map((o) => o.id);
 
   const fill: Record<string, unknown> = {};
-  for (const k of FILL) if (keep[k] == null) { const v = others.find((o) => o[k] != null)?.[k]; if (v != null) fill[k] = v; }
+  // Empty fields of the lead kept are filled from the others, a whole field at a time: a typed project ("Emaar")
+  // isn't overridden by another lead's Inventory project, nor a phone split from its search key.
+  const groupOf = (k: string) => Object.values(MERGE_FIELDS).find((cols) => (cols as readonly string[]).includes(k)) as readonly string[] | undefined;
+  for (const k of FILL) {
+    const cols = groupOf(k) ?? [k];
+    if (cols.some((c) => (keep as Record<string, unknown>)[c] != null)) continue;
+    const from = others.find((o) => (o as Record<string, unknown>)[k] != null);
+    if (from) for (const c of cols) if (fill[c] === undefined) fill[c] = (from as Record<string, unknown>)[c] ?? null;
+  }
+  // Values picked on the merge screen from another lead win (all the columns of that field together).
+  for (const [field, fromId] of Object.entries(pick)) {
+    const from = others.find((o) => o.id === fromId);
+    if (!from || !(field in MERGE_FIELDS)) continue;
+    for (const col of MERGE_FIELDS[field as MergeField]) fill[col] = (from as Record<string, unknown>)[col] ?? null;
+  }
   const notes = [keep.notes, ...others.map((o) => o.notes && `From lead #${o.number ?? o.id.slice(-5)}: ${o.notes}`)].filter(Boolean).join("\n\n") || null;
   const lastActivityAt = [keep, ...others].map((l) => l.lastActivityAt).filter(Boolean).sort((a, b) => +b! - +a!)[0] ?? null;
   const taken = new Set((await db.propertyMatch.findMany({ where: { leadId: keepId }, select: { unitId: true } })).map((m) => m.unitId));
