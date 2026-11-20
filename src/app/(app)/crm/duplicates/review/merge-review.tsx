@@ -33,7 +33,7 @@ export function MergeReview({ by, index, total, merged, skip, error, groupLabel,
   };
   const q = (patch: Record<string, string | number | undefined>) => {
     const p = new URLSearchParams();
-    const all = { ...(by === "email" && { by }), i: index, m: merged, skip: skip.join(","), ...patch };
+    const all = { by, i: index, m: merged, skip: skip.join(","), ...patch };
     for (const [k, v] of Object.entries(all)) if (v !== undefined && v !== "" && v !== 0 || k === "i") p.set(k, String(v ?? ""));
     return `/crm/duplicates/review?${p}`;
   };
@@ -48,7 +48,7 @@ export function MergeReview({ by, index, total, merged, skip, error, groupLabel,
         <p className="mt-1 text-sm text-muted">{merged ? `${merged} group(s) merged. ` : ""}{skip.length ? `${skip.length} left for later.` : "No duplicates left."}</p>
         <div className="mt-5 flex justify-center gap-3">
           {skip.length > 0 && <Link href={q({ skip: "", i: 0 })} className="rounded-lg border border-line px-4 py-2 text-sm font-medium hover:bg-canvas">Review the skipped ones</Link>}
-          <Link href={`/crm/duplicates${by === "email" ? "?by=email" : ""}`} className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-medium text-white">Back to duplicates</Link>
+          <Link href={`/crm/duplicates?by=${by}`} className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-medium text-white">Back to duplicates</Link>
         </div>
       </div>
     );
@@ -67,7 +67,7 @@ export function MergeReview({ by, index, total, merged, skip, error, groupLabel,
 
       <div className="mb-4 flex flex-wrap items-baseline gap-3">
         <h1 className="font-display text-2xl font-semibold tracking-tight">Merge leads</h1>
-        <span className="text-sm text-muted">{picked ? groupLabel : `${by === "phone" ? "Same phone" : "Same email"} · ${groupLabel}`} · {leads.length} leads</span>
+        <span className="text-sm text-muted">{groupLabel} · {leads.length} leads</span>
       </div>
       {error && <p role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -128,7 +128,7 @@ export function MergeReview({ by, index, total, merged, skip, error, groupLabel,
             : <Link href={q({ i: index, skip: [...skip, groupCode].join(",") })} className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-medium hover:bg-canvas">Later</Link>}
         </div>
         <div className={cn("flex items-center gap-2", picked && "hidden")}>
-          <Link href={`/crm/duplicates${by === "email" ? "?by=email" : ""}`} className="text-xs font-medium uppercase tracking-wide text-muted hover:text-ink">Back to list</Link>
+          <Link href={`/crm/duplicates?by=${by}`} className="text-xs font-medium uppercase tracking-wide text-muted hover:text-ink">Back to list</Link>
           <Link href={q({ i: Math.max(0, index - 1) })} aria-label="Previous group" className={cn("rounded-full border border-line p-1.5 hover:bg-canvas", index === 0 && "pointer-events-none opacity-40")}><ChevronLeft className="size-4" /></Link>
           <span className="text-xs tabular-nums text-muted">{index + 1} / {total}</span>
           <Link href={q({ i: Math.min(total - 1, index + 1) })} aria-label="Next group" className={cn("rounded-full border border-line p-1.5 hover:bg-canvas", index >= total - 1 && "pointer-events-none opacity-40")}><ChevronRight className="size-4" /></Link>

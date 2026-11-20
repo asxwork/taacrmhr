@@ -74,3 +74,40 @@ export async function duplicateGroups(scope: object, by: "phone" | "email") {
   const groups = await db.lead.groupBy({ by: [field], where: { ...scope, [field]: { not: null } }, _count: { _all: true }, having: { [field]: { _count: { gt: 1 } } }, orderBy: { _count: { [field]: "desc" } } } as never) as unknown as { phoneKey?: string; email?: string; _count: { _all: number } }[];
   return groups.map((g) => ({ key: (by === "phone" ? g.phoneKey : g.email)!, count: g._count._all })).filter((g) => g.key && (by === "phone" || g.key.includes("@")));
 }
+
+/**
+ * How duplicates are grouped:
+ *   phone  — same phone number (everything into one lead)
+ *   email  — same email
+ *   exact  — same name, phone and source information, assigned to the same person (safe to merge blindly)
+ *   owner  — same phone and same responsible person: each person keeps one lead of their own
+ */
+export const DUPLICATE_MODES = [
+  { value: "exact", label: "Exact copies", hint: "Same name, phone and source information, and the same responsible person" },
+  { value: "owner", label: "Same phone, per person", hint: "Same phone and same responsible: each person keeps one lead" },
+  { value: "phone", label: "Same phone", hint: "Everyone with this phone becomes one lead" },
+  { value: "email", label: "Same email", hint: "Everyone with this email becomes one lead" },
+] as const;
+export type DuplicateMode = (typeof DUPLICATE_MODES)[number]["value"];
+export const duplicateMode = (v?: string): DuplicateMode => (DUPLICATE_MODES.some((m) => m.value === v) ? (v as DuplicateMode) : "phone");
+
+const norm = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+
+/** Duplicate groups for a mode: a stable key and the lead ids, biggest groups first. */
+export async function duplicateSets(scope: object, mode: DuplicateMode): Promise<{ key: string; ids: string[] }[]> {
+  if (mode === "email") {
+    const groups = await duplicateGroups(scope, "email");
+    const rows = groups.length ? await db.lead.findMany({ where: { ...scope, email: { in: groups.map((g) => g.key) } }, select: { id: true, email: true } }) : [];
+    return groups.map((g) => ({ key: g.key, ids: rows.filter((r) => r.email === g.key).map((r) => r.id) })).filter((g) => g.ids.length > 1);
+  }
+  // Every mode except email starts from leads sharing a phone, then splits those groups further.
+  const groups = await duplicateGroups(scope, "phone");
+  if (!groups.length) return [];
+  const rows = await db.lead.findMany({ where: { ...scope, phoneKey: { in: groups.map((g) => g.key) } }, select: { id: true, phoneKey: true, name: true, sourceInfo: true, ownerId: true } });
+  const by = new Map<string, string[]>();
+  for (const r of rows) {
+    const k = mode === "phone" ? r.phoneKey! : mode === "owner" ? `${r.phoneKey}|${r.ownerId ?? "-"}` : `${r.phoneKey}|${r.ownerId ?? "-"}|${norm(r.name)}|${norm(r.sourceInfo)}`;
+    by.set(k, [...(by.get(k) ?? []), r.id]);
+  }
+  return [...by.entries()].filter(([, ids]) => ids.length > 1).map(([key, ids]) => ({ key, ids })).sort((a, b) => b.ids.length - a.ids.length);
+}
