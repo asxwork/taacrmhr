@@ -10,6 +10,7 @@ const OPS = [
   ["branch", "Set branch"], ["manager", "Set “Reports to”"],
   ["activate", "Activate"], ["deactivate", "Deactivate (signs them out)"], ["loginEmail", "Send login email"],
 ] as const;
+const SUPER_OPS = [["delete", "Delete users (Super Admin)"]] as const;
 
 const boxes = () => [...document.querySelectorAll<HTMLInputElement>('input[form="bulk-users"][name="ids"]')];
 
@@ -24,7 +25,7 @@ export function UserTick({ id, name }: { id: string; name: string }) {
 }
 
 /** Bottom bar once users are ticked: pick an action (and its value), Apply. */
-export function UsersBulkBar({ roles, branches, managers }: { roles: Opt[]; branches: Opt[]; managers: Opt[] }) {
+export function UsersBulkBar({ roles, branches, managers, people = [], isSuperAdmin = false }: { roles: Opt[]; branches: Opt[]; managers: Opt[]; people?: Opt[]; isSuperAdmin?: boolean }) {
   const [count, setCount] = useState(0);
   const [op, setOp] = useState("");
   const [state, act, pending] = useActionState(bulkUsers, undefined);
@@ -41,17 +42,27 @@ export function UsersBulkBar({ roles, branches, managers }: { roles: Opt[]; bran
   }, [state]);
   const clear = () => { for (const b of boxes()) b.checked = false; document.querySelectorAll<HTMLInputElement>('input[aria-label="Select all users"]').forEach((b) => (b.checked = false)); setCount(0); };
   const values = op === "addRole" || op === "removeRole" || op === "setRole" ? roles : op === "branch" ? branches : op === "manager" ? managers : null;
-  const danger = op === "deactivate" || op === "setRole";
+  const danger = op === "deactivate" || op === "setRole" || op === "delete";
   return (
     <>
       {state?.message && !count && <p role="status" className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white shadow-lg">{state.message}</p>}
-      <form id="bulk-users" action={act} onSubmit={(e) => { if (danger && !confirm(`${op === "deactivate" ? "Deactivate" : "Replace the roles of"} ${count} user(s)?`)) e.preventDefault(); }}
+      <form id="bulk-users" action={act} onSubmit={(e) => { if (danger && !confirm(op === "delete" ? `Delete ${count} user(s) for good? This can't be undone. (People who left are usually better deactivated: their leads stay with them.)` : `${op === "deactivate" ? "Deactivate" : "Replace the roles of"} ${count} user(s)?`)) e.preventDefault(); }}
         className={count ? "sticky bottom-4 z-30 mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface p-3 shadow-xl" : "hidden"}>
         <span className="mr-1 text-sm font-medium tabular-nums">{count} selected</span>
         <select name="op" value={op} onChange={(e) => setOp(e.target.value)} required className="input h-9 w-56" aria-label="Bulk action">
           <option value="">Choose action…</option>
           {OPS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          {isSuperAdmin && SUPER_OPS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
+        {op === "delete" && (
+          <>
+            <input type="hidden" name="confirm" value="DELETE" />
+            <select name="transferTo" className="input h-9 w-60" aria-label="Give their leads and deals to">
+              <option value="">Their leads & deals: leave unassigned</option>
+              {people.map((v) => <option key={v.id} value={v.id}>Give their leads to {v.name}</option>)}
+            </select>
+          </>
+        )}
         {values && (
           <select name="value" required={op !== "branch" && op !== "manager"} className="input h-9 w-56" aria-label="Value" key={op}>
             <option value="">{op === "branch" ? "— No branch —" : op === "manager" ? "— Nobody —" : "Choose role…"}</option>

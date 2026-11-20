@@ -113,6 +113,7 @@ export async function bulkUsers(_: FormState, fd: FormData): Promise<FormState> 
   const ids = [...new Set(fd.getAll("ids").map(String).filter(Boolean))];
   if (!ids.length) return { error: "Tick at least one user." };
   const op = str(fd, "op");
+  if (op === "delete") return deleteUsers(_, fd);
   const value = str(fd, "value");
   const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, email: true, active: true, isSuperAdmin: true, roles: { select: { roleId: true } } } });
   // Only a Super Admin changes other Super Admins.
@@ -241,4 +242,45 @@ export async function importUsers(_: FormState, fd: FormData): Promise<FormState
       problems.length ? `not added: ${list(problems)}` : "",
     ].filter(Boolean).join(" · ") + (created.length && !welcome ? ". No emails were sent; use “Send login email” when you're ready." : "."),
   };
+}
+
+/**
+ * Super Admin only: delete user accounts for good. Their open leads and deals go to the person chosen (or become
+ * unassigned); history keeps working (records only lose the link). Never yourself or the last Super Admin.
+ * For people who left, deactivating is usually better: their leads stay with them, locked to Super Admins.
+ */
+export async function deleteUsers(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requirePermission("settings.users");
+  if (!actor.isSuperAdmin || actor.viewAs) return { error: "Only a Super Admin can delete users." };
+  if (str(fd, "confirm").trim().toUpperCase() !== "DELETE") return { error: "Type DELETE to confirm." };
+  const ids = [...new Set(fd.getAll("ids").map(String).filter((id) => id && id !== actor.id))];
+  if (!ids.length) return { error: "Nobody to delete (you can't delete yourself)." };
+  const supers = await db.user.count({ where: { isSuperAdmin: true, id: { notIn: ids } } });
+  if (!supers) return { error: "That would leave no Super Admin." };
+  const to = str(fd, "transferTo");
+  if (to && (ids.includes(to) || !(await db.user.findFirst({ where: { id: to, active: true } })))) return { error: "Choose an active person (not one being deleted) to receive their leads." };
+  const victims = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, email: true } });
+  let leads = 0, deals = 0;
+  if (to) {
+    const branchId = (await db.user.findUnique({ where: { id: to }, select: { branchId: true } }))?.branchId ?? null;
+    leads = (await db.lead.updateMany({ where: { ownerId: { in: ids } }, data: { ownerId: to, branchId, assignedAt: new Date() } })).count;
+    deals = (await db.deal.updateMany({ where: { ownerId: { in: ids } }, data: { ownerId: to, branchId } })).count;
+  }
+  const done: string[] = [], failed: string[] = [];
+  for (const u of victims) {
+    try {
+      await db.$transaction([
+        db.employee.updateMany({ where: { userId: u.id }, data: { userId: null } }),
+        db.user.updateMany({ where: { managerId: u.id }, data: { managerId: null } }),
+        db.user.delete({ where: { id: u.id } }),
+      ]);
+      done.push(u.name);
+    } catch { failed.push(u.name); }
+  }
+  await audit(actor.id, "delete", "user", null, `Deleted user(s): ${victims.filter((v) => done.includes(v.name)).map((v) => `${v.name} <${v.email}>`).join(", ")}${to ? ` — ${leads} leads, ${deals} deals moved` : ""}`);
+  revalidatePath("/settings/users");
+  if (!done.length) return { error: `Couldn't delete ${failed.join(", ")}: they still have records that need them. Deactivate instead.` };
+  // From the edit panel: that person is gone, so go back to the list with the result.
+  if (fd.get("back")) redirect(`/settings/users?${new URLSearchParams({ deleted: done.join(", "), ...(to && { moved: String(leads) }) })}`);
+  return { ok: true, message: `Deleted ${done.join(", ")}${to ? ` · ${leads} lead(s) and ${deals} deal(s) moved` : " · their leads and deals are now unassigned"}${failed.length ? ` · couldn't delete ${failed.join(", ")} (deactivate instead)` : ""}.` };
 }

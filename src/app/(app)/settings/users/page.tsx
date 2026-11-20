@@ -11,12 +11,12 @@ import { DrillTiles } from "@/components/drill-tiles";
 import { FilterSelect } from "@/components/filter-select";
 import type { Prisma } from "@prisma/client";
 import { smtpConfigured } from "@/lib/mail";
-import { importUsers, resendLoginEmail, saveUser } from "./actions";
+import { deleteUsers, importUsers, resendLoginEmail, saveUser } from "./actions";
 import { SelectAllUsers, UserTick, UsersBulkBar } from "./bulk-bar";
 
 export const metadata = { title: "Users" };
 
-type SP = Promise<{ q?: string; branch?: string; dept?: string; role?: string; status?: string; manager?: string; seen?: string; edit?: string; new?: string; mail?: string; import?: string }>;
+type SP = Promise<{ q?: string; branch?: string; dept?: string; role?: string; status?: string; manager?: string; seen?: string; edit?: string; new?: string; mail?: string; import?: string; deleted?: string; moved?: string }>;
 
 export default async function UsersPage({ searchParams }: { searchParams: SP }) {
   const actor = await requirePermission("settings.users");
@@ -83,6 +83,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
         }
       />
 
+      {sp.deleted && <p role="status" className="mb-4 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Deleted {sp.deleted}.{sp.moved ? ` ${sp.moved} lead(s) moved to the person you chose.` : " Their leads and deals are now unassigned."}</p>}
       {sp.mail === "sent" && <p role="status" className="mb-4 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">User created. Welcome email sent, with a link to set their password.</p>}
       {sp.mail && sp.mail !== "sent" && (
         <p role="alert" className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -180,7 +181,8 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
       </Card>
       {canBulk && users.length > 0 && (
         <UsersBulkBar roles={roles.map((r) => ({ id: r.id, name: r.name }))} branches={branches.map((b) => ({ id: b.id, name: b.name }))}
-          managers={users.filter((u) => u.active && managerIds.has(u.id)).map((u) => ({ id: u.id, name: u.name }))} />
+          managers={users.filter((u) => u.active && managerIds.has(u.id)).map((u) => ({ id: u.id, name: u.name }))}
+          people={everyone.map((u) => ({ id: u.id, name: u.name }))} isSuperAdmin={actor.isSuperAdmin && !actor.viewAs} />
       )}
 
       {sp.import && can(actor, "settings.users", "create") && (
@@ -313,6 +315,24 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
               <LinkButton href={closeHref} variant="ghost" scroll={false}>Cancel</LinkButton>
             </div>
           </ActionForm>
+          {editing && actor.isSuperAdmin && !actor.viewAs && editing.id !== actor.id && (
+            <details className="mt-6 rounded-lg border border-red-200 bg-red-50/40 p-3">
+              <summary className="cursor-pointer text-sm font-medium text-red-700">Delete this user</summary>
+              <ActionForm action={deleteUsers} className="mt-3 space-y-3">
+                <input type="hidden" name="ids" value={editing.id} />
+                <input type="hidden" name="back" value="1" />
+                <p className="text-xs text-muted">Removes the login for good. For someone who left, <b>deactivating</b> is usually better: their leads stay with them, locked to Super Admins.</p>
+                <Field label="Their leads & deals">
+                  <select name="transferTo" className="input" defaultValue="">
+                    <option value="">Leave unassigned</option>
+                    {everyone.filter((u) => u.id !== editing.id).map((u) => <option key={u.id} value={u.id}>Give to {u.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Type DELETE to confirm"><input name="confirm" required autoComplete="off" className="input" placeholder="DELETE" /></Field>
+                <SubmitButton variant="danger" pendingText="Deleting…">Delete {editing.name}</SubmitButton>
+              </ActionForm>
+            </details>
+          )}
           {editing && (
             <ActionForm action={resendLoginEmail} className="mt-6 border-t border-line pt-4">
               <input type="hidden" name="id" value={editing.id} />
