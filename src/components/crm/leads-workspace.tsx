@@ -560,6 +560,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
           onForAll={setForAll}
           onClear={() => { setSelected(new Set()); setForAll(false); }}
           editHref={!forAll && selected.size === 1 ? `/crm/leads/${[...selected][0]}?edit=1` : null}
+          mergeHref={perms.canMerge && !forAll && selected.size >= 2 && selected.size <= 10 ? `/crm/duplicates/review?ids=${[...selected].join(",")}` : null}
           canDelete={perms.canDelete}
           canAssign={perms.canAssign}
           stages={pickable.filter((s) => s.systemKey !== "onhold")}
@@ -662,8 +663,8 @@ function QuickActivity({ row, onDone, onError }: { row: LeadRow; onDone: (next: 
   );
 }
 
-function SelectionBar({ count, total, forAll, onForAll, onClear, editHref, canDelete, canAssign, stages, assignees, automations, onBulk, onDialog }: {
-  count: number; total: number; forAll: boolean; onForAll: (v: boolean) => void; onClear: () => void; editHref: string | null;
+function SelectionBar({ count, total, forAll, onForAll, onClear, editHref, mergeHref, canDelete, canAssign, stages, assignees, automations, onBulk, onDialog }: {
+  count: number; total: number; forAll: boolean; onForAll: (v: boolean) => void; onClear: () => void; editHref: string | null; mergeHref?: string | null;
   canDelete: boolean; canAssign: boolean; stages: LeadStage[]; assignees: Opt[]; automations: AutomationOption[];
   onBulk: (op: string, extra?: Record<string, string | string[]>) => Promise<void>; onDialog: (d: Dialog) => void;
 }) {
@@ -692,6 +693,8 @@ function SelectionBar({ count, total, forAll, onForAll, onClear, editHref, canDe
   return (
     <div className="anim-fade fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-line bg-surface/95 lg:bottom-0 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] lg:left-[var(--sb-w,0px)] lg:transition-[left]">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-2.5 sm:px-8">
+        {/* 2–10 ticked: merge exactly these on the side-by-side merge screen. */}
+        {mergeHref && <Link href={mergeHref} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium hover:bg-canvas" title="Merge the ticked leads into one">Merge {count}</Link>}
         {canDelete && (
           <button type="button" disabled={busy} onClick={() => confirm(`Delete ${count} lead(s)? This can't be undone.`) && run("delete")} className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-red-600 hover:bg-red-50">
             <Trash2 className="size-4" /> Delete

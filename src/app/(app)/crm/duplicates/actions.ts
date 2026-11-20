@@ -49,6 +49,12 @@ export async function mergeReviewed(fd: FormData) {
   const pick: Record<string, string> = {};
   for (const [k, v] of fd.entries()) if (k.startsWith("f_") && typeof v === "string" && v) pick[k.slice(2)] = v;
   const r = await mergeLeadGroup(user, str(fd, "keep"), ids, pick);
+  // Leads ticked in the Leads list: open the merged lead (or come back with the error).
+  if (fd.get("picked")) {
+    revalidatePath("/crm/leads");
+    if (r.keep) redirect(`/crm/leads/${r.keep.id}`);
+    redirect(`/crm/duplicates/review?${new URLSearchParams({ ids: ids.join(","), err: r.error ?? "" })}`);
+  }
   const back = new URLSearchParams({ ...(str(fd, "by") === "email" && { by: "email" }), i: str(fd, "i") || "0", m: String((Number(str(fd, "m")) || 0) + (r.error ? 0 : 1)), ...(str(fd, "skip") && { skip: str(fd, "skip") }), ...(r.error && { err: r.error }) });
   revalidatePath("/crm/duplicates");
   if (r.keep) revalidatePath(`/crm/leads/${r.keep.id}`);

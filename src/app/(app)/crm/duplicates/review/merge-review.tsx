@@ -16,8 +16,10 @@ const FIELDS: [string, string][] = [
 ];
 
 /** Bitrix-style merge: one column per lead, pick the main one, pick other values field by field, see the result. */
-export function MergeReview({ by, index, total, merged, skip, error, groupLabel, leads, bestId, groupCode }: {
+export function MergeReview({ by, index, total, merged, skip, error, groupLabel, leads, bestId, groupCode, picked = false }: {
   by: string; index: number; total: number; merged: number; skip: string[]; error?: string; groupLabel: string; leads: Row[]; bestId: string; groupCode: string;
+  /** Leads ticked in the Leads list: no group navigation; after merging, open the merged lead. */
+  picked?: boolean;
 }) {
   const [keep, setKeep] = useState(bestId);
   const [pick, setPick] = useState<Record<string, string>>({});
@@ -59,12 +61,13 @@ export function MergeReview({ by, index, total, merged, skip, error, groupLabel,
       <input type="hidden" name="i" value={index} />
       <input type="hidden" name="m" value={merged} />
       <input type="hidden" name="skip" value={skip.join(",")} />
+      {picked && <input type="hidden" name="picked" value="1" />}
       {leads.map((l) => <input key={l.id} type="hidden" name="ids" value={l.id} />)}
       {picksForForm.map(([k, id]) => <input key={k} type="hidden" name={`f_${k}`} value={id} />)}
 
       <div className="mb-4 flex flex-wrap items-baseline gap-3">
         <h1 className="font-display text-2xl font-semibold tracking-tight">Merge leads</h1>
-        <span className="text-sm text-muted">{by === "phone" ? "Same phone" : "Same email"} · {groupLabel} · {leads.length} leads</span>
+        <span className="text-sm text-muted">{picked ? groupLabel : `${by === "phone" ? "Same phone" : "Same email"} · ${groupLabel}`} · {leads.length} leads</span>
       </div>
       {error && <p role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -116,14 +119,15 @@ export function MergeReview({ by, index, total, merged, skip, error, groupLabel,
       </div>
 
       <div className="sticky bottom-0 -mx-4 mt-3 flex flex-wrap items-center gap-3 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted">Merged: <b className="text-ink">{merged}</b></span>
-        <span className="text-xs font-medium uppercase tracking-wide text-muted">Left: <b className="text-ink">{total}</b></span>
+        {!picked && <span className="text-xs font-medium uppercase tracking-wide text-muted">Merged: <b className="text-ink">{merged}</b></span>}
+        {!picked && <span className="text-xs font-medium uppercase tracking-wide text-muted">Left: <b className="text-ink">{total}</b></span>}
         <div className="mx-auto flex gap-2">
           <SubmitButton pendingText="Merging…"><GitMerge className="size-4" /> Merge</SubmitButton>
           {/* The skipped group drops out of the list, so the same position shows the next one. */}
-          <Link href={q({ i: index, skip: [...skip, groupCode].join(",") })} className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-medium hover:bg-canvas">Later</Link>
+          {picked ? <Link href="/crm/leads" className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-medium hover:bg-canvas">Cancel</Link>
+            : <Link href={q({ i: index, skip: [...skip, groupCode].join(",") })} className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-medium hover:bg-canvas">Later</Link>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className={cn("flex items-center gap-2", picked && "hidden")}>
           <Link href={`/crm/duplicates${by === "email" ? "?by=email" : ""}`} className="text-xs font-medium uppercase tracking-wide text-muted hover:text-ink">Back to list</Link>
           <Link href={q({ i: Math.max(0, index - 1) })} aria-label="Previous group" className={cn("rounded-full border border-line p-1.5 hover:bg-canvas", index === 0 && "pointer-events-none opacity-40")}><ChevronLeft className="size-4" /></Link>
           <span className="text-xs tabular-nums text-muted">{index + 1} / {total}</span>

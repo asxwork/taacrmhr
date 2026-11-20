@@ -12,7 +12,7 @@ import { MergeReview } from "./merge-review";
 export const metadata = { title: "Merge leads" };
 
 /** Leads → Duplicates → Review: one group at a time, side by side, like Bitrix's merge screen. */
-export default async function ReviewPage({ searchParams }: { searchParams: Promise<{ by?: string; i?: string; m?: string; skip?: string; err?: string }> }) {
+export default async function ReviewPage({ searchParams }: { searchParams: Promise<{ by?: string; i?: string; m?: string; skip?: string; err?: string; ids?: string }> }) {
   const user = await requirePermission("crm.merge");
   if (!can(user, "crm.merge", "edit")) notFound();
   const sp = await searchParams;
@@ -21,13 +21,15 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
   const skipped = new Set((sp.skip ?? "").split(",").filter(Boolean));
   // "Later" skips a group by a short code of its phone/email (the raw number never goes to the browser).
   const code = (k: string) => createHash("sha1").update(k).digest("hex").slice(0, 10);
-  const all = (await duplicateGroups(scope, by)).filter((g) => !skipped.has(code(g.key)));
-  const i = Math.min(Math.max(0, Number(sp.i) || 0), Math.max(0, all.length - 1));
+  // ?ids=a,b,c: leads ticked in the Leads list (any leads, not only same phone/email).
+  const picked = (sp.ids ?? "").split(",").filter(Boolean).slice(0, 10);
+  const all = picked.length ? [{ key: picked.join(","), count: picked.length }] : (await duplicateGroups(scope, by)).filter((g) => !skipped.has(code(g.key)));
+  const i = picked.length ? 0 : Math.min(Math.max(0, Number(sp.i) || 0), Math.max(0, all.length - 1));
   const group = all[i];
   const fields = await fieldAccess(user);
   const pm = fields["lead.phone"], em = fields["lead.email"];
   const leads = group ? await db.lead.findMany({
-    where: { ...scope, ...(by === "phone" ? { phoneKey: group.key } : { email: group.key }) },
+    where: { ...scope, ...(picked.length ? { id: { in: picked } } : by === "phone" ? { phoneKey: group.key } : { email: group.key }) },
     include: { status: true, owner: { select: { name: true, active: true } }, source: { select: { name: true } }, project: { select: { name: true } }, _count: { select: { activities: true, deals: true } } },
     orderBy: { createdAt: "desc" },
   }) : [];
@@ -46,7 +48,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
   return (
     <MergeReview key={`${by}-${group ? code(group.key) : "done"}`}
       by={by} index={i} total={all.length} merged={Number(sp.m) || 0} skip={[...skipped]} error={sp.err}
-      groupLabel={group ? (by === "phone" ? phone(group.key) : email(group.key)) ?? "" : ""}
+      groupLabel={picked.length ? "Leads you ticked" : group ? (by === "phone" ? phone(group.key) : email(group.key)) ?? "" : ""} picked={picked.length > 0}
       leads={rows} bestId={leads.length ? bestOf(leads).id : ""} groupCode={group ? code(group.key) : ""}
     />
   );
