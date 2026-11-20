@@ -3,8 +3,8 @@ import { DrawerPortal } from "@/components/drawer-portal";
 
 import Link from "@/components/link";
 import { useCallback, useEffect, useId, useOptimistic, useRef, useState, useTransition } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useFitHeight } from "@/components/use-fit-height";
+import { EdgeScroll } from "@/components/edge-scroll";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import { fmtPKR } from "@/lib/crm-shared";
@@ -174,7 +174,6 @@ function ReasonDialog({ onSubmit, onCancel }: { onSubmit: (reason: string) => vo
  */
 function BoardScroller({ columns, children }: { columns: { id: string; name: string; dot: string; count: number }[]; children: React.ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ left: false, right: false });
   const [visible, setVisible] = useState<Set<string>>(new Set());
   const pan = useRef<{ x: number; left: number } | null>(null);
   useFitHeight(box, 12, [columns.length], "fixed"); // the board fills the window; each column scrolls its own cards
@@ -182,7 +181,6 @@ function BoardScroller({ columns, children }: { columns: { id: string; name: str
   const measure = useCallback(() => {
     const el = box.current;
     if (!el) return;
-    setEdges({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
     const r = el.getBoundingClientRect();
     const seen = new Set<string>();
     el.querySelectorAll<HTMLElement>("[data-kanban-col]").forEach((c) => {
@@ -197,8 +195,6 @@ function BoardScroller({ columns, children }: { columns: { id: string; name: str
     return () => window.removeEventListener("resize", measure);
   }, [measure, columns.length]);
 
-  const colWidth = () => (box.current?.querySelector<HTMLElement>("[data-kanban-col]")?.offsetWidth ?? 288) + 12;
-  const step = (dir: 1 | -1) => box.current?.scrollBy({ left: dir * colWidth(), behavior: "smooth" });
   const jump = (id: string) => {
     const el = box.current, col = el?.querySelector<HTMLElement>(`[data-kanban-col="${CSS.escape(id)}"]`);
     if (el && col) el.scrollTo({ left: col.offsetLeft - el.offsetLeft - 16, behavior: "smooth" });
@@ -215,9 +211,9 @@ function BoardScroller({ columns, children }: { columns: { id: string; name: str
           </button>
         ))}
       </div>
-      <div className="relative">
-        {edges.left && <button type="button" onClick={() => step(-1)} aria-label="Previous stages" className="absolute left-0 top-24 z-20 hidden size-10 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface shadow-lg hover:bg-canvas sm:flex"><ChevronLeft className="size-5" /></button>}
-        {edges.right && <button type="button" onClick={() => step(1)} aria-label="Next stages" className="absolute right-0 top-24 z-20 hidden size-10 translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface shadow-lg hover:bg-canvas sm:flex"><ChevronRight className="size-5" /></button>}
+      <div className="relative -mx-4 sm:-mx-8">
+        {/* Bitrix-style: invisible until the mouse nears an edge; hovering the half-circle slides the board. */}
+        <EdgeScroll target={box} />
         <div
           ref={box}
           onScroll={measure}
@@ -234,7 +230,7 @@ function BoardScroller({ columns, children }: { columns: { id: string; name: str
             if (!box.current || Math.abs(e.deltaX) > Math.abs(e.deltaY) || !(e.target as HTMLElement).closest("[data-kanban-head]")) return;
             box.current.scrollLeft += e.deltaY;
           }}
-          className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:-mx-8 sm:snap-none sm:px-8 cursor-grab active:cursor-grabbing sm:[&>[data-kanban-col]]:max-h-full"
+          className="thin-scroll flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:snap-none sm:px-8 cursor-grab active:cursor-grabbing sm:[&>[data-kanban-col]]:max-h-full"
         >
           {children}
         </div>

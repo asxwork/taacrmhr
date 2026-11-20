@@ -19,8 +19,17 @@ export function BitrixImporter() {
         <ul className="mt-3 space-y-1 text-sm">
           {d.deleted > 0 && <li>{d.deleted} demo leads deleted first</li>}
           <li><b>{d.leads}</b> leads imported{d.skipped ? ` (${d.skipped} were already in AMS and were skipped)` : ""}</li>
-          <li><b>{d.activities}</b> activities (tasks, to-dos, calls)</li>
-          <li><b>{d.history}</b> stage changes on the leads&apos; timelines</li>
+          <li><b>{d.activities}</b> activities (tasks, to-dos, calls)
+            <span className="block text-xs text-muted">
+              In the file: {d.activityReport.inFile}{d.activityReport.inFile === 0 ? " — no activities file was recognised; select the activities report with the others" : ""}
+              {d.activityReport.alreadyThere > 0 && ` · already in AMS: ${d.activityReport.alreadyThere}`}
+              {d.activityReport.noLead > 0 && ` · skipped ${d.activityReport.noLead} whose lead isn't in the leads file`}
+              {d.activityReport.failed > 0 && ` · ${d.activityReport.failed} couldn't be saved (listed below)`}
+            </span>
+          </li>
+          <li><b>{d.history}</b> stage changes on the leads&apos; timelines
+            <span className="block text-xs text-muted">In the file: {d.historyReport.inFile} rows{d.historyReport.inFile === 10000 ? " — exactly 10,000 means SQL Lab cut the export: the newest leads miss their history. Export it in two parts (by date) and select both." : ""}{d.historyReport.alreadyThere > 0 ? ` · already in AMS: ${d.historyReport.alreadyThere}` : ""}. Repeated stages in a row count once.</span>
+          </li>
           {d.failed > 0 && (
             <li className="text-red-700"><b>{d.failed}</b> rows could not be saved (everything else was):
               <ul className="mt-1 list-disc pl-5 text-xs">{d.failedList.map((f, i) => <li key={i}>{f.what}: {f.why}</li>)}</ul>

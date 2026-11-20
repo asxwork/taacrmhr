@@ -4,10 +4,11 @@ import { DrawerPortal } from "@/components/drawer-portal";
 import Link from "@/components/link";
 import { saveLeadNav } from "./lead-nav";
 import { useFitHeight } from "@/components/use-fit-height";
+import { EdgeScroll } from "@/components/edge-scroll";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { format } from "date-fns";
 import {
-  AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, KanbanSquare,
+  AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, Download, KanbanSquare,
   List, Loader2, MessageCircle, Pencil, Phone, Play, Plus, Settings, Trash2, Upload, X,
   ArrowDown, ArrowUp, ArrowUpDown,
 } from "lucide-react";
@@ -427,7 +428,9 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                 })}
               </ul>
               {/* The table scrolls inside this box (headers stay at the top, the page bar stays in view): no page scrolling. */}
-              <div ref={tableBox} className="hidden overflow-auto overscroll-contain sm:block">
+              <div className="relative hidden sm:block">
+              <EdgeScroll target={tableBox} />
+              <div ref={tableBox} className="thin-scroll overflow-auto overscroll-contain">
                 <table className="w-full [&_td]:px-3 [&_th]:px-3 2xl:[&_td]:px-4 2xl:[&_th]:px-4">
                   <thead className="sticky top-0 z-10 border-b border-line bg-[color-mix(in_srgb,var(--color-canvas)_60%,var(--color-surface))] shadow-[0_1px_0_var(--color-line)]">
                     <tr>
@@ -520,26 +523,33 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                   </tbody>
                 </table>
               </div>
+              </div>
             </>)}
-            {/* Bottom bar (like Bitrix): selected / total for the current filters, pages, and how many rows a page shows. */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line px-4 py-3 text-xs uppercase tracking-wide text-muted">
-              <span>Selected: <b className="tabular-nums text-ink">{count.toLocaleString()}</b> / <span className="tabular-nums">{data.rows.length}</span></span>
-              <span title="All leads matching the current filters">Total: <b className="tabular-nums text-ink">{data.total.toLocaleString()}</b></span>
-              <nav aria-label="Pages" className="flex flex-wrap items-center gap-1 normal-case tracking-normal sm:mx-auto">
-                <span className="mr-1 uppercase tracking-wide">Pages:</span>
-                {pages > 1 && data.page > 1 && <button type="button" onClick={() => load(filters, view, 1)} className="rounded px-1.5 py-0.5 font-medium text-sky-700 hover:bg-canvas">First</button>}
-                {pages > 1 && data.page > 1 && <button type="button" onClick={() => load(filters, view, data.page - 1)} className="rounded px-1.5 py-0.5 font-medium text-sky-700 hover:bg-canvas" aria-label="Previous page"><ChevronLeft className="size-3.5" /></button>}
-                {pageList.map((n, i) => n === "…" ? <span key={`g${i}`} className="px-1">…</span> : (
-                  <button key={n} type="button" onClick={() => n !== data.page && load(filters, view, n)} aria-current={n === data.page ? "page" : undefined}
-                    className={cn("min-w-6 rounded px-1.5 py-0.5 tabular-nums", n === data.page ? "bg-navy-900 font-semibold text-white" : "text-sky-700 hover:bg-canvas")}>{n}</button>
-                ))}
-                {data.page < pages && <button type="button" onClick={() => load(filters, view, data.page + 1)} className="rounded px-1.5 py-0.5 font-medium uppercase text-sky-700 hover:bg-canvas">Next</button>}
-                {data.page < pages && <button type="button" onClick={() => load(filters, view, pages)} className="rounded px-1.5 py-0.5 font-medium uppercase text-sky-700 hover:bg-canvas">Last</button>}
-              </nav>
-              <label className="flex items-center gap-2">Records:
-                <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} aria-label="Records per page" className="input h-8 w-20 py-0 text-xs normal-case">
+            {/* Bottom bar: where you are in the list, the pages, and how many rows a page shows. */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line bg-canvas/40 px-4 py-2.5 text-sm">
+              <p className="min-w-0 text-muted" title="Leads matching the current filters">
+                {data.total ? <><b className="tabular-nums text-ink">{((data.page - 1) * pageSize + 1).toLocaleString()}–{Math.min(data.page * pageSize, data.total).toLocaleString()}</b> of <b className="tabular-nums text-ink">{data.total.toLocaleString()}</b> leads</> : "No leads"}
+                {count > 0 && <span className="ml-2 rounded-full bg-navy-900/[0.07] px-2 py-0.5 text-xs font-medium text-ink">{count.toLocaleString()} selected</span>}
+              </p>
+              {pages > 1 && (
+                <nav aria-label="Pages" className="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5 sm:mx-auto">
+                  {([["First page", 1, ChevronsLeft], ["Previous page", data.page - 1, ChevronLeft]] as const).map(([label, to, Icon]) => (
+                    <button key={label} type="button" disabled={data.page <= 1} onClick={() => load(filters, view, to)} aria-label={label} title={label} className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-canvas hover:text-ink disabled:opacity-30"><Icon className="size-4" /></button>
+                  ))}
+                  {pageList.map((n, i) => n === "…" ? <span key={`g${i}`} className="px-1 text-muted">…</span> : (
+                    <button key={n} type="button" onClick={() => n !== data.page && load(filters, view, n)} aria-current={n === data.page ? "page" : undefined}
+                      className={cn("h-8 min-w-8 rounded-md px-2 text-sm tabular-nums", n === data.page ? "bg-navy-900 font-semibold text-white" : "text-ink/80 hover:bg-canvas")}>{n}</button>
+                  ))}
+                  {([["Next page", data.page + 1, ChevronRight], ["Last page", pages, ChevronsRight]] as const).map(([label, to, Icon]) => (
+                    <button key={label} type="button" disabled={data.page >= pages} onClick={() => load(filters, view, to)} aria-label={label} title={label} className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-canvas hover:text-ink disabled:opacity-30"><Icon className="size-4" /></button>
+                  ))}
+                </nav>
+              )}
+              <label className="ml-auto flex items-center gap-2 text-muted sm:ml-0">Show
+                <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} aria-label="Leads per page" className="input h-8 w-[4.5rem] py-0 text-sm">
                   {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
+                per page
               </label>
             </div>
           </div>

@@ -126,7 +126,16 @@ export async function analyzeBitrix(f: BitrixFiles) {
  * Imports. deleteDemo removes every lead that didn't come from Bitrix first (with its activities). Agents are
  * matched by name to AMS logins; the Bitrix company account goes to the person importing.
  */
+const g = globalThis as unknown as { __bitrixImporting?: boolean };
+
+/** One import at a time: two at once (Import pressed twice, two tabs) both saw a lead as new and added it twice. */
 export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; userId: string; owners?: Record<string, string> }) {
+  if (g.__bitrixImporting) throw new Error("An import is already running. Wait for it to finish, then check the result (running it again later is safe).");
+  g.__bitrixImporting = true;
+  try { return await runImport(f, opts); } finally { g.__bitrixImporting = false; }
+}
+
+async function runImport(f: BitrixFiles, opts: { deleteDemo: boolean; userId: string; owners?: Record<string, string> }) {
   const t0 = Date.now();
   // Imported leads carry Bitrix's old dates: restart the on-hold clock so they aren't put on hold / handed over at once.
   await restartHoldClock(db);
@@ -242,12 +251,14 @@ export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; 
     for (const a of await db.activity.findMany({ where: { leadId: { in: ids.slice(i, i + 1000) } }, select: { leadId: true, subject: true, createdAt: true } })) if (a.leadId) have.add(sig(a.leadId, a.subject, a.createdAt));
   }
 
+  let actNoLead = 0;
   // Activities: to-dos and tasks become tasks (done or still open), calls become calls. Same activity id once.
   const seen = new Set<string>();
   const acts = [];
   for (const a of f.activities) {
     const lead = idFor.get(Number(a.lead_id || a.owner_id));
-    if (!lead || seen.has(a.id)) continue;
+    if (!lead) { actNoLead++; continue; }
+    if (seen.has(a.id)) continue;
     seen.add(a.id);
     const isCall = a.provider_type_id === "CALL" || a.type_name === "Call";
     const start = when(a.start_time), end = when(a.end_time);
@@ -287,5 +298,8 @@ export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; 
   const newHist = hist.filter((a) => { const k = sig(a.leadId, a.subject, a.createdAt); if (have.has(k)) return false; have.add(k); return true; });
   const histSave = await saveAll(newHist, 500, (part) => db.activity.createMany({ data: part }), (row) => db.activity.create({ data: row }), (row) => `Stage change "${row.subject}"`);
   const failed = [...leadSave.failed, ...actSave.failed, ...histSave.failed];
-  return { deleted, leads: leadSave.saved, skipped, activities: actSave.saved, history: histSave.saved, failed: failed.length, failedList: failed.slice(0, 20), seconds: Math.round((Date.now() - t0) / 1000) };
+  // What happened to every activity in the file (shown on the result screen).
+  const activityReport = { inFile: f.activities.length, noLead: actNoLead, alreadyThere: acts.length - newActs.length, saved: actSave.saved, failed: actSave.failed.length };
+  const historyReport = { inFile: f.history.length, saved: histSave.saved, alreadyThere: hist.length - newHist.length };
+  return { activityReport, historyReport, deleted, leads: leadSave.saved, skipped, activities: actSave.saved, history: histSave.saved, failed: failed.length, failedList: failed.slice(0, 20), seconds: Math.round((Date.now() - t0) / 1000) };
 }
