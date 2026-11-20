@@ -56,8 +56,10 @@ export function BitrixImporter() {
               <li key={o.name} className="flex flex-wrap items-center gap-2 py-1.5">
                 <span className="flex min-w-40 flex-1 items-center gap-1.5">{o.userId ? <CheckCircle2 className="size-4 shrink-0 text-emerald-600" /> : <UserX className="size-4 shrink-0 text-amber-600" />}{o.name || "(nobody)"} <span className="tabular-nums text-xs text-muted">· {o.n}</span></span>
                 {o.name && (
-                  <select name={`owner:${o.name}`} defaultValue={o.userId && o.userId !== "admin" ? o.userId : ""} aria-label={`AMS person for ${o.name}`} className={`input h-8 w-56 py-0 text-sm ${o.userId ? "" : "border-amber-300 bg-amber-50"}`}>
+                  <select name={`owner:${o.name}`} defaultValue={o.userId && o.userId !== "admin" ? o.userId : o.userId === "admin" ? "" : "__old"} aria-label={`AMS person for ${o.name}`} className={`input h-8 w-64 py-0 text-sm ${o.userId ? "" : "border-amber-300 bg-amber-50"}`}>
                     <option value="">{o.userId === "admin" ? "Me (the importer)" : "— No owner —"}</option>
+                    {/* "__old" = NEW_OLD_EMPLOYEE in lib/bitrix-import.ts */}
+                    {!o.userId && <option value="__old">Add as old employee (inactive)</option>}
                     {p.people.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                   </select>
                 )}
@@ -65,7 +67,7 @@ export function BitrixImporter() {
             ))}
           </ul>
           {missing.length > 0 && (
-            <p className="mt-3 flex gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><span><b>{missing.length} Bitrix names have no match</b> ({missing.reduce((s, o) => s + o.n, 0)} leads). Pick their AMS person above, or add their login in <Link href="/settings/users" className="underline">Settings → Users</Link> and check the files again. Leads left without a person come in with no owner.</span></p>
+            <p className="mt-3 flex gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><span><b>{missing.length} Bitrix names have no match</b> ({missing.reduce((s, o) => s + o.n, 0)} leads). They&apos;re set to <b>Add as old employee</b>: AMS makes an inactive login with that name, so their leads keep their responsible person and only a Super Admin can change those leads. Or pick a current person above.</span></p>
           )}
         </Card>
         <Card className="p-5">

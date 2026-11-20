@@ -1,3 +1,4 @@
+import { leadChangeMatcher } from "./lead-lock";
 import { memo } from "./memo";
 // Rows for the lead list/board. Used for the first render (crm/leads/page.tsx) and for every in-place
 // refresh (crm/leads/list-actions.ts → fetchLeadList), so filters and paging never reload the page.
@@ -5,7 +6,7 @@ import type { Prisma } from "@prisma/client";
 import { addDays, format, startOfDay } from "date-fns";
 import { parseLeadSort } from "./lead-columns";
 import { db } from "./db";
-import { scopeMatcher, scopeWhere } from "./permissions";
+import { scopeWhere } from "./permissions";
 import { LEAD_FILTER_KEYS, leadWhere, type LeadFilters } from "./lead-filters";
 import type { SessionUser } from "./auth";
 import { fieldAccess } from "./field-rules";
@@ -91,7 +92,7 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
   // Stages are cached (cleared when a stage is edited); the user's scope and field rules load alongside.
   const [statuses, scope, canEditRow, fields] = await Promise.all([
     memo("leadStatus:list", 5 * 60_000, () => db.leadStatus.findMany({ where: { active: true }, select: { id: true, kind: true, sortOrder: true }, orderBy: { sortOrder: "asc" } })),
-    scopeWhere(user, "crm.leads"), scopeMatcher(user, "crm.leads", "edit"), fieldAccess(user),
+    scopeWhere(user, "crm.leads"), leadChangeMatcher(user, "edit"), fieldAccess(user),
   ]);
   const openIds = statuses.filter((s) => s.kind === "open").map((s) => s.id);
   const where = await leadWhere(user, filters, statuses);
@@ -101,7 +102,7 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
   const [leads, total, overdue, dueToday, none] = await Promise.all([
     db.lead.findMany({
       where,
-      include: { source: { select: { name: true } }, project: { select: { name: true } }, owner: { select: { name: true } }, createdBy: { select: { name: true } } },
+      include: { source: { select: { name: true } }, project: { select: { name: true } }, owner: { select: { name: true, active: true } }, createdBy: { select: { name: true } } },
       orderBy: leadOrderBy(filters.sort),
       skip: view === "list" ? (page - 1) * size : 0,
       take: view === "list" ? size : 500,
@@ -151,7 +152,7 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
       owner: l.owner?.name ?? null,
       created: format(l.createdAt, "d MMM yyyy"),
       reshuffleCount: l.reshuffledAt ? l.reshuffleCount : null,
-      editable: canEditRow(l),
+      editable: canEditRow({ ...l, ownerActive: l.owner?.active ?? null }),
       next: next.get(l.id) ?? null,
       email: shown(l.email, fields["lead.email"], maskEmail),
       sourceInfo: l.sourceInfo ? l.sourceInfo.slice(0, 160) : null,

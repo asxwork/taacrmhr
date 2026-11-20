@@ -1,7 +1,7 @@
 // CRM automations: named bulk actions run on selected leads (e.g. "Reshuffle: new agent + New Request").
 // Each one is a stored config; running it applies every step to each lead the user may edit.
+import { leadChangeWhere } from "./lead-lock";
 import { db } from "./db";
-import { scopeWhere } from "./permissions";
 import { assignableUsers, logSystem } from "./crm";
 import { notify } from "./notify";
 import { audit } from "./audit";
@@ -57,7 +57,7 @@ export async function runAutomation(user: SessionUser, automationId: string, lea
   const c = parseConfig(auto.config);
   if ((c.deleteHistory || c.deleteOpen) && !user.isSuperAdmin) return { error: "This automation deletes activities, so only a Super Admin can run it." };
 
-  const scope = await scopeWhere(user, "crm.leads", "edit");
+  const scope = await leadChangeWhere(user, "edit");
   const leads = scope ? await db.lead.findMany({ where: { id: { in: leadIds }, ...scope }, select: { id: true, name: true, ownerId: true } }) : [];
   if (!leads.length) return { error: "None of the selected leads can be changed by you." };
 

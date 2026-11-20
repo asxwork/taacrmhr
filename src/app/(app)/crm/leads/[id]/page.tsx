@@ -1,11 +1,12 @@
 import { leadScoreParts, scoreLabel } from "@/lib/lead-score";
+import { leadChangeMatcher } from "@/lib/lead-lock";
 import Link from "@/components/link";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRightLeft, FileText, Mail, MessageCircle, Pencil, Phone, Trash2 } from "lucide-react";
 import { disabledFeatures } from "@/lib/features";
 import { db } from "@/lib/db";
-import { can, requirePermission, scopeMatcher, scopeWhere } from "@/lib/permissions";
+import { can, requirePermission, scopeWhere } from "@/lib/permissions";
 import { TIMELINE_INCLUDE, assignableUsers, editableActivityIds, fmtPKR, INTERESTS } from "@/lib/crm";
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils";
 import { fileUrl } from "@/lib/files";
@@ -34,8 +35,11 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
   if (!lead) notFound();
 
   const path = `/crm/leads/${id}`;
-  const canEdit = can(user, "crm.leads", "edit") && (await scopeMatcher(user, "crm.leads", "edit"))(lead);
-  const canDelete = can(user, "crm.leads", "delete") && (await scopeMatcher(user, "crm.leads", "delete"))(lead);
+  // Old employee's lead (inactive owner): read-only for everyone but a Super Admin.
+  const ownerGone = !!lead.owner && !lead.owner.active;
+  const row = { ...lead, ownerActive: lead.owner?.active ?? null };
+  const canEdit = can(user, "crm.leads", "edit") && (await leadChangeMatcher(user, "edit"))(row);
+  const canDelete = can(user, "crm.leads", "delete") && (await leadChangeMatcher(user, "delete"))(row);
   const canConvert = canEdit && !lead.convertedAt && can(user, "crm.deals", "create");
   const tab = sp.tab === "units" || sp.tab === "deals" ? sp.tab : "general";
   const editing = !!sp.edit && canEdit;
@@ -138,6 +142,11 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
 
       {/* Stage bar: open stages, then Complete lead (convert) and the closed stages */}
       <div className="mb-5">
+        {ownerGone && (
+          <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900" role="note">
+            {lead.owner!.name} no longer works here (inactive login). {user.isSuperAdmin ? "Only you (Super Admin) can change this lead or give it to someone else." : "Only a Super Admin can change this lead or give it to someone else."}
+          </p>
+        )}
         {closed ? (
           <div className="flex items-center gap-3 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white">
             Converted {lead.convertedAt ? `on ${fmtDate(lead.convertedAt)}` : ""}

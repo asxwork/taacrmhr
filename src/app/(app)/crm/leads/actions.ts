@@ -1,11 +1,12 @@
 "use server";
 
+import { leadChangeWhere } from "@/lib/lead-lock";
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
 import { db } from "@/lib/db";
-import { can, requirePermission, scopeWhere } from "@/lib/permissions";
+import { can, requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { assignableUsers, logSystem, ownerBranch, parseAmount, phoneKey, resolveOwner } from "@/lib/crm";
 import { str, type FormState } from "@/lib/utils";
@@ -18,7 +19,8 @@ import { applyLeadStatus, runBulkLeads } from "@/lib/lead-ops";
 import { attachUnitToDeal, unitWhere } from "@/lib/inventory";
 
 async function editableLead(user: SessionUser, id: string) {
-  const scope = await scopeWhere(user, "crm.leads", "edit");
+  // Old employees' leads: only a Super Admin can change them (lib/lead-lock.ts).
+  const scope = await leadChangeWhere(user, "edit");
   return scope ? db.lead.findFirst({ where: { id, ...scope }, include: { status: true } }) : null;
 }
 
@@ -152,7 +154,7 @@ export async function bulkLeads(_: FormState, fd: FormData): Promise<FormState> 
 
 export async function deleteLead(fd: FormData) {
   const user = await requirePermission("crm.leads", "delete");
-  const scope = await scopeWhere(user, "crm.leads", "delete");
+  const scope = await leadChangeWhere(user, "delete");
   const id = str(fd, "id");
   const lead = scope ? await db.lead.findFirst({ where: { id, ...scope } }) : null;
   if (lead) {

@@ -7,37 +7,56 @@ import { fmtAgo } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Avatar, Badge, Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
+import { DrillTiles } from "@/components/drill-tiles";
+import type { Prisma } from "@prisma/client";
 import { smtpConfigured } from "@/lib/mail";
 import { resendLoginEmail, saveUser } from "./actions";
 import { SelectAllUsers, UserTick, UsersBulkBar } from "./bulk-bar";
 
 export const metadata = { title: "Users" };
 
-type SP = Promise<{ q?: string; branch?: string; edit?: string; new?: string; mail?: string }>;
+type SP = Promise<{ q?: string; branch?: string; dept?: string; role?: string; status?: string; manager?: string; seen?: string; edit?: string; new?: string; mail?: string }>;
 
 export default async function UsersPage({ searchParams }: { searchParams: SP }) {
   const actor = await requirePermission("settings.users");
   const sp = await searchParams;
   const q = sp.q?.trim();
 
-  const [users, branches, roles] = await Promise.all([
+  // Filters combine: search + department + access (role) + branch + reports to + status + last sign-in.
+  const monthAgo = new Date(Date.now() - 30 * 86_400_000);
+  const where: Prisma.UserWhereInput = {
+    ...(q && { OR: [{ name: { contains: q } }, { email: { contains: q } }, { phone: { contains: q } }, { title: { contains: q } }] }),
+    ...(sp.branch && { branchId: sp.branch === "none" ? null : sp.branch }),
+    ...(sp.dept && { employee: sp.dept === "none" ? null : { departmentId: sp.dept } }),
+    ...(sp.role && (sp.role === "super" ? { isSuperAdmin: true } : sp.role === "none" ? { isSuperAdmin: false, roles: { none: {} } } : { roles: { some: { roleId: sp.role } } })),
+    ...(sp.manager && { managerId: sp.manager === "none" ? null : sp.manager }),
+    ...(sp.status === "active" && { active: true }), ...(sp.status === "inactive" && { active: false }),
+    ...(sp.seen === "never" && { lastLoginAt: null }), ...(sp.seen === "30" && { OR: [{ lastLoginAt: null }, { lastLoginAt: { lt: monthAgo } }] }),
+  };
+  const [users, branches, roles, departments, counts, everyone] = await Promise.all([
     db.user.findMany({
-      where: {
-        ...(q && { OR: [{ name: { contains: q } }, { email: { contains: q } }, { phone: { contains: q } }] }),
-        ...(sp.branch && { branchId: sp.branch }),
-      },
-      include: { branch: true, manager: true, employee: { select: { id: true } }, roles: { include: { role: true } }, _count: { select: { permissionOverrides: true } } },
+      where,
+      include: { branch: true, manager: true, employee: { select: { id: true, department: { select: { name: true } }, designation: { select: { name: true } } } }, roles: { include: { role: true } }, _count: { select: { permissionOverrides: true } } },
       orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
     db.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.role.findMany({ orderBy: { name: "asc" } }),
+    db.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    Promise.all([db.user.count(), db.user.count({ where: { active: true } }), db.user.count({ where: { active: false } }), db.user.count({ where: { lastLoginAt: null } }), db.user.count({ where: { isSuperAdmin: true } })]),
+    db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
+  // Open leads per person (old employees' leads can only be moved by a Super Admin).
+  const openLeads = new Map((await db.lead.groupBy({ by: ["ownerId"], where: { ownerId: { in: users.map((u) => u.id) }, status: { kind: "open" } }, _count: true })).map((r) => [r.ownerId, r._count]));
+  const filtersOn = [sp.branch, sp.dept, sp.role, sp.manager, sp.status, sp.seen, q].filter(Boolean).length;
 
   const editing = sp.edit ? users.find((u) => u.id === sp.edit) ?? (await db.user.findUnique({ where: { id: sp.edit }, include: { roles: true } })) : null;
   const drawerOpen = sp.new !== undefined ? can(actor, "settings.users", "create") : editing ? can(actor, "settings.users", "edit") : false;
-  const keep = new URLSearchParams({ ...(q && { q }), ...(sp.branch && { branch: sp.branch }) }).toString();
+  const filterKeys = ["q", "branch", "dept", "role", "manager", "status", "seen"] as const;
+  const keepObj = Object.fromEntries(filterKeys.filter((k) => sp[k]).map((k) => [k, sp[k]!]));
+  const keep = new URLSearchParams(keepObj).toString();
   const closeHref = `/settings/users${keep ? `?${keep}` : ""}`;
-  const editHref = (id: string) => `/settings/users?${new URLSearchParams({ ...(q && { q }), ...(sp.branch && { branch: sp.branch }), edit: id })}`;
+  const editHref = (id: string) => `/settings/users?${new URLSearchParams({ ...keepObj, edit: id })}`;
+  const tile = (patch: Record<string, string>) => `/settings/users?${new URLSearchParams(patch)}`;
 
   const canSeeProfiles = can(actor, "hr.employees");
   const editingEmployee = editing ? await db.employee.findUnique({ where: { userId: editing.id }, select: { id: true } }) : null;
@@ -64,18 +83,57 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
         </p>
       )}
 
-      <AutoFilterForm className="mb-4 flex flex-wrap gap-2">
-        <div className="relative min-w-60 flex-1">
-          <Search className="absolute left-3 top-2.5 size-4 text-muted" />
-          <input name="q" defaultValue={q} aria-label="Search" placeholder="Search name, email or phone" className="input pl-9" />
-        </div>
-        <select name="branch" defaultValue={sp.branch ?? ""} className="input w-44">
-          <option value="">All branches</option>
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
-        </select>
-      </AutoFilterForm>
+      <DrillTiles className="mb-5 lg:grid-cols-5 xl:grid-cols-5" tiles={[
+        { key: "all", label: "All users", tone: "navy", value: counts[0], href: "/settings/users" },
+        { key: "active", label: "Active", tone: "green", value: counts[1], href: tile({ status: "active" }) },
+        { key: "old", label: "Old employees (inactive)", tone: "slate", value: counts[2], href: tile({ status: "inactive" }) },
+        { key: "never", label: "Never signed in", tone: "amber", value: counts[3], href: tile({ seen: "never" }) },
+        { key: "super", label: "Super Admins", tone: "gold", value: counts[4], href: tile({ role: "super" }) },
+      ]} />
+
+      <Card className="mb-4 p-3">
+        <AutoFilterForm className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+          <div className="relative col-span-full">
+            <Search className="absolute left-3 top-2.5 size-4 text-muted" />
+            <input name="q" defaultValue={q} aria-label="Search" placeholder="Search name, email, phone or title" className="input pl-9" />
+          </div>
+          <select name="dept" defaultValue={sp.dept ?? ""} className="input" aria-label="Department">
+            <option value="">Any department</option>
+            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            <option value="none">No employee record</option>
+          </select>
+          <select name="role" defaultValue={sp.role ?? ""} className="input" aria-label="Access">
+            <option value="">All access</option>
+            <option value="super">Super Admin</option>
+            {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            <option value="none">No role</option>
+          </select>
+          <select name="branch" defaultValue={sp.branch ?? ""} className="input" aria-label="Branch">
+            <option value="">All branches</option>
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            <option value="none">No branch</option>
+          </select>
+          <select name="manager" defaultValue={sp.manager ?? ""} className="input" aria-label="Reports to">
+            <option value="">Any manager</option>
+            {everyone.filter((u) => managerIds.has(u.id)).map((u) => <option key={u.id} value={u.id}>{u.name}&apos;s team</option>)}
+            <option value="none">Reports to nobody</option>
+          </select>
+          <select name="status" defaultValue={sp.status ?? ""} className="input" aria-label="Status">
+              <option value="">Active & old</option>
+              <option value="active">Active</option>
+              <option value="inactive">Old (inactive)</option>
+          </select>
+          <select name="seen" defaultValue={sp.seen ?? ""} className="input" aria-label="Last sign-in">
+              <option value="">Any sign-in</option>
+              <option value="never">Never signed in</option>
+              <option value="30">Not in 30 days</option>
+          </select>
+        </AutoFilterForm>
+        <p className="mt-2 flex items-center gap-3 px-1 text-xs text-muted">
+          <span><b className="text-ink tabular-nums">{users.length}</b> user{users.length === 1 ? "" : "s"}{filtersOn ? " match" : ""}</span>
+          {filtersOn > 0 && <Link href="/settings/users" className="font-medium text-navy-900 hover:underline">Clear filters</Link>}
+        </p>
+      </Card>
 
       <Card className="overflow-hidden">
         {users.length === 0 ? (
@@ -90,6 +148,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                   <th className="th">Roles</th>
                   <th className="th">Branch</th>
                   <th className="th">Reports to</th>
+                  <th className="th text-right">Open leads</th>
                   <th className="th">Last sign-in</th>
                   <th className="th w-12"><span className="sr-only">Account</span></th>
                 </tr>
@@ -105,6 +164,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                         <div className="min-w-0">
                           <Link href={editHref(u.id)} scroll={false} className="font-medium hover:underline">{u.name}</Link>
                           <p className="truncate text-xs text-muted">{u.email}{u.employee && canSeeProfiles && <> · <Link href={`/hr/employees/${u.employee.id}?from=users`} className="font-medium text-navy-900 hover:underline">View profile</Link></>}</p>
+                          {(u.title || u.employee?.designation || u.employee?.department) && <p className="truncate text-xs text-muted">{[u.title ?? u.employee?.designation?.name, u.employee?.department?.name].filter(Boolean).join(" · ")}</p>}
                         </div>
                       </div>
                     </td>
@@ -114,13 +174,14 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                         {u.roles.map((r) => (
                           <Badge key={r.roleId} tone="navy">{r.role.name}</Badge>
                         ))}
-                        {!u.active && <Badge tone="red">Inactive</Badge>}
+                        {!u.active && <Badge tone="neutral">Old employee</Badge>}
                         {u._count.permissionOverrides > 0 && <Badge tone="amber">+{u._count.permissionOverrides} exception{u._count.permissionOverrides === 1 ? "" : "s"}</Badge>}
                       </div>
                     </td>
                     <td className="td text-muted">{u.branch?.name ?? "—"}</td>
                     <td className="td text-muted">{u.manager?.name ?? "—"}</td>
-                    <td className="td text-muted">{fmtAgo(u.lastLoginAt)}</td>
+                    <td className="td text-right tabular-nums">{openLeads.get(u.id) ? <Link href={`/crm/leads?owner=${u.id}`} className={u.active ? "hover:underline" : "font-medium text-amber-700 hover:underline"} title={u.active ? "Open their leads" : "Old employee's leads: only a Super Admin can move them"}>{openLeads.get(u.id)}</Link> : <span className="text-muted">—</span>}</td>
+                    <td className="td text-muted">{u.lastLoginAt ? fmtAgo(u.lastLoginAt) : <span className="text-amber-700">Never</span>}</td>
                     <td className="td text-right">
                       {can(actor, "settings.users", "edit") && <Link href={editHref(u.id)} scroll={false} title="Edit account (roles, branch, password)" aria-label={`Edit account of ${u.name}`} className="inline-flex size-8 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"><Pencil className="size-4" /></Link>}
                     </td>

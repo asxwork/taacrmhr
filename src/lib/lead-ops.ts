@@ -1,7 +1,8 @@
 // Lead changes shared by the page actions (leads/actions.ts) and the in-place list (leads/list-actions.ts).
 // Callers check the module permission; these check the record scope.
+import { leadChangeWhere } from "./lead-lock";
 import { db } from "./db";
-import { can, scopeWhere } from "./permissions";
+import { can } from "./permissions";
 import { assignableUsers, logSystem } from "./crm";
 import { leadWhere, type LeadFilters } from "./lead-filters";
 import { manualHoldError } from "./lead-hold";
@@ -11,7 +12,7 @@ import { str, type FormState } from "./utils";
 import type { SessionUser } from "./auth";
 
 export async function editableLead(user: SessionUser, id: string) {
-  const scope = await scopeWhere(user, "crm.leads", "edit");
+  const scope = await leadChangeWhere(user, "edit");
   return scope ? db.lead.findFirst({ where: { id, ...scope }, include: { status: true } }) : null;
 }
 
@@ -49,14 +50,14 @@ export async function runBulkLeads(user: SessionUser, fd: FormData): Promise<For
   if (!ids.length) return { error: "Select at least one lead." };
 
   if (op === "delete") {
-    const scope = await scopeWhere(user, "crm.leads", "delete");
+    const scope = await leadChangeWhere(user, "delete");
     if (!scope) return { error: "You can't delete leads." };
     const { count } = await db.lead.deleteMany({ where: { id: { in: ids }, ...scope } });
     await audit(user.id, "delete", "lead", null, `Deleted ${count} lead(s)`);
     return { ok: true, message: `Deleted ${count} lead(s).` };
   }
 
-  const scope = await scopeWhere(user, "crm.leads", "edit");
+  const scope = await leadChangeWhere(user, "edit");
   const leads = scope ? await db.lead.findMany({ where: { id: { in: ids }, ...scope }, select: { id: true, ownerId: true, branchId: true } }) : [];
 
   if (op === "assign") {

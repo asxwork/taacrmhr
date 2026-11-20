@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import Papa from "papaparse";
 import { db } from "./db";
 import { phoneKey } from "./crm-shared";
+import { hashPassword } from "./auth";
 
 type Row = Record<string, string>;
 export type BitrixFiles = { leads: Row[]; activities: Row[]; history: Row[]; ignored: string[] };
@@ -75,13 +76,22 @@ function ownerMatcher(people: { userId: string; name: string }[]) {
     return loose.length === 1 ? loose[0]! : null;
   };
 }
+/** AMS logins (and their employee names). Old employees (inactive logins) are matched only when no active one fits. */
 async function amsPeople() {
   const [users, employees] = await Promise.all([
-    db.user.findMany({ where: { active: true }, select: { id: true, name: true } }),
-    db.employee.findMany({ where: { userId: { not: null }, user: { active: true } }, select: { fullName: true, userId: true } }),
+    db.user.findMany({ select: { id: true, name: true, active: true } }),
+    db.employee.findMany({ where: { userId: { not: null } }, select: { fullName: true, userId: true, user: { select: { active: true } } } }),
   ]);
-  return { users, people: [...users.map((u) => ({ userId: u.id, name: u.name })), ...employees.map((e) => ({ userId: e.userId!, name: e.fullName }))] };
+  const all = [...users.map((u) => ({ userId: u.id, name: u.name, active: u.active })), ...employees.map((e) => ({ userId: e.userId!, name: e.fullName, active: !!e.user?.active }))];
+  return { users, people: all.filter((p) => p.active), oldPeople: all.filter((p) => !p.active) };
 }
+/** Active people first, then old employees. */
+function peopleMatcher(p: { people: { userId: string; name: string }[]; oldPeople: { userId: string; name: string }[] }) {
+  const active = ownerMatcher(p.people), old = ownerMatcher(p.oldPeople);
+  return (name: string) => active(name) ?? old(name);
+}
+/** Picker value: make an inactive "old employee" login for this Bitrix name. */
+export const NEW_OLD_EMPLOYEE = "__old";
 /** The project column, if the export has one (Bitrix custom fields look like uf_crm_1700000000 / "Project"). */
 const projectColumn = (rows: Row[]) => Object.keys(rows[0] ?? {}).find((k) => /project/i.test(k));
 /** Bitrix list values come as "[12] Askari VI". */
@@ -89,7 +99,7 @@ const listValue = (v: string | undefined) => (v ?? "").replace(/^\s*\[\d+\]\s*/,
 
 /** What the import will do, before doing it. */
 export async function analyzeBitrix(f: BitrixFiles) {
-  const [{ users, people }, statuses, sources, demo, already, projects] = await Promise.all([
+  const [team, statuses, sources, demo, already, projects] = await Promise.all([
     amsPeople(),
     db.leadStatus.findMany({ select: { id: true, name: true } }),
     db.leadSource.findMany({ select: { id: true, name: true } }),
@@ -98,7 +108,8 @@ export async function analyzeBitrix(f: BitrixFiles) {
     db.project.findMany({ select: { name: true } }),
   ]);
   const key = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
-  const userFor = ownerMatcher(people);
+  const { users } = team;
+  const userFor = peopleMatcher(team);
   const count = (rows: Row[], k: string) => { const m = new Map<string, number>(); for (const r of rows) m.set(r[k] ?? "", (m.get(r[k] ?? "") ?? 0) + 1); return [...m.entries()].sort((a, b) => b[1] - a[1]); };
   const owners = count(f.leads, "assigned_by_name").map(([name, n]) => ({ name, n, userId: name === "The Advisor Associates" ? "admin" : userFor(name) }));
   const pcol = projectColumn(f.leads);
@@ -107,7 +118,7 @@ export async function analyzeBitrix(f: BitrixFiles) {
   const stages = count(f.leads, "status_name").filter(([s]) => s).map(([name, n]) => ({ name, n, as: stageName(name), exists: statuses.some((x) => key(x.name) === key(stageName(name))) }));
   const srcs = count(f.leads, "source_name").filter(([s]) => s).map(([name, n]) => ({ name, n, exists: sources.some((x) => key(x.name) === key(name)) }));
   const actIds = new Set(f.activities.map((a) => a.id));
-  return { leads: f.leads.length, activities: actIds.size, history: f.history.length, ignored: f.ignored, owners, people: users.map((u) => ({ id: u.id, name: u.name })).sort((a, b) => a.name.localeCompare(b.name)), projectColumn: pcol ?? null, projects: projectNames, stages, sources: srcs, demo, already };
+  return { leads: f.leads.length, activities: actIds.size, history: f.history.length, ignored: f.ignored, owners, people: users.map((u) => ({ id: u.id, name: u.active ? u.name : `${u.name} (old employee)`, active: u.active })).sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name)), projectColumn: pcol ?? null, projects: projectNames, stages, sources: srcs, demo, already };
 }
 
 /**
@@ -120,17 +131,28 @@ export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; 
   if (opts.deleteDemo) deleted = (await db.lead.deleteMany({ where: { bitrixId: null } })).count;
 
   const key = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
-  const [{ people }, branchRows, projects] = await Promise.all([
+  const [team, branchRows, projects] = await Promise.all([
     amsPeople(),
     db.user.findMany({ select: { id: true, branchId: true } }),
     db.project.findMany({ select: { id: true, name: true } }),
   ]);
   const branchOf = new Map(branchRows.map((u) => [u.id, u.branchId]));
-  const match = ownerMatcher(people);
+  const match = peopleMatcher(team);
   const validIds = new Set(branchRows.map((u) => u.id));
+  // "Add as old employee": an inactive login with the Bitrix name (no email goes out: .local address, random password).
+  const made = new Map<string, string>();
+  for (const [name, choice] of Object.entries(opts.owners ?? {})) {
+    if (choice !== NEW_OLD_EMPLOYEE || !name.trim()) continue;
+    const existing = match(name);
+    if (existing) { made.set(name, existing); continue; }
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "") || "staff";
+    const u = await db.user.create({ data: { name: name.trim().slice(0, 120), email: `${slug}.${randomUUID().slice(0, 6)}@old-staff.local`, passwordHash: await hashPassword(randomUUID()), active: false, title: "Old employee (from Bitrix)" } });
+    made.set(name, u.id); validIds.add(u.id);
+  }
   // The person chosen in the preview for a Bitrix name wins; then the name match.
   const userFor = (name: string | undefined) => {
     if (!name) return null;
+    if (made.has(name)) return made.get(name)!;
     const chosen = opts.owners?.[name];
     if (chosen && validIds.has(chosen)) return chosen;
     if (name === "The Advisor Associates") return opts.userId;
