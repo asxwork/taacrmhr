@@ -55,9 +55,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (needs2fa && (h.get("x-pathname") ?? "") !== "/profile/security") redirect("/profile/security");
   // Section tabs (CRM: Leads / Deals / Calls / Contacts / Inventory / Reports), filtered by permission and features.
   const tabAllowed = (t: SectionTab) => (!t.module || can(user, t.module, t.action ?? "view")) && (!t.superAdmin || user.isSuperAdmin) && !featureForPath(t.href, off);
-  const pageItems = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]))).filter((item) => !item.phase);
-  const sectionPages = SECTIONS.flatMap((sec) => sec.tabs.filter(tabAllowed).map((t) => ({ href: t.href, label: t.label, icon: "list" })));
-  const pages = [...new Map([...pageItems.map((item) => ({ href: item.href, label: item.label, icon: item.icon })), ...sectionPages].map((p) => [p.href, p])).values()];
+  // Every page with where it lives (App › Section › Sub-menu), for search and the back links. The same name in two
+  // apps (e.g. "My Space" in Tutorials and the My Space app) is told apart by its path.
+  type PageHit = { href: string; label: string; icon: string; path: string[] };
+  const pageItems: PageHit[] = apps.flatMap((a) => a.groups.flatMap((g) => g.items.flatMap((item) =>
+    (item.children ? item.children.map((c) => ({ ...c, trail: [a.name, g.label, item.label] })) : [{ ...item, trail: [a.name, g.label] }])
+      .filter((x) => !x.phase)
+      .map((x) => ({ href: x.href, label: x.label, icon: x.icon, path: x.trail.filter((t, i, all): t is string => !!t && t !== x.label && t !== all[i - 1]) })))));
+  const appFor = (href: string) => [...apps].sort((x, y) => Math.max(0, ...y.prefixes.map((p) => (href.startsWith(p) ? p.length : 0))) - Math.max(0, ...x.prefixes.map((p) => (href.startsWith(p) ? p.length : 0))))[0];
+  const sectionPages: PageHit[] = SECTIONS.flatMap((sec) => sec.tabs.filter(tabAllowed).map((t) => ({ href: t.href, label: t.label, icon: "list", path: [apps.find((a) => a.key === sec.app)?.name ?? appFor(t.href)?.name ?? ""].filter(Boolean) })));
+  const appPages: PageHit[] = apps.map((a) => ({ href: a.start, label: a.name, icon: a.icon, path: ["App"] }));
+  const pages = [...new Map([...appPages, ...pageItems, ...sectionPages].map((p) => [`${p.href}|${p.label}`, p])).values()];
 
   return (
     <div className="app-wallpaper min-h-screen" data-sidebar={sidebarMode(current.layout, collapsed)}>

@@ -6,7 +6,7 @@ import { ArrowLeft, Building2, Contact, CornerDownLeft, Handshake, LayoutGrid, L
 import { cn } from "@/lib/utils";
 import { NAV_ICONS } from "./nav-icons";
 
-type Hit = { title: string; sub?: string; href: string; icon?: string };
+type Hit = { title: string; sub?: string; href: string; icon?: string; path?: string[] };
 type Group = { label: string; items: Hit[] };
 
 const GROUP_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -17,7 +17,7 @@ const GROUP_ICON: Record<string, React.ComponentType<{ className?: string }>> = 
 export const openSearch = () => window.dispatchEvent(new Event("open-search"));
 
 /** Ctrl+K / ⌘K: jump to a page or find a lead, deal, contact, unit or employee. */
-export function CommandPalette({ pages }: { pages: { href: string; label: string; icon: string }[] }) {
+export function CommandPalette({ pages }: { pages: { href: string; label: string; icon: string; path?: string[] }[] }) {
   const router = useRouter();
   const [state, setState] = useState<"closed" | "open" | "closing">("closed");
   const [q, setQ] = useState("");
@@ -82,11 +82,20 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
     return () => { clearTimeout(t); ctrl.abort(); };
   }, [q]);
 
+  // Pages match on their name and where they live ("hr settings", "tutorials my space"); best matches first:
+  // name starts with the words, then name contains them, then the path does.
   const all = useMemo((): Group[] => {
-    const needle = q.trim().toLowerCase();
-    const matches = pages.filter((p) => !needle || p.label.toLowerCase().includes(needle)).slice(0, needle ? 4 : 6);
-    return [...(matches.length ? [{ label: "Pages", items: matches.map((p) => ({ title: p.label, href: p.href, icon: p.icon })) }] : []), ...groups];
+    const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return groups;
+    const scored = pages.map((p) => {
+      const name = p.label.toLowerCase(), hay = `${name} ${(p.path ?? []).join(" ").toLowerCase()}`;
+      if (!words.every((w) => hay.includes(w))) return null;
+      const score = (name.startsWith(words[0]!) ? 0 : words.every((w) => name.includes(w)) ? 1 : 2) + (p.path?.[0] === "App" ? -0.5 : 0);
+      return { p, score };
+    }).filter((x): x is { p: (typeof pages)[number]; score: number } => !!x).sort((a, b) => a.score - b.score || a.p.label.length - b.p.label.length).slice(0, 8);
+    return [...(scored.length ? [{ label: "Pages", items: scored.map(({ p }) => ({ title: p.label, href: p.href, icon: p.icon, path: p.path })) }] : []), ...groups];
   }, [q, pages, groups]);
+  const apps = useMemo(() => pages.filter((p) => p.path?.[0] === "App"), [pages]);
   const flat = all.flatMap((g) => g.items);
   const current = Math.min(active, Math.max(flat.length - 1, 0));
 
@@ -116,7 +125,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
       <div className={cn("absolute inset-0 bg-navy-950/50", leaving ? "palette-backdrop-out" : "anim-fade")} onClick={close} />
       <div
         className={cn(
-          "relative flex w-full flex-col overflow-hidden bg-surface shadow-2xl ring-1 ring-black/5 sm:max-h-[70vh] sm:max-w-xl sm:rounded-2xl",
+          "relative flex w-full flex-col overflow-hidden bg-surface shadow-2xl ring-1 ring-black/5 sm:max-h-[72vh] sm:max-w-2xl sm:rounded-2xl",
           leaving ? "palette-out" : "palette-in",
         )}
         onKeyDown={onKeyDown}
@@ -130,7 +139,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
             ref={input}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search leads, deals, people…"
+            placeholder="Search pages, leads, deals, people…"
             className="palette-input h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted/80 sm:text-[15px]"
             role="combobox"
             aria-expanded
@@ -155,7 +164,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
             const GroupIcon = GROUP_ICON[g.label] ?? LayoutGrid;
             return (
               <div key={g.label} className="palette-group pb-1">
-                <p className="px-2.5 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted">{g.label}</p>
+                <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted"><GroupIcon className="size-3.5" />{g.label}<span className="font-normal normal-case tracking-normal text-muted/70">· {g.items.length}</span></p>
                 {g.items.map((hit) => {
                   const idx = ++i;
                   const on = idx === current;
@@ -163,7 +172,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
                   const Icon = (hit.icon && NAV_ICONS[hit.icon]) || GroupIcon;
                   return (
                     <button
-                      key={hit.href}
+                      key={`${hit.href}|${hit.title}`}
                       id={`search-${idx}`}
                       data-i={idx}
                       role="option"
@@ -180,8 +189,13 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
                         <Icon className="size-4" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{hit.title}</span>
-                        {hit.sub && <span className="block truncate text-xs text-muted">{hit.sub}</span>}
+                        <span className="block truncate text-sm font-medium"><Mark text={hit.title} q={q} /></span>
+                        {hit.path?.length ? (
+                          <span className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-xs text-muted">
+                            {hit.path[0] === "App" ? <span className="rounded bg-navy-900/[0.07] px-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink/70">App</span>
+                              : hit.path.map((part, k) => <span key={k} className="flex items-center gap-1">{k > 0 && <span className="text-muted/60">›</span>}<span className={k === 0 ? "font-medium text-ink/70" : ""}>{part}</span></span>)}
+                          </span>
+                        ) : hit.sub ? <span className="block truncate text-xs text-muted">{hit.sub}</span> : null}
                       </span>
                       <CornerDownLeft className={cn("size-4 shrink-0 text-muted transition-opacity", on ? "opacity-100" : "opacity-0")} />
                     </button>
@@ -190,10 +204,27 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
               </div>
             );
           })}
-          {q.trim().length >= 2 && !loading && groups.length === 0 && (
-            <p className="px-3 py-8 text-center text-sm text-muted">No records match “{q.trim()}”.</p>
+          {q.trim().length >= 2 && !loading && all.length === 0 && (
+            <p className="px-3 py-10 text-center text-sm text-muted">Nothing matches “{q.trim()}”.</p>
           )}
-          {q.trim().length < 2 && <p className="px-3 pb-2 pt-3 text-xs text-muted">Type at least 2 letters to search leads, deals, contacts, units and employees.</p>}
+          {!q.trim() && (
+            // Empty box: your apps as quick tiles.
+            <div className="p-1">
+              <p className="px-1.5 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted">Go to</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {apps.map((a) => {
+                  const Icon = NAV_ICONS[a.icon] ?? LayoutGrid;
+                  return (
+                    <button key={a.href} onClick={() => go({ title: a.label, href: a.href })} className="flex items-center gap-2.5 rounded-xl border border-line px-3 py-2.5 text-left text-sm font-medium transition hover:border-navy-900/30 hover:bg-canvas">
+                      <span className="flex size-8 items-center justify-center rounded-lg bg-navy-900 text-white"><Icon className="size-4" /></span>{a.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="px-1.5 pb-1 pt-4 text-xs text-muted">Type to find any page, or a lead, deal, contact, unit or employee by name, phone or number.</p>
+            </div>
+          )}
+          {q.trim().length === 1 && <p className="px-3 pb-2 pt-3 text-xs text-muted">Keep typing to search records too…</p>}
         </div>
 
         <div className="hidden shrink-0 items-center gap-4 border-t border-line bg-canvas/60 px-4 py-2 text-[11px] text-muted sm:flex">
@@ -204,4 +235,12 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
       </div>
     </div>
   );
+}
+
+/** The typed words highlighted inside a result's name. */
+function Mark({ text, q }: { text: string; q: string }) {
+  const words = q.trim().toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+  if (!words.length) return <>{text}</>;
+  const re = new RegExp(`(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  return <>{text.split(re).map((part, i) => (words.includes(part.toLowerCase()) ? <mark key={i} className="rounded-sm bg-gold-300/50 px-0.5 text-inherit">{part}</mark> : part))}</>;
 }
