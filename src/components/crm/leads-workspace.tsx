@@ -3,6 +3,7 @@ import { DrawerPortal } from "@/components/drawer-portal";
 
 import Link from "@/components/link";
 import { saveLeadNav } from "./lead-nav";
+import { useFitHeight } from "@/components/use-fit-height";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { format } from "date-fns";
 import {
@@ -95,6 +96,9 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
   /** Fetches rows for the given state and mirrors it in the address bar (refresh/back/share keep working). */
   // Rows per page ("Records"): kept with the data, remembered on this device.
   const sizeRef = useRef(initial.size);
+  // List table and board fill the window under the toolbar (use-fit-height.ts); recomputed when rows or view change.
+  const tableBox = useRef<HTMLDivElement>(null);
+  useFitHeight(tableBox, 84, [view, initial]);
   const load = useCallback((f: LeadFilters, v: View, page: number, size: number = sizeRef.current) => {
     sizeRef.current = size;
     const p = queryOf(f);
@@ -422,9 +426,10 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                   );
                 })}
               </ul>
-              <div className="hidden overflow-x-auto sm:block">
+              {/* The table scrolls inside this box (headers stay at the top, the page bar stays in view): no page scrolling. */}
+              <div ref={tableBox} className="hidden overflow-auto overscroll-contain sm:block">
                 <table className="w-full [&_td]:px-3 [&_th]:px-3 2xl:[&_td]:px-4 2xl:[&_th]:px-4">
-                  <thead className="border-b border-line bg-canvas/60">
+                  <thead className="sticky top-0 z-10 border-b border-line bg-[color-mix(in_srgb,var(--color-canvas)_60%,var(--color-surface))] shadow-[0_1px_0_var(--color-line)]">
                     <tr>
                       <th className="th w-16">
                         <span className="flex items-center gap-2">

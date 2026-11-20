@@ -4,7 +4,8 @@ import { DrawerPortal } from "@/components/drawer-portal";
 import Link from "@/components/link";
 import { useCallback, useEffect, useId, useOptimistic, useRef, useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { useFitHeight } from "@/components/use-fit-height";
+import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import { fmtPKR } from "@/lib/crm-shared";
 
@@ -42,6 +43,8 @@ export function Kanban({
   const [error, setError] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const dndId = useId(); // stable id avoids SSR hydration mismatch in dnd-kit aria attributes
+  // The card being dragged floats above the board (columns scroll on their own and would cut it off).
+  const [dragging, setDragging] = useState<string | null>(null);
 
   const commit = (id: string, columnId: string, reason?: string) =>
     startTransition(async () => {
@@ -51,6 +54,7 @@ export function Kanban({
     });
 
   function onDragEnd(e: DragEndEvent) {
+    setDragging(null);
     const id = String(e.active.id);
     const columnId = e.over ? String(e.over.id) : null;
     const card = optimistic.find((c) => c.id === id);
@@ -64,7 +68,7 @@ export function Kanban({
   return (
     <>
       {error && <p className="mb-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      <DndContext id={dndId} sensors={sensors} onDragEnd={onDragEnd}>
+      <DndContext id={dndId} sensors={sensors} onDragStart={(e) => setDragging(String(e.active.id))} onDragCancel={() => setDragging(null)} onDragEnd={onDragEnd}>
         <BoardScroller columns={columns.map((c) => ({ id: c.id, name: c.name, dot: c.dot, count: optimistic.filter((x) => x.columnId === c.id).length }))}>
           {columns.map((col) => {
             const colCards = optimistic.filter((c) => c.columnId === col.id);
@@ -78,6 +82,7 @@ export function Kanban({
             );
           })}
         </BoardScroller>
+        <DragOverlay dropAnimation={null}>{dragging && optimistic.find((c) => c.id === dragging) ? <CardBody card={optimistic.find((c) => c.id === dragging)!} lifted /> : null}</DragOverlay>
       </DndContext>
 
       {pendingReason && (
@@ -96,7 +101,7 @@ export function Kanban({
 function Column({ col, count, total, children }: { col: KanbanColumn; count: number; total?: number; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
   return (
-    <div data-kanban-col={col.id} className="flex w-[85vw] max-w-72 shrink-0 snap-start flex-col sm:w-72">
+    <div data-kanban-col={col.id} className="flex w-[85vw] max-w-72 shrink-0 snap-start flex-col sm:min-h-0 sm:w-72">
       <div data-kanban-head className="mb-2 flex items-center gap-2 px-1">
         <span className={cn("size-2 rounded-full", col.dot)} />
         <span className="text-sm font-medium">{col.name}</span>
@@ -105,7 +110,7 @@ function Column({ col, count, total, children }: { col: KanbanColumn; count: num
       </div>
       <div
         ref={setNodeRef}
-        className={cn("min-h-40 flex-1 space-y-2 rounded-xl border border-dashed p-2 transition", isOver ? "border-navy-700/40 bg-navy-900/5" : "border-transparent bg-black/[0.025]")}
+        className={cn("min-h-40 flex-1 space-y-2 rounded-xl border border-dashed p-2 transition sm:min-h-0 sm:overflow-y-auto sm:overscroll-contain", isOver ? "border-navy-700/40 bg-navy-900/5" : "border-transparent bg-black/[0.025]")}
       >
         {children}
       </div>
@@ -114,22 +119,19 @@ function Column({ col, count, total, children }: { col: KanbanColumn; count: num
 }
 
 function Card({ card }: { card: KanbanCard }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id, disabled: !card.draggable });
-  const style = transform ? { transform: `translate(${transform.x}px, ${transform.y}px)` } : undefined;
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id, disabled: !card.draggable });
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      data-kanban-card
-      className={cn(
-        "rounded-lg border border-line bg-surface p-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition",
-        card.draggable && "cursor-grab active:cursor-grabbing",
-        isDragging && "relative z-10 rotate-1 shadow-lg",
-      )}
-    >
-      <Link href={card.href} className="block text-sm font-medium hover:underline" onPointerDown={(e) => e.stopPropagation()}>
+    <div ref={setNodeRef} {...listeners} {...attributes} data-kanban-card className={cn(card.draggable && "cursor-grab active:cursor-grabbing", isDragging && "opacity-40")}>
+      <CardBody card={card} />
+    </div>
+  );
+}
+
+function CardBody({ card, lifted }: { card: KanbanCard; lifted?: boolean }) {
+  return (
+    <div className={cn("rounded-lg border border-line bg-surface p-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition", lifted && "w-72 rotate-1 cursor-grabbing shadow-xl")}>
+      {/* Grab anywhere (the name too) to drag: a click opens the lead, a few pixels of movement start a drag. */}
+      <Link href={card.href} draggable={false} className="block text-sm font-medium hover:underline">
         {card.title}
       </Link>
       {card.subtitle && <p className="mt-0.5 truncate text-xs text-muted">{card.subtitle}</p>}
@@ -175,6 +177,7 @@ function BoardScroller({ columns, children }: { columns: { id: string; name: str
   const [edges, setEdges] = useState({ left: false, right: false });
   const [visible, setVisible] = useState<Set<string>>(new Set());
   const pan = useRef<{ x: number; left: number } | null>(null);
+  useFitHeight(box, 12, [columns.length], "fixed"); // the board fills the window; each column scrolls its own cards
 
   const measure = useCallback(() => {
     const el = box.current;
@@ -231,7 +234,7 @@ function BoardScroller({ columns, children }: { columns: { id: string; name: str
             if (!box.current || Math.abs(e.deltaX) > Math.abs(e.deltaY) || !(e.target as HTMLElement).closest("[data-kanban-head]")) return;
             box.current.scrollLeft += e.deltaY;
           }}
-          className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:-mx-8 sm:snap-none sm:px-8 cursor-grab active:cursor-grabbing"
+          className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:-mx-8 sm:snap-none sm:px-8 cursor-grab active:cursor-grabbing sm:[&>[data-kanban-col]]:max-h-full"
         >
           {children}
         </div>
