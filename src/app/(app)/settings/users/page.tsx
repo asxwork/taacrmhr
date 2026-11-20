@@ -1,5 +1,5 @@
 import Link from "@/components/link";
-import { Pencil, Plus, Search } from "lucide-react";
+import { Pencil, Plus, Search, Upload } from "lucide-react";
 import { db } from "@/lib/db";
 import { managerUserIds } from "@/lib/managers";
 import { can, requirePermission } from "@/lib/permissions";
@@ -8,14 +8,15 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Avatar, Badge, Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { DrillTiles } from "@/components/drill-tiles";
+import { FilterSelect } from "@/components/filter-select";
 import type { Prisma } from "@prisma/client";
 import { smtpConfigured } from "@/lib/mail";
-import { resendLoginEmail, saveUser } from "./actions";
+import { importUsers, resendLoginEmail, saveUser } from "./actions";
 import { SelectAllUsers, UserTick, UsersBulkBar } from "./bulk-bar";
 
 export const metadata = { title: "Users" };
 
-type SP = Promise<{ q?: string; branch?: string; dept?: string; role?: string; status?: string; manager?: string; seen?: string; edit?: string; new?: string; mail?: string }>;
+type SP = Promise<{ q?: string; branch?: string; dept?: string; role?: string; status?: string; manager?: string; seen?: string; edit?: string; new?: string; mail?: string; import?: string }>;
 
 export default async function UsersPage({ searchParams }: { searchParams: SP }) {
   const actor = await requirePermission("settings.users");
@@ -33,7 +34,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
     ...(sp.status === "active" && { active: true }), ...(sp.status === "inactive" && { active: false }),
     ...(sp.seen === "never" && { lastLoginAt: null }), ...(sp.seen === "30" && { OR: [{ lastLoginAt: null }, { lastLoginAt: { lt: monthAgo } }] }),
   };
-  const [users, branches, roles, departments, counts, everyone] = await Promise.all([
+  const [users, branches, roles, departments, counts, allUsers] = await Promise.all([
     db.user.findMany({
       where,
       include: { branch: true, manager: true, employee: { select: { id: true, department: { select: { name: true } }, designation: { select: { name: true } } } }, roles: { include: { role: true } }, _count: { select: { permissionOverrides: true } } },
@@ -43,10 +44,13 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
     db.role.findMany({ orderBy: { name: "asc" } }),
     db.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     Promise.all([db.user.count(), db.user.count({ where: { active: true } }), db.user.count({ where: { active: false } }), db.user.count({ where: { lastLoginAt: null } }), db.user.count({ where: { isSuperAdmin: true } })]),
-    db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.user.findMany({ select: { id: true, name: true, active: true, isSuperAdmin: true, branchId: true, managerId: true, lastLoginAt: true, employee: { select: { departmentId: true } }, roles: { select: { roleId: true } } }, orderBy: { name: "asc" } }),
   ]);
+  // How many users each filter choice has (over everyone, so the numbers don't jump as you filter).
+  const tally = (test: (u: (typeof allUsers)[number]) => boolean) => allUsers.filter(test).length;
   // Open leads per person (old employees' leads can only be moved by a Super Admin).
   const openLeads = new Map((await db.lead.groupBy({ by: ["ownerId"], where: { ownerId: { in: users.map((u) => u.id) }, status: { kind: "open" } }, _count: true })).map((r) => [r.ownerId, r._count]));
+  const everyone = allUsers.filter((u) => u.active);
   const filtersOn = [sp.branch, sp.dept, sp.role, sp.manager, sp.status, sp.seen, q].filter(Boolean).length;
 
   const editing = sp.edit ? users.find((u) => u.id === sp.edit) ?? (await db.user.findUnique({ where: { id: sp.edit }, include: { roles: true } })) : null;
@@ -69,9 +73,12 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
         description="Everyone who can sign in. Roles decide what each person sees."
         actions={
           can(actor, "settings.users", "create") && (
-            <LinkButton href="/settings/users?new" scroll={false}>
-              <Plus className="size-4" /> New user
-            </LinkButton>
+            <div className="flex gap-2">
+              <LinkButton href="/settings/users?import=1" variant="secondary" scroll={false}><Upload className="size-4" /> Import users</LinkButton>
+              <LinkButton href="/settings/users?new" scroll={false}>
+                <Plus className="size-4" /> New user
+              </LinkButton>
+            </div>
           )
         }
       />
@@ -92,42 +99,21 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
       ]} />
 
       <Card className="mb-4 p-3">
-        <AutoFilterForm className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+        <AutoFilterForm className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
           <div className="relative col-span-full">
             <Search className="absolute left-3 top-2.5 size-4 text-muted" />
             <input name="q" defaultValue={q} aria-label="Search" placeholder="Search name, email, phone or title" className="input pl-9" />
           </div>
-          <select name="dept" defaultValue={sp.dept ?? ""} className="input" aria-label="Department">
-            <option value="">Any department</option>
-            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            <option value="none">No employee record</option>
-          </select>
-          <select name="role" defaultValue={sp.role ?? ""} className="input" aria-label="Access">
-            <option value="">All access</option>
-            <option value="super">Super Admin</option>
-            {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-            <option value="none">No role</option>
-          </select>
-          <select name="branch" defaultValue={sp.branch ?? ""} className="input" aria-label="Branch">
-            <option value="">All branches</option>
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            <option value="none">No branch</option>
-          </select>
-          <select name="manager" defaultValue={sp.manager ?? ""} className="input" aria-label="Reports to">
-            <option value="">Any manager</option>
-            {everyone.filter((u) => managerIds.has(u.id)).map((u) => <option key={u.id} value={u.id}>{u.name}&apos;s team</option>)}
-            <option value="none">Reports to nobody</option>
-          </select>
-          <select name="status" defaultValue={sp.status ?? ""} className="input" aria-label="Status">
-              <option value="">Active & old</option>
-              <option value="active">Active</option>
-              <option value="inactive">Old (inactive)</option>
-          </select>
-          <select name="seen" defaultValue={sp.seen ?? ""} className="input" aria-label="Last sign-in">
-              <option value="">Any sign-in</option>
-              <option value="never">Never signed in</option>
-              <option value="30">Not in 30 days</option>
-          </select>
+          <FilterSelect name="dept" label="Department" value={sp.dept} options={[...departments.map((d) => ({ value: d.id, label: d.name, count: tally((u) => u.employee?.departmentId === d.id) })), { value: "none", label: "No employee record", count: tally((u) => !u.employee) }]} />
+          <FilterSelect name="role" label="Access" value={sp.role} options={[
+            { value: "super", label: "Super Admin", count: tally((u) => u.isSuperAdmin), hint: "Full access" },
+            ...roles.map((r) => ({ value: r.id, label: r.name, count: tally((u) => u.roles.some((x) => x.roleId === r.id)), hint: r.description ?? undefined })),
+            { value: "none", label: "No role", count: tally((u) => !u.isSuperAdmin && !u.roles.length) },
+          ]} />
+          <FilterSelect name="branch" label="Branch" value={sp.branch} options={[...branches.map((b) => ({ value: b.id, label: b.name, count: tally((u) => u.branchId === b.id) })), { value: "none", label: "No branch", count: tally((u) => !u.branchId) }]} />
+          <FilterSelect name="manager" label="Team" value={sp.manager} options={[...everyone.filter((u) => managerIds.has(u.id)).map((u) => ({ value: u.id, label: `${u.name}'s team`, count: tally((x) => x.managerId === u.id) })), { value: "none", label: "Reports to nobody", count: tally((u) => !u.managerId) }]} />
+          <FilterSelect name="status" label="Status" value={sp.status} allLabel="Active & old" options={[{ value: "active", label: "Active", count: tally((u) => u.active) }, { value: "inactive", label: "Old employees (inactive)", count: tally((u) => !u.active) }]} />
+          <FilterSelect name="seen" label="Signed in" value={sp.seen} options={[{ value: "never", label: "Never", count: tally((u) => !u.lastLoginAt) }, { value: "30", label: "Not in 30 days", count: tally((u) => !u.lastLoginAt || u.lastLoginAt < monthAgo) }]} />
         </AutoFilterForm>
         <p className="mt-2 flex items-center gap-3 px-1 text-xs text-muted">
           <span><b className="text-ink tabular-nums">{users.length}</b> user{users.length === 1 ? "" : "s"}{filtersOn ? " match" : ""}</span>
@@ -195,6 +181,34 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
       {canBulk && users.length > 0 && (
         <UsersBulkBar roles={roles.map((r) => ({ id: r.id, name: r.name }))} branches={branches.map((b) => ({ id: b.id, name: b.name }))}
           managers={users.filter((u) => u.active && managerIds.has(u.id)).map((u) => ({ id: u.id, name: u.name }))} />
+      )}
+
+      {sp.import && can(actor, "settings.users", "create") && (
+        <Drawer title="Import users" closeHref={closeHref}>
+          <ActionForm action={importUsers} className="space-y-4">
+            <p className="text-sm text-muted">
+              Upload your employee list as <b className="text-ink">Excel (.xlsx) or CSV</b>. In Bitrix: <i>Employees → Find employee → ⚙ → Export to Excel</i>.
+              Needed: a <b className="text-ink">name</b> and <b className="text-ink">email</b> column; mobile, position, department and branch (e.g. DHA, BHD) are used when present.
+              People already in AMS (same email or name) are skipped.
+            </p>
+            <Field label="Employee list"><input name="file" type="file" required accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" /></Field>
+            <Field label="Role for new people" hint="Change anyone afterwards, or use the bulk bar to give roles to several at once.">
+              <select name="roleId" className="input" defaultValue={roles.find((r) => r.name === "Agent")?.id ?? ""}>
+                <option value="">No role</option>
+                {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+            </Field>
+            <label className="flex items-start gap-2 rounded-md border border-line p-2.5 text-sm">
+              <input type="checkbox" name="activateOld" defaultChecked className="mt-0.5 accent-navy-900" />
+              <span><span className="block font-medium">Activate old employees on the list</span><span className="block text-xs text-muted">Someone made inactive (e.g. by the Bitrix lead import) who is on this list gets their login back, with their real email.</span></span>
+            </label>
+            <label className="flex items-start gap-2 rounded-md border border-line p-2.5 text-sm">
+              <input type="checkbox" name="sendWelcome" className="mt-0.5 accent-navy-900" disabled={!smtpConfigured()} />
+              <span><span className="block font-medium">Send welcome emails</span><span className="block text-xs text-muted">{smtpConfigured() ? "Each new person gets a link to set their password. Leave off to send later." : "Email isn't set up yet. See Settings → Integrations."}</span></span>
+            </label>
+            <SubmitButton pendingText="Importing…">Import users</SubmitButton>
+          </ActionForm>
+        </Drawer>
       )}
 
       {drawerOpen && (

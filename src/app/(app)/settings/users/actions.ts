@@ -159,3 +159,86 @@ export async function bulkUsers(_: FormState, fd: FormData): Promise<FormState> 
   revalidatePath("/settings/users");
   return { ok: true, message };
 }
+
+/**
+ * Settings → Users → Import users: everyone in an employee list (Bitrix "Find employee" export, or any sheet with
+ * name and email) who isn't in AMS yet gets a login. Matched by email, then by name. Old employees (inactive logins,
+ * e.g. made by the Bitrix lead import) found on the list are activated and get their real email.
+ */
+export async function importUsers(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requirePermission("settings.users", "create");
+  const file = fd.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose the employee list (.xlsx or .csv)." };
+  const { readSheetFile } = await import("@/lib/sheet-read");
+  let sheet: Awaited<ReturnType<typeof readSheetFile>>;
+  try { sheet = await readSheetFile(file); } catch { return { error: "Couldn't read that file. Use .xlsx or .csv." }; }
+  const pick = (...names: string[]) => sheet.headers.find((h) => names.includes(h));
+  const col = {
+    name: pick("name", "full name", "employee", "employee name", "user"), first: pick("first name", "firstname"), last: pick("last name", "lastname", "surname"),
+    email: pick("email", "e mail", "work email", "email address"), phone: pick("mobile", "mobile phone", "phone", "work phone", "phone number"),
+    title: pick("position", "job title", "title", "designation"), dept: pick("department", "departments"), branch: pick("branch", "office", "location"),
+  };
+  if (!col.name && !col.first) return { error: `No name column found. Columns in the file: ${sheet.headers.slice(0, 12).join(", ")}.` };
+
+  const roleId = str(fd, "roleId");
+  const role = roleId ? await db.role.findUnique({ where: { id: roleId } }) : null;
+  const welcome = fd.get("sendWelcome") === "on" && smtpConfigured();
+  const [users, branches] = await Promise.all([
+    db.user.findMany({ select: { id: true, name: true, email: true, active: true } }),
+    db.branch.findMany({ where: { active: true }, select: { id: true, name: true } }),
+  ]);
+  const key = (s: string) => s.trim().toLowerCase().replace(/[.\s]+/g, " ").trim();
+  // "BHD" finds "Bahadurabad" (letters in order), "DHA" finds "DHA".
+  const subseq = (short: string, long: string) => { let i = 0; for (const ch of long) if (ch === short[i]) i++; return i === short.length; };
+  const branchFor = (...cells: (string | undefined)[]) => {
+    for (const tok of cells.flatMap((c) => (c ?? "").split(/[,/;|>]+|\s{2,}/)).map((t) => t.trim().toLowerCase()).filter(Boolean)) {
+      const b = branches.find((x) => x.name.toLowerCase() === tok) ?? branches.find((x) => x.name.toLowerCase().includes(tok) && tok.length >= 3) ?? (tok.length <= 4 ? branches.find((x) => subseq(tok, x.name.toLowerCase())) : undefined);
+      if (b) return b.id;
+    }
+    return null;
+  };
+
+  const created: string[] = [], activated: string[] = [], skipped: string[] = [], problems: string[] = [];
+  for (const r of sheet.rows) {
+    const get = (c?: string) => (c ? String(r[c] ?? "").trim() : "");
+    // Bitrix exports "Name" (first name) and "Last name" separately: join them unless Name already holds both.
+    const first = get(col.first) || get(col.name), last = get(col.last);
+    const name = (last && !first.toLowerCase().endsWith(last.toLowerCase()) ? `${first} ${last}` : first || last).replace(/\s+/g, " ").trim().slice(0, 120);
+    if (!name) continue;
+    const email = get(col.email).toLowerCase().replace(/^mailto:/, "");
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const existing = (validEmail && users.find((u) => u.email.toLowerCase() === email)) || users.find((u) => key(u.name) === key(name));
+    if (existing) {
+      if (!existing.active && fd.get("activateOld") === "on") {
+        const emailFree = validEmail && !users.some((u) => u.id !== existing.id && u.email.toLowerCase() === email);
+        await db.user.update({ where: { id: existing.id }, data: { active: true, ...(emailFree && existing.email.endsWith(".local") && { email }) } });
+        existing.active = true;
+        activated.push(name);
+      } else skipped.push(name);
+      continue;
+    }
+    if (!validEmail) { problems.push(`${name}: no email`); continue; }
+    const u = await db.user.create({
+      data: {
+        name, email, phone: get(col.phone) || null, title: get(col.title) || null, branchId: branchFor(get(col.branch), get(col.dept)), active: true,
+        passwordHash: await hashPassword(randomBytes(24).toString("base64url")),
+        ...(role && { roles: { create: [{ roleId: role.id }] } }),
+      },
+    });
+    users.push({ id: u.id, name, email, active: true });
+    if (welcome) await sendLoginEmail(u, actor.id);
+    created.push(name);
+  }
+  await audit(actor.id, "create", "user", null, `Imported users from ${file.name}: ${created.length} added, ${activated.length} activated, ${skipped.length} already there`);
+  revalidatePath("/settings/users");
+  const list = (a: string[]) => `${a.slice(0, 12).join(", ")}${a.length > 12 ? "…" : ""}`;
+  return {
+    ok: true,
+    message: [
+      `${created.length} added${created.length ? ` (${list(created)})` : ""}`,
+      activated.length ? `${activated.length} old employee(s) activated (${list(activated)})` : "",
+      `${skipped.length} already in AMS`,
+      problems.length ? `not added: ${list(problems)}` : "",
+    ].filter(Boolean).join(" · ") + (created.length && !welcome ? ". No emails were sent; use “Send login email” when you're ready." : "."),
+  };
+}
