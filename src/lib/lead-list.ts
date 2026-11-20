@@ -14,6 +14,9 @@ import { maskEmail, maskPhone, shown } from "./field-defs";
 import { telHref, waHref } from "./crm-shared";
 
 export const LEAD_PAGE_SIZE = 50;
+/** "Records" choices at the bottom of the list. */
+export const LEAD_PAGE_SIZES = [10, 20, 50, 100, 200, 500] as const;
+export const leadPageSize = (v: unknown) => (LEAD_PAGE_SIZES as readonly number[]).includes(Number(v)) ? Number(v) : LEAD_PAGE_SIZE;
 
 export type LeadRow = {
   id: string;
@@ -60,6 +63,8 @@ export type LeadListData = {
   rows: LeadRow[];
   total: number;
   page: number;
+  /** Rows per page (Records). */
+  size: number;
   counters: { overdue: number; today: number; none: number };
 };
 
@@ -81,7 +86,8 @@ function leadOrderBy(sort?: string): Prisma.LeadOrderByWithRelationInput[] {
   return key === "created" ? [by.created!, { id: d }] : [by[key]!, { createdAt: "desc" }];
 }
 
-export async function loadLeadList(user: SessionUser, filters: LeadFilters, view: "list" | "board", page: number): Promise<LeadListData> {
+export async function loadLeadList(user: SessionUser, filters: LeadFilters, view: "list" | "board", page: number, pageSize: number = LEAD_PAGE_SIZE): Promise<LeadListData> {
+  const size = leadPageSize(pageSize);
   // Stages are cached (cleared when a stage is edited); the user's scope and field rules load alongside.
   const [statuses, scope, canEditRow, fields] = await Promise.all([
     memo("leadStatus:list", 5 * 60_000, () => db.leadStatus.findMany({ where: { active: true }, select: { id: true, kind: true, sortOrder: true }, orderBy: { sortOrder: "asc" } })),
@@ -97,8 +103,8 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
       where,
       include: { source: { select: { name: true } }, project: { select: { name: true } }, owner: { select: { name: true } }, createdBy: { select: { name: true } } },
       orderBy: leadOrderBy(filters.sort),
-      skip: view === "list" ? (page - 1) * LEAD_PAGE_SIZE : 0,
-      take: view === "list" ? LEAD_PAGE_SIZE : 500,
+      skip: view === "list" ? (page - 1) * size : 0,
+      take: view === "list" ? size : 500,
     }),
     db.lead.count({ where }),
     db.lead.count({ where: { ...openWhere, activities: { some: { doneAt: null, dueAt: { lt: new Date() } } } } }),
@@ -127,6 +133,7 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
   return {
     total,
     page,
+    size,
     counters: { overdue, today: dueToday, none },
     rows: leads.map((l) => ({
       id: l.id,

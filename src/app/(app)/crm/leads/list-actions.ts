@@ -10,10 +10,10 @@ import { createActivity } from "@/lib/activity-ops";
 import type { LeadFilters } from "@/lib/lead-filters";
 import type { FormState } from "@/lib/utils";
 
-export async function fetchLeadList(query: string, view: "list" | "board", page: number): Promise<LeadListData> {
+export async function fetchLeadList(query: string, view: "list" | "board", page: number, size?: number): Promise<LeadListData> {
   const user = await requirePermission("crm.leads");
   const filters = Object.fromEntries(new URLSearchParams(query)) as LeadFilters;
-  return loadLeadList(user, filters, view === "board" ? "board" : "list", Math.max(1, Math.floor(page) || 1));
+  return loadLeadList(user, filters, view === "board" ? "board" : "list", Math.max(1, Math.floor(page) || 1), size);
 }
 
 export async function changeLeadStage(id: string, statusId: string): Promise<{ error?: string }> {

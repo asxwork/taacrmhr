@@ -32,7 +32,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     assignableUsers(user, "crm.leads"),
     db.savedFilter.findMany({ where: { module: "crm.leads", OR: [{ userId: user.id }, { shared: true }] }, orderBy: [{ folder: "asc" }, { name: "asc" }] }),
     db.automation.findMany({ where: { active: true, entity: "lead" }, orderBy: { name: "asc" } }),
-    loadLeadList(user, filters, view, page),
+    loadLeadList(user, filters, view, page, Number(sp.size) || undefined),
     db.branch.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   const newStage = statuses.find((x) => x.systemKey === "new");

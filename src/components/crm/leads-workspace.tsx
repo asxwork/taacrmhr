@@ -31,6 +31,7 @@ type Menu = { kind: "stage" | "activity"; row: LeadRow; top: number; left: numbe
 type Dialog = { kind: "task" } | { kind: "automation"; id: string } | null;
 
 const PAGE_SIZE = 50;
+const PAGE_SIZES = [10, 20, 50, 100, 200, 500] as const;
 // A download, not a page: plain <a>, built so the "use Link" lint rule leaves it alone.
 const FULL_BACKUP_HREF = ["/api/export/leads-full", "everything=1"].join("?");
 const ON_HOLD_HINT = "On-hold is set automatically when a new lead isn't worked in time.";
@@ -91,16 +92,33 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
   }, [toast]);
 
   /** Fetches rows for the given state and mirrors it in the address bar (refresh/back/share keep working). */
-  const load = useCallback((f: LeadFilters, v: View, page: number) => {
+  // Rows per page ("Records"): kept with the data, remembered on this device.
+  const sizeRef = useRef(initial.size);
+  const load = useCallback((f: LeadFilters, v: View, page: number, size: number = sizeRef.current) => {
+    sizeRef.current = size;
     const p = queryOf(f);
     if (v === "board") p.set("view", "board");
     if (page > 1) p.set("page", String(page));
+    if (size !== 50) p.set("size", String(size));
     window.history.replaceState(null, "", `/crm/leads${p.size ? `?${p}` : ""}`);
     const id = ++request.current;
     startLoading(async () => {
-      const next = await fetchLeadList(queryOf(f).toString(), v, page);
+      const next = await fetchLeadList(queryOf(f).toString(), v, page, size);
       if (id === request.current) setData(next);
     });
+  }, []);
+  const setPageSize = (size: number) => {
+    try { localStorage.setItem("leads:size", String(size)); } catch { /* private mode */ }
+    setSelected(new Set());
+    load(filters, view, 1, size);
+  };
+  // Opened without ?size=: use the number this person picked last time.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("size")) return;
+    let saved = 0;
+    try { saved = Number(localStorage.getItem("leads:size")); } catch { /* private mode */ }
+    if (PAGE_SIZES.includes(saved as (typeof PAGE_SIZES)[number]) && saved !== initial.size) load(initialFilters, initialView, 1, saved);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const applyFilters = (input: LeadFilters) => {
@@ -181,7 +199,17 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
     for (const [k, v] of Object.entries(extra ?? {})) p.set(k, v);
     return `${path}${p.size ? `?${p}` : ""}`;
   };
-  const pages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
+  const pageSize = data.size || PAGE_SIZE;
+  const pages = Math.max(1, Math.ceil(data.total / pageSize));
+  // Page numbers around the current one: 1 … 4 5 [6] 7 8 … 40
+  const pageList = (() => {
+    const out: (number | "…")[] = [];
+    for (let n = 1; n <= pages; n++) {
+      if (n === 1 || n === pages || Math.abs(n - data.page) <= 2) out.push(n);
+      else if (out[out.length - 1] !== "…") out.push("…");
+    }
+    return out;
+  })();
   const openMenu = (kind: "stage" | "activity", row: LeadRow, el: HTMLElement) => {
     const r = el.getBoundingClientRect();
     setMenu({ kind, row, top: Math.min(r.bottom + 4, window.innerHeight - 340), left: Math.min(r.left, window.innerWidth - 300) });
@@ -433,15 +461,26 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                 </table>
               </div>
             </>)}
-            <div className="flex items-center justify-between border-t border-line px-4 py-3 text-xs text-muted sm:border-t-0">
-              <span>{data.total ? `${(data.page - 1) * PAGE_SIZE + 1}–${Math.min(data.page * PAGE_SIZE, data.total)} of ${data.total}` : "0 records"}</span>
-              {pages > 1 && (
-                <div className="flex items-center gap-1">
-                  <button type="button" disabled={data.page <= 1} onClick={() => load(filters, view, data.page - 1)} className="rounded p-1 hover:bg-canvas hover:text-ink disabled:opacity-30" aria-label="Previous page"><ChevronLeft className="size-4" /></button>
-                  <span className="px-1">{data.page} / {pages}</span>
-                  <button type="button" disabled={data.page >= pages} onClick={() => load(filters, view, data.page + 1)} className="rounded p-1 hover:bg-canvas hover:text-ink disabled:opacity-30" aria-label="Next page"><ChevronRight className="size-4" /></button>
-                </div>
-              )}
+            {/* Bottom bar (like Bitrix): selected / total for the current filters, pages, and how many rows a page shows. */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line px-4 py-3 text-xs uppercase tracking-wide text-muted">
+              <span>Selected: <b className="tabular-nums text-ink">{count.toLocaleString()}</b> / <span className="tabular-nums">{data.rows.length}</span></span>
+              <span title="All leads matching the current filters">Total: <b className="tabular-nums text-ink">{data.total.toLocaleString()}</b></span>
+              <nav aria-label="Pages" className="flex flex-wrap items-center gap-1 normal-case tracking-normal sm:mx-auto">
+                <span className="mr-1 uppercase tracking-wide">Pages:</span>
+                {pages > 1 && data.page > 1 && <button type="button" onClick={() => load(filters, view, 1)} className="rounded px-1.5 py-0.5 font-medium text-sky-700 hover:bg-canvas">First</button>}
+                {pages > 1 && data.page > 1 && <button type="button" onClick={() => load(filters, view, data.page - 1)} className="rounded px-1.5 py-0.5 font-medium text-sky-700 hover:bg-canvas" aria-label="Previous page"><ChevronLeft className="size-3.5" /></button>}
+                {pageList.map((n, i) => n === "…" ? <span key={`g${i}`} className="px-1">…</span> : (
+                  <button key={n} type="button" onClick={() => n !== data.page && load(filters, view, n)} aria-current={n === data.page ? "page" : undefined}
+                    className={cn("min-w-6 rounded px-1.5 py-0.5 tabular-nums", n === data.page ? "bg-navy-900 font-semibold text-white" : "text-sky-700 hover:bg-canvas")}>{n}</button>
+                ))}
+                {data.page < pages && <button type="button" onClick={() => load(filters, view, data.page + 1)} className="rounded px-1.5 py-0.5 font-medium uppercase text-sky-700 hover:bg-canvas">Next</button>}
+                {data.page < pages && <button type="button" onClick={() => load(filters, view, pages)} className="rounded px-1.5 py-0.5 font-medium uppercase text-sky-700 hover:bg-canvas">Last</button>}
+              </nav>
+              <label className="flex items-center gap-2">Records:
+                <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} aria-label="Records per page" className="input h-8 w-20 py-0 text-xs normal-case">
+                  {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
             </div>
           </div>
         )}
