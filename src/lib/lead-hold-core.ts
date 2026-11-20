@@ -3,13 +3,15 @@
 import type { PrismaClient } from "@prisma/client";
 import { memo } from "./memo";
 
-export type HoldConfig = { enabled: boolean; toHoldHours: number; reassignHours: number; holdingUserId: string | null };
+export type HoldConfig = { enabled: boolean; toHoldHours: number; reassignHours: number; holdingUserId: string | null; since: Date | null };
 
 export const HOLD_KEYS = {
   enabled: "crm.hold.enabled",
   toHoldHours: "crm.hold.toHoldHours",
   reassignHours: "crm.hold.reassignHours",
   holdingUserId: "crm.hold.userId",
+  /** Only time after this counts (set by imports and "delete all leads"), so imported history never trips the rules. */
+  since: "crm.hold.since",
 } as const;
 
 export function holdConfig(client: PrismaClient): Promise<HoldConfig> {
@@ -22,8 +24,14 @@ export function holdConfig(client: PrismaClient): Promise<HoldConfig> {
       toHoldHours: hours(HOLD_KEYS.toHoldHours, 24),
       reassignHours: hours(HOLD_KEYS.reassignHours, 12),
       holdingUserId: get(HOLD_KEYS.holdingUserId) || null,
+      since: get(HOLD_KEYS.since) ? new Date(get(HOLD_KEYS.since)!) : null,
     };
   });
+}
+
+/** Restart the on-hold clock now: leads already in AMS are judged only on what happens from here on. */
+export async function restartHoldClock(client: PrismaClient, at = new Date()) {
+  await client.setting.upsert({ where: { key: HOLD_KEYS.since }, update: { value: at.toISOString() }, create: { key: HOLD_KEYS.since, value: at.toISOString() } });
 }
 
 /** Ids of the New Request ("new") and On-hold ("onhold") stages. Cached until a stage is written. */

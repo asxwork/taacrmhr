@@ -6,6 +6,7 @@ import ExcelJS from "exceljs";
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { phoneKey } from "./crm-shared";
+import { restartHoldClock } from "./lead-hold-core";
 import { unitLabel } from "./inventory";
 
 const LEAD_COLUMNS = [
@@ -113,6 +114,7 @@ export async function importLeadsWorkbook(data: ArrayBuffer, actorId: string) {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(data);
   const leadRows = readSheet(wb.getWorksheet("Leads") ?? wb.worksheets[0]).slice(0, 50000);
+  await restartHoldClock(db); // restored leads keep their dates: don't let the on-hold rules act on them at once
   const actRows = readSheet(wb.getWorksheet("Activities")).slice(0, 100000);
   if (!leadRows.length) return { error: "No leads found. Use a file exported from here (sheet “Leads”)." };
 

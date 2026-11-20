@@ -6,9 +6,9 @@
 import { db } from "./db";
 import { logSystem } from "./crm";
 import { notify } from "./notify";
-import { holdConfig, systemStatuses } from "./lead-hold-core";
+import { holdConfig, restartHoldClock, systemStatuses } from "./lead-hold-core";
 
-export { holdConfig, systemStatuses, HOLD_KEYS } from "./lead-hold-core";
+export { holdConfig, systemStatuses, HOLD_KEYS, restartHoldClock } from "./lead-hold-core";
 
 const HOUR = 3_600_000;
 
@@ -35,6 +35,8 @@ export async function runHoldRules(now = new Date()) {
   try {
     const [cfg, { newId, onHoldId }] = await Promise.all([holdConfig(db), systemStatuses(db)]);
     if (!cfg.enabled || !newId || !onHoldId) return result;
+    // No starting point yet (sites from before it existed): start the clock now instead of judging every lead's history.
+    if (!cfg.since) { await restartHoldClock(db, now); return result; }
     const notHolding = cfg.holdingUserId ? { not: null, notIn: [cfg.holdingUserId] } : { not: null };
 
     // 1. New Request too long after assignment → On-hold.
@@ -46,6 +48,8 @@ export async function runHoldRules(now = new Date()) {
         AND: [
           { OR: [{ assignedAt: { lt: holdCut } }, { assignedAt: null, createdAt: { lt: holdCut } }] },
           { OR: [{ statusChangedAt: { lt: holdCut } }, { statusChangedAt: null }] },
+          // Only leads assigned since the clock was (re)started: imported leads keep their old dates and are left alone.
+          ...(cfg.since ? [{ OR: [{ assignedAt: { gte: cfg.since } }, { assignedAt: null, createdAt: { gte: cfg.since } }] }] : []),
         ],
       },
       select: { id: true, name: true, ownerId: true },
@@ -64,7 +68,12 @@ export async function runHoldRules(now = new Date()) {
     if (!holding) return result;
     const reassignCut = new Date(now.getTime() - cfg.reassignHours * HOUR);
     const parked = await db.lead.findMany({
-      where: { statusId: onHoldId, ownerId: notHolding, OR: [{ statusChangedAt: { lt: reassignCut } }, { statusChangedAt: null, updatedAt: { lt: reassignCut } }] },
+      where: {
+        statusId: onHoldId, ownerId: notHolding,
+        OR: [{ statusChangedAt: { lt: reassignCut } }, { statusChangedAt: null, updatedAt: { lt: reassignCut } }],
+        // Only leads put on hold in AMS since the clock was (re)started (imported "On-hold" leads stay with their owner).
+        ...(cfg.since && { statusChangedAt: { gte: cfg.since, lt: reassignCut } }),
+      },
       select: { id: true, name: true, ownerId: true, owner: { select: { name: true } }, branchId: true, location: true, projectId: true },
       take: 200,
     });

@@ -6,6 +6,7 @@ import Papa from "papaparse";
 import { db } from "./db";
 import { BITRIX_STAGE_COLORS, phoneKey } from "./crm-shared";
 import { hashPassword } from "./auth";
+import { restartHoldClock } from "./lead-hold-core";
 
 type Row = Record<string, string>;
 export type BitrixFiles = { leads: Row[]; activities: Row[]; history: Row[]; ignored: string[] };
@@ -127,6 +128,8 @@ export async function analyzeBitrix(f: BitrixFiles) {
  */
 export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; userId: string; owners?: Record<string, string> }) {
   const t0 = Date.now();
+  // Imported leads carry Bitrix's old dates: restart the on-hold clock so they aren't put on hold / handed over at once.
+  await restartHoldClock(db);
   let deleted = 0;
   if (opts.deleteDemo) deleted = (await db.lead.deleteMany({ where: { bitrixId: null } })).count;
 

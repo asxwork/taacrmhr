@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { db } from "./db";
 import { UPLOAD_ROOT } from "./files";
 import { exportLeadsWorkbook } from "./lead-backup";
+import { restartHoldClock } from "./lead-hold-core";
 
 export const LEAD_BACKUP_DIR = path.join(UPLOAD_ROOT, "lead-backups");
 
@@ -24,6 +25,7 @@ export async function backupAndDeleteAllLeads() {
     if (!ids.length) break;
     deleted += (await db.lead.deleteMany({ where: { id: { in: ids } } })).count;
   }
+  await restartHoldClock(db);
   return { deleted, backup: name };
 }
 
