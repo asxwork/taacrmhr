@@ -9,6 +9,7 @@ import { Avatar, Badge, Card, Drawer, EmptyState, Field, LinkButton, PageHeader 
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { smtpConfigured } from "@/lib/mail";
 import { resendLoginEmail, saveUser } from "./actions";
+import { SelectAllUsers, UserTick, UsersBulkBar } from "./bulk-bar";
 
 export const metadata = { title: "Users" };
 
@@ -41,6 +42,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
   const canSeeProfiles = can(actor, "hr.employees");
   const editingEmployee = editing ? await db.employee.findUnique({ where: { userId: editing.id }, select: { id: true } }) : null;
   const managerIds = await managerUserIds(); // "Reports to": only admin / HR / supervisor / manager access
+  const canBulk = can(actor, "settings.users", "edit") && !actor.viewAs;
   return (
     <>
       <PageHeader
@@ -83,6 +85,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
             <table className="w-full">
               <thead className="border-b border-line bg-canvas/60">
                 <tr>
+                  {canBulk && <th className="th w-10"><SelectAllUsers /></th>}
                   <th className="th">Name</th>
                   <th className="th">Roles</th>
                   <th className="th">Branch</th>
@@ -93,7 +96,8 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
               </thead>
               <tbody className="divide-y divide-line">
                 {users.map((u) => (
-                  <tr key={u.id} className={u.active ? "hover:bg-canvas/60" : "opacity-50"}>
+                  <tr key={u.id} className={u.active ? "hover:bg-canvas/60" : "bg-canvas/40 text-muted"}>
+                    {canBulk && <td className="td w-10">{(actor.isSuperAdmin || !u.isSuperAdmin) && <UserTick id={u.id} name={u.name} />}</td>}
                     <td className="td">
                       {/* In Settings the row edits the account; the profile is its own link under the name. */}
                       <div className="flex items-center gap-3">
@@ -127,6 +131,10 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
           </div>
         )}
       </Card>
+      {canBulk && users.length > 0 && (
+        <UsersBulkBar roles={roles.map((r) => ({ id: r.id, name: r.name }))} branches={branches.map((b) => ({ id: b.id, name: b.name }))}
+          managers={users.filter((u) => u.active && managerIds.has(u.id)).map((u) => ({ id: u.id, name: u.name }))} />
+      )}
 
       {drawerOpen && (
         <Drawer title={editing ? `Edit ${editing.name}` : "New user"} closeHref={closeHref}>

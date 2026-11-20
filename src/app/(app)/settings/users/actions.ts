@@ -103,3 +103,59 @@ export async function resendLoginEmail(_: FormState, fd: FormData): Promise<Form
   await audit(actor.id, "update", "user", user.id, `Sent login email to ${user.email} (${res.status})`);
   return res.status === "sent" ? { ok: true, message: `Email sent to ${user.email}.` } : { error: `Couldn't send it: ${res.error}` };
 }
+
+/**
+ * Settings → Users bulk bar: one change for every ticked user. You can't deactivate yourself, and roles limited to
+ * N people (e.g. Boss) are never over-filled.
+ */
+export async function bulkUsers(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requirePermission("settings.users", "edit");
+  const ids = [...new Set(fd.getAll("ids").map(String).filter(Boolean))];
+  if (!ids.length) return { error: "Tick at least one user." };
+  const op = str(fd, "op");
+  const value = str(fd, "value");
+  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, email: true, active: true, isSuperAdmin: true, roles: { select: { roleId: true } } } });
+  // Only a Super Admin changes other Super Admins.
+  const targets = users.filter((u) => actor.isSuperAdmin || !u.isSuperAdmin);
+  if (!targets.length) return { error: "Only a Super Admin can change Super Admin accounts." };
+  const tIds = targets.map((u) => u.id);
+  let message = "";
+
+  if (op === "addRole" || op === "setRole") {
+    const role = await db.role.findUnique({ where: { id: value }, include: { users: { select: { userId: true } } } });
+    if (!role) return { error: "Choose a role." };
+    const gaining = tIds.filter((id) => !role.users.some((r) => r.userId === id));
+    if (role.maxUsers != null && role.users.length + gaining.length > role.maxUsers) return { error: `Only ${role.maxUsers === 1 ? "one person" : `${role.maxUsers} people`} can have the ${role.name} role.` };
+    if (op === "setRole") await db.userRole.deleteMany({ where: { userId: { in: tIds }, roleId: { not: role.id } } });
+    if (gaining.length) await db.userRole.createMany({ data: gaining.map((userId) => ({ userId, roleId: role.id })) });
+    message = op === "setRole" ? `${targets.length} user(s) now have only the ${role.name} role.` : `${role.name} added to ${gaining.length} user(s)${gaining.length < targets.length ? ` (${targets.length - gaining.length} already had it)` : ""}.`;
+  } else if (op === "removeRole") {
+    const role = await db.role.findUnique({ where: { id: value } });
+    if (!role) return { error: "Choose a role." };
+    const n = (await db.userRole.deleteMany({ where: { userId: { in: tIds }, roleId: role.id } })).count;
+    message = `${role.name} removed from ${n} user(s).`;
+  } else if (op === "branch") {
+    if (value && !(await db.branch.findUnique({ where: { id: value } }))) return { error: "Choose a branch." };
+    await db.user.updateMany({ where: { id: { in: tIds } }, data: { branchId: value || null } });
+    message = `Branch set for ${targets.length} user(s).`;
+  } else if (op === "manager") {
+    const pool = tIds.filter((id) => id !== value);
+    if (value && !(await db.user.findFirst({ where: { id: value, active: true } }))) return { error: "Choose who they report to." };
+    await db.user.updateMany({ where: { id: { in: pool } }, data: { managerId: value || null } });
+    message = `"Reports to" set for ${pool.length} user(s)${pool.length < tIds.length ? " (nobody reports to themselves)" : ""}.`;
+  } else if (op === "activate" || op === "deactivate") {
+    const pool = op === "deactivate" ? tIds.filter((id) => id !== actor.id) : tIds;
+    await db.user.updateMany({ where: { id: { in: pool } }, data: { active: op === "activate" } });
+    if (op === "deactivate") await db.session.deleteMany({ where: { userId: { in: pool } } });
+    message = `${pool.length} user(s) ${op === "activate" ? "activated" : "deactivated and signed out"}${pool.length < tIds.length ? " (not you)" : ""}.`;
+  } else if (op === "loginEmail") {
+    if (!smtpConfigured()) return { error: "Email isn't set up yet. See Settings → Integrations." };
+    let sent = 0;
+    for (const u of await db.user.findMany({ where: { id: { in: tIds }, active: true } })) if ((await sendLoginEmail(u, actor.id)).status === "sent") sent++;
+    message = `Login email sent to ${sent} of ${targets.length} user(s)${sent < targets.length ? " (inactive users and failed sends were skipped)" : ""}.`;
+  } else return { error: "Choose what to do." };
+
+  await audit(actor.id, "update", "user", null, `Bulk ${op} on ${targets.length} user(s): ${targets.map((u) => u.name).slice(0, 20).join(", ")}`);
+  revalidatePath("/settings/users");
+  return { ok: true, message };
+}
