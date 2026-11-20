@@ -56,7 +56,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
   stages: LeadStage[];
   assignees: Opt[];
   automations: AutomationOption[];
-  perms: { canCreate: boolean; canEdit: boolean; canDelete: boolean; canExport: boolean; canAssign: boolean; canAddActivity: boolean; canBulk: boolean; canImport: boolean; isSuperAdmin: boolean };
+  perms: { canCreate: boolean; canEdit: boolean; canDelete: boolean; canExport: boolean; canAssign: boolean; canAddActivity: boolean; canBulk: boolean; canImport: boolean; isSuperAdmin: boolean; canMerge?: boolean; canConfigure?: boolean; canRoles?: boolean };
 }) {
   const [filters, setFilters] = useState<LeadFilters>(initialFilters);
   const [view, setView] = useState<View>(initialView);
@@ -247,6 +247,41 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                 <span className="block text-xs text-muted">Simple spreadsheet of this list.</span>
               </a>
             </div>
+          </details>
+        )}
+        {(perms.canImport || perms.canExport || perms.canMerge || perms.canConfigure || perms.canRoles) && (
+          // CRM settings (like Bitrix's gear): import, export, duplicates and setup, each only for people who may use it.
+          <details className="group relative">
+            <summary className="flex size-10 cursor-pointer list-none items-center justify-center rounded-lg border border-line bg-surface shadow-xs hover:bg-canvas [&::-webkit-details-marker]:hidden" title="CRM settings" aria-label="CRM settings">
+              <Settings className="size-4" />
+            </summary>
+            <nav className="anim-fade absolute right-0 top-12 z-30 w-64 divide-y divide-line rounded-xl border border-line bg-surface py-1 text-sm shadow-xl" aria-label="CRM settings">
+              {(perms.canImport || perms.isSuperAdmin) && (
+                <div className="py-1">
+                  {perms.canImport && <Link href={exportHref("/crm/leads", { import: "1" })} scroll={false} className="block px-4 py-2 hover:bg-canvas">Import leads</Link>}
+                  {perms.isSuperAdmin && <Link href="/settings/bitrix-import" className="block px-4 py-2 hover:bg-canvas">Migrate from Bitrix</Link>}
+                </div>
+              )}
+              {perms.canExport && (
+                <div className="py-1">
+                  <a href={exportHref("/api/export/leads-full")} className="block px-4 py-2 hover:bg-canvas">Export leads to Excel</a>
+                  <a href={exportHref("/api/export/leads")} className="block px-4 py-2 hover:bg-canvas">Export leads to CSV</a>
+                </div>
+              )}
+              {perms.canMerge && (
+                <div className="py-1">
+                  <Link href="/crm/duplicates" className="block px-4 py-2 hover:bg-canvas">Find and merge duplicates</Link>
+                </div>
+              )}
+              {(perms.canConfigure || perms.canRoles) && (
+                <div className="py-1">
+                  {perms.canConfigure && <Link href="/settings/crm#lead-statuses" className="block px-4 py-2 hover:bg-canvas">Configure stages</Link>}
+                  {perms.canConfigure && <Link href="/settings/crm#lead-sources" className="block px-4 py-2 hover:bg-canvas">Lead sources</Link>}
+                  {perms.canConfigure && <Link href="/settings/crm#deal-inventory-types" className="block px-4 py-2 hover:bg-canvas">Deal &amp; inventory types</Link>}
+                  {perms.canRoles && <Link href="/settings/roles" className="block px-4 py-2 hover:bg-canvas">Access permissions</Link>}
+                </div>
+              )}
+            </nav>
           </details>
         )}
       </div>

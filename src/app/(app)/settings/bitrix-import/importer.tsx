@@ -27,7 +27,10 @@ export function BitrixImporter() {
             </li>
           )}
         </ul>
-        <Link href="/crm/leads" className="mt-4 inline-block font-medium text-navy-900 hover:underline">Open Leads →</Link>
+        <div className="mt-4 flex flex-wrap gap-4">
+          <Link href="/crm/leads" className="font-medium text-navy-900 hover:underline">Open Leads →</Link>
+          <Link href="/crm/duplicates" className="font-medium text-navy-900 hover:underline">Check for duplicate leads →</Link>
+        </div>
       </Card>
     );
   }

@@ -105,7 +105,8 @@ export function StageBar({
   after?: React.ReactNode;
 }) {
   const currentIndex = steps.findIndex((s) => s.id === currentId);
-  const activeColor = color(steps[currentIndex]?.color ?? "slate").bar;
+  // Reached stages fill with the current stage's colour; the rest are grey with their own colour as an underline.
+  const active = color(steps[currentIndex]?.color ?? "slate");
   return (
     <form action={action} className="flex overflow-x-auto rounded-lg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {Object.entries(hidden).map(([k, v]) => (
@@ -127,7 +128,7 @@ export function StageBar({
               i === 0 ? "rounded-l-lg [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%)]"
                 : i === steps.length - 1 && !after ? "-ml-1 rounded-r-lg [clip-path:polygon(0_0,100%_0,100%_100%,0_100%,8px_50%)]"
                 : "-ml-1 [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%,8px_50%)]",
-              reached ? cn(activeColor, "text-white") : "bg-black/5 text-muted enabled:hover:bg-black/10 enabled:hover:text-ink",
+              reached ? cn(active.bar, active.on) : cn("border-b-[3px] bg-black/5 text-ink/70 enabled:hover:bg-black/10 enabled:hover:text-ink", color(s.color).line),
             )}
           >
             {s.name}

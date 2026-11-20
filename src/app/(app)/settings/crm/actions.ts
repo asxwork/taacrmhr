@@ -154,3 +154,25 @@ export async function saveDealTypes(_: FormState, fd: FormData): Promise<FormSta
   revalidatePath("/settings/crm");
   return { ok: true, message: `Saved ${types.length} types.` };
 }
+
+/** Settings → CRM → Lead statuses → "Use Bitrix colours": each stage gets Bitrix's colour by its name; optionally Bitrix's order too. */
+export async function applyBitrixStageColors(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("settings.company", "edit");
+  const { BITRIX_STAGE_COLORS } = await import("@/lib/crm-shared");
+  const ORDER = ["new request", "in progress", "appointment", "site visit", "not answered", "not valid", "follow-up cycle", "follow up cycle", "follow-up", "on-hold", "on hold", "finalizing", "not interested", "complete lead"];
+  const statuses = await db.leadStatus.findMany({ orderBy: { sortOrder: "asc" } });
+  const reorder = fd.get("order") === "on";
+  let colored = 0;
+  const known = statuses.filter((s) => ORDER.includes(s.name.trim().toLowerCase())).sort((a, b) => ORDER.indexOf(a.name.trim().toLowerCase()) - ORDER.indexOf(b.name.trim().toLowerCase()));
+  for (const s of statuses) {
+    const c = BITRIX_STAGE_COLORS[s.name.trim().toLowerCase()];
+    const pos = known.indexOf(s);
+    const data = { ...(c && c !== s.color && { color: c }), ...(reorder && pos >= 0 && { sortOrder: (pos + 1) * 10 }) };
+    if (Object.keys(data).length) { await db.leadStatus.update({ where: { id: s.id }, data }); if (c && c !== s.color) colored++; }
+  }
+  // Stages Bitrix doesn't have go after Bitrix's ones, in their current order.
+  if (reorder) { let n = (known.length + 1) * 10; for (const s of statuses.filter((x) => !known.includes(x))) await db.leadStatus.update({ where: { id: s.id }, data: { sortOrder: n += 10 } }); }
+  await audit(user.id, "update", "settings", null, `Lead stages: Bitrix colours${reorder ? " and order" : ""}`);
+  revalidatePath("/settings/crm"); revalidatePath("/crm/leads");
+  return { ok: true, message: `${colored} stage colour(s) changed${reorder ? ", stages put in Bitrix's order" : ""}.` };
+}

@@ -1,44 +1,43 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requirePermission, scopeMatcher } from "@/lib/permissions";
+import { requirePermission, scopeWhere } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
+import { bestOf, duplicateGroups, mergeLeadGroup } from "@/lib/lead-merge";
 import { str, type FormState } from "@/lib/utils";
 
-const FILL = ["email", "phone2", "sourceId", "campaign", "sourceInfo", "projectId", "unitId", "interest", "propertyType", "location", "budgetMin", "budgetMax", "contactId", "ownerId", "branchId"] as const;
-
-/** Merges duplicate leads into the one kept: history, deals and matches move over, blanks are filled, the rest are deleted. */
+/** Merges one group into the lead picked to keep. */
 export async function mergeLeads(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requirePermission("crm.merge", "edit");
-  const keepId = str(fd, "keep");
-  const ids = [...new Set(fd.getAll("ids").map(String))];
-  if (!keepId || ids.length < 2 || !ids.includes(keepId)) return { error: "Pick the lead to keep." };
-  const leads = await db.lead.findMany({ where: { id: { in: ids } } });
-  if (leads.length !== ids.length) return { error: "Some of these leads no longer exist — refresh the page." };
-  const allowed = await scopeMatcher(user, "crm.merge", "edit");
-  if (!leads.every(allowed)) return { error: "You can only merge leads you're allowed to edit." };
-  const keep = leads.find((l) => l.id === keepId)!;
-  const others = leads.filter((l) => l.id !== keepId).sort((a, b) => +a.createdAt - +b.createdAt);
-  const otherIds = others.map((o) => o.id);
-
-  const fill: Record<string, unknown> = {};
-  for (const k of FILL) if (keep[k] == null) { const v = others.find((o) => o[k] != null)?.[k]; if (v != null) fill[k] = v; }
-  const notes = [keep.notes, ...others.map((o) => o.notes && `From lead #${o.number ?? o.id.slice(-5)}: ${o.notes}`)].filter(Boolean).join("\n\n") || null;
-  const lastActivityAt = [keep, ...others].map((l) => l.lastActivityAt).filter(Boolean).sort((a, b) => +b! - +a!)[0] ?? null;
-
-  const taken = new Set((await db.propertyMatch.findMany({ where: { leadId: keepId }, select: { unitId: true } })).map((m) => m.unitId));
-  await db.$transaction([
-    db.activity.updateMany({ where: { leadId: { in: otherIds } }, data: { leadId: keepId } }),
-    db.deal.updateMany({ where: { leadId: { in: otherIds } }, data: { leadId: keepId } }),
-    db.propertyMatch.deleteMany({ where: { leadId: { in: otherIds }, unitId: { in: [...taken] } } }),
-    db.propertyMatch.updateMany({ where: { leadId: { in: otherIds } }, data: { leadId: keepId } }),
-    db.lead.update({ where: { id: keepId }, data: { ...fill, notes, lastActivityAt, ...(others.some((o) => o.convertedAt) && !keep.convertedAt ? { convertedAt: others.find((o) => o.convertedAt)!.convertedAt } : {}) } }),
-    db.activity.create({ data: { type: "note", subject: `Merged ${others.length} duplicate lead(s) into this one`, body: others.map((o) => `#${o.number ?? "—"} ${o.name} (created ${o.createdAt.toISOString().slice(0, 10)})`).join("\n"), leadId: keepId, ownerId: user.id, createdById: user.id, doneAt: new Date(), branchId: keep.branchId } }),
-    db.lead.deleteMany({ where: { id: { in: otherIds } } }),
-  ]);
-  await audit(user.id, "update", "lead", keepId, `Merged ${others.map((o) => `#${o.number ?? o.id}`).join(", ")} into #${keep.number ?? keepId}`);
+  const r = await mergeLeadGroup(user, str(fd, "keep"), [...new Set(fd.getAll("ids").map(String))]);
+  if (r.error) return { error: r.error };
   revalidatePath("/crm/duplicates");
-  revalidatePath(`/crm/leads/${keepId}`);
-  return { ok: true, message: `Merged into ${keep.name}.` };
+  revalidatePath(`/crm/leads/${r.keep!.id}`);
+  return { ok: true, message: `Merged into ${r.keep!.name}.` };
+}
+
+/** "Merge all": every group (by phone or email) merges into its most-worked lead. Groups that can't be merged are skipped. */
+export async function mergeAllLeads(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("crm.merge", "edit");
+  const by = str(fd, "by") === "email" ? "email" : "phone";
+  const scope = (await scopeWhere(user, "crm.merge", "edit")) ?? { id: "none" };
+  const groups = await duplicateGroups(scope, by);
+  let merged = 0, groupsDone = 0, skipped = 0;
+  const t0 = Date.now();
+  for (const g of groups) {
+    if (Date.now() - t0 > 50_000) break; // stay inside the server's time limit; run again for the rest
+    const rows = await db.lead.findMany({ where: { ...scope, ...(by === "phone" ? { phoneKey: g.key } : { email: g.key }) }, include: { _count: { select: { activities: true, deals: true } } } });
+    if (rows.length < 2) continue;
+    const r = await mergeLeadGroup(user, bestOf(rows).id, rows.map((x) => x.id));
+    if (r.error) { skipped++; continue; }
+    merged += r.merged ?? 0; groupsDone++;
+  }
+  await audit(user.id, "update", "lead", null, `Merge all (${by}): ${groupsDone} groups, ${merged} duplicate leads merged${skipped ? `, ${skipped} groups skipped` : ""}`);
+  revalidatePath("/crm/duplicates");
+  revalidatePath("/crm/leads");
+  const left = groups.length - groupsDone - skipped;
+  // The button disappears when nothing is left, so the result goes on the page itself.
+  redirect(`/crm/duplicates?${new URLSearchParams({ ...(by === "email" && { by }), merged: String(merged), groups: String(groupsDone), skipped: String(skipped), left: String(Math.max(0, left)) })}`);
 }

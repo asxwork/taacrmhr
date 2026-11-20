@@ -4,7 +4,7 @@
 import { randomUUID } from "node:crypto";
 import Papa from "papaparse";
 import { db } from "./db";
-import { phoneKey } from "./crm-shared";
+import { BITRIX_STAGE_COLORS, phoneKey } from "./crm-shared";
 import { hashPassword } from "./auth";
 
 type Row = Record<string, string>;
@@ -175,7 +175,7 @@ export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; 
     let s = statuses.find((x) => key(x.name) === key(want));
     if (!s) {
       const semantic = f.leads.find((l) => l.status_name === name)?.status_semantic_id;
-      s = await db.leadStatus.create({ data: { name: want, kind: JUNK.has(want) || semantic === "F" ? "junk" : semantic === "S" ? "converted" : "open", sortOrder: ++order, color: JUNK.has(want) || semantic === "F" ? "red" : "blue" } });
+      s = await db.leadStatus.create({ data: { name: want, kind: JUNK.has(want) || semantic === "F" ? "junk" : semantic === "S" ? "converted" : "open", sortOrder: ++order, color: BITRIX_STAGE_COLORS[want.trim().toLowerCase()] ?? (JUNK.has(want) || semantic === "F" ? "red" : "blue") } });
       statuses.push(s);
     }
     statusFor.set(name, s.id);

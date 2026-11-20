@@ -8,7 +8,7 @@ import { Badge, Card, LinkButton, PageHeader } from "@/components/ui";
 import { LayoutTemplate } from "lucide-react";
 import { holdConfig } from "@/lib/lead-hold";
 import { dealTypes } from "@/lib/deal-types";
-import { deleteStage, saveDealTypes, saveHoldRules, saveLeadSource, saveLeadStatus, savePipeline, saveStage, saveUnitHoldDays } from "./actions";
+import { deleteStage, saveDealTypes, applyBitrixStageColors, saveHoldRules, saveLeadSource, saveLeadStatus, savePipeline, saveStage, saveUnitHoldDays } from "./actions";
 
 export const metadata = { title: "CRM Settings" };
 
@@ -57,6 +57,12 @@ export default async function CrmSettingsPage() {
       <PageHeader title="CRM Settings" description="Lead statuses, deal pipelines and lead sources. Lower order numbers come first. “Unit →” sets linked property units when a deal enters that stage; Lost always releases them."  actions={user.isSuperAdmin && <LinkButton href="/crm/settings/layouts" variant="secondary"><LayoutTemplate className="size-4" /> CRM layouts</LinkButton>} />
       <fieldset disabled={!editable} className="min-w-0 space-y-10">
         <Section title="Lead statuses" hint="Open = active work. Converted = set automatically on convert. Junk = closed without a deal.">
+          <ActionForm action={applyBitrixStageColors} className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-canvas/50 px-3 py-2 text-sm">
+            <span className="flex gap-1" aria-hidden>{["yellow", "green", "sky", "blue", "pink", "cyan", "orange", "teal", "red", "lime"].map((c) => <span key={c} className={`size-3 rounded-full ${color(c).dot}`} />)}</span>
+            <span className="flex-1">Bitrix colours: New Request yellow, In Progress green, Appointment light blue, Not Answered blue, Not Valid pink, Follow-up cyan, On-hold orange, Finalizing teal, Not Interested red, Complete lead lime.</span>
+            <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" name="order" className="accent-navy-900" /> Also Bitrix&apos;s order</label>
+            <SubmitButton variant="secondary" className="h-8 px-3 text-xs">Use Bitrix colours</SubmitButton>
+          </ActionForm>
           <Card className="divide-y divide-line">
             {statuses.map((s) => (
               <ActionForm key={s.id} action={saveLeadStatus} className="flex flex-wrap items-center gap-2 p-3">

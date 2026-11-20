@@ -67,15 +67,31 @@ export const ACTIVITY_TYPES = [
 ] as const;
 
 /** Colour tokens for statuses/stages. Static strings so Tailwind keeps them. */
-export const COLORS: Record<string, { dot: string; pill: string; bar: string }> = {
-  slate: { dot: "bg-slate-400", pill: "bg-slate-100 text-slate-700", bar: "bg-slate-400" },
-  blue: { dot: "bg-sky-500", pill: "bg-sky-50 text-sky-700", bar: "bg-sky-500" },
-  violet: { dot: "bg-violet-500", pill: "bg-violet-50 text-violet-700", bar: "bg-violet-500" },
-  amber: { dot: "bg-amber-500", pill: "bg-amber-50 text-amber-700", bar: "bg-amber-500" },
-  teal: { dot: "bg-teal-500", pill: "bg-teal-50 text-teal-700", bar: "bg-teal-500" },
-  gold: { dot: "bg-gold-600", pill: "bg-gold-100 text-gold-700", bar: "bg-gold-600" },
-  green: { dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-700", bar: "bg-emerald-500" },
-  red: { dot: "bg-red-500", pill: "bg-red-50 text-red-700", bar: "bg-red-500" },
+/**
+ * Stage colours. bar = filled (stage reached), on = text on it, line = the coloured underline of a stage not reached
+ * yet (Bitrix style). Static class names so Tailwind keeps them.
+ */
+export const COLORS: Record<string, { dot: string; pill: string; bar: string; on: string; line: string }> = {
+  slate: { dot: "bg-slate-400", pill: "bg-slate-100 text-slate-700", bar: "bg-slate-400", on: "text-white", line: "border-slate-400" },
+  yellow: { dot: "bg-yellow-400", pill: "bg-yellow-50 text-yellow-800", bar: "bg-yellow-300", on: "text-slate-900", line: "border-yellow-400" },
+  blue: { dot: "bg-sky-500", pill: "bg-sky-50 text-sky-700", bar: "bg-sky-500", on: "text-white", line: "border-sky-500" },
+  sky: { dot: "bg-sky-300", pill: "bg-sky-50 text-sky-700", bar: "bg-sky-300", on: "text-slate-900", line: "border-sky-300" },
+  cyan: { dot: "bg-cyan-400", pill: "bg-cyan-50 text-cyan-800", bar: "bg-cyan-400", on: "text-slate-900", line: "border-cyan-400" },
+  violet: { dot: "bg-violet-500", pill: "bg-violet-50 text-violet-700", bar: "bg-violet-500", on: "text-white", line: "border-violet-500" },
+  pink: { dot: "bg-pink-400", pill: "bg-pink-50 text-pink-700", bar: "bg-pink-400", on: "text-white", line: "border-pink-400" },
+  amber: { dot: "bg-amber-500", pill: "bg-amber-50 text-amber-700", bar: "bg-amber-500", on: "text-white", line: "border-amber-500" },
+  orange: { dot: "bg-orange-500", pill: "bg-orange-50 text-orange-700", bar: "bg-orange-500", on: "text-white", line: "border-orange-500" },
+  teal: { dot: "bg-teal-500", pill: "bg-teal-50 text-teal-700", bar: "bg-teal-500", on: "text-white", line: "border-teal-500" },
+  gold: { dot: "bg-gold-600", pill: "bg-gold-100 text-gold-700", bar: "bg-gold-600", on: "text-white", line: "border-gold-600" },
+  green: { dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-700", bar: "bg-emerald-500", on: "text-white", line: "border-emerald-500" },
+  lime: { dot: "bg-lime-500", pill: "bg-lime-50 text-lime-800", bar: "bg-lime-400", on: "text-slate-900", line: "border-lime-500" },
+  red: { dot: "bg-red-500", pill: "bg-red-50 text-red-700", bar: "bg-red-500", on: "text-white", line: "border-red-500" },
+};
+/** Bitrix's stage colours, by stage name (Settings → CRM → "Use Bitrix colours", and stages the Bitrix import adds). */
+export const BITRIX_STAGE_COLORS: Record<string, string> = {
+  "new request": "yellow", "in progress": "green", appointment: "sky", "site visit": "sky", "not answered": "blue", "not valid": "pink",
+  "follow-up cycle": "cyan", "follow up cycle": "cyan", "follow-up": "cyan", "on-hold": "orange", "on hold": "orange", finalizing: "teal",
+  "not interested": "red", "complete lead": "lime", "junk lead": "pink",
 };
 export const COLOR_NAMES = Object.keys(COLORS);
 export const color = (c: string) => COLORS[c] ?? COLORS.slate!;

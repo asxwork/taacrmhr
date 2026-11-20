@@ -95,6 +95,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           canAddActivity: can(user, "crm.activities", "create"),
           canBulk: can(user, "crm.leads", "bulk"),
           canImport: canCreate && can(user, "crm.leads", "import"),
+          canMerge: can(user, "crm.merge"), canConfigure: can(user, "settings.company"), canRoles: can(user, "settings.roles"),
           isSuperAdmin: user.isSuperAdmin,
         }}
       />
