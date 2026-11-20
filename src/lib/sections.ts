@@ -40,7 +40,7 @@ export const SECTIONS: Section[] = [
   {
     key: "calls",
     tabs: [
-      { href: "/calls", label: "Dialer", module: "calls", action: "edit" },
+      { href: "/calls?dial=1", label: "Dialer", module: "calls", action: "edit" },
       { href: "/calls/callbacks", label: "Callbacks", module: "calls" },
       { href: "/calls/history", label: "History", module: "calls" },
       { href: "/calls/campaigns", label: "Campaigns", module: "calls", action: "create" },

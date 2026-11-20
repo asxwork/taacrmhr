@@ -192,7 +192,7 @@ export function Sidebar({ apps, initialApp, user, unread, urgent = 0, chat = -1,
         );
         return panelShown && g.items.length > 1
           ? <button key={g.label} type="button" onClick={() => setPicked(g.label ?? null)} className={cls} aria-pressed={on}>{body}</button>
-          : <Link key={g.label} href={g.items[0]!.href} onClick={() => setPicked(g.label ?? null)} className={cls} aria-current={on ? "page" : undefined}>{body}</Link>;
+          : <Link key={g.label} href={g.home ?? g.items[0]!.href} onClick={() => setPicked(g.label ?? null)} className={cls} aria-current={on ? "page" : undefined}>{body}</Link>;
       })}
     </nav>
   );

@@ -17,7 +17,8 @@ export type NavItem = {
   children?: NavItem[];
 };
 /** A group of items. In a "modules" app (HR) each group is a module: an icon on the rail and its pages in the panel. */
-export type NavGroup = { label?: string; icon?: string; items: NavItem[] };
+/** `home`: where the module icon opens, when that differs from its first item (Calls icon → /calls lands Super Admins on Campaigns). */
+export type NavGroup = { label?: string; icon?: string; home?: string; items: NavItem[] };
 /** A collapsible sub-menu (e.g. Compliance ▸): opens on its first child's page. */
 const sub = (label: string, children: NavItem[], icon = children[0]!.icon): NavItem => ({ href: children[0]!.href, label, icon, children });
 
@@ -74,9 +75,10 @@ export const APPS: AppDef[] = [
         ],
       },
       {
-        label: "Calls", icon: "phonecall",
+        label: "Calls", icon: "phonecall", home: "/calls",
         items: [
-          { href: "/calls", label: "Dialer", icon: "phonecall", module: "calls", action: "edit" },
+          // ?dial=1: the Dialer item always opens the dialer, Super Admins included (the Calls icon opens /calls, their Campaigns).
+          { href: "/calls?dial=1", label: "Dialer", icon: "phonecall", module: "calls", action: "edit", also: ["/calls"] },
           { href: "/calls/callbacks", label: "Callbacks", icon: "alarm", module: "calls" },
           { href: "/calls/history", label: "History", icon: "history", module: "calls" },
           { href: "/calls/recordings", label: "Recordings", icon: "file", module: "calls", action: "listen" },
