@@ -2,7 +2,8 @@
 import { DrawerPortal } from "@/components/drawer-portal";
 
 import Link from "@/components/link";
-import { useId, useOptimistic, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useOptimistic, useRef, useState, useTransition } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import { fmtPKR } from "@/lib/crm-shared";
@@ -64,7 +65,7 @@ export function Kanban({
     <>
       {error && <p className="mb-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <DndContext id={dndId} sensors={sensors} onDragEnd={onDragEnd}>
-        <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-4 sm:-mx-8 sm:px-8">
+        <BoardScroller columns={columns.map((c) => ({ id: c.id, name: c.name, dot: c.dot, count: optimistic.filter((x) => x.columnId === c.id).length }))}>
           {columns.map((col) => {
             const colCards = optimistic.filter((c) => c.columnId === col.id);
             const total = colCards.reduce((s, c) => s + (c.amount ?? 0), 0);
@@ -76,7 +77,7 @@ export function Kanban({
               </Column>
             );
           })}
-        </div>
+        </BoardScroller>
       </DndContext>
 
       {pendingReason && (
@@ -95,8 +96,8 @@ export function Kanban({
 function Column({ col, count, total, children }: { col: KanbanColumn; count: number; total?: number; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
   return (
-    <div className="flex w-72 shrink-0 flex-col">
-      <div className="mb-2 flex items-center gap-2 px-1">
+    <div data-kanban-col={col.id} className="flex w-[85vw] max-w-72 shrink-0 snap-start flex-col sm:w-72">
+      <div data-kanban-head className="mb-2 flex items-center gap-2 px-1">
         <span className={cn("size-2 rounded-full", col.dot)} />
         <span className="text-sm font-medium">{col.name}</span>
         <span className="text-xs text-muted">{count}</span>
@@ -121,6 +122,7 @@ function Card({ card }: { card: KanbanCard }) {
       style={style}
       {...listeners}
       {...attributes}
+      data-kanban-card
       className={cn(
         "rounded-lg border border-line bg-surface p-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition",
         card.draggable && "cursor-grab active:cursor-grabbing",
@@ -160,5 +162,80 @@ function ReasonDialog({ onSubmit, onCancel }: { onSubmit: (reason: string) => vo
       </form>
     </div>
     </DrawerPortal>
+  );
+}
+
+/**
+ * The board's sideways movement, so nobody has to fight a horizontal scrollbar: a stage bar to jump to any column
+ * (stages on screen are highlighted), arrows at the edges (one column at a time), dragging the empty background,
+ * the mouse wheel over the column headers, and on phones a swipe that snaps one column at a time.
+ */
+function BoardScroller({ columns, children }: { columns: { id: string; name: string; dot: string; count: number }[]; children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const [visible, setVisible] = useState<Set<string>>(new Set());
+  const pan = useRef<{ x: number; left: number } | null>(null);
+
+  const measure = useCallback(() => {
+    const el = box.current;
+    if (!el) return;
+    setEdges({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+    const r = el.getBoundingClientRect();
+    const seen = new Set<string>();
+    el.querySelectorAll<HTMLElement>("[data-kanban-col]").forEach((c) => {
+      const b = c.getBoundingClientRect();
+      if (b.right > r.left + 40 && b.left < r.right - 40) seen.add(c.dataset.kanbanCol!);
+    });
+    setVisible(seen);
+  }, []);
+  useEffect(() => {
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure, columns.length]);
+
+  const colWidth = () => (box.current?.querySelector<HTMLElement>("[data-kanban-col]")?.offsetWidth ?? 288) + 12;
+  const step = (dir: 1 | -1) => box.current?.scrollBy({ left: dir * colWidth(), behavior: "smooth" });
+  const jump = (id: string) => {
+    const el = box.current, col = el?.querySelector<HTMLElement>(`[data-kanban-col="${CSS.escape(id)}"]`);
+    if (el && col) el.scrollTo({ left: col.offsetLeft - el.offsetLeft - 16, behavior: "smooth" });
+  };
+
+  return (
+    <div>
+      {/* Stage bar: jump to a column. */}
+      <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Go to stage">
+        {columns.map((c) => (
+          <button key={c.id} type="button" role="tab" aria-selected={visible.has(c.id)} onClick={() => jump(c.id)}
+            className={cn("flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition", visible.has(c.id) ? "border-navy-900/30 bg-navy-900/[0.06] font-medium text-ink" : "border-line text-muted hover:text-ink")}>
+            <span className={cn("size-2 rounded-full", c.dot)} />{c.name}<span className="tabular-nums opacity-70">{c.count}</span>
+          </button>
+        ))}
+      </div>
+      <div className="relative">
+        {edges.left && <button type="button" onClick={() => step(-1)} aria-label="Previous stages" className="absolute left-0 top-24 z-20 hidden size-10 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface shadow-lg hover:bg-canvas sm:flex"><ChevronLeft className="size-5" /></button>}
+        {edges.right && <button type="button" onClick={() => step(1)} aria-label="Next stages" className="absolute right-0 top-24 z-20 hidden size-10 translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface shadow-lg hover:bg-canvas sm:flex"><ChevronRight className="size-5" /></button>}
+        <div
+          ref={box}
+          onScroll={measure}
+          // Drag the empty background to pan (cards still drag between columns).
+          onPointerDown={(e) => {
+            if (e.pointerType !== "mouse" || e.button !== 0 || (e.target as HTMLElement).closest("[data-kanban-card], a, button, input, select, textarea")) return;
+            pan.current = { x: e.clientX, left: box.current!.scrollLeft };
+            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          }}
+          onPointerMove={(e) => { if (pan.current && box.current) box.current.scrollLeft = pan.current.left - (e.clientX - pan.current.x); }}
+          onPointerUp={() => { pan.current = null; }}
+          // Mouse wheel over the column headers scrolls sideways.
+          onWheel={(e) => {
+            if (!box.current || Math.abs(e.deltaX) > Math.abs(e.deltaY) || !(e.target as HTMLElement).closest("[data-kanban-head]")) return;
+            box.current.scrollLeft += e.deltaY;
+          }}
+          className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:-mx-8 sm:snap-none sm:px-8 cursor-grab active:cursor-grabbing"
+        >
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }
