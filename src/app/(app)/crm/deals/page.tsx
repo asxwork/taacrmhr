@@ -1,4 +1,5 @@
 import Link from "@/components/link";
+import { dealTypes } from "@/lib/deal-types";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { startOfMonth, subDays } from "date-fns";
@@ -18,7 +19,7 @@ import { fieldAccess } from "@/lib/field-rules";
 export const metadata = { title: "Deals" };
 
 const PAGE_SIZE = 50;
-type SP = { pipeline?: string; q?: string; owner?: string; stage?: string; view?: string; page?: string; new?: string; contact?: string; unit?: string };
+type SP = { pipeline?: string; q?: string; owner?: string; stage?: string; type?: string; view?: string; page?: string; new?: string; contact?: string; unit?: string };
 
 export default async function DealsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("crm.deals");
@@ -29,9 +30,9 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   const page = Math.max(1, Number(sp.page) || 1);
 
   const canCreate = can(user, "crm.deals", "create");
-  const [pipelines, scopeOrNull] = await Promise.all([getPipelines(), scopeWhere(user, "crm.deals")]);
+  const [pipelines, scopeOrNull, types] = await Promise.all([getPipelines(), scopeWhere(user, "crm.deals"), dealTypes()]);
   const pipeline = pipelines.find((p) => p.id === sp.pipeline) ?? pipelines.find((p) => p.isDefault) ?? pipelines[0]!;
-  const keep = { pipeline: sp.pipeline, q: sp.q, owner: sp.owner, stage: sp.stage, view: sp.view };
+  const keep = { pipeline: sp.pipeline, q: sp.q, owner: sp.owner, stage: sp.stage, view: sp.view, type: sp.type };
 
   const scope = scopeOrNull!;
   const q = sp.q?.trim();
@@ -42,6 +43,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     ...(q && { OR: [{ title: { contains: q } }, { contact: { name: { contains: q } } }, { contact: { phone: { contains: q } } }] }),
     ...(sp.owner && { ownerId: sp.owner }),
     ...(sp.stage && { stageId: sp.stage }),
+    ...(sp.type && { dealType: sp.type }),
     // Board: closed deals only from the last 30 days so won/lost columns stay short.
     ...(view === "board" && { OR: [{ closedAt: null }, { closedAt: { gte: recentCutoff } }] }),
   };
@@ -120,6 +122,10 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
             ))}
           </select>
         )}
+        <select name="type" defaultValue={sp.type ?? ""} className="input w-36" aria-label="Type">
+          <option value="">All types</option>
+          {types.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
         {owners.length > 1 && (
           <select name="owner" defaultValue={sp.owner ?? ""} className="input w-40">
             <option value="">Everyone</option>
@@ -139,7 +145,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
             columnId: d.stageId,
             title: d.title,
             href: `/crm/deals/${d.id}`,
-            subtitle: [d.contact?.name, d.units[0] && unitLabel(d.units[0].unit)].filter(Boolean).join(" · ") || undefined,
+            subtitle: [d.dealType, d.contact?.name, d.units[0] && unitLabel(d.units[0].unit)].filter(Boolean).join(" · ") || undefined,
             amount: showValue ? d.value ?? undefined : undefined,
             owner: d.owner?.name,
             draggable: canEdit && canEditRow(d),
@@ -168,7 +174,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
                       <tr key={d.id} className="hover:bg-canvas/60">
                         <td className="td">
                           <Link href={`/crm/deals/${d.id}`} className="font-medium hover:underline">{d.title}</Link>
-                          <p className="text-xs text-muted">{d.contact?.name ?? "—"}</p>
+                          <p className="text-xs text-muted">{[d.dealType, d.contact?.name ?? "—"].filter(Boolean).join(" · ")}</p>
                         </td>
                         <td className="td"><StatusPill name={d.stage.name} colorName={d.stage.color} /></td>
                         <td className="td whitespace-nowrap">{showValue ? fmtPKR(d.value) : "—"}</td>

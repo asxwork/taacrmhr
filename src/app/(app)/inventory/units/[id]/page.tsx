@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import Link from "@/components/link";
+import { unitTypeOf } from "@/lib/deal-types-shared";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Handshake, MapPin, Pencil, Phone, Trash2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
@@ -121,6 +122,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
           <Card className="p-5">
             <InfoList
               rows={[
+                ["Type", unitTypeOf(unit)],
                 ["Listing", LISTING_TYPES.find((l) => l.value === unit.listingType)?.label],
                 ["Purpose", unit.purpose === "rent" ? "For rent" : "For sale"],
                 ["Floor", unit.floor],

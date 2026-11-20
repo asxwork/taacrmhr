@@ -1,19 +1,21 @@
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Field, LinkButton } from "@/components/ui";
 import { FREQUENCIES, KNOWN_AREAS, LISTING_TYPES, SIZE_UNITS, UNIT_TYPES } from "@/lib/inventory-shared";
+import { dealTypes } from "@/lib/deal-types";
+import { withCurrent } from "@/lib/deal-types-shared";
 import { bulkCreateUnits, saveBlock, saveProject, saveUnit } from "./actions";
 
 type Opt = { id: string; name: string };
 type ProjectOpt = Opt & { blocks: Opt[] };
 
 type UnitValues = {
-  id: string; listingType: string; purpose: string; projectId: string | null; blockId: string | null; unitNo: string; type: string;
+  id: string; listingType: string; dealType?: string | null; purpose: string; projectId: string | null; blockId: string | null; unitNo: string; type: string;
   size: number | null; sizeUnit: string; bedrooms: number | null; bathrooms: number | null; floor: string | null; facing: string | null;
   corner: boolean; parkFacing: boolean; mainRoad: boolean; price: number | null; address: string | null; area?: string | null; lat: number | null; lng: number | null;
   propertyOwner: string | null; propertyOwnerPhone: string | null; notes: string | null; ownerId: string | null;
 };
 
-export function UnitForm({
+export async function UnitForm({
   unit, projects, owners, currentUserId, cancelHref, allowedTypes, defaults,
 }: {
   unit?: UnitValues | null;
@@ -26,6 +28,7 @@ export function UnitForm({
   defaults?: { projectId?: string; blockId?: string };
 }) {
   const types = unit ? LISTING_TYPES.filter((t) => t.value === unit.listingType) : LISTING_TYPES.filter((t) => allowedTypes.includes(t.value));
+  const kinds = await dealTypes();
   return (
     <ActionForm action={saveUnit} className="space-y-4">
       {unit && <input type="hidden" name="id" value={unit.id} />}
@@ -44,6 +47,12 @@ export function UnitForm({
           </select>
         </Field>
       </div>
+      <Field label="Type" hint="Off-plan, Sale, Rental… (the list is in Settings → CRM). Empty = from the listing type.">
+        <select name="dealType" defaultValue={unit?.dealType ?? ""} className="input">
+          <option value="">Automatic</option>
+          {withCurrent(kinds, unit?.dealType).map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </Field>
       <Field label="Project / block" hint="Required for project stock; optional for listings.">
         <select name="blockId" defaultValue={unit?.blockId ?? defaults?.blockId ?? ""} className="input">
           <option value="">— None —</option>

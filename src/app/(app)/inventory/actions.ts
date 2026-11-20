@@ -129,6 +129,7 @@ export async function saveUnit(_: FormState, fd: FormData): Promise<FormState> {
   const baths = num(fd, "bathrooms");
   const data = {
     listingType, purpose: listingType === "rental" ? "rent" : str(fd, "purpose") === "rent" ? "rent" : "sale",
+    ...(fd.has("dealType") && { dealType: str(fd, "dealType").slice(0, 60) || null }),
     projectId, blockId, unitNo, type, size: num(fd, "size"), sizeUnit,
     bedrooms: beds && Math.round(beds), bathrooms: baths && Math.round(baths),
     floor: str(fd, "floor") || null, facing: str(fd, "facing") || null,

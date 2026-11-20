@@ -141,3 +141,16 @@ export async function saveUnitHoldDays(_: FormState, fd: FormData): Promise<Form
   revalidatePath("/settings/crm");
   return { ok: true, message: days ? `Holds now end after ${days} days.` : "Holds no longer expire." };
 }
+
+/** Settings → CRM → Deal & inventory types: one per line (Off-plan, Sale, Rental…). */
+export async function saveDealTypes(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("settings.company", "edit");
+  const types = [...new Set(str(fd, "types").split(/\r?\n/).map((t) => t.trim().slice(0, 60)).filter(Boolean))].slice(0, 40);
+  if (!types.length) return { error: "Keep at least one type." };
+  const { DEAL_TYPES_SETTING } = await import("@/lib/deal-types");
+  const value = JSON.stringify(types);
+  await db.setting.upsert({ where: { key: DEAL_TYPES_SETTING }, update: { value }, create: { key: DEAL_TYPES_SETTING, value } });
+  await audit(user.id, "update", "settings", null, `Deal & inventory types: ${types.join(", ")}`);
+  revalidatePath("/settings/crm");
+  return { ok: true, message: `Saved ${types.length} types.` };
+}

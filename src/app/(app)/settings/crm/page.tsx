@@ -7,7 +7,8 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, LinkButton, PageHeader } from "@/components/ui";
 import { LayoutTemplate } from "lucide-react";
 import { holdConfig } from "@/lib/lead-hold";
-import { deleteStage, saveHoldRules, saveLeadSource, saveLeadStatus, savePipeline, saveStage, saveUnitHoldDays } from "./actions";
+import { dealTypes } from "@/lib/deal-types";
+import { deleteStage, saveDealTypes, saveHoldRules, saveLeadSource, saveLeadStatus, savePipeline, saveStage, saveUnitHoldDays } from "./actions";
 
 export const metadata = { title: "CRM Settings" };
 
@@ -39,13 +40,14 @@ const Order = ({ value }: { value: number }) => <input name="sortOrder" type="nu
 export default async function CrmSettingsPage() {
   const user = await requirePermission("settings.company");
   const editable = can(user, "settings.company", "edit");
-  const [statuses, pipelines, sources, hold, people, unitHoldDays] = await Promise.all([
+  const [statuses, pipelines, sources, hold, people, unitHoldDays, types] = await Promise.all([
     db.leadStatus.findMany({ include: { _count: { select: { leads: true } } }, orderBy: { sortOrder: "asc" } }),
     db.pipeline.findMany({ include: { stages: { include: { _count: { select: { deals: true } } }, orderBy: { sortOrder: "asc" } } }, orderBy: { sortOrder: "asc" } }),
     db.leadSource.findMany({ include: { _count: { select: { leads: true } } }, orderBy: { sortOrder: "asc" } }),
     holdConfig(db),
     db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     holdDays(),
+    dealTypes(),
   ]);
   const newStage = statuses.find((s) => s.systemKey === "new");
   const holdStage = statuses.find((s) => s.systemKey === "onhold");
@@ -185,6 +187,15 @@ export default async function CrmSettingsPage() {
               </ActionForm>
             </Card>
           </div>
+        </Section>
+
+        <Section title="Deal & inventory types" hint="The Type on every deal and inventory unit (Off-plan, Sale, Rental…). One per line, in the order they should show. Removing one keeps it on records that already have it.">
+          <Card className="p-4">
+            <ActionForm action={saveDealTypes} className="space-y-3">
+              <textarea name="types" rows={Math.max(4, types.length + 1)} defaultValue={types.join("\n")} className="input font-mono text-sm" aria-label="Types, one per line" />
+              <SubmitButton>Save types</SubmitButton>
+            </ActionForm>
+          </Card>
         </Section>
 
         <Section title="Lead sources" hint="Turn off a source to hide it without losing history.">

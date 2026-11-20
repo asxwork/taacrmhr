@@ -3,16 +3,19 @@ import { fmtPhone } from "@/lib/crm-shared";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Field, LinkButton } from "@/components/ui";
 import { saveDeal } from "./actions";
+import { withCurrent } from "@/lib/deal-types-shared";
 
 type DealValues = {
   id: string; title: string; pipelineId: string; contactId: string | null; value: number | null; commissionPct: number | null;
-  expectedClose: Date | null; sourceId: string | null; notes: string | null; ownerId: string | null;
+  expectedClose: Date | null; sourceId: string | null; notes: string | null; ownerId: string | null; dealType?: string | null;
 };
 type Opt = { id: string; name: string };
 
 export function DealForm({
-  deal, pipelines, contacts, sources, owners, currentUserId, cancelHref, defaultPipelineId, defaultContactId, unit, hideValue = false,
+  deal, pipelines, contacts, sources, owners, currentUserId, cancelHref, defaultPipelineId, defaultContactId, unit, hideValue = false, types = [],
 }: {
+  /** Deal & inventory types (Settings → CRM). */
+  types?: string[];
   /** Field rules hide deal values: no value/commission inputs (the server keeps the stored ones). */
   hideValue?: boolean;
   deal?: DealValues | null;
@@ -25,7 +28,7 @@ export function DealForm({
   defaultPipelineId?: string;
   defaultContactId?: string;
   /** New deal for this unit (from the unit page): linked and held when the deal is created. */
-  unit?: { id: string; label: string; price: number | null; purpose: string } | null;
+  unit?: { id: string; label: string; price: number | null; purpose: string; type?: string } | null;
 }) {
   return (
     <ActionForm action={saveDeal} className="space-y-4">
@@ -45,6 +48,14 @@ export function DealForm({
             {pipelines.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
+          </select>
+        </Field>
+      )}
+      {types.length > 0 && (
+        <Field label="Type">
+          <select name="dealType" defaultValue={deal?.dealType ?? unit?.type ?? ""} className="input">
+            <option value="">—</option>
+            {withCurrent(types, deal?.dealType).map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </Field>
       )}

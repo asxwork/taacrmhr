@@ -1,3 +1,5 @@
+import { dealTypes } from "@/lib/deal-types";
+import { unitTypeOf } from "@/lib/deal-types-shared";
 import Link from "@/components/link";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
@@ -16,10 +18,14 @@ import { Pagination, StatusPill, hrefWith } from "@/components/crm/bits";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { SafeImg } from "@/components/safe-img";
 
+// Units with no Type of their own get one from their listing type.
+const KIND_FROM_LISTING: Record<string, string> = { "Off-plan": "project", Sale: "resale", Rental: "rental" };
+
 export const metadata = { title: "Inventory" };
 
 const PAGE_SIZE = 48;
 type SP = {
+  kind?: string;
   tab?: string; q?: string; project?: string; type?: string; status?: string; listing?: string; purpose?: string;
   min?: string; max?: string; view?: string; page?: string; new?: string;
   developer?: string; area?: string; beds?: string; feat?: string; sort?: string; add?: string;
@@ -36,17 +42,17 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   if (sp.new) redirect(hrefWith("/inventory/new", { tab: sp.tab }, {})); // old links
   const canProjects = can(user, "inventory.projects");
   // Who may see which units, and the project / developer / area lists, in one round.
-  const [visible, projects, developers, areas] = await Promise.all([
+  const [visible, projects, developers, areas, kinds] = await Promise.all([
     unitWhere(user, "view"),
     db.project.findMany({ include: { blocks: { orderBy: { sortOrder: "asc" } }, images: { orderBy: { sortOrder: "asc" }, take: 1 } }, orderBy: { name: "asc" } }),
-    developerNames(), areaNames(),
+    developerNames(), areaNames(), dealTypes(),
   ]);
   if (!visible && !canProjects) redirect("/no-access");
   const tab = (TABS.some(([t]) => t === sp.tab) ? sp.tab : "units") as (typeof TABS)[number][0];
   if (tab === "projects" && !canProjects) redirect("/inventory");
   const view = sp.view === "table" ? "table" : "grid";
   const page = Math.max(1, Number(sp.page) || 1);
-  const keep = { tab: sp.tab, q: sp.q, project: sp.project, type: sp.type, status: sp.status, listing: sp.listing, purpose: sp.purpose, min: sp.min, max: sp.max, view: sp.view, developer: sp.developer, area: sp.area, beds: sp.beds, feat: sp.feat, sort: sp.sort };
+  const keep = { tab: sp.tab, q: sp.q, project: sp.project, type: sp.type, status: sp.status, listing: sp.listing, kind: sp.kind, purpose: sp.purpose, min: sp.min, max: sp.max, view: sp.view, developer: sp.developer, area: sp.area, beds: sp.beds, feat: sp.feat, sort: sp.sort };
   const allowedTypes = [
     ...(can(user, "inventory.projects", "create") ? ["project"] : []),
     ...(can(user, "inventory.units", "create") ? ["resale", "rental"] : []),
@@ -270,6 +276,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     ...(sp.area ? [areaWhere(sp.area)] : []),
     ...(sp.type ? [{ type: sp.type }] : []),
     ...(sp.listing ? [{ listingType: sp.listing }] : []),
+    // Type (Off-plan, Sale, Rental…): set on the unit, or from its listing type when not set.
+    ...(sp.kind ? [{ OR: [{ dealType: sp.kind }, ...(KIND_FROM_LISTING[sp.kind] ? [{ dealType: null, listingType: KIND_FROM_LISTING[sp.kind] }] : [])] }] : []),
     ...(sp.purpose ? [{ purpose: sp.purpose }] : []),
     ...(beds ? [{ bedrooms: beds >= 5 ? { gte: 5 } : beds }] : []),
     ...(feats.includes("corner") ? [{ corner: true }] : []),
@@ -289,7 +297,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     db.unit.groupBy({ by: ["status"], where: { AND: base }, _count: true }),
     db.unit.aggregate({ where: { AND: [...base, { status: "available" }] }, _sum: { price: true } }),
   ]);
-  const extraOn = [sp.listing, sp.purpose, sp.beds, sp.feat, sp.min, sp.max, sp.sort].filter(Boolean).length;
+  const extraOn = [sp.listing, sp.kind, sp.purpose, sp.beds, sp.feat, sp.min, sp.max, sp.sort].filter(Boolean).length;
   const allCount = statusCounts.reduce((s, r) => s + r._count, 0);
 
   return (
@@ -316,6 +324,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             <SlidersHorizontal className="size-4" /> More filters{extraOn ? ` (${extraOn})` : ""}
           </summary>
           <div className="mt-2 flex flex-wrap items-center gap-2">
+            <select name="kind" defaultValue={sp.kind ?? ""} className="input w-36" aria-label="Type"><option value="">All types</option>{kinds.map((k) => <option key={k} value={k}>{k}</option>)}</select>
             <select name="listing" defaultValue={sp.listing ?? ""} className="input w-36" aria-label="Listing"><option value="">All listings</option>{LISTING_TYPES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}</select>
             <select name="purpose" defaultValue={sp.purpose ?? ""} className="input w-28" aria-label="Sale or rent"><option value="">Sale & rent</option><option value="sale">For sale</option><option value="rent">For rent</option></select>
             <select name="beds" defaultValue={sp.beds ?? ""} className="input w-28" aria-label="Bedrooms"><option value="">Any beds</option>{[1, 2, 3, 4].map((b) => <option key={b} value={b}>{b} bed</option>)}<option value="5">5+ bed</option></select>
@@ -368,7 +377,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   <div className="p-3">
                     <p className="truncate font-medium">{u.project ? `${u.project.name} · ${u.unitNo}` : u.unitNo}</p>
                     <p className="truncate text-xs text-muted">
-                      {u.type} · {sizeLabel(u.size, u.sizeUnit)}{u.bedrooms ? ` · ${u.bedrooms} bed` : ""}{u.block ? ` · ${u.block.name}` : ""}
+                      {unitTypeOf(u)} · {u.type} · {sizeLabel(u.size, u.sizeUnit)}{u.bedrooms ? ` · ${u.bedrooms} bed` : ""}{u.block ? ` · ${u.block.name}` : ""}
                     </p>
                     {(area || u.project?.developer) && <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted"><MapPin className="size-3 shrink-0" />{[area, u.project?.developer].filter(Boolean).join(" · ")}</p>}
                     <div className="mt-2 flex items-center justify-between text-sm">
@@ -410,7 +419,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                       <td className="td whitespace-nowrap text-muted">{sizeLabel(u.size, u.sizeUnit)}</td>
                       <td className="td whitespace-nowrap">{fmtPKR(u.price)}{u.purpose === "rent" ? " /mo" : ""}</td>
                       <td className="td"><StatusPill name={st.label} colorName={st.color} /></td>
-                      <td className="td text-muted">{LISTING_TYPES.find((l) => l.value === u.listingType)?.label}{u.owner ? ` · ${u.owner.name}` : ""}</td>
+                      <td className="td text-muted">{unitTypeOf(u)}{u.owner ? ` · ${u.owner.name}` : ""}</td>
                     </tr>
                   );
                 })}

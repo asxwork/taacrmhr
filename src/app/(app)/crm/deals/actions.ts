@@ -48,6 +48,7 @@ export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
     expectedClose: close ? new Date(close) : null,
     sourceId: str(fd, "sourceId") || null,
     notes: str(fd, "notes") || null,
+    ...(fd.has("dealType") && { dealType: str(fd, "dealType").slice(0, 60) || null }),
   };
 
   let dealId = id;

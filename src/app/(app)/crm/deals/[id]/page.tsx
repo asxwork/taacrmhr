@@ -15,6 +15,7 @@ import { InfoList, StageBar, StatusPill } from "@/components/crm/bits";
 import { Composer } from "@/components/crm/composer";
 import { Timeline } from "@/components/crm/timeline";
 import { DealForm } from "../deal-form";
+import { dealTypes } from "@/lib/deal-types";
 import { deleteDeal, setDealStage } from "../actions";
 import { fieldAccess } from "@/lib/field-rules";
 
@@ -67,6 +68,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
         db.contact.findMany({ where: (await scopeWhere(user, "crm.contacts")) ?? { id: "" }, select: { id: true, name: true, phone: true }, orderBy: { name: "asc" }, take: 500 }),
         db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
         assignableUsers(user, "crm.deals"),
+        dealTypes(),
       ])
     : null;
   const unitScope = canEdit ? await unitWhere(user, "view") : null;
@@ -171,6 +173,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
             <h2 className="mb-2 text-sm font-medium">Details</h2>
             <InfoList
               rows={[
+                ["Type", deal.dealType],
                 ["Responsible", deal.owner?.name],
                 ["Branch", deal.branch?.name],
                 ["Expected close", fmtDate(deal.expectedClose)],
@@ -208,7 +211,7 @@ export default async function DealPage({ params, searchParams }: { params: Promi
 
       {editData && (
         <Drawer title="Edit deal" closeHref={path}>
-          <DealForm hideValue={!showValue} deal={showValue ? deal : { ...deal, value: null, commissionPct: null }} pipelines={[]} contacts={editData[0]} sources={editData[1]} owners={editData[2]} currentUserId={user.id} cancelHref={path} />
+          <DealForm hideValue={!showValue} deal={showValue ? deal : { ...deal, value: null, commissionPct: null }} pipelines={[]} contacts={editData[0]} sources={editData[1]} owners={editData[2]} types={editData[3]} currentUserId={user.id} cancelHref={path} />
         </Drawer>
       )}
 
