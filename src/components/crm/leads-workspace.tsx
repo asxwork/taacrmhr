@@ -99,7 +99,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
   const sizeRef = useRef(initial.size);
   // List table and board fill the window under the toolbar (use-fit-height.ts); recomputed when rows or view change.
   const tableBox = useRef<HTMLDivElement>(null);
-  useFitHeight(tableBox, 84, [view, initial]);
+  useFitHeight(tableBox, "auto", [view, initial]);
   const load = useCallback((f: LeadFilters, v: View, page: number, size: number = sizeRef.current) => {
     sizeRef.current = size;
     const p = queryOf(f);
@@ -430,11 +430,11 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
               {/* The table scrolls inside this box (headers stay at the top, the page bar stays in view): no page scrolling. */}
               <div className="relative hidden sm:block">
               <EdgeScroll target={tableBox} />
-              <div ref={tableBox} className="thin-scroll overflow-auto overscroll-contain">
-                <table className="w-full [&_td]:px-3 [&_th]:px-3 2xl:[&_td]:px-4 2xl:[&_th]:px-4">
+              <div ref={tableBox} className="thin-scroll no-x-bar overflow-auto">
+                <table className="w-full [&_td]:px-2.5 [&_th]:px-2.5 2xl:[&_td]:px-4 2xl:[&_th]:px-4">
                   <thead className="sticky top-0 z-10 border-b border-line bg-[color-mix(in_srgb,var(--color-canvas)_60%,var(--color-surface))] shadow-[0_1px_0_var(--color-line)]">
                     <tr>
-                      <th className="th w-16">
+                      <th className="th w-14">
                         <span className="flex items-center gap-2">
                           {perms.canEdit && perms.canBulk && (
                             <input type="checkbox" aria-label="Select all on this page" className="accent-navy-900" checked={allOnPage}
@@ -465,10 +465,10 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                         switch (k) {
                           case "id": return <td key={k} className="td text-xs tabular-nums text-muted">{l.number ?? "—"}{l.reshuffleCount != null && !cols.includes("reshuffle") && <span title={`Reshuffled ${l.reshuffleCount}×`} className="mt-1 block w-fit rounded bg-amber-50 px-1 text-[10px] font-medium text-amber-700">Reshuffled</span>}</td>;
                           case "lead": return (
-                            <td key={k} className="td max-w-64">
-                              <Link href={`/crm/leads/${l.id}`} className="font-medium text-navy-900 hover:underline">{l.name}</Link>
+                            <td key={k} className="td max-w-60">
+                              <Link href={`/crm/leads/${l.id}`} className="font-medium text-navy-900 [overflow-wrap:anywhere] hover:underline">{l.name}</Link>
                               {l.score >= 35 && <span title={`Lead score ${l.score}/100\n${l.scoreWhy.join("\n")}`} className={cn("ml-1.5 rounded-full px-1.5 py-px align-middle text-[10px] font-semibold", l.score >= 60 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700")}>{scoreLabel(l.score)}</span>}
-                              <p className="truncate text-xs text-muted">{[l.source, l.project].filter(Boolean).join(" · ") || "—"}</p>
+                              <p className="line-clamp-2 text-xs text-muted">{[l.source, l.project].filter(Boolean).join(" · ") || "—"}</p>
                             </td>
                           );
                           case "stage": return (
@@ -491,22 +491,22 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                             </td>
                           );
                           case "activity": return (
-                            <td key={k} className="td min-w-32 max-w-60">
+                            <td key={k} className="td max-w-52">
                               {l.next ? (
                                 <>
                                   <p className={cn("text-xs font-medium", l.next.late ? "text-red-600" : "text-ink/80")}>{l.next.due}</p>
-                                  <p className="truncate text-sm">{l.next.subject}</p>
+                                  <p className="line-clamp-2 text-sm">{l.next.subject}</p>
                                   {l.next.owner && <p className="text-xs text-muted">for <span className="text-navy-900">{l.next.owner}</span></p>}
                                 </>
                               ) : null}
-                              {perms.canAddActivity && <button type="button" onClick={(e) => openMenu("activity", l, e.currentTarget)} className="mt-0.5 text-xs text-muted hover:text-navy-900 hover:underline">+ Add activity</button>}
+                              {perms.canAddActivity && <button type="button" onClick={(e) => openMenu("activity", l, e.currentTarget)} className="mt-0.5 whitespace-nowrap text-xs text-muted hover:text-navy-900 hover:underline">+ Add activity</button>}
                             </td>
                           );
                           case "owner": return <td key={k} className="td whitespace-nowrap">{l.owner ? <span className="flex items-center gap-2 text-sm" title={l.owner}><Avatar name={l.owner} className="size-7 text-[10px]" /><span className="hidden 2xl:inline">{l.owner}</span></span> : <span className="text-muted">—</span>}</td>;
                           case "reshuffle": return <td key={k} className="td whitespace-nowrap text-sm">{l.reshuffleCount != null ? <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">Yes · {l.reshuffleCount}×</span> : <span className="text-muted">No</span>}</td>;
                           case "score": return <td key={k} className="td whitespace-nowrap text-sm tabular-nums" title={l.scoreWhy.join("\n")}>{l.score}<span className="text-muted">/100</span></td>;
                           case "budget": return <td key={k} className="td whitespace-nowrap text-sm tabular-nums">{l.budget ? fmtPKR(l.budget) : <span className="text-muted">—</span>}</td>;
-                          case "sourceInfo": return <td key={k} className="td max-w-64 text-xs text-muted"><span className="line-clamp-3 whitespace-pre-line">{l.sourceInfo ?? "—"}</span></td>;
+                          case "sourceInfo": return <td key={k} className="td min-w-40 max-w-64 text-xs text-muted"><span className="line-clamp-3 whitespace-pre-line [overflow-wrap:anywhere]">{l.sourceInfo ?? "—"}</span></td>;
                           default: {
                             const v = (l as unknown as Record<string, string | null>)[k];
                             return <td key={k} className="td max-w-56 truncate whitespace-nowrap text-sm text-muted">{v || "—"}</td>;
@@ -526,13 +526,13 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
               </div>
             </>)}
             {/* Bottom bar: where you are in the list, the pages, and how many rows a page shows. */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line bg-canvas/40 px-4 py-2.5 text-sm">
-              <p className="min-w-0 text-muted" title="Leads matching the current filters">
+            <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-t border-line px-4 py-2 text-sm sm:grid-cols-[1fr_auto_1fr]">
+              <p className="min-w-0 truncate text-muted" title="Leads matching the current filters">
                 {data.total ? <><b className="tabular-nums text-ink">{((data.page - 1) * pageSize + 1).toLocaleString()}–{Math.min(data.page * pageSize, data.total).toLocaleString()}</b> of <b className="tabular-nums text-ink">{data.total.toLocaleString()}</b> leads</> : "No leads"}
                 {count > 0 && <span className="ml-2 rounded-full bg-navy-900/[0.07] px-2 py-0.5 text-xs font-medium text-ink">{count.toLocaleString()} selected</span>}
               </p>
               {pages > 1 && (
-                <nav aria-label="Pages" className="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5 sm:mx-auto">
+                <nav aria-label="Pages" className="order-last col-span-2 flex items-center justify-center gap-0.5 sm:order-none sm:col-span-1">
                   {([["First page", 1, ChevronsLeft], ["Previous page", data.page - 1, ChevronLeft]] as const).map(([label, to, Icon]) => (
                     <button key={label} type="button" disabled={data.page <= 1} onClick={() => load(filters, view, to)} aria-label={label} title={label} className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-canvas hover:text-ink disabled:opacity-30"><Icon className="size-4" /></button>
                   ))}
@@ -545,8 +545,8 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                   ))}
                 </nav>
               )}
-              <label className="ml-auto flex items-center gap-2 text-muted sm:ml-0">Show
-                <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} aria-label="Leads per page" className="input h-8 w-[4.5rem] py-0 text-sm">
+              <label className="flex items-center justify-self-end gap-2 whitespace-nowrap text-muted sm:col-start-3">Show
+                <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} aria-label="Leads per page" className="input h-8 w-auto min-w-[5.5rem] py-0 pl-3 pr-8 text-sm font-medium text-ink">
                   {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
                 per page
