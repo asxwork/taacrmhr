@@ -16,12 +16,24 @@ export async function notify(userId: string | null | undefined, title: string, o
   // A muted category (Profile → Notifications) skips everything except urgent items.
   if (prefs.muted.includes(category) && priority !== "urgent") return;
   if (priority !== "urgent" && !(await forSuperAdmin(userId, opts.link))) return;
+  // Limits so nobody gets flooded (imports, automations, many leads at once):
+  // 1. The same notification (same title and link) within 30 minutes is not repeated.
+  // 2. A burst (6+ in 10 minutes) still shows in the bell, but without more phone pushes or instant emails.
+  // 3. At most 5 instant emails a day per person; anything more waits for the daily summary email.
+  const ago = (min: number) => new Date(Date.now() - min * 60_000);
+  const [dupe, burst, emailedToday] = await Promise.all([
+    db.notification.findFirst({ where: { userId, title, link: opts.link ?? null, createdAt: { gte: ago(30) } }, select: { id: true } }),
+    db.notification.count({ where: { userId, createdAt: { gte: ago(10) } } }),
+    db.notification.count({ where: { userId, emailedAt: { gte: ago(24 * 60) } } }),
+  ]);
+  if (dupe) return;
+  const quiet = burst >= 6;
   // Email: urgent items (or "every notification") go now; the rest wait for the person's one daily summary email.
   const wantsEmail = !!opts.email && prefs.email !== "off";
-  const now = wantsEmail && (prefs.email === "instant" || priority === "urgent");
+  const now = wantsEmail && (prefs.email === "instant" || priority === "urgent") && !quiet && emailedToday < 5;
   const n = await db.notification.create({ data: { userId, title, body: opts.body ?? null, link: opts.link ?? null, category, priority, emailWanted: wantsEmail && !now && prefs.email === "daily" } });
-  // Phone / desktop push for people who turned it on (after the response, never slowing the page).
-  inBackground(async () => (await import("./push")).sendPush(userId, title, opts.body, opts.link));
+  // Phone / desktop push for people who turned it on (after the response, never slowing the page); none during a burst.
+  if (!quiet) inBackground(async () => (await import("./push")).sendPush(userId, title, opts.body, opts.link));
   if (now && smtpConfigured()) {
     // The email goes out after the page has responded, so a slow mail server never slows down saving.
     const send = async () => {
