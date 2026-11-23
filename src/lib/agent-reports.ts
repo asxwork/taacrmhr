@@ -73,7 +73,8 @@ export async function agentPerformance(from: Date, to: Date, branchId?: string) 
  * The lead lists behind the numbers, for one agent or for a scope (an agent's own "My follow-ups").
  * `where` limits the leads (owner or user scope).
  */
-export async function followUpLists(where: Prisma.LeadWhereInput, closedSince?: Date) {
+/** `take`: rows per list (the Follow-ups page shows 40 each, all of one list with ?show=). */
+export async function followUpLists(where: Prisma.LeadWhereInput, closedSince?: Date, take = 200) {
   const now = new Date();
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   const include = { status: true, source: { select: { name: true } }, owner: { select: { name: true } } } as const;
@@ -82,11 +83,11 @@ export async function followUpLists(where: Prisma.LeadWhereInput, closedSince?: 
   const staleCut = subDays(now, STALE_DAYS);
 
   const [neverContacted, noNextStep, stale, overdue, dueToday, closedNoContact] = await Promise.all([
-    db.lead.findMany({ where: { AND: [openLead, { activities: { none: { type: { in: CONTACT_TYPES }, doneAt: { not: null } } } }] }, include, orderBy: { createdAt: "asc" }, take: 200 }),
-    db.lead.findMany({ where: { AND: [openLead, { activities: { none: { doneAt: null, dueAt: { not: null } } } }] }, include, orderBy: { createdAt: "asc" }, take: 200 }),
-    db.lead.findMany({ where: { AND: [openLead, { OR: [{ lastActivityAt: { lt: staleCut } }, { lastActivityAt: null, createdAt: { lt: staleCut } }] }] }, include, orderBy: { lastActivityAt: "asc" }, take: 200 }),
-    db.activity.findMany({ where: { doneAt: null, dueAt: { lt: now }, lead: openLead }, include: { lead: { include }, owner: { select: { name: true } } }, orderBy: { dueAt: "asc" }, take: 200 }),
-    db.activity.findMany({ where: { doneAt: null, dueAt: { gte: now, lt: tomorrow }, lead: openLead }, include: { lead: { include }, owner: { select: { name: true } } }, orderBy: { dueAt: "asc" }, take: 200 }),
+    db.lead.findMany({ where: { AND: [openLead, { activities: { none: { type: { in: CONTACT_TYPES }, doneAt: { not: null } } } }] }, include, orderBy: { createdAt: "asc" }, take }),
+    db.lead.findMany({ where: { AND: [openLead, { activities: { none: { doneAt: null, dueAt: { not: null } } } }] }, include, orderBy: { createdAt: "asc" }, take }),
+    db.lead.findMany({ where: { AND: [openLead, { OR: [{ lastActivityAt: { lt: staleCut } }, { lastActivityAt: null, createdAt: { lt: staleCut } }] }] }, include, orderBy: { lastActivityAt: "asc" }, take }),
+    db.activity.findMany({ where: { doneAt: null, dueAt: { lt: now }, lead: openLead }, include: { lead: { include }, owner: { select: { name: true } } }, orderBy: { dueAt: "asc" }, take }),
+    db.activity.findMany({ where: { doneAt: null, dueAt: { gte: now, lt: tomorrow }, lead: openLead }, include: { lead: { include }, owner: { select: { name: true } } }, orderBy: { dueAt: "asc" }, take }),
     closedSince
       ? db.lead.findMany({ where: { AND: [where, { status: { kind: "junk" } }, { updatedAt: { gte: closedSince } }, { activities: { none: contacted.some } }] }, include, orderBy: { updatedAt: "desc" }, take: 200 })
       : Promise.resolve([]),

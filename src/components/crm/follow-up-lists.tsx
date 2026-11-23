@@ -12,7 +12,7 @@ type Lists = Awaited<ReturnType<typeof followUpLists>>;
 type LeadRow = Lists["neverContacted"][number];
 
 /** The lead lists behind follow-up numbers: what to call, what is overdue, what has nothing planned. */
-export function FollowUpLists({ lists, showOwner, only, phoneMode = "full" }: { lists: Lists; showOwner: boolean; only?: string; phoneMode?: FieldMode }) {
+export function FollowUpLists({ lists, showOwner, only, phoneMode = "full", limit = 200, moreHref }: { lists: Lists; showOwner: boolean; only?: string; phoneMode?: FieldMode; limit?: number; moreHref?: (key: string) => string }) {
   const sections: { key: string; title: string; hint: string; icon: typeof Clock; tone: string; rows: React.ReactNode[] }[] = [
     {
       key: "overdue", title: "Overdue follow-ups", hint: "Planned calls and tasks whose time has passed.", icon: AlertTriangle, tone: "text-red-600 bg-red-50",
@@ -47,9 +47,10 @@ export function FollowUpLists({ lists, showOwner, only, phoneMode = "full" }: { 
           <div className="flex items-center gap-3 border-b border-line px-5 py-3">
             <span className={cn("flex size-8 items-center justify-center rounded-lg", s.tone)}><s.icon className="size-4" /></span>
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-medium">{s.title} <span className="text-muted">{s.rows.length}{s.rows.length === 200 ? "+" : ""}</span></h2>
+              <h2 className="text-sm font-medium">{s.title} <span className="text-muted">{s.rows.length}{s.rows.length === limit ? "+" : ""}</span></h2>
               <p className="text-xs text-muted">{s.hint}</p>
             </div>
+            {moreHref && s.rows.length === limit && <a href={moreHref(s.key)} className="shrink-0 text-xs font-medium text-navy-900 hover:underline">Show all →</a>}
           </div>
           {s.rows.length === 0 ? <p className="px-5 py-4 text-sm text-emerald-700">All clear.</p> : <ul className="divide-y divide-line">{s.rows}</ul>}
         </Card>

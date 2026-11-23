@@ -14,7 +14,9 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
   const user = await requirePermission("crm.leads");
   const sp = await searchParams;
   const scope = (await scopeWhere(user, "crm.leads")) as Prisma.LeadWhereInput;
-  const lists = await followUpLists(scope);
+  // 40 per list keeps the page quick; ?show=<list> opens one list in full.
+  const limit = sp.show ? 300 : 40;
+  const lists = await followUpLists(scope, undefined, limit);
   const own = scopeFor(user, "crm.leads") === "own";
   const chips: [string | undefined, string, number][] = [
     [undefined, "Everything", lists.overdue.length + lists.dueToday.length + lists.neverContacted.length + lists.noNextStep.length + lists.stale.length],
@@ -37,7 +39,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           </Link>
         ))}
       </div>
-      <FollowUpLists lists={lists} showOwner={!own} only={sp.show} phoneMode={(await fieldAccess(user))["lead.phone"]} />
+      <FollowUpLists lists={lists} showOwner={!own} only={sp.show} limit={limit} moreHref={(k) => `/crm/follow-ups?show=${k}`} phoneMode={(await fieldAccess(user))["lead.phone"]} />
     </>
   );
 }

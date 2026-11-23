@@ -16,7 +16,7 @@ import { Timeline, type TimelineItem } from "@/components/crm/timeline";
 
 export const metadata = { title: "Tasks & Calendar" };
 
-type SP = { view?: string; who?: string; month?: string; new?: string };
+type SP = { view?: string; who?: string; month?: string; new?: string; all?: string };
 
 const RELATED = {
   lead: { select: { id: true, name: true } },
@@ -69,12 +69,14 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         {groups.map(([title, items, tone]) => (
           <Card key={title} className={cn("p-5", title === "Done in the last 7 days" && "lg:col-span-2")}>
             <h2 className={cn("mb-3 text-sm font-medium", tone)}>
-              {title} <span className="text-muted">{items.length}</span>
+              {title} <span className="text-muted">{items.length}{items.length === 300 ? "+" : ""}</span>
+              {!sp.all && items.length > 30 && <Link href={hrefWith(path, { ...keep, all: "1" }, {})} className="ml-2 text-xs font-normal text-navy-900 hover:underline">Show all</Link>}
             </h2>
             {items.length === 0 ? (
               <p className="text-sm text-muted">Nothing here.</p>
             ) : (
-              <Timeline items={items} path={path} editableIds={editable} canDelete={can(user, "crm.activities", "delete")} />
+              // 30 per group keeps the page quick for people with many open tasks; Show all lists every one.
+              <Timeline items={sp.all ? items : items.slice(0, 30)} path={path} editableIds={editable} canDelete={can(user, "crm.activities", "delete")} />
             )}
           </Card>
         ))}
