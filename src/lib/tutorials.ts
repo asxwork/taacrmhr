@@ -42,7 +42,8 @@ export const TUTORIALS: Tutorial[] = [
     key: "search", group: "Getting started", title: "Smart search (Ctrl + K)", who: "Everyone", href: "/dashboard",
     summary: "Find anything from one box: people, leads by number or phone, units by what the client wants, and how-tos.",
     steps: [
-      "Press Ctrl + K (or tap the search icon on your phone).",
+      "Press Ctrl + K (or tap the search icon on your phone). With the box empty, your apps show as tiles: click one to jump there.",
+      "Type a page name, e.g. “my space” or “hr settings”. Under each result you see where it lives (Tutorials › My Space, HR › Payroll › Settings), so pages with the same name are easy to tell apart; apps are tagged App.",
       "Type a name, a lead number like #1234, or a phone number in any format (0300…, +92 300…, 92300…).",
       "Ask for property in plain words, e.g. “3 bed apartment DHA under 2 crore” or “shop for rent 50 lakh” — AMS shows matching available units and a link to all of them.",
       "Type a question like “leave” or “payslip” to get the matching how-to.",
@@ -60,9 +61,10 @@ export const TUTORIALS: Tutorial[] = [
   },
   {
     key: "sign-in", group: "Getting started", title: "Signing in", who: "Everyone", chapter: "start",
-    summary: "Sign in with your work email. Your role decides which apps and screens you see.",
+    summary: "Sign in with your username, your name or your work email. Your role decides which apps and screens you see.",
     steps: [
-      "Open AMS and enter your work email and password, then press Sign in.",
+      "Open AMS. In “Username or email” type just your username (the part of your email before @, e.g. admin), your name (e.g. Huzaifa Khan), or the full email. Enter your password and press Sign in.",
+      "If your administrator gave you a password from a format, AMS asks you to choose your own straight after signing in.",
       "If two-step login is on for you, type the 6-digit code from your authenticator app.",
       "Pick an app on the home screen (CRM, HR, My Space…). If you only have one app, it opens straight away.",
       "Forgot your password? Ask your administrator to reset it in Settings → Users.",
@@ -111,7 +113,9 @@ export const TUTORIALS: Tutorial[] = [
     summary: "Filter, sort and move leads through stages; switch between list and Kanban board.",
     steps: [
       "Use the tabs: All leads, My leads, Follow-ups, Tasks & calendar, Converted, Closed.",
-      "Pick a saved filter (Leads in progress, Today's leads, Not contacted 7+ days…) or open the filter panel for source, project, stage, owner and dates.",
+      "The list opens on All leads (every stage). Click the filter button left of the search box for the same filters as Bitrix: Reshuffle, My leads, Yesterday leads, Yesterday created date, Leads in progress, Not contacted 7+ days, each project and source, the New Request / branch / agent reports, Reshuffled and Reshuffle check. Or set your own on the right and save it.",
+      "Open a lead and use Back: you return to the same filters, search and page. Inside a lead, the arrows at the top (or Alt + ← / →) go to the previous or next lead of your list.",
+      "Move your mouse to the left or right edge of the table or Kanban board to slide it sideways; the page bar at the bottom shows how many leads match and how many per page.",
       "The counters show Overdue, Today and Nothing planned — click one to see those leads.",
       "Change a lead's stage straight from the list (click the stage) or drag cards on the Kanban board.",
       "Tick leads to reassign, change stage, add a task or run an automation on many at once (if your role allows bulk actions).",
@@ -227,10 +231,10 @@ export const TUTORIALS: Tutorial[] = [
     key: "duplicates", group: "CRM", module: "crm.merge", title: "Find and merge duplicate leads", who: "Managers, admins", href: "/crm/duplicates",
     summary: "Clean up leads that came in twice with the same phone number.",
     steps: [
-      "Open Leads → Duplicates. Each card is one phone number with all the leads that share it.",
-      "AMS pre-selects the lead with the most history; pick another one if you prefer.",
-      "Press Merge: activities, deals and property matches move onto the kept lead, its empty fields are filled from the others, and the duplicates are deleted.",
-      "A note on the kept lead lists what was merged.",
+      "Open Leads → Duplicates (or the gear button on Leads). Choose how to group them: Exact copies (same name, phone, source info and responsible person), Same person per owner (3 leads with X become one for X, 4 with XX one for XX), Same phone, or Same email.",
+      "Press Review to see the leads side by side, Bitrix style: pick which value to keep for each field, and which lead stays.",
+      "Merge all merges every group at once; Later skips a group. To merge specific leads, tick them in the leads list and press Merge in the bar at the bottom.",
+      "Activities, comments, deals and property matches move onto the kept lead, and a note on it lists what was merged.",
     ],
     tips: ["Merging can't be undone. Roles → Duplicate leads & merge: Read shows the list, Edit allows merging."],
   },
@@ -765,6 +769,8 @@ export const TUTORIALS: Tutorial[] = [
       "Settings → Roles & Permissions: open a role and set each module's access — Read, Add, Edit, Delete, Export, Approve, Reassign, Import, Bulk actions, Move back/reopen, Listen to recordings.",
       "Scopes: Own items, their Team (everyone reporting to them), their Branch, or All.",
       "Changes apply on the person's next page load.",
+      "Tick several users (the top box ticks everyone) for bulk actions: add / remove / set a role, branch, reports to, activate, deactivate, send login email. Super Admins can also delete users and set passwords from a format.",
+      "Set passwords from a format: type a rule like {First}@{year} or {username}@123 (click the parts to add them); the example shows the result. Leave “ask them to choose their own at the next sign-in” ticked. Your own password is never changed, nothing is emailed, and anyone whose result is under 8 characters is skipped.",
     ],
   },
   {
