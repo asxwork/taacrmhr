@@ -2620,3 +2620,27 @@ model CallDayNote {
 
   @@unique([agentId, date])
 }
+
+/// Settings → Developer resources. inbound: a secret link (or MCP key) that acts with its owner's permissions,
+/// limited to `scopes`. outbound: AMS posts `events` to `url`, signed with `secret`.
+model DevHook {
+  id         String    @id @default(cuid())
+  kind       String    @default("inbound")
+  name       String
+  /// Inbound: whose permissions the link uses. Outbound: who made it.
+  userId     String
+  /// sha256 of the key (inbound); the key is shown once, when created or renewed.
+  tokenHash  String?   @unique
+  tokenHint  String?
+  /// Comma separated: crm, users, hr, mcp
+  scopes     String    @default("crm")
+  url        String? // @text
+  /// Comma separated, e.g. lead.created,lead.updated
+  events     String? // @text
+  secretSealed String? // @text
+  active     Boolean   @default(true)
+  calls      Int       @default(0)
+  lastUsedAt DateTime?
+  lastStatus String?
+  createdAt  DateTime  @default(now())
+}

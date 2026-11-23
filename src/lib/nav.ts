@@ -595,6 +595,7 @@ export const APPS: AppDef[] = [
           { href: "/settings/audit", label: "Activity Log", icon: "history", module: "settings.audit" },
           { href: "/settings/health", label: "System health", icon: "gauge", superAdmin: true },
           { href: "/settings/backup", label: "Backup", icon: "archive", superAdmin: true },
+          { href: "/settings/developer", label: "Developer resources", icon: "plug", module: "settings.company" },
         ],
       },
     ],

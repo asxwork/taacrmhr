@@ -8,6 +8,7 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 const CACHE_PREFIX: Record<string, string> = {
   User: "session:", UserRole: "session:", Role: "session:", Permission: "session:", UserPermission: "session:", FieldRule: "session:", Session: "session:", Branch: "session:",
   Setting: "setting:",
+  DevHook: "devhook:",
   LayoutProfile: "layout:",
   Pipeline: "pipelines", Stage: "pipelines",
   LeadStatus: "leadStatus:",
@@ -43,6 +44,10 @@ function createClient() {
           if (SIMULATE_DB_MS) await new Promise((r) => setTimeout(r, SIMULATE_DB_MS));
           if (model === "Lead") await stampLeadWrite(base, operation, args as Parameters<typeof stampLeadWrite>[2]);
           const result = await query(args);
+          // Outbound webhooks (Settings → Developer resources), sent in the background.
+          if ((model === "Lead" || model === "Activity" || model === "Deal") && (operation === "create" || operation === "update" || operation === "upsert")) {
+            void import("./dev-events").then((m) => m.queueDevEvent(model, operation, args as { data?: Record<string, unknown> }, result)).catch(() => {});
+          }
           const prefix = CACHE_PREFIX[model];
           if (prefix && !READS.has(operation)) forget(prefix);
           return result;

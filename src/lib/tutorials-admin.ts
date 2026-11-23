@@ -22,6 +22,15 @@ export const ADMIN_EXTRA_TUTORIALS: Tutorial[] = [
   A({ key: "backup", superAdmin: true, title: "Backups to Google Drive", who: "Super Admin", href: "/settings/backup",
     summary: "Every night each app (CRM, HR, Finance, Calls, Inventory, settings) is saved as its own file in Google Drive.",
     steps: ["Click Connect Google Drive once and sign in.", "Choose how many days to keep.", "Back up now runs one straight away; the list shows every backup."] }),
+  A({ key: "developer", module: "settings.company", title: "Developer resources: webhooks and AI assistant", who: "Super Admin, admins", href: "/settings/developer",
+    summary: "Connect AMS to your website, Zapier / Make / Google Sheets, other systems and AI assistants like Claude.",
+    steps: [
+      "Settings → Developer resources. Inbound webhook: name it, tick what it can reach (CRM, Users, HR) and press Make the key. Copy the link: it's shown once.",
+      "Use the link with a method at the end, e.g. …/api/rest/<key>/crm.lead.list for your newest leads, or crm.lead.add to send a lead from your website. Open “Methods this key can call” to see them all.",
+      "Outbound webhook: paste the address that should hear about changes and tick the events (lead added, lead changed, activity added, deal added / changed). Send a test checks it.",
+      "AI assistant (MCP): makes a key with AI assistant ticked and shows the MCP address and the line to paste into Claude Code or Claude Desktop.",
+      "Every key works with the permissions of the person who made it. Lost or leaked? Open it and press Renew key; Off or Delete stops it at once.",
+    ] }),
   A({ key: "bitrix-import", superAdmin: true, title: "Import leads from Bitrix24", who: "Super Admin", href: "/settings/bitrix-import",
     summary: "Move every Bitrix lead into AMS with its responsible person, project, activities, timeline comments and stage history.",
     steps: [

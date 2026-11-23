@@ -59,6 +59,7 @@ export const FEATURES = [
   { key: "crm-reports", label: "CRM reports", group: "CRM", app: "crm", paths: ["/reports/crm"], about: "Sales reports" },
   { key: "crm-agents", label: "Agent performance", group: "CRM", app: "crm", paths: ["/reports/agents"], about: "Per-agent results" },
   { key: "crm-automationhub", label: "Automation hub", group: "CRM", app: "crm", paths: ["/crm/automation"], about: "Lead connections and automatic rules" },
+  { key: "dev-api", label: "Developer resources (API, webhooks, AI assistant)", group: "CRM", app: "crm", paths: ["/settings/developer"], about: "Inbound and outbound webhooks and the MCP server for AI assistants; switched off, every key stops working" },
   { key: "crm-bitrix", label: "Import from Bitrix", group: "CRM", app: "crm", paths: ["/settings/bitrix-import"], about: "Bring leads in from Bitrix24" },
   { key: "crm-bitrix-backup", label: "Bitrix backup to Google Drive", group: "CRM", app: "crm", paths: [], about: "Daily full copy of all Bitrix24 leads, activities and comments in Google Drive" },
   { key: "crm-bitrix-sync", label: "Bitrix sync", group: "CRM", app: "crm", paths: ["/settings/bitrix-sync"], about: "Keep AMS updated with new and changed Bitrix24 leads automatically" },
