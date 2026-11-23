@@ -29,6 +29,7 @@ import { logout } from "@/app/login/actions";
 import { disabledFeatures, featureForPath } from "@/lib/features";
 import { can } from "@/lib/permissions";
 import { FeatureOff } from "@/components/feature-off";
+import { MainWidth } from "@/components/main-width";
 import { fileUrl } from "@/lib/files";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -94,7 +95,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <a href="/api/view-as?exit=1" className="rounded-md bg-navy-950 px-3 py-1 text-xs font-semibold text-white hover:bg-navy-800">Exit, back to {user.viewAs.realName}</a>
           </div>
         )}
-        <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-8 sm:pt-8 lg:pb-10">
+        <MainWidth>
           <PageTransition>
             {/* View as is read-only: every input and button on the page is disabled (the server refuses writes too). */}
             <fieldset disabled={!!user.viewAs} className="m-0 min-w-0 border-0 p-0">
@@ -107,7 +108,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {offFeature ? <FeatureOff label={offFeature.label} canManage={user.isSuperAdmin || can(user, "settings.company", "edit")} /> : children}
             </fieldset>
           </PageTransition>
-        </div>
+        </MainWidth>
       </main>
       <CommandPalette pages={pages} />
       {!user.viewAs && <IdleSignOut minutes={security.idleMinutes} signOut={logout} />}
