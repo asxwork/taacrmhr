@@ -34,7 +34,8 @@ function KeyInfo({ token, appUrl, mcp }: { token: string; appUrl: string; mcp: b
       <CopyBox label="Example: your newest leads" value={`${rest}crm.lead.list`} />
       {mcp && (
         <>
-          <CopyBox label="MCP server address" value={`${appUrl}/api/mcp`} />
+          <CopyBox label="Claude.ai / ChatGPT: add a custom connector with this link" value={`${appUrl}/api/mcp?key=${token}`} />
+          <CopyBox label="MCP server address (apps that let you add a header)" value={`${appUrl}/api/mcp`} />
           <CopyBox label="Header" value={`Authorization: Bearer ${token}`} />
           <CopyBox label="Claude Code" value={`claude mcp add --transport http ams ${appUrl}/api/mcp --header "Authorization: Bearer ${token}"`} />
           <CopyBox label="Claude Desktop / other apps (settings JSON)" value={JSON.stringify({ mcpServers: { ams: { type: "http", url: `${appUrl}/api/mcp`, headers: { Authorization: `Bearer ${token}` } } } })} />
