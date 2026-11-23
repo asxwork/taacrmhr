@@ -159,6 +159,8 @@ async function main() {
       "-vf", "fps=25,format=yuv420p", "-c:v", "libx264", "-preset", "slow", "-tune", "stillimage", "-crf", "21", "-g", "250",
       ...(audio ? ["-c:a", "copy"] : ["-an"]), "-t", total.toFixed(2), "-movflags", "+faststart", out]);
     renameSync(out, old);
+    // Still preview shown before the video starts (the title screen), so the player never looks empty.
+    sh("ffmpeg", ["-v", "error", "-y", "-ss", "0.5", "-i", old, "-frames:v", "1", "-vf", "scale=960:-1", "-q:v", "5", old.replace(/\.mp4$/, ".jpg")]);
     index[t.key] = Math.round(total);
     rmSync(dir, { recursive: true, force: true });
     console.log(`✓ ${t.key} (${slides.length} slides, ${Math.round(total)}s${audio ? ", voice" : ", silent"})`);
