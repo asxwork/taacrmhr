@@ -286,22 +286,25 @@ export const TUTORIALS: Tutorial[] = [
     summary: "Your numbers come one by one: call, pick what happened, and the next number loads.",
     steps: [
       "Open Calls → Dialer. Numbers come in order: due callbacks, new numbers, then unanswered ones after a few hours.",
+      "Choose how you call at the top: Click to call (international numbers through AMS) or Landline (the number is shown big to dial by hand; Start timer measures the call). AMS remembers your choice.",
+      "Read the client's details under the name before calling: project and unit they bought, nationality and anything else from the sheet.",
       "Press Call (through your extension if the phone system is connected) or WhatsApp to send the campaign message.",
       "Pick the outcome: Interested, Call back, Not interested, Not answered, Busy, Wrong number…",
       "For Call back choose the date and time; for Interested tick “Send to the CRM” so a sales agent gets the lead.",
-      "Press Save & next number.",
+      "Write your remarks and press Save & next number. Faster: press 1–9 to pick the result and Ctrl + Enter to save.",
     ],
-    tips: ["Callbacks and History tabs show your planned callbacks and every call you made."],
+    tips: ["Callbacks and History tabs show your planned callbacks and every call you made. Reports shows only your own numbers."],
   },
   {
     key: "campaigns", group: "Calls", module: "calls", action: "create", title: "Campaigns, batches and the wallboard", who: "Calling supervisors", href: "/calls/campaigns", chapter: "calls",
     summary: "Upload numbers, split them into batches for agents, and watch the team live.",
     steps: [
       "Calls → Campaigns → New campaign: name, script and WhatsApp message.",
-      "Paste numbers or upload a CSV (a phone column, optionally name and other columns). Duplicates and do-not-call numbers are skipped.",
+      "Add numbers: choose an Excel (.xlsx) or CSV file, then say what each column is — Phone number, Second phone, Name, Show to agent (project, unit, nationality…, rename them if you like) or Don't import. Duplicates and do-not-call numbers are skipped.",
       "Make batches: choose the agents and how many numbers each batch has.",
       "Wallboard shows each agent live (ready, ringing, on a call) and today's numbers; Reports shows totals by agent and outcome.",
       "Do-not-call keeps numbers that must never be called again.",
+      "Only supervisors and Super Admins manage campaigns, batches, the wallboard and everyone's reports; CSR agents only work their own queue. Recordings are for Super Admins only.",
     ],
   },
   {

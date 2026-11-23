@@ -1,7 +1,8 @@
 import Link from "@/components/link";
 import { format, startOfMonth } from "date-fns";
 import { Download, FileText } from "lucide-react";
-import { can, requirePermission } from "@/lib/permissions";
+import { requirePermission } from "@/lib/permissions";
+import { isCallSupervisor } from "@/lib/calls";
 import { db } from "@/lib/db";
 import { agentStats, campaignStats, hourStats, outcomeStats } from "@/lib/call-reports";
 import { callReportText, callTotalsText, pkDay, type DaySummary } from "@/lib/call-daily";
@@ -19,10 +20,12 @@ const mmss = (s: number) => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStar
 
 /** Calls → Reports: the period overview (agents, hours, outcomes, campaigns) and the end-of-shift daily reports. */
 export default async function CallReports({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; tab?: string; agent?: string }> }) {
-  const viewer = await requirePermission("calls", "create");
+  const viewer = await requirePermission("calls");
   const sp = await searchParams;
   const tab = sp.tab === "daily" ? "daily" : "overview";
-  const supervisor = viewer.isSuperAdmin || can(viewer, "calls", "assign");
+  // Agents see only their own numbers; supervisors see everyone (lib/calls isCallSupervisor).
+  const supervisor = isCallSupervisor(viewer);
+  const only = supervisor ? undefined : viewer.id;
   const parse = (v: string | undefined, d: Date) => { const x = v ? new Date(`${v}T00:00:00`) : d; return Number.isNaN(x.getTime()) ? d : x; };
   const from = parse(sp.from, startOfMonth(new Date()));
   const to = parse(sp.to, new Date());
@@ -102,7 +105,7 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
     );
   }
 
-  const [agents, outcomes, campaigns, hours] = await Promise.all([agentStats(from, end), outcomeStats(from, end), campaignStats(from, end), hourStats(from, end)]);
+  const [agents, outcomes, campaigns, hours] = await Promise.all([agentStats(from, end, only), outcomeStats(from, end, only), campaignStats(from, end, only), hourStats(from, end, only)]);
   const today = pkDay().date;
   return (
     <>

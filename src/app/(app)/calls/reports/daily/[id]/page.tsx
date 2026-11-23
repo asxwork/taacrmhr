@@ -1,6 +1,7 @@
+import { isCallSupervisor } from "@/lib/calls";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
-import { can, requirePermission } from "@/lib/permissions";
+import { requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { agentDay, callReportText, pkDay, type DaySummary } from "@/lib/call-daily";
 import { CopyText } from "@/components/calls/copy-text";
@@ -33,7 +34,7 @@ export default async function DailyCallReport({ params, searchParams }: { params
   const agent = await db.user.findUnique({ where: { id: agentId }, select: { name: true, managerId: true } });
   if (!agent) notFound();
   const note = await db.callDayNote.findUnique({ where: { agentId_date: { agentId, date } } });
-  const allowed = agentId === viewer.id || viewer.isSuperAdmin || can(viewer, "calls", "assign") || agent.managerId === viewer.id;
+  const allowed = agentId === viewer.id || isCallSupervisor(viewer) || agent.managerId === viewer.id;
   if (!allowed) notFound();
 
   return (

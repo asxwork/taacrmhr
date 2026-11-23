@@ -6,6 +6,8 @@ import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { phoneKey } from "./crm-shared";
 import { ingestLead } from "./lead-intake";
+import type { SessionUser } from "./auth";
+import { scopeFor } from "./permissions";
 
 export const OUTCOMES = [
   { value: "interested", label: "Interested", tone: "green", reached: true, final: true },
@@ -119,7 +121,7 @@ export function parseNumbers(text: string) {
     const name = c.find((x) => x && x !== phone && !/\d{5,}/.test(x)) ?? null;
     return { phone, name, extra: null as Record<string, string> | null };
   });
-  return rows.filter((r) => phoneKey(r.phone));
+  return rows.filter((r) => (phoneKey(r.phone) ?? "").length >= 7);
 }
 
 /** Adds numbers to a campaign, skipping duplicates within the campaign and the do-not-call list. */
@@ -178,3 +180,15 @@ export async function callAgents(withSuperAdmins = true) {
     select: { id: true, name: true }, orderBy: { name: "asc" },
   });
 }
+
+/**
+ * Calling supervisors: run campaigns (numbers, batches, assigning), the wallboard and everyone's reports. Super Admins,
+ * and people whose role gives Calls → Assign for everyone. Anyone with the CSR Agent role is always an agent here
+ * (their own queue, callbacks, history and report only), whatever else their roles allow.
+ */
+export function isCallSupervisor(user: SessionUser) {
+  if (user.isSuperAdmin) return true;
+  if (user.roleNames.some((r) => r.trim().toLowerCase() === "csr agent")) return false;
+  return scopeFor(user, "calls", "assign") === "all";
+}
+

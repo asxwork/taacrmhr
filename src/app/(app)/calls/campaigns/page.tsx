@@ -1,3 +1,5 @@
+import { isCallSupervisor } from "@/lib/calls";
+import { redirect } from "next/navigation";
 import Link from "@/components/link";
 import { format } from "date-fns";
 import { Plus } from "lucide-react";
@@ -13,7 +15,8 @@ const TONE = { active: "green", paused: "amber", done: "neutral" } as const;
 
 /** Calls → Campaigns: each campaign is a list of numbers with a script and WhatsApp message, split into batches. */
 export default async function CampaignsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
-  await requirePermission("calls", "create");
+  // Supervisors only: CSR agents work their own queue and never manage campaigns, batches or the team.
+  if (!isCallSupervisor(await requirePermission("calls"))) redirect("/no-access");
   const sp = await searchParams;
   const campaigns = await db.callCampaign.findMany({ orderBy: [{ status: "asc" }, { createdAt: "desc" }], include: { _count: { select: { targets: true, batches: true } } } });
   const counts = await db.callTarget.groupBy({ by: ["campaignId", "status"], _count: true });

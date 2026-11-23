@@ -1,3 +1,5 @@
+import { isCallSupervisor } from "@/lib/calls";
+import { redirect } from "next/navigation";
 import { differenceInMinutes, format, startOfDay } from "date-fns";
 import { requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
@@ -13,7 +15,8 @@ export const metadata = { title: "Wallboard" };
 
 /** Calls → Wallboard: today's team at a glance, refreshing every 20 seconds. */
 export default async function Wallboard() {
-  await requirePermission("calls", "create");
+  // Supervisors only: CSR agents work their own queue and never manage campaigns, batches or the team.
+  if (!isCallSupervisor(await requirePermission("calls"))) redirect("/no-access");
   const today = startOfDay(new Date());
   const [stats, agents, queue, dueCallbacks, sip] = await Promise.all([
     agentStats(today, new Date(today.getTime() + 86_400_000)),

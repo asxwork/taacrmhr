@@ -2,8 +2,9 @@
 import { db } from "./db";
 import { OUTCOMES, outcome } from "./calls";
 
-export async function agentStats(from: Date, to: Date) {
-  const logs = await db.callLog.findMany({ where: { startedAt: { gte: from, lt: to } }, select: { agentId: true, outcome: true, durationSec: true, startedAt: true, channel: true } });
+/** `agentId`: only that agent (what an agent sees of their own work). */
+export async function agentStats(from: Date, to: Date, agentId?: string) {
+  const logs = await db.callLog.findMany({ where: { startedAt: { gte: from, lt: to }, ...(agentId ? { agentId } : {}) }, select: { agentId: true, outcome: true, durationSec: true, startedAt: true, channel: true } });
   const users = new Map((await db.user.findMany({ where: { id: { in: [...new Set(logs.map((l) => l.agentId))] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
   const by = new Map<string, typeof logs>();
   for (const l of logs) by.set(l.agentId, [...(by.get(l.agentId) ?? []), l]);
@@ -21,20 +22,20 @@ export async function agentStats(from: Date, to: Date) {
 }
 
 /** Calls per Karachi hour of day (0–23) in the period. */
-export async function hourStats(from: Date, to: Date) {
-  const logs = await db.callLog.findMany({ where: { startedAt: { gte: from, lt: to }, channel: { not: "whatsapp" } }, select: { startedAt: true } });
+export async function hourStats(from: Date, to: Date, agentId?: string) {
+  const logs = await db.callLog.findMany({ where: { startedAt: { gte: from, lt: to }, channel: { not: "whatsapp" }, ...(agentId ? { agentId } : {}) }, select: { startedAt: true } });
   const hours = Array.from({ length: 24 }, () => 0);
   for (const l of logs) hours[new Date(+l.startedAt + 5 * 3_600_000).getUTCHours()]!++;
   return hours;
 }
 
-export async function outcomeStats(from: Date, to: Date) {
-  const rows = await db.callLog.groupBy({ by: ["outcome"], where: { startedAt: { gte: from, lt: to } }, _count: true });
+export async function outcomeStats(from: Date, to: Date, agentId?: string) {
+  const rows = await db.callLog.groupBy({ by: ["outcome"], where: { startedAt: { gte: from, lt: to }, ...(agentId ? { agentId } : {}) }, _count: true });
   return OUTCOMES.map((o) => ({ ...o, count: rows.find((r) => r.outcome === o.value)?._count ?? 0 })).filter((o) => o.count);
 }
 
-export async function campaignStats(from: Date, to: Date) {
-  const rows = await db.callLog.groupBy({ by: ["campaignId", "outcome"], where: { startedAt: { gte: from, lt: to } }, _count: true });
+export async function campaignStats(from: Date, to: Date, agentId?: string) {
+  const rows = await db.callLog.groupBy({ by: ["campaignId", "outcome"], where: { startedAt: { gte: from, lt: to }, ...(agentId ? { agentId } : {}) }, _count: true });
   const names = new Map((await db.callCampaign.findMany({ select: { id: true, name: true } })).map((c) => [c.id, c.name]));
   const by = new Map<string, { calls: number; interested: number; reached: number }>();
   for (const r of rows) {

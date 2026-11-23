@@ -7,7 +7,7 @@ import { OUTCOMES, nextTarget, outcome, queueWhere } from "@/lib/calls";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { DrillTiles } from "@/components/drill-tiles";
 import { CallCard } from "@/components/calls/call-card";
-import { logCall, saveCallFeedback } from "./actions";
+import { logCall, saveCallFeedback, setCallMode } from "./actions";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { agentDay, pkDay } from "@/lib/call-daily";
 import { HourChart } from "@/components/calls/day-report";
@@ -27,14 +27,16 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   }
   const user = viewer;
   const day = pkDay();
-  const [target, queued, callbacks, s, lastLog, note] = await Promise.all([
+  const [target, queued, callbacks, s, lastLog, note, modeRow] = await Promise.all([
     nextTarget(user.id),
     db.callTarget.count({ where: queueWhere(user.id) }),
     db.callTarget.count({ where: { assigneeId: user.id, status: "callback" } }),
     agentDay(user.id, day.start, day.end),
     db.callLog.findFirst({ where: { agentId: user.id, startedAt: { gte: new Date(Date.now() - 90_000) } }, orderBy: { startedAt: "desc" }, include: { target: { select: { name: true, phone: true, leadId: true } } } }),
     db.callDayNote.findUnique({ where: { agentId_date: { agentId: user.id, date: day.date } } }),
+    db.setting.findUnique({ where: { key: `calls.mode.${user.id}` } }),
   ]);
+  const mode = modeRow?.value === "landline" ? "landline" : "system";
   let extra: Record<string, string> = {};
   try { extra = target?.extra ? JSON.parse(target.extra) : {}; } catch {}
   const waText = (target?.campaign.waMessage ?? "").replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
@@ -63,7 +65,14 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Dialer" description={`${format(new Date(), "EEEE d MMMM")} · numbers come in order: due callbacks, new numbers, then unanswered ones after a few hours.`} />
+      <PageHeader title="Dialer" description={`${format(new Date(), "EEEE d MMMM")} · numbers come in order: due callbacks, new numbers, then unanswered ones after a few hours.`} actions={
+        // Two ways of calling: through AMS (click Call, e.g. international numbers) or by hand on a landline.
+        <form action={setCallMode} className="flex rounded-lg border border-line bg-surface p-0.5 text-sm" aria-label="How I call">
+          {([["system", "Click to call"], ["landline", "Landline (dial by hand)"]] as const).map(([k, l]) => (
+            <button key={k} name="mode" value={k} className={`rounded-md px-3 py-1.5 font-medium transition ${mode === k ? "bg-navy-900 text-white" : "text-muted hover:text-ink"}`}>{l}</button>
+          ))}
+        </form>
+      } />
       <DrillTiles className="mb-6 lg:grid-cols-4 xl:grid-cols-4" tiles={[
         { key: "q", label: "In my queue now", tone: "navy", value: queued },
         { key: "c", label: "Calls today", tone: "sky", value: s.calls, sub: s.interested ? `${s.interested} interested` : undefined, href: "/calls/history" },
@@ -84,16 +93,15 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <Card className="p-6">
-            <CallCard key={target.id} target={target} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} />
+            <CallCard key={target.id} target={target} mode={mode} details={Object.entries(extra).filter(([, v]) => String(v).trim())} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} />
           </Card>
           <div className="space-y-4">
             {todayCard}
             <Card className="p-5">
               <p className="mb-1 text-xs uppercase tracking-wide text-muted">Campaign</p>
               <p className="font-medium">{target.campaign.name}</p>
-              {Object.keys(extra).length > 0 && (
-                <dl className="mt-3 space-y-1 text-sm">{Object.entries(extra).map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="capitalize text-muted">{k}</dt><dd className="text-right">{v}</dd></div>)}</dl>
-              )}
+              {target.campaign.description && <p className="mt-1 whitespace-pre-line text-sm text-muted">{target.campaign.description}</p>}
+              {target.campaign.sourceName && <p className="mt-2 text-xs text-muted">Source: <b className="font-medium text-ink">{target.campaign.sourceName}</b></p>}
             </Card>
             {target.campaign.script && (
               <Card className="p-5">

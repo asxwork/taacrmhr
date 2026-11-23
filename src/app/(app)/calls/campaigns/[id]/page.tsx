@@ -1,3 +1,5 @@
+import { isCallSupervisor } from "@/lib/calls";
+import { redirect } from "next/navigation";
 import Link from "@/components/link";
 import { ListLink } from "@/components/list-memory";
 import { notFound } from "next/navigation";
@@ -15,12 +17,14 @@ import { BarList } from "@/components/charts";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { createBatches, reassignBatch, sendTargetToCrm, setCampaignStatus, uploadNumbers } from "../../actions";
 import { CampaignForm } from "@/components/calls/campaign-form";
+import { ImportNumbers } from "@/components/calls/import-numbers";
 
 export const metadata = { title: "Campaign" };
 const STATUS_LABEL: Record<string, string> = { new: "New", retry: "Retry later", callback: "Callback", done: "Done", dnc: "Do not call" };
 
 export default async function CampaignPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ status?: string; edit?: string }> }) {
-  await requirePermission("calls", "create");
+  // Supervisors only: CSR agents work their own queue and never manage campaigns, batches or the team.
+  if (!isCallSupervisor(await requirePermission("calls"))) redirect("/no-access");
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const c = await db.callCampaign.findUnique({ where: { id } });
   if (!c) notFound();
@@ -54,15 +58,17 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       ]} />
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="p-5">
+        <Card className="p-5 lg:col-span-2">
           <h2 className="mb-3 text-sm font-semibold">Add numbers</h2>
-          <ActionForm action={uploadNumbers} className="space-y-3">
-            <input type="hidden" name="campaignId" value={id} />
-            <textarea name="numbers" rows={5} className="input font-mono text-xs" placeholder={"03001234567\nAli Khan, 0321-7654321\n…or paste rows from Excel"} aria-label="Numbers" />
-            <input name="file" type="file" accept=".csv,text/csv,text/plain" aria-label="CSV file" className="block w-full text-xs file:mr-2 file:rounded file:border-0 file:bg-navy-900 file:px-2 file:py-1 file:text-white" />
-            <p className="text-xs text-muted">CSV with a header row: a <b>phone</b> (or mobile) column is required; <b>name</b> and any other columns (area, source, budget, notes…) are shown to the agent. Duplicates and do-not-call numbers are skipped. <a href={`/api/calls/sample`} download className="font-medium text-ink underline">Download a sample file</a></p>
-            <SubmitButton variant="secondary" pendingText="Importing…">Add numbers</SubmitButton>
-          </ActionForm>
+          <ImportNumbers campaignId={id} />
+          <details className="mt-3">
+            <summary className="cursor-pointer text-xs font-medium text-muted hover:text-ink">Or paste numbers</summary>
+            <ActionForm action={uploadNumbers} className="mt-2 space-y-2">
+              <input type="hidden" name="campaignId" value={id} />
+              <textarea name="numbers" rows={4} className="input font-mono text-xs" placeholder={"03001234567\nAli Khan, 0321-7654321\n+971 50 123 4567"} aria-label="Numbers" />
+              <SubmitButton variant="secondary" pendingText="Adding…">Add numbers</SubmitButton>
+            </ActionForm>
+          </details>
         </Card>
         <Card className="p-5">
           <h2 className="mb-1 text-sm font-semibold">Make batches</h2>

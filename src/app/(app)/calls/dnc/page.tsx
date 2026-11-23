@@ -1,3 +1,5 @@
+import { isCallSupervisor } from "@/lib/calls";
+import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { requirePermission } from "@/lib/permissions";
@@ -10,7 +12,8 @@ export const metadata = { title: "Do-not-call list" };
 
 /** Calls → Do-not-call: never handed to agents (also added automatically when a caller asks). */
 export default async function DncPage() {
-  await requirePermission("calls", "create");
+  // Supervisors only: CSR agents work their own queue and never manage campaigns, batches or the team.
+  if (!isCallSupervisor(await requirePermission("calls"))) redirect("/no-access");
   const rows = await db.dncNumber.findMany({ orderBy: { createdAt: "desc" }, take: 500 });
   return (
     <>

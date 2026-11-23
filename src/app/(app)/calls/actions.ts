@@ -4,15 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser, type SessionUser } from "@/lib/auth";
-import { can, scopeFor } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { phoneKey } from "@/lib/crm-shared";
-import { OUTCOMES, convertToLead, importNumbers, makeBatches, parseNumbers, recordOutcome, type Outcome } from "@/lib/calls";
+import { OUTCOMES, convertToLead, importNumbers, isCallSupervisor, makeBatches, parseNumbers, recordOutcome, type Outcome } from "@/lib/calls";
 import { linkRecording } from "@/lib/softphone";
 import { str, type FormState } from "@/lib/utils";
 
 /** Campaigns, numbers and batches: supervisors (calls with company-wide create rights) and Super Admins. */
-const manager = (u: SessionUser) => u.isSuperAdmin || scopeFor(u, "calls", "create") === "all";
+const manager = (u: SessionUser) => isCallSupervisor(u);
 const refresh = () => ["/calls", "/calls/campaigns", "/calls/wallboard", "/calls/callbacks"].forEach((p) => revalidatePath(p));
 
 export async function saveCampaign(_: FormState, fd: FormData): Promise<FormState> {
@@ -169,4 +169,70 @@ export async function saveCallFeedback(_: FormState, fd: FormData): Promise<Form
   await db.callDayNote.upsert({ where: { agentId_date: { agentId: user.id, date } }, update: { feedback }, create: { agentId: user.id, date, feedback } });
   revalidatePath("/calls");
   return { ok: true, message: "Saved. It goes into today's calls report." };
+}
+
+/** How this agent calls: "system" (click to call through AMS) or "landline" (dial the number by hand). */
+export async function setCallMode(fd: FormData) {
+  const user = await requireUser();
+  const mode = str(fd, "mode") === "landline" ? "landline" : "system";
+  const key = `calls.mode.${user.id}`;
+  await db.setting.upsert({ where: { key }, update: { value: mode }, create: { key, value: mode } });
+  revalidatePath("/calls");
+}
+
+// ── Sheet import with column picking: step 1 reads the file and guesses, step 2 imports with the chosen columns.
+type SheetHold = { campaignId: string; userId: string; at: number; headers: string[]; rows: Record<string, string>[] };
+const sheets: Map<string, SheetHold> = ((globalThis as unknown as { __callSheets?: Map<string, SheetHold> }).__callSheets ??= new Map());
+export type SheetState = { error?: string; ok?: boolean; message?: string; id?: string; headers?: string[]; sample?: string[][]; total?: number; guess?: string[] } | undefined;
+
+export async function previewSheet(_: SheetState, fd: FormData): Promise<SheetState> {
+  const user = await requireUser();
+  if (!manager(user)) return { error: "Only calling supervisors can add numbers." };
+  const file = fd.get("file");
+  if (!(file instanceof File) || !file.size) return { error: "Choose a CSV or Excel (.xlsx) file." };
+  if (file.size > 10_000_000) return { error: "The file is larger than 10 MB." };
+  const { readSheetFile } = await import("@/lib/sheet-read");
+  let sheet: Awaited<ReturnType<typeof readSheetFile>>;
+  try { sheet = await readSheetFile(file); } catch { return { error: "Couldn't read that file. Save it as .xlsx or .csv and try again." }; }
+  const headers = sheet.headers.filter(Boolean);
+  if (!headers.length || !sheet.rows.length) return { error: "The file has no rows (the first row should be the column names)." };
+  for (const [k, v] of sheets) if (Date.now() - v.at > 30 * 60_000) sheets.delete(k);
+  const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  sheets.set(id, { campaignId: str(fd, "campaignId"), userId: user.id, at: Date.now(), headers, rows: sheet.rows.slice(0, 20_000) });
+  // Best guesses: the first phone-like column is Phone, the next one Second phone, a name column is Name; the rest
+  // are shown to the agent.
+  let phones = 0;
+  const guess = headers.map((h) => {
+    const looksPhone = /phone|mobile|cell|contact|whatsapp|number|tel/.test(h) && !/unit|plot|flat|cnic|passport|file|id$/.test(h);
+    if (looksPhone && phones < 2) return phones++ === 0 ? "phone" : "phone2";
+    if (/^(full )?name$|client name|customer name|^name /.test(h)) return "name";
+    return "detail";
+  });
+  if (!guess.includes("phone")) { const i = headers.findIndex((_, i) => sheet.rows.slice(0, 20).some((r) => (r[headers[i]!] ?? "").replace(/\D/g, "").length >= 9)); if (i >= 0) guess[i] = "phone"; }
+  return { id, headers, sample: sheet.rows.slice(0, 4).map((r) => headers.map((h) => r[h] ?? "")), total: sheet.rows.length, guess };
+}
+
+export async function importSheet(_: SheetState, fd: FormData): Promise<SheetState> {
+  const user = await requireUser();
+  if (!manager(user)) return { error: "Only calling supervisors can add numbers." };
+  const hold = sheets.get(str(fd, "id"));
+  if (!hold || hold.userId !== user.id) return { error: "Please choose the file again (it was read too long ago)." };
+  const role = hold.headers.map((_, i) => str(fd, `col_${i}`) || "skip");
+  const label = hold.headers.map((h, i) => (str(fd, `label_${i}`) || h).slice(0, 60));
+  const pi = role.indexOf("phone");
+  if (pi < 0) return { error: "Choose which column has the phone number." };
+  const p2 = role.indexOf("phone2"), ni = role.indexOf("name");
+  const rows = hold.rows.map((r) => {
+    const v = (i: number) => (i >= 0 ? (r[hold.headers[i]!] ?? "").trim() : "");
+    const extra: Record<string, string> = {};
+    role.forEach((x, i) => { if (x === "detail" && v(i)) extra[label[i]!] = v(i).slice(0, 500); });
+    if (v(p2)) extra["Other phone"] = v(p2);
+    return { phone: v(pi), name: v(ni) || null, extra: Object.keys(extra).length ? extra : null };
+  }).filter((r) => (phoneKey(r.phone) ?? "").length >= 7); // a real number, not a name or a unit code
+  if (!rows.length) return { error: "No phone numbers found in that column (a phone needs at least 7 digits). Check which column you chose as Phone number." };
+  const res = await importNumbers(hold.campaignId, rows);
+  sheets.delete(str(fd, "id"));
+  await audit(user.id, "create", "callTarget", hold.campaignId, `Imported ${res.added} number(s) from a sheet`);
+  revalidatePath(`/calls/campaigns/${hold.campaignId}`);
+  return { ok: true, message: `Added ${res.added} number${res.added === 1 ? "" : "s"}${res.duplicates > 0 ? `, skipped ${res.duplicates} duplicate(s)` : ""}${res.dnc ? `, ${res.dnc} on the do-not-call list` : ""}. Agents see the columns you chose on each call.` };
 }
