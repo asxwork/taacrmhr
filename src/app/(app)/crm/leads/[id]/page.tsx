@@ -5,7 +5,7 @@ import { leadChangeMatcher } from "@/lib/lead-lock";
 import Link from "@/components/link";
 import { fmtPhone, telHref } from "@/lib/crm-shared";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRightLeft, FileText, Mail, MessageCircle, Pencil, Phone, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, ChevronDown, FileText, Mail, MessageCircle, Pencil, Phone, Trash2 } from "lucide-react";
 import { disabledFeatures } from "@/lib/features";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeWhere } from "@/lib/permissions";
@@ -156,38 +156,52 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
             {lead.deals[0] && <Link href={`/crm/deals/${lead.deals[0].id}`} className="ml-auto underline">Open deal</Link>}
           </div>
         ) : (
-          <StageBar
-            size="lg"
-            steps={statuses.map((s) => ({ ...s, locked: s.systemKey === "onhold" }))}
-            currentId={isJunk ? "" : lead.statusId}
-            action={setLeadStatus}
-            hidden={{ leadId: id }}
-            disabled={!canEdit}
-            after={
-              <>
-                {canConvert ? (
-                  <Link href={`${path}?convert=1`} scroll={false} className={cn("flex min-w-32 shrink-0 items-center px-5 py-2.5 text-[13px] font-medium transition", CHEVRON_LAST, "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100", closedStages.length > 0 && "rounded-r-none [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%,8px_50%)]")}>
-                    Complete lead
-                  </Link>
-                ) : null}
-                {/* Closed-without-deal stages (Not Interested, Not Valid…) */}
-                {closedStages.map((s, i) => {
-                  const on = lead.statusId === s.id;
-                  const last = i === closedStages.length - 1;
-                  return (
-                    <button key={s.id} name="stepId" value={s.id} disabled={!canEdit || on}
-                      className={cn(
-                        "flex min-w-28 shrink-0 items-center px-5 py-2.5 text-[13px] font-medium transition disabled:cursor-default",
-                        last ? CHEVRON_LAST : "-ml-1 [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%,8px_50%)]",
-                        on ? "bg-red-500 text-white" : "bg-black/5 text-muted enabled:hover:bg-red-50 enabled:hover:text-red-600",
-                      )}>
-                      {s.name}
-                    </button>
-                  );
-                })}
-              </>
-            }
-          />
+          // Working stages in the bar; closing the lead (Complete / Not Interested / Not Valid / Junk…) is one last
+          // step with a menu, like Bitrix's Finish, so the bar never gets squeezed.
+          <div className="flex items-stretch">
+            <div className="min-w-0 flex-1">
+              <StageBar
+                size="lg"
+                steps={statuses.map((s) => ({ ...s, locked: s.systemKey === "onhold" }))}
+                currentId={isJunk ? "" : lead.statusId}
+                action={setLeadStatus}
+                hidden={{ leadId: id }}
+                disabled={!canEdit}
+                after={<></>}
+              />
+            </div>
+            {(canConvert || closedStages.length > 0) && (
+              <details key={lead.statusId} className="group relative -ml-1 shrink-0">
+                <summary className={cn("flex h-full min-h-11 cursor-pointer list-none items-center gap-1.5 px-5 pl-6 text-[13px] font-medium transition [&::-webkit-details-marker]:hidden", CHEVRON_LAST,
+                  isJunk ? "bg-red-500 text-white" : "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100", !canEdit && !canConvert && "pointer-events-none opacity-70")}>
+                  {isJunk ? lead.status.name : "Close lead"}
+                  <ChevronDown className="size-4 transition group-open:rotate-180" />
+                </summary>
+                <div className="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
+                  {canConvert && (
+                    <Link href={`${path}?convert=1`} scroll={false} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
+                      <span className="size-2 rounded-full bg-emerald-500" /> Complete lead (convert to deal)
+                    </Link>
+                  )}
+                  {closedStages.length > 0 && (
+                    <form action={setLeadStatus}>
+                      <input type="hidden" name="leadId" value={id} />
+                      {canConvert && <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Close without a deal</p>}
+                      {closedStages.map((s) => {
+                        const on = lead.statusId === s.id;
+                        return (
+                          <button key={s.id} name="stepId" value={s.id} disabled={!canEdit || on}
+                            className={cn("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition disabled:cursor-default", on ? "bg-red-50 font-medium text-red-700" : "text-ink/80 enabled:hover:bg-red-50 enabled:hover:text-red-700")}>
+                            <span className={cn("size-2 rounded-full", on ? "bg-red-500" : "bg-red-300")} /> {s.name}{on && " (now)"}
+                          </button>
+                        );
+                      })}
+                    </form>
+                  )}
+                </div>
+              </details>
+            )}
+          </div>
         )}
         {isJunk && canEdit && <p className="mt-2 text-sm text-red-700">Closed as “{lead.status.name}”. Click a stage above to reopen it.</p>}
       </div>
