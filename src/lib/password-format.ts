@@ -2,7 +2,7 @@
 // own details, e.g. {First}@2026 → Huzaifa@2026, {first}{phone4} → huzaifa4567.
 export const PASSWORD_TOKENS = [
   ["{first}", "first name, small letters"], ["{First}", "First name, capital first letter"], ["{FIRST}", "FIRST NAME, all capitals"],
-  ["{last}", "last name, small letters"], ["{Last}", "Last name, capital first letter"], ["{username}", "the part of the email before @"],
+  ["{last}", "last name, small letters"], ["{Last}", "Last name, capital first letter"], ["{username}", "the part of the email before @"], ["{Username}", "the same, capital first letter"],
   ["{code}", "employee code"], ["{phone4}", "last 4 digits of the phone"], ["{year}", "this year"],
 ] as const;
 
@@ -18,10 +18,10 @@ export function passwordFromFormat(format: string, p: PasswordPerson): string {
   const digits = (p.phone ?? "").replace(/\D/g, "");
   const values: Record<string, string> = {
     "{first}": first.toLowerCase(), "{First}": cap(first), "{FIRST}": first.toUpperCase(),
-    "{last}": last.toLowerCase(), "{Last}": cap(last), "{username}": p.email.split("@")[0] ?? "",
+    "{last}": last.toLowerCase(), "{Last}": cap(last), "{username}": (p.email.split("@")[0] ?? "").toLowerCase(), "{Username}": cap(p.email.split("@")[0] ?? ""),
     "{code}": p.code ?? "", "{phone4}": digits.slice(-4), "{year}": String(new Date().getFullYear()),
   };
-  return format.replace(/\{(first|First|FIRST|last|Last|username|code|phone4|year)\}/g, (t) => values[t] ?? "");
+  return format.replace(/\{(first|First|FIRST|last|Last|username|Username|code|phone4|year)\}/g, (t) => values[t] ?? "");
 }
 
-export const usesToken = (format: string) => /\{(first|First|FIRST|last|Last|username|code|phone4)\}/.test(format);
+export const usesToken = (format: string) => /\{(first|First|FIRST|last|Last|username|Username|code|phone4)\}/.test(format);

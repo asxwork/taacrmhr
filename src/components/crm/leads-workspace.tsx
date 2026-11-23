@@ -242,8 +242,8 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-[28px]">Leads</h1>
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Leads</h1>
         {perms.canCreate && (
           <div className="flex">
             <LinkButton href="/crm/leads/new" className={perms.canImport ? "rounded-r-none" : undefined} prefetch><Plus className="size-4" /> Create</LinkButton>
@@ -311,7 +311,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
         )}
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
           {viewTab("board", KanbanSquare, "Kanban")}
           {viewTab("list", List, "List")}

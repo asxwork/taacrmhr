@@ -53,7 +53,7 @@ export function BackLink({ pages, apps }: { pages: Page[]; apps: App[] }) {
   else { target = "/home?all=1"; label = "All apps"; }
 
   return (
-    <Link href={drawer ? target : remembered(target)} className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted transition-colors hover:bg-canvas hover:text-ink print:hidden">
+    <Link href={drawer ? target : remembered(target)} className="back-link mb-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted transition-colors hover:bg-canvas hover:text-ink print:hidden">
       <ArrowLeft className="size-4" /> {label}
     </Link>
   );
