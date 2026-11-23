@@ -72,7 +72,7 @@ const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 export type FetchProgress = (step: string) => void;
 
 /** `since`: only what changed in Bitrix after that moment (the sync); without it, everything. */
-export async function fetchFromBitrix(rawUrl: string, progress: FetchProgress, opts: { since?: Date | null } = {}): Promise<BitrixFiles & { people: number }> {
+export async function fetchFromBitrix(rawUrl: string, progress: FetchProgress, opts: { since?: Date | null } = {}): Promise<BitrixFiles & { people: number; raw: { leads: Any[]; activities: Any[]; history: Any[]; users: Any[] } }> {
   const base = webhookBase(rawUrl);
   if (!base) throw new Error("That isn't a Bitrix webhook link. It looks like https://yourcompany.bitrix24.com/rest/1/abc123…/");
 
@@ -145,5 +145,5 @@ export async function fetchFromBitrix(rawUrl: string, progress: FetchProgress, o
     .catch(() => [] as Any[]);
   const history: Row[] = histRaw.map((h) => ({ id: s(h.ID), lead_id: s(h.OWNER_ID), status_name: statusName.get(s(h.STATUS_ID)) ?? s(h.STATUS_ID), date_create: pk(h.CREATED_TIME), assigned_by_name: "" }));
 
-  return { leads, activities, history, comments, ignored: [], people: person.size };
+  return { leads, activities, history, comments, ignored: [], people: person.size, raw: { leads: leadsRaw, activities: actsRaw, history: histRaw, users: [...active, ...inactive].map((u) => ({ ID: u.ID, NAME: u.NAME, LAST_NAME: u.LAST_NAME, EMAIL: u.EMAIL, ACTIVE: u.ACTIVE, WORK_POSITION: u.WORK_POSITION })) } };
 }

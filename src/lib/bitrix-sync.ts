@@ -54,6 +54,8 @@ export function maybeRunBitrixSync() {
   const s = state();
   if (s.running || Date.now() - s.lastTry < 60_000) return;
   s.lastTry = Date.now();
+  // The daily Bitrix backup to Google Drive is checked on the same tick.
+  void disabledFeatures().then((off) => { if (!off.has("crm-bitrix-backup") && !off.has("app-crm")) return import("./bitrix-backup").then((m) => m.bitrixBackupIfDue()); }).catch((e) => console.error("Bitrix backup failed:", e));
   void Promise.all([syncConfig(), disabledFeatures()]).then(([c, off]) => {
     if (!c.enabled || !c.sealed || off.has("crm-bitrix-sync") || off.has("app-crm")) return;
     if (c.last && Date.now() - +new Date(c.last) < c.every * 60_000) return;

@@ -179,7 +179,8 @@ async function upload(token: string, folderId: string, file: string, name: strin
 
 /** Deletes backups in the folder older than keepDays (always keeping the newest few). */
 async function prune(token: string, folderId: string, keepDays: number) {
-  const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+  // The "Bitrix backups" folder lives next to the daily folders and has its own clean-up.
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed=false and not name contains 'Bitrix backups'`);
   const res = await drive(token, `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime)&orderBy=createdTime desc&pageSize=1000`);
   const files = ((await res.json()) as { files: { id: string; createdTime: string }[] }).files;
   const cutoff = subDays(new Date(), keepDays);
@@ -187,6 +188,24 @@ async function prune(token: string, folderId: string, keepDays: number) {
   for (const f of files.slice(2)) if (new Date(f.createdTime) < cutoff) { await drive(token, `https://www.googleapis.com/drive/v3/files/${f.id}`, { method: "DELETE" }); removed++; }
   return removed;
 }
+
+/**
+ * Uploads a local file into a named folder inside "AMS backups" (made if missing) and removes files there older
+ * than the backup's keep-days. Used by the Bitrix backup.
+ */
+export async function uploadToBackupFolder(file: string, name: string, mime: string, folderName: string) {
+  const c = await backupConfig();
+  if (!c.clientId || !c.clientSecret || !c.refreshToken) throw new Error("Google Drive isn't connected. Connect it in Settings → Backup first.");
+  const token = await accessToken(c);
+  const root = await ensureFolder(token, c);
+  const q = encodeURIComponent(`'${root}' in parents and trashed=false and mimeType='application/vnd.google-apps.folder' and name='${folderName.replace(/'/g, "")}'`);
+  const found = ((await (await drive(token, `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`)).json()) as { files: { id: string }[] }).files[0]?.id;
+  const folderId = found ?? (await subFolder(token, root, folderName));
+  const up = await upload(token, folderId, file, name, mime);
+  await prune(token, folderId, c.keepDays ?? 30);
+  return up;
+}
+export const driveConnected = async () => { const c = await backupConfig(); return !!(c.clientId && c.clientSecret && c.refreshToken); };
 
 // ─── The dump ────────────────────────────────────────────────
 

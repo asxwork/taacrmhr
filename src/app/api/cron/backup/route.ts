@@ -10,6 +10,11 @@ export async function GET(req: Request) {
   if (!secret || secret === "change-me" || key.length !== secret.length || !timingSafeEqual(Buffer.from(key), Buffer.from(secret))) {
     return new Response("Forbidden", { status: 403 });
   }
-  after(() => backupIfDue().catch(() => {}));
+  after(async () => {
+    await backupIfDue().catch(() => {});
+    // Then the Bitrix copy (when Bitrix is connected and it's switched on).
+    const off = await (await import("@/lib/features")).disabledFeatures();
+    if (!off.has("crm-bitrix-backup") && !off.has("app-crm")) await (await import("@/lib/bitrix-backup")).bitrixBackupIfDue().catch(() => {});
+  });
   return Response.json({ ok: true, started: true });
 }
