@@ -3,6 +3,12 @@
 import type { PrismaClient } from "@prisma/client";
 import { memo } from "./memo";
 
+/**
+ * Paused by the owner (Nov 2026): leads are not moved to On-hold or handed to someone else after 24 hours, whatever
+ * the setting says. Set to false to bring the rules back (the saved hours and holding person are kept).
+ */
+export const HOLD_PAUSED = true;
+
 export type HoldConfig = { enabled: boolean; toHoldHours: number; reassignHours: number; holdingUserId: string | null; since: Date | null };
 
 export const HOLD_KEYS = {
@@ -20,7 +26,7 @@ export function holdConfig(client: PrismaClient): Promise<HoldConfig> {
     const get = (k: string) => rows.find((r) => r.key === k)?.value;
     const hours = (k: string, d: number) => Math.max(1, Number(get(k)) || d);
     return {
-      enabled: get(HOLD_KEYS.enabled) !== "false",
+      enabled: !HOLD_PAUSED && get(HOLD_KEYS.enabled) !== "false",
       toHoldHours: hours(HOLD_KEYS.toHoldHours, 24),
       reassignHours: hours(HOLD_KEYS.reassignHours, 12),
       holdingUserId: get(HOLD_KEYS.holdingUserId) || null,

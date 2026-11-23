@@ -8,6 +8,7 @@ import { audit } from "@/lib/audit";
 import { COLOR_NAMES } from "@/lib/crm-shared";
 import { str, type FormState } from "@/lib/utils";
 import { HOLD_KEYS } from "@/lib/lead-hold";
+import { HOLD_PAUSED } from "@/lib/lead-hold-core";
 
 const done = (message?: string): FormState => {
   revalidatePath("/settings/crm");
@@ -122,7 +123,8 @@ export async function saveHoldRules(_: FormState, fd: FormData): Promise<FormSta
   const holdingUserId = str(fd, "holdingUserId");
   if (holdingUserId && !(await db.user.findUnique({ where: { id: holdingUserId }, select: { id: true } }))) return { error: "Choose who held leads go to." };
   const values: [string, string][] = [
-    [HOLD_KEYS.enabled, fd.get("enabled") === "on" ? "true" : "false"],
+    // While the rules are paused the On box is greyed out (not sent): keep the earlier on/off choice.
+    ...(HOLD_PAUSED ? [] : [[HOLD_KEYS.enabled, fd.get("enabled") === "on" ? "true" : "false"] as [string, string]]),
     [HOLD_KEYS.toHoldHours, String(toHold)],
     [HOLD_KEYS.reassignHours, String(reassign)],
     [HOLD_KEYS.holdingUserId, holdingUserId],

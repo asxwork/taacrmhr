@@ -7,6 +7,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, LinkButton, PageHeader } from "@/components/ui";
 import { LayoutTemplate } from "lucide-react";
 import { holdConfig } from "@/lib/lead-hold";
+import { HOLD_PAUSED } from "@/lib/lead-hold-core";
 import { dealTypes } from "@/lib/deal-types";
 import { deleteStage, saveDealTypes, applyBitrixStageColors, saveHoldRules, saveLeadSource, saveLeadStatus, savePipeline, saveStage, saveUnitHoldDays } from "./actions";
 
@@ -111,9 +112,10 @@ export default async function CrmSettingsPage() {
 
         <Section title="On-hold rules" hint="Keeps new leads moving. Only the system moves leads to On-hold; nobody can pick it by hand.">
           <Card className="p-4">
+            {HOLD_PAUSED && <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="note"><b>Paused for now.</b> No lead is moved to On-hold or handed to someone else, whatever is set below. Your settings are kept for when it&apos;s switched back on.</p>}
             <ActionForm action={saveHoldRules} className="space-y-4">
               <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" name="enabled" defaultChecked={hold.enabled} className="accent-navy-900" /> On
+                <input type="checkbox" name="enabled" defaultChecked={hold.enabled} disabled={HOLD_PAUSED} className="accent-navy-900" /> On
               </label>
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 A lead still in <b className="font-medium">{newStage?.name ?? "New Request"}</b>
