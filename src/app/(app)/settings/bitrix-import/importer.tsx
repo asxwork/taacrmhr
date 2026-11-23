@@ -108,6 +108,9 @@ export function BitrixImporter() {
         </Card>
         <Card className="space-y-3 p-5">
           <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="deleteDemo" className="mt-0.5 accent-red-600" /><span><b>Delete the {p.demo} leads already in AMS that didn&apos;t come from Bitrix</b>, with their activities. Only for clearing demo leads: it also deletes real leads added in AMS (Facebook, website, typed in). Deals and contacts stay.</span></label>
+          {shown === fetched && (
+            <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="keepSync" defaultChecked className="mt-0.5 accent-navy-900" /><span><b>Keep AMS in sync with Bitrix</b>: every 15 minutes, new leads and changes made in Bitrix come in automatically (change it in Settings → CRM → Bitrix sync).</span></label>
+          )}
           <div className="flex flex-wrap gap-2">
             <SubmitButton pendingText="Importing… (about a minute)">{p.leads - p.already > 0 ? `Import ${p.leads - p.already} leads` : "Add their missing activities & history"}</SubmitButton>
           </div>

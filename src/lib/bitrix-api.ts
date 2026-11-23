@@ -71,7 +71,8 @@ const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 
 export type FetchProgress = (step: string) => void;
 
-export async function fetchFromBitrix(rawUrl: string, progress: FetchProgress): Promise<BitrixFiles & { people: number }> {
+/** `since`: only what changed in Bitrix after that moment (the sync); without it, everything. */
+export async function fetchFromBitrix(rawUrl: string, progress: FetchProgress, opts: { since?: Date | null } = {}): Promise<BitrixFiles & { people: number }> {
   const base = webhookBase(rawUrl);
   if (!base) throw new Error("That isn't a Bitrix webhook link. It looks like https://yourcompany.bitrix24.com/rest/1/abc123…/");
 
@@ -99,7 +100,9 @@ export async function fetchFromBitrix(rawUrl: string, progress: FetchProgress): 
   };
 
   progress("Reading leads…");
-  const leadsRaw = await listAll(base, "crm.lead.list", { order: { ID: "ASC" }, select: ["*", "UF_*", "PHONE", "EMAIL"] });
+  // Bitrix compares in the portal's time; an ISO time with its offset is understood either way.
+  const after = opts.since ? new Date(+opts.since - 10 * 60_000).toISOString() : null;
+  const leadsRaw = await listAll(base, "crm.lead.list", { order: { ID: "ASC" }, select: ["*", "UF_*", "PHONE", "EMAIL"], ...(after ? { filter: { ">DATE_MODIFY": after } } : {}) });
   const multi = (v: unknown) => ((v as Any[] | undefined) ?? []).map((p) => `[${s(p.VALUE_TYPE) || "OTHER"}] ${s(p.VALUE)}`).join(", ");
   const leads: Row[] = leadsRaw.map((l) => ({
     id: s(l.ID), title: s(l.TITLE),
@@ -113,7 +116,7 @@ export async function fetchFromBitrix(rawUrl: string, progress: FetchProgress): 
   }));
 
   progress(`Read ${leads.length.toLocaleString()} leads. Reading their activities…`);
-  const actsRaw = await listAll(base, "crm.activity.list", { order: { ID: "ASC" }, filter: { OWNER_TYPE_ID: 1 }, select: ["*"] });
+  const actsRaw = await listAll(base, "crm.activity.list", { order: { ID: "ASC" }, filter: { OWNER_TYPE_ID: 1, ...(after ? { ">LAST_UPDATED": after } : {}) }, select: ["*"] });
   // Bitrix activity types: 1 meeting, 2 call, 3 task, 4 e-mail, 6 to-do / other.
   const TYPE: Record<string, string> = { "1": "Meeting", "2": "Call", "3": "Task", "4": "E-mail" };
   const activities: Row[] = actsRaw.map((a) => ({
@@ -126,7 +129,8 @@ export async function fetchFromBitrix(rawUrl: string, progress: FetchProgress): 
 
   progress(`Read ${activities.length.toLocaleString()} activities. Reading timeline comments (50 leads at a time)…`);
   const comments: Row[] = [];
-  const ids = leads.map((l) => l.id);
+  // Comments of every lead read (a sync: the leads changed, and the leads whose activities changed).
+  const ids = [...new Set([...leads.map((l) => l.id), ...activities.map((a) => a.lead_id)].filter(Boolean))];
   for (let i = 0; i < ids.length; i += 50) {
     const cmd = Object.fromEntries(ids.slice(i, i + 50).map((id) => [`c${id}`, `crm.timeline.comment.list?${qs({ filter: { ENTITY_ID: id, ENTITY_TYPE: "lead" }, select: ["ID", "CREATED", "ENTITY_ID", "AUTHOR_ID", "COMMENT"] }).join("&")}`]));
     const r = (await call(base, "batch", { halt: 0, cmd })).result as { result: Record<string, Any[]> };
@@ -137,7 +141,7 @@ export async function fetchFromBitrix(rawUrl: string, progress: FetchProgress): 
   }
 
   progress(`Read ${comments.length.toLocaleString()} comments. Reading stage history…`);
-  const histRaw = await listAll(base, "crm.stagehistory.list", { entityTypeId: 1, order: { ID: "ASC" }, select: ["ID", "OWNER_ID", "CREATED_TIME", "STATUS_ID"] }, (r) => ((r as { items?: unknown[] })?.items ?? []))
+  const histRaw = await listAll(base, "crm.stagehistory.list", { entityTypeId: 1, order: { ID: "ASC" }, ...(after ? { filter: { ">CREATED_TIME": after } } : {}), select: ["ID", "OWNER_ID", "CREATED_TIME", "STATUS_ID"] }, (r) => ((r as { items?: unknown[] })?.items ?? []))
     .catch(() => [] as Any[]);
   const history: Row[] = histRaw.map((h) => ({ id: s(h.ID), lead_id: s(h.OWNER_ID), status_name: statusName.get(s(h.STATUS_ID)) ?? s(h.STATUS_ID), date_create: pk(h.CREATED_TIME), assigned_by_name: "" }));
 

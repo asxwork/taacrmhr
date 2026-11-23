@@ -19,7 +19,7 @@ export type AppSwitch = (typeof APP_SWITCHES)[number]["app"];
 
 export const FEATURES = [
   // Master switches: switched off, the app leaves the app list and everyone's menus; its data is kept.
-  { key: "app-crm", label: "CRM app", group: "CRM", app: "crm", paths: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents", "/reports/targets", "/reports/lost", "/reports/activity", "/settings/crm", "/settings/bitrix-import"], about: "" },
+  { key: "app-crm", label: "CRM app", group: "CRM", app: "crm", paths: ["/dashboard", "/crm", "/calls", "/inventory", "/reports/crm", "/reports/agents", "/reports/targets", "/reports/lost", "/reports/activity", "/settings/crm", "/settings/bitrix-import", "/settings/bitrix-sync"], about: "" },
   { key: "app-hr", label: "HR app", group: "HR", app: "hr", paths: ["/hr", "/reports/hr", "/settings/hr", "/approvals"], about: "" },
   { key: "app-finance", label: "Finance app", group: "Finance", app: "finance", paths: ["/finance"], about: "" },
   { key: "app-invoices", label: "Invoices app", group: "Invoices", app: "invoices", paths: ["/invoices"], about: "" },
@@ -60,6 +60,7 @@ export const FEATURES = [
   { key: "crm-agents", label: "Agent performance", group: "CRM", app: "crm", paths: ["/reports/agents"], about: "Per-agent results" },
   { key: "crm-automationhub", label: "Automation hub", group: "CRM", app: "crm", paths: ["/crm/automation"], about: "Lead connections and automatic rules" },
   { key: "crm-bitrix", label: "Import from Bitrix", group: "CRM", app: "crm", paths: ["/settings/bitrix-import"], about: "Bring leads in from Bitrix24" },
+  { key: "crm-bitrix-sync", label: "Bitrix sync", group: "CRM", app: "crm", paths: ["/settings/bitrix-sync"], about: "Keep AMS updated with new and changed Bitrix24 leads automatically" },
   { key: "crm-layouts", label: "CRM layouts", group: "CRM", app: "crm", paths: ["/crm/settings/layouts"], about: "Menus per role" },
   { key: "hr-dashboard", label: "HR dashboard", group: "HR", app: "hr", paths: ["/hr"], exact: true, about: "HR start page with widgets" },
   { key: "hr-employees", label: "Employees", group: "HR", app: "hr", paths: ["/hr/employees"], about: "Employee list and profiles" },

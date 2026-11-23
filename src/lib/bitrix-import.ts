@@ -131,16 +131,21 @@ export async function analyzeBitrix(f: BitrixFiles) {
 const g = globalThis as unknown as { __bitrixImporting?: boolean };
 
 /** One import at a time: two at once (Import pressed twice, two tabs) both saw a lead as new and added it twice. */
-export async function importBitrix(f: BitrixFiles, opts: { deleteDemo: boolean; userId: string; owners?: Record<string, string> }) {
+/**
+ * `update`: leads already in AMS take Bitrix's current stage, responsible person and details (the sync; Bitrix is
+ * where the change was made). `sync`: don't restart the on-hold clock (it's for one-off imports of old leads).
+ */
+export type ImportOpts = { deleteDemo: boolean; userId: string; owners?: Record<string, string>; update?: boolean; sync?: boolean };
+export async function importBitrix(f: BitrixFiles, opts: ImportOpts) {
   if (g.__bitrixImporting) throw new Error("An import is already running. Wait for it to finish, then check the result (running it again later is safe).");
   g.__bitrixImporting = true;
   try { return await runImport(f, opts); } finally { g.__bitrixImporting = false; }
 }
 
-async function runImport(f: BitrixFiles, opts: { deleteDemo: boolean; userId: string; owners?: Record<string, string> }) {
+async function runImport(f: BitrixFiles, opts: ImportOpts) {
   const t0 = Date.now();
   // Imported leads carry Bitrix's old dates: restart the on-hold clock so they aren't put on hold / handed over at once.
-  await restartHoldClock(db);
+  if (!opts.sync) await restartHoldClock(db);
   let deleted = 0;
   if (opts.deleteDemo) deleted = (await db.lead.deleteMany({ where: { bitrixId: null } })).count;
 
@@ -210,15 +215,18 @@ async function runImport(f: BitrixFiles, opts: { deleteDemo: boolean; userId: st
   const existing = new Set(already.map((l) => l.bitrixId));
   const idFor = new Map<number, { id: string; ownerId: string | null; closed: boolean }>(already.map((l) => [l.bitrixId!, { id: l.id, ownerId: l.ownerId, closed: l.status.kind !== "open" }]));
   const leadRows = [];
+  const updates: Row[] = [];
+  const unmatched = new Set<string>();
   let skipped = 0, maxNo = 0;
   for (const l of f.leads) {
     const bx = Number(l.id);
     if (!bx) continue;
     maxNo = Math.max(maxNo, bx);
-    if (existing.has(bx)) { skipped++; continue; }
+    if (existing.has(bx)) { skipped++; if (opts.update) updates.push(l); continue; }
     const phones = multi(l.phone).map((p) => ({ type: p.type === "work" ? "work" : "mobile", value: prettyPhone(p.value) }));
     const emails = multi(l.email).map((p) => ({ type: "work", value: p.value.toLowerCase() }));
     const ownerId = userFor(l.assigned_by_name);
+    if (!ownerId && l.assigned_by_name) unmatched.add(l.assigned_by_name);
     const id = randomUUID().replace(/-/g, "").slice(0, 25);
     const statusId = statusFor.get(l.status_name) ?? fallbackStatus;
     idFor.set(bx, { id, ownerId, closed: statuses.find((s) => s.id === statusId)?.kind !== "open" });
@@ -245,10 +253,41 @@ async function runImport(f: BitrixFiles, opts: { deleteDemo: boolean; userId: st
   const seq = await db.sequence.findUnique({ where: { name: "lead" } });
   if (!seq || seq.value < maxNo) await db.sequence.upsert({ where: { name: "lead" }, update: { value: maxNo }, create: { name: "lead", value: maxNo } });
 
-  // What is already on these leads' timelines (from an earlier run), so nothing comes in twice.
+  // Sync: leads already in AMS take what changed in Bitrix (stage, responsible, contact details, project).
+  let updated = 0;
+  for (const l of updates) {
+    const cur = idFor.get(Number(l.id));
+    if (!cur) continue;
+    const phones = multi(l.phone).map((p) => ({ type: p.type === "work" ? "work" : "mobile", value: prettyPhone(p.value) }));
+    const emails = multi(l.email).map((p) => ({ type: "work", value: p.value.toLowerCase() }));
+    const ownerId = userFor(l.assigned_by_name);
+    if (!ownerId && l.assigned_by_name) unmatched.add(l.assigned_by_name);
+    const statusId = statusFor.get(l.status_name);
+    const row = await db.lead.findUnique({ where: { id: cur.id }, select: { statusId: true, ownerId: true } });
+    if (!row) continue;
+    const proj = pcol ? projectFor(l[pcol]) : null;
+    try {
+      await db.lead.update({ where: { id: cur.id }, data: {
+        name: (l.full_name || l.title || "").trim().slice(0, 190) || undefined,
+        ...(phones.length ? { phone: cap(phones[0]?.value), phoneKey: cap(phoneKey(phones[0]?.value)), phone2: cap(phones[1]?.value), phones: JSON.stringify(phones) } : {}),
+        ...(emails.length ? { email: cap(emails[0]?.value), emails: JSON.stringify(emails) } : {}),
+        ...(proj && (proj.projectId || proj.projectName) ? proj : {}),
+        ...(l.source_description ? { sourceInfo: clean(l.source_description).slice(0, 2000) } : {}),
+        ...(statusId && statusId !== row.statusId ? { statusId, statusChangedAt: when(l.moved_time) ?? new Date(), convertedAt: l.status_semantic_id === "S" ? when(l.date_closed) ?? new Date() : undefined } : {}),
+        ...(ownerId && ownerId !== row.ownerId ? { ownerId, assignedAt: new Date(), branchId: branchOf.get(ownerId) ?? null } : {}),
+        lastActivityAt: when(l.date_modify) ?? undefined,
+      } });
+      idFor.set(Number(l.id), { id: cur.id, ownerId: ownerId ?? row.ownerId, closed: statuses.find((s) => s.id === (statusId ?? row.statusId))?.kind !== "open" });
+      if ((statusId && statusId !== row.statusId) || (ownerId && ownerId !== row.ownerId)) updated++; // stage or responsible changed
+    } catch { /* one lead failing doesn't stop the sync */ }
+  }
+
+  // What is already on these leads' timelines (from an earlier run), so nothing comes in twice. Only the leads this
+  // run touches are looked at (a sync touches a few).
   const have = new Set<string>();
   const sig = (leadId: string, subject: string, at: Date) => `${leadId}|${subject}|${+at}`;
-  const ids = already.map((l) => l.id);
+  const touched = new Set([...f.leads.map((l) => Number(l.id)), ...f.activities.map((a) => Number(a.lead_id || a.owner_id)), ...f.history.map((h) => Number(h.lead_id)), ...f.comments.map((c) => Number(c.lead_id))]);
+  const ids = already.filter((l) => touched.has(l.bitrixId!)).map((l) => l.id);
   for (let i = 0; i < ids.length; i += 1000) {
     for (const a of await db.activity.findMany({ where: { leadId: { in: ids.slice(i, i + 1000) } }, select: { leadId: true, subject: true, createdAt: true } })) if (a.leadId) have.add(sig(a.leadId, a.subject, a.createdAt));
   }
@@ -318,5 +357,5 @@ async function runImport(f: BitrixFiles, opts: { deleteDemo: boolean; userId: st
   const activityReport = { inFile: f.activities.length, noLead: actNoLead, alreadyThere: acts.length - newActs.length, saved: actSave.saved, failed: actSave.failed.length };
   const commentReport = { inFile: f.comments.length, saved: noteSave.saved, alreadyThere: notes.length - newNotes.length };
   const historyReport = { inFile: f.history.length, saved: histSave.saved, alreadyThere: hist.length - newHist.length };
-  return { activityReport, historyReport, commentReport, comments: noteSave.saved, deleted, leads: leadSave.saved, skipped, activities: actSave.saved, history: histSave.saved, failed: failed.length, failedList: failed.slice(0, 20), seconds: Math.round((Date.now() - t0) / 1000) };
+  return { updated, unmatched: [...unmatched], activityReport, historyReport, commentReport, comments: noteSave.saved, deleted, leads: leadSave.saved, skipped, activities: actSave.saved, history: histSave.saved, failed: failed.length, failedList: failed.slice(0, 20), seconds: Math.round((Date.now() - t0) / 1000) };
 }

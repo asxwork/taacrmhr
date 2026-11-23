@@ -9,7 +9,7 @@ import type { FormState } from "@/lib/utils";
 import { analyzeBitrix, importBitrix, readBitrixFiles, type BitrixFiles } from "@/lib/bitrix-import";
 
 // Checked files wait here (memory only, never on disk) until the Super Admin confirms. A restart just means re-uploading.
-const pending = ((globalThis as unknown as { __bitrixPending?: Map<string, { files: BitrixFiles; actorId: string; at: number }> }).__bitrixPending ??= new Map());
+const pending = ((globalThis as unknown as { __bitrixPending?: Map<string, { files: BitrixFiles; actorId: string; at: number; webhook?: string; fetchedAt?: Date }> }).__bitrixPending ??= new Map());
 
 export type BitrixState = { error?: string; id?: string; preview?: Awaited<ReturnType<typeof analyzeBitrix>>; done?: Awaited<ReturnType<typeof importBitrix>> } | undefined;
 
@@ -35,6 +35,12 @@ export async function bitrixStep(prev: BitrixState, fd: FormData): Promise<Bitri
       const owners = Object.fromEntries([...fd.entries()].filter(([k, v]) => k.startsWith("owner:") && typeof v === "string" && v).map(([k, v]) => [k.slice(6), String(v)]));
       const done = await importBitrix(p.files, { deleteDemo: fd.get("deleteDemo") === "on", userId: user.id, owners });
       pending.delete(String(fd.get("id")));
+      // "Keep AMS in sync": save the link and carry on from the moment Bitrix was read.
+      if (fd.get("keepSync") === "on" && p.webhook) {
+        const { connectSync } = await import("@/lib/bitrix-sync");
+        const { webhookBase } = await import("@/lib/bitrix-api");
+        await connectSync(webhookBase(p.webhook) ?? p.webhook, { userId: user.id, last: p.fetchedAt ?? new Date(), owners }).catch(() => {});
+      }
       await audit(user.id, "import", "lead", null, `Bitrix import: ${done.leads} leads, ${done.activities} activities, ${done.history} stage changes${done.failed ? `, ${done.failed} rows failed` : ""}${done.deleted ? `, ${done.deleted} demo leads deleted` : ""}`);
       revalidatePath("/crm/leads");
       return { done };
@@ -62,10 +68,11 @@ export async function startBitrixFetch(webhook: string): Promise<{ job?: string;
   jobs.set(job, j);
   void (async () => {
     try {
+      const fetchedAt = new Date();
       const files = await fetchFromBitrix(webhook, (step) => { j.step = step; });
       if (!files.leads.length) throw new Error("Bitrix returned no leads. Check the webhook has the CRM permission.");
       const id = randomBytes(12).toString("hex");
-      pending.set(id, { files, actorId: user.id, at: Date.now() });
+      pending.set(id, { files, actorId: user.id, at: Date.now(), webhook, fetchedAt });
       j.result = { id, preview: await analyzeBitrix(files), people: files.people };
       j.step = "Done";
     } catch (e) {

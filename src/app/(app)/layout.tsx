@@ -12,6 +12,7 @@ import { NavProgress } from "@/components/nav-progress";
 import { unreadCount, urgentUnread } from "@/lib/notify";
 import { chatUnread } from "@/lib/chat";
 import { maybeRunHoldRules } from "@/lib/lead-hold";
+import { maybeRunBitrixSync } from "@/lib/bitrix-sync";
 import { db } from "@/lib/db";
 import { memo } from "@/lib/memo";
 import { PageHelp } from "@/components/page-help";
@@ -35,6 +36,7 @@ import { fileUrl } from "@/lib/files";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   maybeRunHoldRules(); // background, at most every 5 minutes
+  maybeRunBitrixSync(); // background, when a Bitrix sync is due (Settings → CRM → Bitrix sync)
   // Everything the frame needs, fetched side by side (each is a database round trip on the live server).
   // apps = only the apps and pages this user's roles allow — this is what makes Admin and Agent see different apps.
   const [jar, h, apps, me, off, security, unread, banner, videos] = await Promise.all([
