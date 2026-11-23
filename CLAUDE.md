@@ -15,12 +15,12 @@
 
 ## Working rules
 - All work goes to the `dev` branch; commits are authored by ASX Labs with no AI attribution lines. Every push to
-  `main` makes Hostinger rebuild and restart the live site, so `dev` is merged into `main` once a day outside office
-  hours (about 10 pm Pakistan time, by a scheduled task). Only an urgent fix the owner asks for goes straight to `main`
+  `main` makes Hostinger rebuild and restart the live site, so `dev` is merged into `main` twice a day when almost
+  nobody is using AMS (about 7 am and 7 pm Pakistan time, by a scheduled task). Only an urgent fix the owner asks for goes straight to `main`
   (then merge `main` back into `dev`).
 - Never commit uploaded spreadsheets, CSVs or personal HR data (CNIC, salaries, IBANs) — only code and layouts.
 - Hostinger runs `prisma db push` without accept-data-loss: only new nullable/defaulted columns or new tables; no new
   `@unique` on existing tables.
 - Forms inside a Drawer close after a successful save (AfterSave context); create dialogs pass `successHref`.
 - The owner has auto-deployment on push to `main`: don't tell them to press Redeploy. Changes on `dev` go live with
-  the nightly merge.
+  the next 7 am / 7 pm merge.
