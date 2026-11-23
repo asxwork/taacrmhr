@@ -90,7 +90,9 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
     const scored = pages.map((p) => {
       const name = p.label.toLowerCase(), hay = `${name} ${(p.path ?? []).join(" ").toLowerCase()}`;
       if (!words.every((w) => hay.includes(w))) return null;
-      const score = (name.startsWith(words[0]!) ? 0 : words.every((w) => name.includes(w)) ? 1 : 2) + (p.path?.[0] === "App" ? -0.5 : 0);
+      // Exact name first; apps and app areas (CRM › Calls) before single pages; tutorials and help after real pages.
+      const kind = p.path?.[0] === "App" ? -0.6 : p.path?.length === 1 && p.path[0] !== "Tutorials" ? -0.4 : p.path?.[0] === "Tutorials" ? 0.8 : 0;
+      const score = (name === words.join(" ") ? -1 : name.startsWith(words[0]!) ? 0 : words.every((w) => name.includes(w)) ? 1 : 2) + kind;
       return { p, score };
     }).filter((x): x is { p: (typeof pages)[number]; score: number } => !!x).sort((a, b) => a.score - b.score || a.p.label.length - b.p.label.length).slice(0, 8);
     return [...(scored.length ? [{ label: "Pages", items: scored.map(({ p }) => ({ title: p.label, href: p.href, icon: p.icon, path: p.path })) }] : []), ...groups];

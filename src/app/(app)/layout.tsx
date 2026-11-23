@@ -72,7 +72,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const appFor = (href: string) => [...apps].sort((x, y) => Math.max(0, ...y.prefixes.map((p) => (href.startsWith(p) ? p.length : 0))) - Math.max(0, ...x.prefixes.map((p) => (href.startsWith(p) ? p.length : 0))))[0];
   const sectionPages: PageHit[] = SECTIONS.flatMap((sec) => sec.tabs.filter(tabAllowed).map((t) => ({ href: t.href, label: t.label, icon: "list", path: [apps.find((a) => a.key === sec.app)?.name ?? appFor(t.href)?.name ?? ""].filter(Boolean) })));
   const appPages: PageHit[] = apps.map((a) => ({ href: a.start, label: a.name, icon: a.icon, path: ["App"] }));
-  const pages = [...new Map([...appPages, ...pageItems, ...sectionPages].map((p) => [`${p.href}|${p.label}`, p])).values()];
+  // Each area of an app (CRM › Calls, CRM › Leads, HR › Payroll…) is a result of its own, opening the area's first page.
+  const areaPages: PageHit[] = apps.flatMap((a) => a.groups.filter((g) => g.label && g.label !== "Home" && g.label !== a.name).map((g) => {
+    const first = g.items.flatMap((i) => i.children ?? [i]).find((i) => !i.phase);
+    return first ? { href: g.home ?? first.href, label: g.label!, icon: g.icon ?? first.icon, path: [a.name] } : null;
+  }).filter((x): x is PageHit => !!x));
+  const pages = [...new Map([...appPages, ...areaPages, ...pageItems, ...sectionPages].map((p) => [`${p.href}|${p.label}`, p])).values()];
 
   return (
     <div className="app-wallpaper min-h-screen" data-sidebar={sidebarMode(current.layout, collapsed)}>
