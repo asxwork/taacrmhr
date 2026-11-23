@@ -357,7 +357,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
         {view === "board" ? (
           <Kanban
             columns={stages
-              .filter((s) => (filters.group === "all" || filters.stage ? true : filters.group ? s.kind === filters.group : s.kind === "open"))
+              .filter((s) => (!filters.group || filters.group === "all" || filters.stage ? true : s.kind === filters.group))
               .map((s) => ({ id: s.id, name: s.name, dot: color(s.color).dot, ...(s.systemKey === "onhold" && { locked: true, lockedHint: ON_HOLD_HINT }) }))}
             cards={data.rows.map((l) => ({
               id: l.id,

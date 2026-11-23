@@ -1,13 +1,14 @@
 // Lead list filters live in the URL so every filter (and saved preset) is a link.
 // Multi-value params are comma-separated ids. "me" in owner means the signed-in user.
-export const LEAD_FILTER_KEYS = ["q", "name", "project", "group", "stage", "phone", "owner", "source", "activity", "created", "cfrom", "cto", "modified", "mfrom", "mto", "stale", "reshuffled", "branch", "sort"] as const;
+export const LEAD_FILTER_KEYS = ["q", "name", "project", "pname", "group", "stage", "phone", "owner", "source", "activity", "created", "cfrom", "cto", "modified", "mfrom", "mto", "stale", "reshuffled", "branch", "sort"] as const;
 export type LeadFilters = Partial<Record<(typeof LEAD_FILTER_KEYS)[number], string>>;
 
+/** "" = every lead (the default). "all" is the old spelling of the same, still accepted in saved links. */
 export const STATUS_GROUPS = [
-  { value: "", label: "In progress" },
+  { value: "", label: "All" },
+  { value: "open", label: "In progress" },
   { value: "converted", label: "Completed" },
   { value: "junk", label: "Closed" },
-  { value: "all", label: "All" },
 ] as const;
 
 export const ACTIVITY_FILTERS = [

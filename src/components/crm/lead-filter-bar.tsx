@@ -31,7 +31,7 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
   const [saveFolder, setSaveFolder] = useState("");
   const [saveShare, setSaveShare] = useState(false);
   const [pq, setPq] = useState("");
-  const [folded, setFolded] = useState<Record<string, boolean>>({ Sources: true, Projects: true });
+  const [folded, setFolded] = useState<Record<string, boolean>>({ More: true });
   const [saving, setSaving] = useState(false);
   const [shift, setShift] = useState(0);
   const box = useRef<HTMLDivElement>(null);
@@ -76,7 +76,7 @@ export function LeadFilterBar({ filters, view, presets, options, onApply, busy }
 
   const current = filterQuery(draft);
   const active = presets.find((p) => filterQuery(parse(p.query)) === current);
-  const chip = active?.name ?? (current ? "Custom filter" : "Leads in progress");
+  const chip = active?.name ?? (current ? "Custom filter" : "All leads");
 
   async function save() {
     if (!saveName.trim()) return;

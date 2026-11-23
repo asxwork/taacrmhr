@@ -36,7 +36,7 @@ export async function leadWhere(user: SessionUser, f: LeadFilters, statuses: { i
 
   const stages = list(f.stage);
   if (stages.length) and.push({ statusId: { in: stages } });
-  else if (f.group !== "all") {
+  else if (f.group && f.group !== "all") {
     const kinds = f.group === "converted" ? ["converted"] : f.group === "junk" ? ["junk"] : ["open"];
     and.push({ statusId: { in: statuses.filter((s) => kinds.includes(s.kind)).map((s) => s.id) } });
   }
@@ -52,6 +52,8 @@ export async function leadWhere(user: SessionUser, f: LeadFilters, statuses: { i
     and.push({ OR: [{ phone: { contains: f.phone.trim() } }, ...(key ? [{ phoneKey: { contains: key } }, { phone2: { contains: key } }] : [])] });
   }
   if (list(f.project).length) and.push({ projectId: { in: list(f.project) } });
+  // Project by name: the Inventory project of that name, or the name typed in / imported from Bitrix.
+  if (f.pname?.trim()) and.push({ OR: [{ projectName: f.pname.trim() }, { project: { name: f.pname.trim() } }] });
   if (list(f.source).length) and.push({ sourceId: { in: list(f.source) } });
   if (list(f.branch).length) and.push({ branchId: { in: list(f.branch) } });
   const owners = list(f.owner).map((o) => (o === "me" ? user.id : o));

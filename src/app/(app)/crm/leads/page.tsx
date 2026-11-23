@@ -24,10 +24,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const page = Math.max(1, Number(sp.page) || 1);
   const filters = filtersFrom(sp);
 
-  const [statuses, sources, projects, owners, assignees, saved, automations, initial, branches] = await Promise.all([
+  const [statuses, sources, projects, typedProjects, owners, assignees, saved, automations, initial, branches] = await Promise.all([
     db.leadStatus.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     db.project.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.lead.groupBy({ by: ["projectName"], where: { projectName: { not: null } } }),
     usersInScope(user, "crm.leads", "view"),
     assignableUsers(user, "crm.leads"),
     db.savedFilter.findMany({ where: { module: "crm.leads", OR: [{ userId: user.id }, { shared: true }] }, orderBy: [{ folder: "asc" }, { name: "asc" }] }),
@@ -38,23 +39,29 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const newStage = statuses.find((x) => x.systemKey === "new");
   const manageShared = user.isSuperAdmin || can(user, "settings.company", "edit");
   // Grouped in the filter menu by section; saved filters by their folder (team ones are shared by managers).
+  // Same list and order as the team's Bitrix filters: quick ones, projects, sources, reports, reshuffle.
+  const projectNames = [...new Set([...projects.map((x) => x.name), ...typedProjects.map((x) => x.projectName!).filter(Boolean)].map((n) => n.trim()))].sort((a, b) => a.localeCompare(b));
   const presets: FilterPreset[] = [
-    { name: "Leads in progress", query: "", section: "Quick" },
+    { name: "All leads", query: "", section: "Quick" },
+    { name: "Reshuffle", query: "group=open&activity=none", section: "Quick" },
     { name: "My leads", query: "owner=me", section: "Quick" },
-    { name: "Today's leads", query: "created=today&group=all", section: "Quick" },
-    { name: "Yesterday's leads", query: "created=yesterday&group=all", section: "Quick" },
+    { name: "Yesterday leads", query: "modified=yesterday", section: "Quick" },
+    { name: "Yesterday created date", query: "created=yesterday", section: "Quick" },
+    { name: "Leads in progress", query: "group=open", section: "Quick" },
     { name: "Not contacted 7+ days", query: "stale=7", section: "Quick" },
-    { name: "Overdue activities", query: "activity=overdue", section: "Quick" },
-    ...(newStage ? [{ name: "New Request report", query: `group=all&stage=${newStage.id}`, section: "Reports" }] : []),
-    ...branches.flatMap((b) => [{ name: `${b.name} lead report`, query: `branch=${b.id}`, section: "Reports" }, { name: `${b.name} all leads`, query: `branch=${b.id}&group=all`, section: "Reports" }]),
-    { name: "Agent lead report", query: "", href: "/reports/agents", section: "Reports" },
-    { name: "Reshuffled", query: "reshuffled=1", section: "Reshuffle" },
-    { name: "Reshuffle check (nothing planned)", query: "activity=none&reshuffled=1", section: "Reshuffle" },
-    { name: "Completed (converted)", query: "group=converted", section: "Closed" },
-    { name: "Not interested / not valid", query: "group=junk", section: "Closed" },
-    ...saved.map((x) => ({ id: x.id, name: x.name, query: x.query, section: x.folder || (x.shared ? "Team filters" : "My filters"), shared: x.shared, canDelete: x.userId === user.id || (x.shared && manageShared) })),
+    ...projectNames.map((n) => ({ name: n, query: `pname=${encodeURIComponent(n)}`, section: "Projects" })),
     ...sources.map((x) => ({ name: x.name, query: `source=${x.id}`, section: "Sources" })),
-    ...projects.map((x) => ({ name: x.name, query: `project=${x.id}`, section: "Projects" })),
+    ...(newStage ? [{ name: "New Request report", query: `stage=${newStage.id}`, section: "Reports" }] : []),
+    ...branches.map((b) => ({ name: `${b.name} lead report`, query: `branch=${b.id}&group=open`, section: "Reports" })),
+    { name: "Agent lead report", query: "", href: "/reports/agents", section: "Reports" },
+    ...branches.map((b) => ({ name: `${b.name} all leads`, query: `branch=${b.id}`, section: "Reports" })),
+    { name: "Reshuffled", query: "reshuffled=1", section: "Reshuffle" },
+    { name: "Reshuffle check", query: "activity=none&reshuffled=1", section: "Reshuffle" },
+    { name: "Today's leads", query: "created=today", section: "More" },
+    { name: "Overdue activities", query: "activity=overdue", section: "More" },
+    { name: "Completed (converted)", query: "group=converted", section: "More" },
+    { name: "Not interested / not valid", query: "group=junk", section: "More" },
+    ...saved.map((x) => ({ id: x.id, name: x.name, query: x.query, section: x.folder || (x.shared ? "Team filters" : "My filters"), shared: x.shared, canDelete: x.userId === user.id || (x.shared && manageShared) })),
   ];
 
   // Active automations, described in plain words for the run confirmation.
