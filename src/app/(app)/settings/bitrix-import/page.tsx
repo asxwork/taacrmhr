@@ -17,7 +17,7 @@ export default async function BitrixImportPage({ searchParams }: { searchParams:
   const justDeleted = Number(sp.deleted);
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Import leads from Bitrix24" description="Bring in your Bitrix leads with their activities (tasks, to-dos, calls) and stage history. To re-import everything from scratch, delete all leads first (below)." />
+      <PageHeader title="Import leads from Bitrix24" description="Bring in your Bitrix leads with their responsible person, activities (tasks, to-dos, calls), timeline comments and stage history. To re-import everything from scratch, delete all leads first (below)." />
       {sp.deleted !== undefined && (
         <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status">
           {justDeleted ? <>Deleted <b>{justDeleted.toLocaleString()}</b> leads. A backup of all of them was saved first (download it at the bottom). Now choose your Bitrix files below.</> : "There were no leads to delete."}

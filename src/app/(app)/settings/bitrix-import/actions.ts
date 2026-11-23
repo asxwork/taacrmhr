@@ -9,7 +9,7 @@ import type { FormState } from "@/lib/utils";
 import { analyzeBitrix, importBitrix, readBitrixFiles, type BitrixFiles } from "@/lib/bitrix-import";
 
 // Checked files wait here (memory only, never on disk) until the Super Admin confirms. A restart just means re-uploading.
-const pending = new Map<string, { files: BitrixFiles; actorId: string; at: number }>();
+const pending = ((globalThis as unknown as { __bitrixPending?: Map<string, { files: BitrixFiles; actorId: string; at: number }> }).__bitrixPending ??= new Map());
 
 export type BitrixState = { error?: string; id?: string; preview?: Awaited<ReturnType<typeof analyzeBitrix>>; done?: Awaited<ReturnType<typeof importBitrix>> } | undefined;
 
@@ -43,6 +43,43 @@ export async function bitrixStep(prev: BitrixState, fd: FormData): Promise<Bitri
     }
   }
   return undefined;
+}
+
+// Direct connection: reading everything from Bitrix takes a few minutes, so it runs in the background and the page
+// asks how it's going every few seconds. When it's done the data waits in `pending` like checked files do.
+type FetchJob = { actorId: string; step: string; at: number; error?: string; result?: { id: string; preview: Awaited<ReturnType<typeof analyzeBitrix>>; people: number } };
+const jobs = ((globalThis as unknown as { __bitrixJobs?: Map<string, FetchJob> }).__bitrixJobs ??= new Map());
+
+export async function startBitrixFetch(webhook: string): Promise<{ job?: string; error?: string }> {
+  const user = await requireUser();
+  if (!user.isSuperAdmin || user.viewAs) return { error: "Only a Super Admin can do this." };
+  const { fetchFromBitrix, webhookBase } = await import("@/lib/bitrix-api");
+  if (!webhookBase(webhook)) return { error: "That isn't a Bitrix webhook link. It looks like https://yourcompany.bitrix24.com/rest/1/abc123…/" };
+  if ([...jobs.values()].some((j) => !j.error && !j.result)) return { error: "Bitrix is already being read. Wait for it to finish." };
+  for (const [k, v] of jobs) if (Date.now() - v.at > 60 * 60_000) jobs.delete(k);
+  const job = randomBytes(12).toString("hex");
+  const j: FetchJob = { actorId: user.id, step: "Starting…", at: Date.now() };
+  jobs.set(job, j);
+  void (async () => {
+    try {
+      const files = await fetchFromBitrix(webhook, (step) => { j.step = step; });
+      if (!files.leads.length) throw new Error("Bitrix returned no leads. Check the webhook has the CRM permission.");
+      const id = randomBytes(12).toString("hex");
+      pending.set(id, { files, actorId: user.id, at: Date.now() });
+      j.result = { id, preview: await analyzeBitrix(files), people: files.people };
+      j.step = "Done";
+    } catch (e) {
+      j.error = e instanceof Error ? e.message.slice(0, 400) : "Something went wrong reading Bitrix.";
+    }
+  })();
+  return { job };
+}
+
+export async function bitrixFetchStatus(job: string): Promise<{ step?: string; error?: string; result?: FetchJob["result"]; seconds?: number }> {
+  const user = await requireUser();
+  const j = jobs.get(job);
+  if (!j || j.actorId !== user.id) return { error: "This reading isn't running any more (the server may have restarted). Start again." };
+  return { step: j.step, error: j.error, result: j.result, seconds: Math.round((Date.now() - j.at) / 1000) };
 }
 
 /** Start fresh: back up every lead to Excel on the server, then delete them all. Needs the words typed to confirm. */

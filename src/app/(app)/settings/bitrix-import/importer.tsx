@@ -1,14 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "@/components/link";
-import { AlertTriangle, CheckCircle2, UserX } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileSpreadsheet, Link2, Loader2, UserX } from "lucide-react";
 import { SubmitButton } from "@/components/action-form";
 import { Badge, Card } from "@/components/ui";
-import { bitrixStep, type BitrixState } from "./actions";
+import { bitrixFetchStatus, bitrixStep, startBitrixFetch, type BitrixState } from "./actions";
 
 export function BitrixImporter() {
   const [state, act] = useActionState<BitrixState, FormData>(bitrixStep, undefined);
+  // Read straight from Bitrix (Connect) → the same preview as checked files.
+  const [fetched, setFetched] = useState<{ id: string; preview: NonNullable<BitrixState>["preview"] } | null>(null);
+  const [mode, setMode] = useState<"connect" | "files">("connect");
   const error = state?.error && <p role="alert" className="mb-4 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>;
 
   if (state?.done) {
@@ -27,6 +30,9 @@ export function BitrixImporter() {
               {d.activityReport.failed > 0 && ` · ${d.activityReport.failed} couldn't be saved (listed below)`}
             </span>
           </li>
+          <li><b>{d.comments}</b> timeline comments
+            <span className="block text-xs text-muted">{d.commentReport.inFile ? <>Found: {d.commentReport.inFile}{d.commentReport.alreadyThere > 0 && ` · already in AMS: ${d.commentReport.alreadyThere}`}</> : "None were in the import (comments come with Connect to Bitrix, not with the SQL Lab files)."}</span>
+          </li>
           <li><b>{d.history}</b> stage changes on the leads&apos; timelines
             <span className="block text-xs text-muted">In the file: {d.historyReport.inFile} rows{d.historyReport.inFile === 10000 ? " — exactly 10,000 means SQL Lab cut the export: the newest leads miss their history. Export it in two parts (by date) and select both." : ""}{d.historyReport.alreadyThere > 0 ? ` · already in AMS: ${d.historyReport.alreadyThere}` : ""}. Repeated stages in a row count once.</span>
           </li>
@@ -44,18 +50,19 @@ export function BitrixImporter() {
     );
   }
 
-  if (state?.preview && state.id) {
-    const p = state.preview;
+  const shown = state?.preview && state.id ? { id: state.id, preview: state.preview } : fetched;
+  if (shown?.preview && !state?.done) {
+    const p = shown.preview;
     const missing = p.owners.filter((o) => !o.userId);
     return (
       <form action={act} className="space-y-5">
         {error}
         <input type="hidden" name="step" value="import" />
-        <input type="hidden" name="id" value={state.id} />
+        <input type="hidden" name="id" value={shown.id} />
         <Card className="p-5">
           <p className="mb-3 font-medium">Found in the files</p>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            {[["Leads", p.leads], ["Activities", p.activities], ["Stage changes", p.history]].map(([l, n]) => <div key={l} className="rounded-lg bg-canvas p-3"><p className="text-2xl font-semibold tabular-nums">{n}</p><p className="text-xs text-muted">{l}</p></div>)}
+          <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+            {[["Leads", p.leads], ["Activities", p.activities], ["Comments", p.comments], ["Stage changes", p.history]].map(([l, n]) => <div key={l} className="rounded-lg bg-canvas p-3"><p className="text-2xl font-semibold tabular-nums">{Number(n).toLocaleString()}</p><p className="text-xs text-muted">{l}</p></div>)}
           </div>
           {p.already > 0 && <p className="mt-3 text-sm text-muted">{p.already} of these leads are already in AMS: they aren&apos;t added twice, but any activities and stage history they&apos;re missing are added.</p>}
           {p.ignored.length > 0 && <p className="mt-2 text-xs text-muted">Not used: {p.ignored.join(", ")} (summary files).</p>}
@@ -110,6 +117,16 @@ export function BitrixImporter() {
   }
 
   return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {([["connect", Link2, "Connect to Bitrix", "Recommended: everything, including timeline comments"], ["files", FileSpreadsheet, "Upload SQL Lab files", "Leads, activities and stage history (no comments)"]] as const).map(([k, Icon, t, d]) => (
+          <button key={k} type="button" onClick={() => setMode(k)} className={`flex items-start gap-3 rounded-xl border p-4 text-left transition ${mode === k ? "border-navy-900 bg-navy-900/[0.04] ring-1 ring-navy-900" : "border-line hover:bg-canvas"}`}>
+            <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${mode === k ? "bg-navy-900 text-white" : "bg-canvas text-muted"}`}><Icon className="size-4" /></span>
+            <span><b className="block text-sm">{t}</b><span className="text-xs text-muted">{d}</span></span>
+          </button>
+        ))}
+      </div>
+      {mode === "connect" ? <Connect onDone={setFetched} /> : (
     <form action={act}>
       <Card className="space-y-4 p-6">
         {error}
@@ -120,5 +137,52 @@ export function BitrixImporter() {
         <p className="text-xs text-muted">Nothing is changed until you confirm on the next step. Leads already imported are skipped, so it&apos;s safe to run again.</p>
       </Card>
     </form>
+      )}
+    </div>
+  );
+}
+
+/** Paste the Bitrix webhook link → AMS reads everything in the background and shows what it found. */
+function Connect({ onDone }: { onDone: (r: { id: string; preview: NonNullable<BitrixState>["preview"] }) => void }) {
+  const [url, setUrl] = useState("");
+  const [job, setJob] = useState<string | null>(null);
+  const [step, setStep] = useState("");
+  const [secs, setSecs] = useState(0);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!job) return;
+    let stop = false;
+    const tick = async () => {
+      const r = await bitrixFetchStatus(job).catch(() => ({ error: undefined, step: undefined, result: undefined, seconds: undefined }));
+      if (stop) return;
+      if (r.step) setStep(r.step);
+      if (r.seconds) setSecs(r.seconds);
+      if (r.error) { setError(r.error); setJob(null); return; }
+      if (r.result) { onDone({ id: r.result.id, preview: r.result.preview }); return; }
+      setTimeout(tick, 2500);
+    };
+    void tick();
+    return () => { stop = true; };
+  }, [job, onDone]);
+
+  return (
+    <Card className="space-y-4 p-6">
+      {error && <p role="alert" className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <div className="text-sm">
+        <p className="font-medium">1. Make a webhook in Bitrix24</p>
+        <p className="mt-1 text-muted">In Bitrix: <b className="text-ink">Developer resources → Other → Inbound webhook</b>. Tick the permissions <b className="text-ink">CRM (crm)</b> and <b className="text-ink">Users (user)</b>, save, and copy the <b className="text-ink">Webhook to call REST API</b> link.</p>
+        <p className="mt-3 font-medium">2. Paste it here</p>
+      </div>
+      <form onSubmit={async (e) => { e.preventDefault(); setError(""); setStep("Starting…"); setSecs(0); const r = await startBitrixFetch(url); if (r.error) { setError(r.error); setStep(""); } else if (r.job) setJob(r.job); }} className="space-y-3">
+        <input value={url} onChange={(e) => setUrl(e.target.value)} disabled={!!job} required type="url" autoComplete="off" spellCheck={false} placeholder="https://yourcompany.bitrix24.com/rest/1/abc123xyz…/" className="input font-mono text-sm" aria-label="Bitrix webhook link" />
+        {job ? (
+          <div className="flex items-start gap-3 rounded-lg bg-canvas px-4 py-3 text-sm">
+            <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-navy-900" />
+            <div><p className="font-medium">{step}</p><p className="text-xs text-muted">{secs}s · usually 2–5 minutes for a few thousand leads. You can leave this page open; nothing is changed in AMS or Bitrix yet.</p></div>
+          </div>
+        ) : <button type="submit" className="inline-flex h-10 items-center gap-2 rounded-lg bg-navy-900 px-4 text-sm font-medium text-white hover:bg-navy-800"><Link2 className="size-4" /> Read everything from Bitrix</button>}
+      </form>
+      <p className="text-xs text-muted">AMS only <b>reads</b> from Bitrix: leads, activities, timeline comments, stage history and the names of your people. The link is used for this run only and isn&apos;t saved; you can delete the webhook in Bitrix afterwards. Next you&apos;ll check responsible people and projects before anything is imported.</p>
+    </Card>
   );
 }

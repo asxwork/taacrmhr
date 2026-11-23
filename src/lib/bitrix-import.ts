@@ -9,16 +9,18 @@ import { hashPassword } from "./auth";
 import { restartHoldClock } from "./lead-hold-core";
 
 type Row = Record<string, string>;
-export type BitrixFiles = { leads: Row[]; activities: Row[]; history: Row[]; ignored: string[] };
+export type BitrixFiles = { leads: Row[]; activities: Row[]; history: Row[]; comments: Row[]; ignored: string[] };
 
 export function readBitrixFiles(files: { name: string; text: string }[]): BitrixFiles {
-  const out: BitrixFiles = { leads: [], activities: [], history: [], ignored: [] };
+  const out: BitrixFiles = { leads: [], activities: [], history: [], comments: [], ignored: [] };
   for (const f of files) {
     const rows = Papa.parse<Row>(f.text.replace(/^﻿/, ""), { header: true, skipEmptyLines: true }).data;
     const cols = new Set(Object.keys(rows[0] ?? {}));
     if (cols.has("full_name") && cols.has("status_name") && cols.has("assigned_by_name")) out.leads.push(...rows);
     else if (cols.has("provider_id") && cols.has("lead_id")) out.activities.push(...rows);
     else if (cols.has("lead_id") && cols.has("status_name") && cols.has("assigned_by_name")) out.history.push(...rows);
+    // Timeline comments, if a report has them: lead_id (or entity_id), comment, and when.
+    else if (cols.has("comment") && (cols.has("lead_id") || cols.has("entity_id"))) out.comments.push(...rows.map((r) => ({ ...r, lead_id: r.lead_id || r.entity_id || "", date_create: r.date_create || r.created || "" })));
     else out.ignored.push(f.name);
   }
   return out;
@@ -119,7 +121,7 @@ export async function analyzeBitrix(f: BitrixFiles) {
   const stages = count(f.leads, "status_name").filter(([s]) => s).map(([name, n]) => ({ name, n, as: stageName(name), exists: statuses.some((x) => key(x.name) === key(stageName(name))) }));
   const srcs = count(f.leads, "source_name").filter(([s]) => s).map(([name, n]) => ({ name, n, exists: sources.some((x) => key(x.name) === key(name)) }));
   const actIds = new Set(f.activities.map((a) => a.id));
-  return { leads: f.leads.length, activities: actIds.size, history: f.history.length, ignored: f.ignored, owners, people: users.map((u) => ({ id: u.id, name: u.active ? u.name : `${u.name} (old employee)`, active: u.active })).sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name)), projectColumn: pcol ?? null, projects: projectNames, stages, sources: srcs, demo, already };
+  return { leads: f.leads.length, activities: actIds.size, history: f.history.length, comments: f.comments.length, ignored: f.ignored, owners, people: users.map((u) => ({ id: u.id, name: u.active ? u.name : `${u.name} (old employee)`, active: u.active })).sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name)), projectColumn: pcol ?? null, projects: projectNames, stages, sources: srcs, demo, already };
 }
 
 /**
@@ -261,6 +263,7 @@ async function runImport(f: BitrixFiles, opts: { deleteDemo: boolean; userId: st
     if (seen.has(a.id)) continue;
     seen.add(a.id);
     const isCall = a.provider_type_id === "CALL" || a.type_name === "Call";
+    const kind = isCall ? "call" : a.type_name === "Meeting" ? "meeting" : a.type_name === "E-mail" ? "note" : "task";
     const start = when(a.start_time), end = when(a.end_time);
     const secs = isCall && start && end ? Math.max(0, Math.round((+end - +start) / 1000)) : 0;
     const ownerId = userFor(a.responsible_name) ?? lead.ownerId;
@@ -269,8 +272,8 @@ async function runImport(f: BitrixFiles, opts: { deleteDemo: boolean; userId: st
     const done = a.completed === "Y" || autoClosed;
     const body = clean(a.description);
     acts.push({
-      leadId: lead.id, type: isCall ? "call" : "task",
-      subject: (a.subject || (isCall ? "Call" : "Task")).slice(0, 190),
+      leadId: lead.id, type: kind,
+      subject: ((kind === "note" ? "E-mail: " : "") + (a.subject || (isCall ? "Call" : "Task"))).slice(0, 190),
       body: [body, isCall && secs ? `Duration ${Math.floor(secs / 60)}m ${secs % 60}s` : "", a.status_name === "Completed automatically" ? "Closed automatically in Bitrix" : "", autoClosed ? "Closed on import (the lead was already closed)" : ""].filter(Boolean).join("\n").slice(0, 8000) || null,
       dueAt: isCall ? null : when(a.deadline), doneAt: done ? (isCall ? end ?? start : when(a.date_modify) ?? when(a.date_create)) : null,
       ownerId, createdById: userFor(a.author_name) ?? ownerId, branchId: ownerId ? branchOf.get(ownerId) ?? null : null,
@@ -297,9 +300,23 @@ async function runImport(f: BitrixFiles, opts: { deleteDemo: boolean; userId: st
   }
   const newHist = hist.filter((a) => { const k = sig(a.leadId, a.subject, a.createdAt); if (have.has(k)) return false; have.add(k); return true; });
   const histSave = await saveAll(newHist, 500, (part) => db.activity.createMany({ data: part }), (row) => db.activity.create({ data: row }), (row) => `Stage change "${row.subject}"`);
-  const failed = [...leadSave.failed, ...actSave.failed, ...histSave.failed];
+
+  // Timeline comments → notes, written by the person who wrote them in Bitrix, at the time they wrote them.
+  const notes = [];
+  for (const c of f.comments) {
+    const lead = idFor.get(Number(c.lead_id));
+    const body = clean(c.comment);
+    if (!lead || !body) continue;
+    const by = userFor(c.author_name);
+    const at = when(c.date_create) ?? new Date();
+    notes.push({ leadId: lead.id, type: "note", subject: `Comment: ${body.split("\n")[0]!.slice(0, 120)}`.slice(0, 190), body: body.slice(0, 8000), doneAt: at, createdAt: at, createdById: by ?? lead.ownerId, ownerId: by ?? lead.ownerId, branchId: (by ?? lead.ownerId) ? branchOf.get((by ?? lead.ownerId)!) ?? null : null });
+  }
+  const newNotes = notes.filter((a) => { const k = sig(a.leadId, a.subject, a.createdAt); if (have.has(k)) return false; have.add(k); return true; });
+  const noteSave = await saveAll(newNotes, 500, (part) => db.activity.createMany({ data: part }), (row) => db.activity.create({ data: row }), (row) => `Comment "${row.subject}"`);
+  const failed = [...leadSave.failed, ...actSave.failed, ...histSave.failed, ...noteSave.failed];
   // What happened to every activity in the file (shown on the result screen).
   const activityReport = { inFile: f.activities.length, noLead: actNoLead, alreadyThere: acts.length - newActs.length, saved: actSave.saved, failed: actSave.failed.length };
+  const commentReport = { inFile: f.comments.length, saved: noteSave.saved, alreadyThere: notes.length - newNotes.length };
   const historyReport = { inFile: f.history.length, saved: histSave.saved, alreadyThere: hist.length - newHist.length };
-  return { activityReport, historyReport, deleted, leads: leadSave.saved, skipped, activities: actSave.saved, history: histSave.saved, failed: failed.length, failedList: failed.slice(0, 20), seconds: Math.round((Date.now() - t0) / 1000) };
+  return { activityReport, historyReport, commentReport, comments: noteSave.saved, deleted, leads: leadSave.saved, skipped, activities: actSave.saved, history: histSave.saved, failed: failed.length, failedList: failed.slice(0, 20), seconds: Math.round((Date.now() - t0) / 1000) };
 }
