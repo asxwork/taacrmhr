@@ -41,10 +41,10 @@ export function LoginForm({ action, resetAction }: { action: (s: FormState, fd: 
   return (
     <form action={(fd) => { store.set(remember ? email.trim() : ""); formAction(fd); }} className="space-y-4">
       <label className="block">
-        <span className="mb-1.5 block text-sm font-medium">Email</span>
+        <span className="mb-1.5 block text-sm font-medium">Username or email</span>
         <span className="relative block">
           <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" />
-          <input name="email" type="email" autoComplete="username" required autoFocus={!needCode && !email} readOnly={needCode} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@theadvisorassociates.com" className="input h-12 pl-10" />
+          <input name="email" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus={!needCode && !email} readOnly={needCode} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g. admin or your name" className="input h-12 pl-10" />
         </span>
       </label>
       <label className="block">

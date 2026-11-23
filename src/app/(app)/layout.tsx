@@ -56,6 +56,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Two-step login required by policy (Settings → Security) and not set up yet: set it up first.
   const needs2fa = !user.viewAs && !user.totpEnabled && twoStepRequired(user, security, can(user, "finance") || can(user, "finance.boss"));
   if (needs2fa && (h.get("x-pathname") ?? "") !== "/profile/security") redirect("/profile/security");
+  // Password given from a format (Settings → Users): choose your own first.
+  if (!needs2fa && !user.viewAs && user.mustChangePassword && (h.get("x-pathname") ?? "") !== "/me") redirect("/me?password=change");
   // Section tabs (CRM: Leads / Deals / Calls / Contacts / Inventory / Reports), filtered by permission and features.
   const tabAllowed = (t: SectionTab) => (!t.module || can(user, t.module, t.action ?? "view")) && (!t.superAdmin || user.isSuperAdmin) && !featureForPath(t.href, off);
   // Every page with where it lives (App › Section › Sub-menu), for search and the back links. The same name in two

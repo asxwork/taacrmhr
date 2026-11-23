@@ -21,7 +21,7 @@ export async function changePassword(_: FormState, fd: FormData): Promise<FormSt
   const record = await db.user.findUniqueOrThrow({ where: { id: user.id } });
   if (!(await verifyPassword(current, record.passwordHash))) return { error: "Current password is incorrect." };
 
-  await db.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next) } });
+  await db.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next), mustChangePassword: false } });
   await audit(user.id, "update", "user", user.id, `${user.name} changed their password`);
   return { ok: true };
 }

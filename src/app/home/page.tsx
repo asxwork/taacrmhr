@@ -16,6 +16,7 @@ export const metadata = { title: "Apps" };
 /** Odoo-style home: after signing in people choose an app (CRM, HR, My Space…). Only their apps are shown. */
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
   const user = await requireUser();
+  if (user.mustChangePassword && !user.viewAs) redirect("/me?password=change"); // password from a format: choose your own first
   const [apps, layouts, sp] = await Promise.all([appsForUser(user), layoutsFor(user), searchParams]);
   if (apps.length === 1) redirect(apps[0]!.start);
   // Settings → Layouts → "All apps": a start page sends people straight to work after sign-in ("All apps" still opens this).

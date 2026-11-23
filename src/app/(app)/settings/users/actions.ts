@@ -149,6 +149,24 @@ export async function bulkUsers(_: FormState, fd: FormData): Promise<FormState> 
     await db.user.updateMany({ where: { id: { in: pool } }, data: { active: op === "activate" } });
     if (op === "deactivate") await db.session.deleteMany({ where: { userId: { in: pool } } });
     message = `${pool.length} user(s) ${op === "activate" ? "activated" : "deactivated and signed out"}${pool.length < tIds.length ? " (not you)" : ""}.`;
+  } else if (op === "passwordFormat") {
+    // Everyone's password from one format (e.g. {First}@2026). Super Admin only; never your own (you'd be locked out).
+    if (!actor.isSuperAdmin) return { error: "Only a Super Admin can set passwords for others." };
+    const { passwordFromFormat, usesToken } = await import("@/lib/password-format");
+    const format = str(fd, "pattern");
+    if (!usesToken(format)) return { error: "The format needs at least one personal part, like {first} or {phone4}, so everyone gets a different password." };
+    const force = fd.get("force") === "on";
+    const people = await db.user.findMany({ where: { id: { in: tIds.filter((id) => id !== actor.id) } }, select: { id: true, name: true, email: true, phone: true, employee: { select: { code: true, phone: true, firstName: true, lastName: true } } } });
+    let done = 0;
+    const short: string[] = [];
+    for (const u of people) {
+      const name = u.employee?.firstName ? [u.employee.firstName, u.employee.lastName].filter(Boolean).join(" ") : u.name;
+      const pw = passwordFromFormat(format, { name, email: u.email, phone: u.employee?.phone || u.phone, code: u.employee?.code });
+      if (pw.length < 8) { short.push(u.name); continue; }
+      await db.user.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(pw), mustChangePassword: force } });
+      done++;
+    }
+    message = `New password set for ${done} user(s)${force ? "; they choose their own at the next sign-in" : ""}.${short.length ? ` Skipped ${short.length} (the result was under 8 characters, e.g. no phone or code): ${short.slice(0, 8).join(", ")}${short.length > 8 ? "…" : ""}.` : ""}${tIds.includes(actor.id) ? " Your own password wasn't changed." : ""}`;
   } else if (op === "loginEmail") {
     if (!smtpConfigured()) return { error: "Email isn't set up yet. See Settings → Integrations." };
     let sent = 0;

@@ -12,24 +12,30 @@ import { spendRecoveryCode, verifyTotp } from "@/lib/totp";
 import { describeWindow, insideWindow, windowFromRoles } from "@/lib/security";
 import { explainDbError } from "@/lib/db-diagnose";
 import { recordSignIn } from "@/lib/login-alerts";
+import { resolveLoginEmail } from "@/lib/login-name";
 
 export async function login(_: FormState, fd: FormData): Promise<FormState> {
-  const email = str(fd, "email").toLowerCase();
+  const typed = str(fd, "email").toLowerCase();
   const password = str(fd, "password");
-  if (!email || !password) return { error: "Enter your email and password." };
+  if (!typed || !password) return { error: "Enter your username (or email) and password." };
 
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
-  const wait = loginBlockedFor(email, ip);
+  const wait = loginBlockedFor(typed, ip);
   if (wait) return { error: `Too many failed attempts. Try again in ${wait} minute${wait === 1 ? "" : "s"}.` };
 
   // A database problem shows its real cause here instead of a blank error page.
   try {
+    // "admin", "huzaifa.khan" or "Huzaifa Khan" work as well as the full email.
+    const email = (await resolveLoginEmail(typed)) ?? typed;
+    const wait2 = email !== typed ? loginBlockedFor(email, ip) : 0;
+    if (wait2) return { error: `Too many failed attempts. Try again in ${wait2} minute${wait2 === 1 ? "" : "s"}.` };
     const user = await db.user.findUnique({ where: { email } });
     if (!user || !user.active || !(await verifyPassword(password, user.passwordHash))) {
+      if (typed !== email) recordLoginFailure(typed, ip);
       recordLoginFailure(email, ip);
       if (user) await audit(user.id, "login_failed", "user", user.id, `Failed sign-in for ${email} from ${ip}`);
-      return { error: "Incorrect email or password." };
+      return { error: "Incorrect username or password." };
     }
     // Two-step login: a 6-digit authenticator code after the password.
     if (user.totpEnabled) {
@@ -55,6 +61,7 @@ export async function login(_: FormState, fd: FormData): Promise<FormState> {
       if (w && !insideWindow(w)) return { error: `Sign-in is allowed ${describeWindow(w)} for your role.` };
     }
     clearLoginFailures(email);
+    clearLoginFailures(typed);
 
     await createSession(user.id);
     await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });

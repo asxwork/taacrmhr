@@ -15,7 +15,7 @@ export async function setPassword(_: FormState, fd: FormData): Promise<FormState
   if (password !== fd.get("confirm")) return { error: "The two passwords don't match." };
 
   await db.$transaction([
-    db.user.update({ where: { id: row.userId }, data: { passwordHash: await hashPassword(password) } }),
+    db.user.update({ where: { id: row.userId }, data: { passwordHash: await hashPassword(password), mustChangePassword: false } }),
     db.passwordToken.deleteMany({ where: { userId: row.userId } }),
     db.session.deleteMany({ where: { userId: row.userId } }), // old sign-ins end when the password changes
   ]);

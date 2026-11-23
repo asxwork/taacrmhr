@@ -40,6 +40,8 @@ model User {
   phone             String?
   title             String?
   passwordHash      String
+  /// Set by "Set passwords from a format": asked to choose their own password at the next sign-in.
+  mustChangePassword Boolean          @default(false)
   /// Set when the user clicks the link from System Settings → Email Verification.
   emailVerifiedAt   DateTime?
   active            Boolean           @default(true)

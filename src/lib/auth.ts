@@ -31,6 +31,8 @@ export type SessionUser = {
   /** Hours this user may use the app (from their roles); null = any time. */
   loginWindow: LoginWindow | null;
   totpEnabled: boolean;
+  /** Must choose a new password before using AMS (passwords set from a format). */
+  mustChangePassword: boolean;
 };
 
 /** Cookie holding the user a Super Admin is viewing the app as (Settings → Users → View as). */
@@ -124,6 +126,7 @@ async function buildSessionUser(user: UserWithRoles): Promise<SessionUser> {
     prefs: { theme: user.theme, accent: user.accent, wallpaper: user.wallpaper, density: user.density },
     loginWindow: user.isSuperAdmin ? null : windowFromRoles(user.roles.map((r) => r.role)),
     totpEnabled: user.totpEnabled,
+    mustChangePassword: !!user.mustChangePassword,
   };
   return sessionUser;
 }

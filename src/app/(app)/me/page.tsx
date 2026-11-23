@@ -55,7 +55,8 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
         </Card>
 
         <Card className="p-6">
-          <h2 className="mb-4 font-medium">Change password</h2>
+          <h2 className="mb-4 font-medium" id="password">Change password</h2>
+          {user.mustChangePassword && <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Please choose your own password before you continue. Your current password is the one your administrator gave you.</p>}
           <ActionForm action={changePassword} className="space-y-4" successMessage="Password updated.">
             <Field label="Current password">
               <input name="current" type="password" required className="input" autoComplete="current-password" />
