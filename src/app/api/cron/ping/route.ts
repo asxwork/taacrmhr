@@ -7,6 +7,7 @@ import { beat, watchdog } from "@/lib/heartbeat";
 // It also records a heartbeat and, once a day, alerts Super Admins if another job stopped or errors appeared.
 export async function GET() {
   await db.$queryRawUnsafe("SELECT 1");
-  after(async () => { await beat("ping"); await watchdog().catch(() => {}); });
+  // Then whatever scheduled job is due (daily job, machine sync, backups), so they don't depend on their own cron links.
+  after(async () => { await beat("ping"); await watchdog().catch(() => {}); await (await import("@/lib/cron-jobs")).runDueJobs().catch(() => {}); });
   return new Response("ok", { headers: { "Cache-Control": "no-store" } });
 }
