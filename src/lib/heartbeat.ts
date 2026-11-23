@@ -37,6 +37,7 @@ export async function problems() {
     if (hours > j.maxHours) list.push(`${j.label} last ran ${Math.round(hours)} hours ago.`);
     else if (!x.ok) list.push(`${j.label} failed: ${x.note ?? "unknown error"}`);
   }
+  if (process.env.AMS_RECOVERY) list.push("The emergency sign-in key (AMS_RECOVERY) is still set in the hosting settings: remove it now that you can sign in.");
   const starts = await (await import("./app-starts")).recentStarts(24);
   if (starts.length > 6) list.push(`The app restarted ${starts.length} times in the last 24 hours — the host is stopping it (often too little memory on the plan). Every restart makes the next click wait.`);
   if (lastBackup?.status === "failed") list.push(`Last backup failed: ${lastBackup.error ?? ""}`.slice(0, 300));

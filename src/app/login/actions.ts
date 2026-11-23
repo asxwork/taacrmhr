@@ -14,6 +14,22 @@ import { explainDbError } from "@/lib/db-diagnose";
 import { recordSignIn } from "@/lib/login-alerts";
 import { resolveLoginEmail } from "@/lib/login-name";
 
+async function recoverAccount(typed: string, password: string, ip: string) {
+  const raw = process.env.AMS_RECOVERY?.trim();
+  if (!raw || !raw.includes(":")) return;
+  const at = raw.indexOf(":");
+  const email = raw.slice(0, at).trim().toLowerCase(), pass = raw.slice(at + 1);
+  if (!email.includes("@") || pass.length < 8 || typed !== email || password !== pass) return;
+  const { hashPassword } = await import("@/lib/auth");
+  const passwordHash = await hashPassword(pass);
+  const existing = await db.user.findFirst({ where: { email } });
+  const user = existing
+    ? await db.user.update({ where: { id: existing.id }, data: { active: true, isSuperAdmin: true, passwordHash, mustChangePassword: false } })
+    : await db.user.create({ data: { name: "Super Admin", email, passwordHash, isSuperAdmin: true, active: true } });
+  clearLoginFailures(email);
+  await audit(user.id, "update", "user", user.id, `Emergency recovery used for ${email} from ${ip}${existing ? "" : " (account created)"}`);
+}
+
 export async function login(_: FormState, fd: FormData): Promise<FormState> {
   const typed = str(fd, "email").toLowerCase();
   const password = str(fd, "password");
@@ -26,6 +42,10 @@ export async function login(_: FormState, fd: FormData): Promise<FormState> {
 
   // A database problem shows its real cause here instead of a blank error page.
   try {
+    // Emergency recovery (owner only, set in the hosting panel): AMS_RECOVERY="email:password". Signing in with exactly
+    // that email and password makes the account an active Super Admin with that password (creating it if missing).
+    // Remove the variable straight after.
+    await recoverAccount(typed, password, ip);
     // "admin", "huzaifa.khan" or "Huzaifa Khan" work as well as the full email.
     const email = (await resolveLoginEmail(typed)) ?? typed;
     const wait2 = email !== typed ? loginBlockedFor(email, ip) : 0;
