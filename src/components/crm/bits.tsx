@@ -122,8 +122,9 @@ export function StageBar({
             disabled={disabled || s.id === currentId || s.locked}
             title={s.locked ? `${s.name}: set automatically` : s.name}
             className={cn(
-              "relative flex-1 truncate font-medium transition disabled:cursor-default",
-              size === "lg" ? "min-w-28 px-5 py-2.5 text-left text-[13px]" : "min-w-24 px-4 py-2 text-xs",
+              "relative flex min-w-0 flex-1 items-center font-medium leading-tight transition disabled:cursor-default",
+              // Full names: long ones wrap onto a second line instead of being cut off ("Follow-up cycle", "Not Answered").
+              size === "lg" ? "min-h-11 min-w-24 px-4 py-1.5 pl-5 text-left text-[13px]" : "min-w-24 px-4 py-2 text-xs",
               // Hidden inputs come first in the form, so position is decided by index, not :first/:last.
               i === 0 ? "rounded-l-lg [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%)]"
                 : i === steps.length - 1 && !after ? "-ml-1 rounded-r-lg [clip-path:polygon(0_0,100%_0,100%_100%,0_100%,8px_50%)]"
@@ -131,7 +132,7 @@ export function StageBar({
               reached ? cn(active.bar, active.on) : cn("border-b-[3px] bg-black/5 text-ink/70 enabled:hover:bg-black/10 enabled:hover:text-ink", color(s.color).line),
             )}
           >
-            {s.name}
+            <span className={size === "lg" ? "line-clamp-2 break-words" : "truncate"}>{s.name}</span>
           </button>
         );
       })}

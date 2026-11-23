@@ -18,7 +18,8 @@ export async function CrmOverview({ user }: { user: SessionUser }) {
   ]);
   const now = new Date();
 
-  const [openLeads, newLeads, openDeals, wonMonth, agenda] = await Promise.all([
+  const [allLeads, openLeads, newLeads, openDeals, wonMonth, agenda] = await Promise.all([
+    db.lead.count({ where: { ...leadScope } }),
     db.lead.count({ where: { ...leadScope, status: { kind: "open" } } }),
     db.lead.count({ where: { ...leadScope, createdAt: { gte: subDays(now, 7) } } }),
     dealScope ? db.deal.aggregate({ where: { ...dealScope, closedAt: null }, _sum: { value: true }, _count: true }) : null,
@@ -34,8 +35,8 @@ export async function CrmOverview({ user }: { user: SessionUser }) {
   ]);
 
   const tiles: [string, React.ReactNode, string, string?][] = [
-    ["Open leads", openLeads, "/crm/leads"],
-    ["New leads (7 days)", newLeads, "/crm/leads?closed=1"],
+    ["All leads", <>{allLeads.toLocaleString()}<span className="ml-1.5 text-xs font-normal text-muted">{openLeads.toLocaleString()} in progress</span></>, "/crm/leads"],
+    ["New leads (7 days)", newLeads.toLocaleString(), "/crm/leads?created=7d"],
     ...(openDeals ? [["Open deals", `${openDeals._count} · ${fmtPKR(openDeals._sum.value ?? 0)}`, "/crm/deals"] as [string, string, string]] : []),
     ...(wonMonth ? [["Won this month", `${wonMonth._count} · ${fmtPKR(wonMonth._sum.value ?? 0)}`, "/crm/deals?view=list", "text-emerald-700"] as [string, string, string, string]] : []),
   ];

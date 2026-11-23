@@ -59,6 +59,31 @@ export async function saveAll<T>(rows: T[], size: number, many: (part: T[]) => P
 }
 
 const STAGE_MAP: Record<string, string> = { Appointment: "Site Visit", "Good lead": "Complete lead" };
+/** A Bitrix stage code with no name (UC_QS19PL): a stage deleted in Bitrix that only old history still mentions. */
+const RAW_STAGE = /^UC_[A-Z0-9]+$/i;
+
+/**
+ * Removes stages made from those codes by earlier imports: empty ones are deleted; any that still hold leads are
+ * renamed "Old Bitrix stage" and moved to the end. Runs after imports and at most hourly on the leads page.
+ */
+export async function cleanupRawStages() {
+  const raw = (await db.leadStatus.findMany({ where: { name: { startsWith: "UC_" } }, select: { id: true, name: true, _count: { select: { leads: true } } } })).filter((s) => RAW_STAGE.test(s.name));
+  if (!raw.length) return 0;
+  const empty = raw.filter((s) => s._count.leads === 0).map((s) => s.id);
+  if (empty.length) await db.leadStatus.deleteMany({ where: { id: { in: empty } } });
+  let n = 0;
+  for (const s of raw.filter((x) => x._count.leads > 0)) {
+    n++;
+    await db.leadStatus.update({ where: { id: s.id }, data: { name: `Old Bitrix stage ${n > 1 ? n : ""}`.trim(), sortOrder: 900 + n, color: "slate" } }).catch(() => {});
+  }
+  return raw.length;
+}
+const gc = globalThis as unknown as { __rawStageCheck?: number };
+export function maybeCleanupRawStages() {
+  if (Date.now() - (gc.__rawStageCheck ?? 0) < 3600_000) return;
+  gc.__rawStageCheck = Date.now();
+  cleanupRawStages().catch(() => {});
+}
 const JUNK = new Set(["Not Interested", "Not Valid", "Junk Lead"]);
 
 /** Names compared loosely: case, extra spaces and dots don't matter. */
@@ -189,7 +214,8 @@ async function runImport(f: BitrixFiles, opts: ImportOpts) {
   const statuses = await db.leadStatus.findMany();
   let order = Math.max(0, ...statuses.map((s) => s.sortOrder));
   const statusFor = new Map<string, string>();
-  for (const name of new Set(f.leads.map((l) => l.status_name).concat(f.history.map((h) => h.status_name)).filter(Boolean))) {
+  // Stages of leads always; stages only old history mentions, not when they're bare codes of deleted Bitrix stages.
+  for (const name of new Set(f.leads.map((l) => l.status_name).concat(f.history.map((h) => h.status_name).filter((n) => !RAW_STAGE.test(n ?? ""))).filter(Boolean))) {
     const want = STAGE_MAP[name] ?? name;
     let s = statuses.find((x) => key(x.name) === key(want));
     if (!s) {
@@ -330,7 +356,7 @@ async function runImport(f: BitrixFiles, opts: ImportOpts) {
     rows.sort((a, b) => (a.date_create ?? "").localeCompare(b.date_create ?? ""));
     let prev = "";
     for (const h of rows) {
-      const name = STAGE_MAP[h.status_name] ?? h.status_name;
+      const name = RAW_STAGE.test(h.status_name ?? "") ? "Old stage (deleted in Bitrix)" : STAGE_MAP[h.status_name] ?? h.status_name;
       if (!name || name === prev) continue;
       const by = userFor(h.assigned_by_name);
       hist.push({ leadId: idFor.get(n)!.id, type: "system", subject: prev ? `Status: ${prev} → ${name}` : `Lead created in Bitrix (${name})`, doneAt: when(h.date_create) ?? new Date(), createdAt: when(h.date_create) ?? new Date(), createdById: by, ownerId: by });
@@ -352,6 +378,7 @@ async function runImport(f: BitrixFiles, opts: ImportOpts) {
   }
   const newNotes = notes.filter((a) => { const k = sig(a.leadId, a.subject, a.createdAt); if (have.has(k)) return false; have.add(k); return true; });
   const noteSave = await saveAll(newNotes, 500, (part) => db.activity.createMany({ data: part }), (row) => db.activity.create({ data: row }), (row) => `Comment "${row.subject}"`);
+  await cleanupRawStages().catch(() => {});
   const failed = [...leadSave.failed, ...actSave.failed, ...histSave.failed, ...noteSave.failed];
   // What happened to every activity in the file (shown on the result screen).
   const activityReport = { inFile: f.activities.length, noLead: actNoLead, alreadyThere: acts.length - newActs.length, saved: actSave.saved, failed: actSave.failed.length };

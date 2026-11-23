@@ -7,9 +7,9 @@ import { CrmOverview } from "./crm-overview";
 import { TodayAttendance } from "./today-attendance";
 import { MyTargets } from "./my-targets";
 import { disabledFeatures } from "@/lib/features";
-import { NAV } from "@/lib/nav";
+import { APPS } from "@/lib/nav";
+import { NAV_ICONS } from "@/components/nav-icons";
 import { MODULE_MAP, SCOPE_LABELS } from "@/lib/rbac";
-import { db } from "@/lib/db";
 import { Badge, Card, PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Dashboard" };
@@ -23,7 +23,13 @@ export default async function DashboardPage() {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   // CRM home: shortcuts to CRM screens only (other apps have their own homes).
-  const modules = NAV.filter((g) => g.label === "CRM").flatMap((g) => g.items.flatMap((i) => i.children ?? [i]).filter((i) => i.module && can(user, i.module, i.action ?? "view")).map((i) => ({ ...i, group: g.label })));
+  // Grouped like the menu: one card per area (Leads, Deals, Calls…) with its screens as quick links.
+  const allowed = (i: { module?: string; action?: string; phase?: number }) => !!i.module && !i.phase && can(user, i.module as never, (i.action ?? "view") as never);
+  const crm = APPS.find((x) => x.key === "crm");
+  const areas = (crm?.groups ?? []).filter((g) => g.label !== "Home")
+    .map((g) => ({ label: g.label ?? "", icon: g.icon ?? "list", links: g.items.flatMap((i) => i.children ?? [i]).filter(allowed) }))
+    .filter((a) => a.links.length);
+  const modules = areas.flatMap((a) => a.links);
 
   return (
     <>
@@ -39,23 +45,23 @@ export default async function DashboardPage() {
           You have self-service access. Use <Link href="/me" className="font-medium text-navy-900 underline">My Profile</Link> to view your details.
         </Card>
       ) : (
-        <div className="stagger grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {modules.map((m) => {
-            const scope = scopeFor(user, m.module!);
+        <div className="stagger grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {areas.map((a) => {
+            const Icon = NAV_ICONS[a.icon] ?? ArrowRight;
+            const first = a.links[0]!;
+            const scope = scopeFor(user, first.module!);
             return (
-              <Link key={m.href} href={m.href}>
-                <Card className="group flex items-center justify-between p-4 transition hover:border-navy-900/20">
-                  <div>
-                    <p className="text-xs text-muted">{m.group}</p>
-                    <p className="mt-0.5 font-medium">{m.label}</p>
-                    <div className="mt-2 flex gap-1.5">
-                      {MODULE_MAP[m.module!]?.scoped && <Badge tone={scope === "all" ? "navy" : "gold"}>{SCOPE_LABELS[scope]}</Badge>}
-                      {m.phase && <Badge>Phase {m.phase}</Badge>}
-                    </div>
-                  </div>
-                  <ArrowRight className="size-4 text-muted transition group-hover:translate-x-0.5 group-hover:text-ink" />
-                </Card>
-              </Link>
+              <Card key={a.label} className="p-4">
+                <Link href={first.href} className="group mb-3 flex items-center gap-2.5">
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-navy-900 text-white"><Icon className="size-4" /></span>
+                  <span className="font-medium group-hover:underline">{a.label}</span>
+                  {MODULE_MAP[first.module!]?.scoped && <Badge tone={scope === "all" ? "navy" : "gold"}>{SCOPE_LABELS[scope]}</Badge>}
+                  <ArrowRight className="ml-auto size-4 text-muted transition group-hover:translate-x-0.5 group-hover:text-ink" />
+                </Link>
+                <div className="flex flex-wrap gap-1.5">
+                  {a.links.map((m) => <Link key={m.href} href={m.href} className="rounded-md border border-line px-2 py-1 text-xs text-ink/80 transition hover:border-navy-900/30 hover:bg-canvas hover:text-ink">{m.label}</Link>)}
+                </div>
+              </Card>
             );
           })}
         </div>
