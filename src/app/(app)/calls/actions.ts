@@ -24,6 +24,7 @@ export async function saveCampaign(_: FormState, fd: FormData): Promise<FormStat
     name, description: str(fd, "description") || null, script: str(fd, "script").slice(0, 8000) || null, waMessage: str(fd, "waMessage").slice(0, 1000) || null,
     maxAttempts: Math.max(1, Math.min(10, Number(str(fd, "maxAttempts")) || 3)), sourceName: str(fd, "sourceName") || null,
     dialPrefix: str(fd, "dialPrefix").replace(/[^0-9*#+]/g, "").slice(0, 10) || null,
+    kind: str(fd, "kind") === "sales" ? "sales" : "csr",
   };
   const id = str(fd, "id");
   const c = id ? await db.callCampaign.update({ where: { id }, data }) : await db.callCampaign.create({ data: { ...data, createdById: user.id } });
@@ -51,6 +52,7 @@ export async function uploadNumbers(_: FormState, fd: FormData): Promise<FormSta
   if (file instanceof File && file.size > 5_000_000) return { error: "The file is larger than 5 MB." };
   const rows = parseNumbers(text);
   if (!rows.length) return { error: "No phone numbers found. Paste one per line, or upload a CSV with a phone column." };
+  await (await import("@/lib/call-files")).keepImportFile(campaignId, file instanceof File && file.size ? file.name : "pasted numbers.txt", text);
   const res = await importNumbers(campaignId, rows.slice(0, 20_000));
   await audit(user.id, "create", "callTarget", campaignId, `Imported ${res.added} number(s)`);
   revalidatePath(`/calls/campaigns/${campaignId}`);
@@ -106,7 +108,7 @@ export async function logCall(_: FormState, fd: FormData): Promise<FormState> {
   if (pbxCallId) await linkRecording(pbxCallId, user.id);
   let extra = "";
   if (o === "interested" && fd.get("toCrm") === "on") {
-    const lead = await convertToLead(target.id, user.name);
+    const lead = await convertToLead(target.id, user.name, user.id);
     extra = "error" in lead ? ` (${lead.error})` : lead.merged ? " · added to the existing lead in the CRM" : " · sent to the CRM as a new lead";
   }
   refresh();
@@ -117,7 +119,7 @@ export async function sendTargetToCrm(fd: FormData) {
   const user = await requireUser();
   const t = await db.callTarget.findUnique({ where: { id: str(fd, "targetId") } });
   if (!t || !can(user, "calls", "edit") || (t.assigneeId !== user.id && !manager(user))) return;
-  await convertToLead(t.id, user.name);
+  await convertToLead(t.id, user.name, user.id);
   revalidatePath(`/calls/campaigns/${t.campaignId}`);
   refresh();
 }
@@ -195,6 +197,8 @@ export async function previewSheet(_: SheetState, fd: FormData): Promise<SheetSt
   const { readSheetFile } = await import("@/lib/sheet-read");
   let sheet: Awaited<ReturnType<typeof readSheetFile>>;
   try { sheet = await readSheetFile(file); } catch { return { error: "Couldn't read that file. Save it as .xlsx or .csv and try again." }; }
+  // The exact file is kept on the server for Super Admins (Campaign → Imported files).
+  await (await import("@/lib/call-files")).keepImportFile(str(fd, "campaignId"), file.name, await file.arrayBuffer());
   const headers = sheet.headers.filter(Boolean);
   if (!headers.length || !sheet.rows.length) return { error: "The file has no rows (the first row should be the column names)." };
   for (const [k, v] of sheets) if (Date.now() - v.at > 30 * 60_000) sheets.delete(k);
@@ -230,7 +234,7 @@ export async function importSheet(_: SheetState, fd: FormData): Promise<SheetSta
   const rows = hold.rows.map((r) => {
     const v = (i: number) => (i >= 0 ? (r[hold.headers[i]!] ?? "").trim() : "");
     const extra: Record<string, string> = {};
-    role.forEach((x, i) => { if (x === "detail" && v(i)) extra[label[i]!] = v(i).slice(0, 500); });
+    role.forEach((x, i) => { if ((x === "detail" || x === "keep") && v(i)) extra[label[i]!] = v(i).slice(0, 500); });
     if (v(p2)) extra["Other phone"] = v(p2);
     // Full name: the Name column, else First + Last name joined.
     const name = v(ni) || [v(fi), v(li)].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
@@ -238,6 +242,13 @@ export async function importSheet(_: SheetState, fd: FormData): Promise<SheetSta
   }).filter((r) => (phoneKey(r.phone) ?? "").length >= 7); // a real number, not a name or a unit code
   if (!rows.length) return { error: "No phone numbers found in that column (a phone needs at least 7 digits). Check which column you chose as Phone number." };
   const res = await importNumbers(hold.campaignId, rows);
+  // "Keep, hide from agents" columns: saved with the number, left off the agent's screen.
+  const keep = role.flatMap((x, i) => (x === "keep" ? [label[i]!] : []));
+  if (keep.length) {
+    const c = await db.callCampaign.findUnique({ where: { id: hold.campaignId }, select: { hiddenFields: true } });
+    const before: string[] = (() => { try { return JSON.parse(c?.hiddenFields ?? "[]"); } catch { return []; } })();
+    await db.callCampaign.update({ where: { id: hold.campaignId }, data: { hiddenFields: JSON.stringify([...new Set([...before, ...keep])]) } });
+  }
   sheets.delete(str(fd, "id"));
   await audit(user.id, "create", "callTarget", hold.campaignId, `Imported ${res.added} number(s) from a sheet`);
   revalidatePath(`/calls/campaigns/${hold.campaignId}`);
@@ -299,4 +310,17 @@ export async function bulkTargets(_: FormState, fd: FormData): Promise<FormState
   refresh();
   revalidatePath("/calls/campaigns/[id]", "page");
   return { ok: true, message: `${n} number(s) ${msg}.` };
+}
+
+/** Campaign → "What agents see": tick the sheet columns agents see on the dialer; the rest stay hidden (still saved). */
+export async function saveVisibleFields(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!manager(user)) return { error: "Only calling supervisors can change this." };
+  const id = str(fd, "campaignId");
+  const all = fd.getAll("field").map(String);
+  const shown = new Set(fd.getAll("show").map(String));
+  await db.callCampaign.update({ where: { id }, data: { hiddenFields: JSON.stringify(all.filter((f) => !shown.has(f))) } });
+  revalidatePath(`/calls/campaigns/${id}`);
+  revalidatePath("/calls");
+  return { ok: true, message: "Saved. Agents see the ticked details on their next number." };
 }

@@ -91,14 +91,15 @@ export async function recordOutcome(input: { targetId: string; agentId: string; 
 }
 
 /** Sends the number to the CRM (duplicate check and lead rotation as for any incoming lead). */
-export async function convertToLead(targetId: string, agentName: string) {
+export async function convertToLead(targetId: string, agentName: string, agentId?: string) {
   const t = await db.callTarget.findUnique({ where: { id: targetId }, include: { campaign: true } });
   if (!t) return { error: "Number not found." };
   if (t.leadId) return { ok: true as const, leadId: t.leadId };
   const res = await ingestLead(
     { name: t.name ?? undefined, phone: t.phone, source: t.campaign.sourceName ?? undefined, campaign: t.campaign.name, message: [`From the calling team (${agentName})`, t.notes].filter(Boolean).join("\n") },
     "api",
-    { id: `calls-${t.campaignId}`, name: `Calls: ${t.campaign.name}`, sourceName: t.campaign.sourceName ?? "CC" },
+    // Sales campaigns: the sales agent who called gets the lead (no rotation); CSR campaigns go round the sales team.
+    { id: `calls-${t.campaignId}`, name: `Calls: ${t.campaign.name}`, sourceName: t.campaign.sourceName ?? "CC", ...(t.campaign.kind === "sales" && agentId ? { assigneeIds: [agentId] } : {}) },
   );
   if (res.status === "ignored") return { error: "This number couldn't be turned into a lead." };
   await db.callTarget.update({ where: { id: t.id }, data: { leadId: res.leadId } });
@@ -180,12 +181,20 @@ export async function makeBatches(campaignId: string, agentIds: string[], size: 
 }
 
 /** People who can be given numbers: anyone whose roles allow working calls (Super Admins too, if asked). */
-export async function callAgents(withSuperAdmins = true) {
+/**
+ * People who can work a dialer. `kind` narrows it to a campaign's type: "csr" = the CSR Agent role, "sales" = everyone
+ * else with dialer access (sales agents). Super Admins are listed for both.
+ */
+export async function callAgents(withSuperAdmins = true, kind?: "csr" | "sales") {
+  const csr = { roles: { some: { role: { name: "CSR Agent" } } } };
+  const dialer = { roles: { some: { role: { permissions: { some: { module: "calls", action: "edit" } } } } } };
+  const narrow = kind === "csr" ? [dialer, csr] : kind === "sales" ? [dialer, { NOT: csr }] : [dialer];
   return db.user.findMany({
-    where: { active: true, OR: [...(withSuperAdmins ? [{ isSuperAdmin: true }] : []), { roles: { some: { role: { permissions: { some: { module: "calls", action: "edit" } } } } } }] },
+    where: { active: true, OR: [...(withSuperAdmins ? [{ isSuperAdmin: true }] : []), { AND: narrow }] },
     select: { id: true, name: true }, orderBy: { name: "asc" },
   });
 }
+export const CAMPAIGN_KINDS = [["csr", "CSR (calling team)"], ["sales", "Sales agents"]] as const;
 
 /**
  * Calling supervisors: run campaigns (numbers, batches, assigning), the wallboard and everyone's reports. Super Admins,

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import Link from "@/components/link";
 import { format, startOfMonth } from "date-fns";
 import { Download, FileText } from "lucide-react";
@@ -25,6 +26,8 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
   const tab = sp.tab === "daily" ? "daily" : "overview";
   // Agents see only their own numbers; supervisors see everyone (lib/calls isCallSupervisor).
   const supervisor = isCallSupervisor(viewer);
+  // Agents don't get the reports section: their own day report is on the dialer (and here).
+  if (!supervisor) redirect(`/calls/reports/daily/live?agent=${viewer.id}`);
   const only = supervisor ? undefined : viewer.id;
   const parse = (v: string | undefined, d: Date) => { const x = v ? new Date(`${v}T00:00:00`) : d; return Number.isNaN(x.getTime()) ? d : x; };
   const from = parse(sp.from, startOfMonth(new Date()));

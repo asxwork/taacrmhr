@@ -7,6 +7,7 @@ export type NavItem = {
   /** Permission action needed on `module` (default "view"), e.g. "create" for supervisor-only pages. */
   action?: import("@/lib/rbac").Action;
   /** Boss (and Super Admin) only. */ boss?: boolean;
+  /** Calling supervisors and Super Admins only (never the CSR Agent role): see lib/calls isCallSupervisor. */ callSupervisor?: boolean;
   /** Other paths that belong to this entry's section (it stays highlighted there), e.g. Leads → /crm/follow-ups. */
   also?: string[];
   /** Also shown when the user can view any of these modules (a section spanning several modules). */
@@ -83,10 +84,10 @@ export const APPS: AppDef[] = [
           { href: "/calls/history", label: "History", icon: "history", module: "calls" },
           { href: "/calls/recordings", label: "Recordings", icon: "file", superAdmin: true },
           sub("Manage", [
-            { href: "/calls/campaigns", label: "Campaigns", icon: "target", module: "calls", action: "assign" },
-            { href: "/calls/wallboard", label: "Wallboard", icon: "gauge", module: "calls", action: "assign" },
-            { href: "/calls/reports", label: "Reports", icon: "chart", module: "calls" },
-            { href: "/calls/dnc", label: "Do-not-call", icon: "ban", module: "calls", action: "assign" },
+            { href: "/calls/campaigns", label: "Campaigns", icon: "target", module: "calls", callSupervisor: true },
+            { href: "/calls/wallboard", label: "Wallboard", icon: "gauge", module: "calls", callSupervisor: true },
+            { href: "/calls/reports", label: "Reports", icon: "chart", module: "calls", callSupervisor: true },
+            { href: "/calls/dnc", label: "Do-not-call", icon: "ban", module: "calls", callSupervisor: true },
             { href: "/calls/phone-system", label: "Phone system", icon: "settings", superAdmin: true },
           ], "settings"),
         ],

@@ -39,6 +39,12 @@ async function main() {
     }
     await db.setting.create({ data: { key: flag, value: "done" } });
   }
+  // Sales agents can use the dialer for Sales campaigns (their own numbers only), once.
+  if (!(await db.setting.findUnique({ where: { key: "fix.sales-dialer" } }))) {
+    const agent = await db.role.findUnique({ where: { name: "Agent" }, select: { id: true } });
+    if (agent) for (const action of ["view", "edit"]) await db.permission.upsert({ where: { roleId_module_action: { roleId: agent.id, module: "calls", action } }, update: {}, create: { roleId: agent.id, module: "calls", action, scope: "own" } });
+    await db.setting.create({ data: { key: "fix.sales-dialer", value: "done" } });
+  }
   // Invoices: built-in managers get full access; Super Admins approve. Other roles are switched on in Roles & Permissions.
   if (!(await db.setting.findUnique({ where: { key: "fix.invoices-perms" } }))) {
     for (const role of await db.role.findMany({ where: { name: { in: ["Administrator", "Sales Manager", "Boss"] } }, select: { id: true, name: true } })) {

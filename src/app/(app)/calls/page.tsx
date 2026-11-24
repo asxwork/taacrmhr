@@ -41,6 +41,8 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   const mode = modeRow?.value === "landline" ? "landline" : "system";
   let extra: Record<string, string> = {};
   try { extra = target?.extra ? JSON.parse(target.extra) : {}; } catch {}
+  // Details the supervisor chose to keep hidden from agents (Campaign → What agents see).
+  try { for (const k of JSON.parse(target?.campaign.hiddenFields ?? "[]") as string[]) delete extra[k]; } catch {}
   // Today's report in the team's WhatsApp format, ready to copy or send to the group.
   const report = callReportText(s, note?.feedback, undefined, { title: mode === "landline" ? "LANDLINE CALLING REPORT" : "INTERNATIONAL CALLING REPORT", totals: true });
   const waText = (target?.campaign.waMessage ?? "").replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);

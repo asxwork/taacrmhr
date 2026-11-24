@@ -5,6 +5,8 @@ import type { Action } from "./rbac";
 export type SectionTab = {
   href: string; label: string;
   module?: string; action?: Action; superAdmin?: boolean;
+  /** Calling supervisors and Super Admins only (lib/calls isCallSupervisor). */
+  callSupervisor?: boolean;
   /** Query values this tab requires (null = must be absent); tabs on the same path are told apart by these. */
   params?: Record<string, string | null>;
   /** Pages under this path (e.g. /hr/attendance/logs/machine) keep this section's tabs, with this tab active. */
@@ -43,11 +45,11 @@ export const SECTIONS: Section[] = [
       { href: "/calls?dial=1", label: "Dialer", module: "calls", action: "edit" },
       { href: "/calls/callbacks", label: "Callbacks", module: "calls" },
       { href: "/calls/history", label: "History", module: "calls" },
-      { href: "/calls/campaigns", label: "Campaigns", module: "calls", action: "create" },
-      { href: "/calls/dnc", label: "Do-not-call", module: "calls", action: "create" },
-      { href: "/calls/wallboard", label: "Wallboard", module: "calls", action: "create" },
-      { href: "/calls/reports", label: "Reports", module: "calls", action: "create" },
-      { href: "/calls/recordings", label: "Recordings", module: "calls", action: "listen" },
+      { href: "/calls/campaigns", label: "Campaigns", module: "calls", callSupervisor: true },
+      { href: "/calls/dnc", label: "Do-not-call", module: "calls", callSupervisor: true },
+      { href: "/calls/wallboard", label: "Wallboard", module: "calls", callSupervisor: true },
+      { href: "/calls/reports", label: "Reports", module: "calls", callSupervisor: true },
+      { href: "/calls/recordings", label: "Recordings", superAdmin: true },
       { href: "/calls/phone-system", label: "Phone system", superAdmin: true },
     ],
   },

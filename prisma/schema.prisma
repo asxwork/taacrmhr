@@ -973,6 +973,11 @@ model CallCampaign {
   sourceName  String?
   /// Digits dialled before every number of this campaign (e.g. "27" for a 3CX route): +971… is dialled as 27971….
   dialPrefix  String?
+  /// csr: the calling team (interested callers go to sales by rotation). sales: sales agents calling themselves
+  /// (an interested caller becomes their own lead). Batches go only to agents of the matching kind.
+  kind        String       @default("csr")
+  /// Sheet columns kept for the record but not shown to agents (JSON list of names).
+  hiddenFields String? // @text
   status      String       @default("active")
   createdById String?
   createdAt   DateTime     @default(now())

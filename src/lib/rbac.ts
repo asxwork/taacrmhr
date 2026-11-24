@@ -171,6 +171,7 @@ export const DEFAULT_ROLES: RoleTemplate[] = [
     description: "Works only their own leads, deals and listings.",
     grants: {
       "crm.leads": { view: "own", create: "own", edit: "own" },
+      calls: { view: "own", edit: "own" },
       "crm.targets": { view: "own" },
       "crm.matches": { view: "own" },
       "crm.summary": { view: "own" },

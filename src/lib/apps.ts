@@ -1,3 +1,4 @@
+import { isCallSupervisor } from "./calls";
 // The apps (lib/nav.ts) a user may open, with their menus trimmed to what the user's roles allow.
 import { APPS, type AppDef, type NavItem } from "./nav";
 import { can, scopeFor } from "./permissions";
@@ -8,7 +9,7 @@ import { disabledFeatures, featureForPath, hrAccess, type HrAccess } from "./fea
 export type UserApp = AppDef & { /** Where the app opens: its home if the user may see it, else its first page. */ start: string };
 
 const allowed = (user: SessionUser, i: NavItem) =>
-  (!i.module || can(user, i.module, i.action ?? "view") || !!i.anyModule?.some((m) => can(user, m))) && (!i.superAdmin || user.isSuperAdmin) && (!i.boss || user.isBoss || user.isSuperAdmin);
+  (!i.module || can(user, i.module, i.action ?? "view") || !!i.anyModule?.some((m) => can(user, m))) && (!i.superAdmin || user.isSuperAdmin) && (!i.boss || user.isBoss || user.isSuperAdmin) && (!i.callSupervisor || isCallSupervisor(user));
 // An app shows when the user can open at least one real page of it (items marked `ungated`, like Hierarchy, don't count).
 const gated = (i: NavItem): boolean => (!i.ungated && !!(i.module || i.superAdmin || i.boss)) || !!i.children?.some(gated);
 

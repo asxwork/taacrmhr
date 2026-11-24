@@ -15,10 +15,12 @@ import { Badge, Button, Card, Drawer, Field, LinkButton, PageHeader } from "@/co
 import { DrillTiles } from "@/components/drill-tiles";
 import { BarList } from "@/components/charts";
 import { AutoFilterForm } from "@/components/auto-filter-form";
-import { bulkTargets, createBatches, deleteCampaign, reassignBatch, sendTargetToCrm, setCampaignStatus, uploadNumbers } from "../../actions";
+import { bulkTargets, createBatches, deleteCampaign, reassignBatch, saveVisibleFields, sendTargetToCrm, setCampaignStatus, uploadNumbers } from "../../actions";
 import { BulkAll, BulkBar, BulkTick, DeleteCampaign } from "@/components/calls/bulk-bar";
 import { CampaignForm } from "@/components/calls/campaign-form";
 import { ImportNumbers } from "@/components/calls/import-numbers";
+import { listImportFiles } from "@/lib/call-files";
+import { requireUser } from "@/lib/auth";
 
 export const metadata = { title: "Campaign" };
 const STATUS_LABEL: Record<string, string> = { new: "New", retry: "Retry later", callback: "Callback", done: "Done", dnc: "Do not call" };
@@ -29,14 +31,20 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const c = await db.callCampaign.findUnique({ where: { id } });
   if (!c) notFound();
-  const [byStatus, byOutcome, batches, agents, targets, unassigned] = await Promise.all([
+  const [byStatus, byOutcome, batches, agents, targets, unassigned, samples] = await Promise.all([
     db.callTarget.groupBy({ by: ["status"], where: { campaignId: id }, _count: true }),
     db.callTarget.groupBy({ by: ["outcome"], where: { campaignId: id, outcome: { not: null } }, _count: true }),
     db.callBatch.findMany({ where: { campaignId: id }, include: { targets: { select: { status: true } } }, orderBy: { createdAt: "asc" } }),
-    callAgents(),
+    callAgents(true, c.kind === "sales" ? "sales" : "csr"),
     db.callTarget.findMany({ where: { campaignId: id, ...(sp.status && { status: sp.status }) }, orderBy: [{ lastCalledAt: "desc" }, { createdAt: "asc" }], take: 200 }),
     db.callTarget.count({ where: { campaignId: id, assigneeId: null, status: { in: ["new", "retry"] } } }),
+    db.callTarget.findMany({ where: { campaignId: id, extra: { not: null } }, select: { extra: true }, take: 300 }),
   ]);
+  const viewer = await requireUser();
+  const files = viewer.isSuperAdmin ? await listImportFiles(id) : [];
+  // Every detail column the numbers have, and which ones agents don't see.
+  const fields = [...new Set(samples.flatMap((t) => { try { return Object.keys(JSON.parse(t.extra!)); } catch { return []; } }))];
+  const hidden = new Set<string>((() => { try { return JSON.parse(c.hiddenFields ?? "[]"); } catch { return []; } })());
   const count = (...st: string[]) => byStatus.filter((b) => st.includes(b.status)).reduce((s, b) => s + b._count, 0);
   const total = count("new", "retry", "callback", "done", "dnc");
   const names = new Map(agents.map((a) => [a.id, a.name]));
@@ -44,7 +52,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   return (
     <>
       <ListLink href="/calls/campaigns" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Campaigns</ListLink>
-      <PageHeader title={c.name} description={c.description ?? undefined} actions={
+      <PageHeader title={c.name} description={`${c.kind === "sales" ? "Sales campaign: sales agents call; an interested caller becomes their own lead." : "CSR campaign: the calling team calls; interested callers go to the sales team by rotation."}${c.description ? ` · ${c.description}` : ""}`} actions={
         <div className="flex gap-2">
           <LinkButton href={`/calls/campaigns/${id}?edit=1`} variant="secondary" scroll={false}>Edit</LinkButton>
           <form action={setCampaignStatus}><input type="hidden" name="id" value={id} /><input type="hidden" name="status" value={c.status === "active" ? "paused" : "active"} /><Button variant="secondary">{c.status === "active" ? "Pause" : "Resume"}</Button></form>
@@ -59,6 +67,31 @@ export default async function CampaignPage({ params, searchParams }: { params: P
         { key: "d", label: "Done", tone: "green", value: count("done", "dnc"), sub: total ? `${Math.round((count("done", "dnc") / total) * 100)}%` : undefined, href: `/calls/campaigns/${id}?status=done` },
       ]} />
 
+      {files.length > 0 && (
+        <Card className="mb-6 p-5">
+          <h2 className="mb-1 text-sm font-semibold">Imported files <span className="font-normal text-muted">· Super Admin only</span></h2>
+          <p className="mb-2 text-xs text-muted">Exactly as they were uploaded or pasted.</p>
+          <ul className="space-y-1 text-sm">{files.map((f) => <li key={f.name}><a href={`/api/calls/files/${id}/${encodeURIComponent(f.name)}`} className="font-medium text-navy-900 hover:underline">{f.name}</a> <span className="text-xs text-muted">{Math.max(1, Math.round(f.size / 1024))} KB</span></li>)}</ul>
+        </Card>
+      )}
+      {fields.length > 0 && (
+        <Card className="mb-6 p-5">
+          <h2 className="mb-1 text-sm font-semibold">What agents see</h2>
+          <p className="mb-3 text-xs text-muted">Tick the details shown on the agent&apos;s dialer. Unticked ones stay saved with the number; only supervisors see them here.</p>
+          <ActionForm action={saveVisibleFields} className="space-y-3">
+            <input type="hidden" name="campaignId" value={id} />
+            <div className="flex flex-wrap gap-2">
+              {fields.map((f) => (
+                <label key={f} className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm has-[:checked]:border-navy-900/40 has-[:checked]:bg-navy-900/[0.04]">
+                  <input type="hidden" name="field" value={f} />
+                  <input type="checkbox" name="show" value={f} defaultChecked={!hidden.has(f)} className="accent-navy-900" /> {f}
+                </label>
+              ))}
+            </div>
+            <SubmitButton variant="secondary" pendingText="Saving…">Save</SubmitButton>
+          </ActionForm>
+        </Card>
+      )}
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <h2 className="mb-3 text-sm font-semibold">Add numbers</h2>
@@ -78,7 +111,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           <ActionForm action={createBatches} className="space-y-3">
             <input type="hidden" name="campaignId" value={id} />
             <Field label="Numbers per batch"><input name="size" type="number" min={1} max={5000} defaultValue={Math.min(50, Math.max(1, unassigned)) || 50} className="input w-32" /></Field>
-            {agents.length === 0 ? <p className="text-xs text-muted">Give someone the CSR Agent role first.</p> : (
+            {agents.length === 0 ? <p className="text-xs text-muted">{c.kind === "sales" ? "No sales agents with dialer access yet: give their role Calls → Read and Edit (own) in Roles & Permissions." : "Give someone the CSR Agent role first."}</p> : (
               <div className="max-h-56 divide-y divide-line overflow-y-auto rounded-lg border border-line">
                 <div className="flex items-center justify-between bg-canvas/60 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted"><span>Agent</span><span>Batches</span></div>
                 {agents.map((a) => (

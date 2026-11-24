@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { importSheet, previewSheet, type SheetState } from "@/app/(app)/calls/actions";
 
-const ROLES = [["phone", "Phone number"], ["phone2", "Second phone"], ["name", "Full name"], ["first", "First name"], ["last", "Last name"], ["detail", "Show to agent"], ["skip", "Don't import"]] as const;
+const ROLES = [["phone", "Phone number"], ["phone2", "Second phone"], ["name", "Full name"], ["first", "First name"], ["last", "Last name"], ["detail", "Show to agent"], ["keep", "Keep, hide from agents"], ["skip", "Don't import"]] as const;
 const pretty = (h: string) => h.replace(/\b\w/g, (c) => c.toUpperCase());
 
 /** Upload a sheet, then say what each column is (phone, name, details shown to the agent, or skip). */
@@ -44,7 +44,7 @@ export function ImportNumbers({ campaignId }: { campaignId: string }) {
               {preview.headers.map((h, i) => (
                 <tr key={h + i} className={cur[i] === "skip" ? "opacity-50" : ""}>
                   <td className="px-3 py-2 align-top">
-                    {cur[i] === "detail" ? <input name={`label_${i}`} defaultValue={pretty(h)} className="input h-8 w-40 text-sm" aria-label={`Label for ${h}`} title="The name the agent sees" /> : <span className="font-medium">{pretty(h)}</span>}
+                    {cur[i] === "detail" || cur[i] === "keep" ? <input name={`label_${i}`} defaultValue={pretty(h)} className="input h-8 w-40 text-sm" aria-label={`Label for ${h}`} title="The name the agent sees" /> : <span className="font-medium">{pretty(h)}</span>}
                   </td>
                   <td className="px-3 py-2 align-top">
                     <select key={`${id}-${i}-${cur[i]}`} name={`col_${i}`} defaultValue={cur[i]} onChange={(e) => setRole(i, e.target.value)} className={`input h-8 w-40 py-0 text-sm ${cur[i] === "phone" ? "border-emerald-400 bg-emerald-50" : ""}`} aria-label={`What ${h} is`}>
@@ -64,7 +64,7 @@ export function ImportNumbers({ campaignId }: { campaignId: string }) {
           <button type="submit" disabled={saving || !cur.includes("phone")} className="inline-flex h-9 items-center rounded-lg bg-navy-900 px-4 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-50">{saving ? "Importing…" : `Import ${preview.total?.toLocaleString()} rows`}</button>
           <button type="button" onClick={() => location.reload()} className="text-sm text-muted hover:text-ink">Choose another file</button>
         </div>
-        <p className="text-xs text-muted">“Show to agent” columns (project, unit, nationality, what they bought…) appear on the agent&apos;s screen for each call. Duplicates and do-not-call numbers are skipped.</p>
+        <p className="text-xs text-muted">“Show to agent” columns (project, unit, nationality, what they bought…) appear on the agent&apos;s screen for each call; “Keep, hide from agents” columns are saved but only supervisors see them (change it later under What agents see). Duplicates and do-not-call numbers are skipped.</p>
       </form>
     );
   }

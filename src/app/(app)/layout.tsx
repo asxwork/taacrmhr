@@ -14,6 +14,7 @@ import { chatUnread } from "@/lib/chat";
 import { maybeRunHoldRules } from "@/lib/lead-hold";
 import { maybeRunBitrixSync } from "@/lib/bitrix-sync";
 import { maybeCleanupRawStages } from "@/lib/bitrix-import";
+import { isCallSupervisor } from "@/lib/calls";
 import { db } from "@/lib/db";
 import { memo } from "@/lib/memo";
 import { PageHelp } from "@/components/page-help";
@@ -61,7 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Password given from a format (Settings → Users): choose your own first.
   if (!needs2fa && !user.viewAs && user.mustChangePassword && (h.get("x-pathname") ?? "") !== "/me") redirect("/me?password=change");
   // Section tabs (CRM: Leads / Deals / Calls / Contacts / Inventory / Reports), filtered by permission and features.
-  const tabAllowed = (t: SectionTab) => (!t.module || can(user, t.module, t.action ?? "view")) && (!t.superAdmin || user.isSuperAdmin) && !featureForPath(t.href, off);
+  const tabAllowed = (t: SectionTab) => (!t.module || can(user, t.module, t.action ?? "view")) && (!t.superAdmin || user.isSuperAdmin) && (!t.callSupervisor || isCallSupervisor(user)) && !featureForPath(t.href, off);
   // Every page with where it lives (App › Section › Sub-menu), for search and the back links. The same name in two
   // apps (e.g. "My Space" in Tutorials and the My Space app) is told apart by its path.
   type PageHit = { href: string; label: string; icon: string; path: string[] };
