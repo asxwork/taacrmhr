@@ -17,8 +17,9 @@ export function ImportNumbers({ campaignId }: { campaignId: string }) {
   const setRole = (i: number, r: string) => {
     if (!id) return;
     const next = [...cur];
-    // Phone, second phone and name each belong to one column only.
-    if (r !== "detail" && r !== "skip") next.forEach((x, j) => { if (x === r) next[j] = "detail"; });
+    // Phone, second phone, name, first and last name each belong to one column only; Show / Keep hidden / Don't
+    // import can be chosen for as many columns as you like.
+    if (["phone", "phone2", "name", "first", "last"].includes(r)) next.forEach((x, j) => { if (x === r) next[j] = "detail"; });
     next[i] = r;
     setRoles({ ...roles, [id]: next });
   };
