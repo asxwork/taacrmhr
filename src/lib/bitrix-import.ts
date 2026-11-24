@@ -239,6 +239,8 @@ async function runImport(f: BitrixFiles, opts: ImportOpts) {
   // history still come in (an earlier run that stopped half way left them without a timeline).
   const already = await db.lead.findMany({ where: { bitrixId: { not: null } }, select: { id: true, bitrixId: true, ownerId: true, status: { select: { kind: true } } } });
   const existing = new Set(already.map((l) => l.bitrixId));
+  // Leads deleted in AMS (in the Trash) aren't brought back by an import or sync.
+  const trashed = new Set((await db.leadTrash.findMany({ where: { bitrixId: { not: null } }, select: { bitrixId: true } })).map((t) => t.bitrixId));
   const idFor = new Map<number, { id: string; ownerId: string | null; closed: boolean }>(already.map((l) => [l.bitrixId!, { id: l.id, ownerId: l.ownerId, closed: l.status.kind !== "open" }]));
   const leadRows = [];
   const updates: Row[] = [];
@@ -248,6 +250,7 @@ async function runImport(f: BitrixFiles, opts: ImportOpts) {
     const bx = Number(l.id);
     if (!bx) continue;
     maxNo = Math.max(maxNo, bx);
+    if (trashed.has(bx)) { skipped++; continue; }
     if (existing.has(bx)) { skipped++; if (opts.update) updates.push(l); continue; }
     const phones = multi(l.phone).map((p) => ({ type: p.type === "work" ? "work" : "mobile", value: prettyPhone(p.value) }));
     const emails = multi(l.email).map((p) => ({ type: "work", value: p.value.toLowerCase() }));

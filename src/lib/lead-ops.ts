@@ -52,9 +52,10 @@ export async function runBulkLeads(user: SessionUser, fd: FormData): Promise<For
   if (op === "delete") {
     const scope = await leadChangeWhere(user, "delete");
     if (!scope) return { error: "You can't delete leads." };
-    const { count } = await db.lead.deleteMany({ where: { id: { in: ids }, ...scope } });
-    await audit(user.id, "delete", "lead", null, `Deleted ${count} lead(s)`);
-    return { ok: true, message: `Deleted ${count} lead(s).` };
+    const allowed = (await db.lead.findMany({ where: { id: { in: ids }, ...scope }, select: { id: true } })).map((l) => l.id);
+    const count = await (await import("./lead-trash")).trashLeads(allowed, user);
+    await audit(user.id, "delete", "lead", null, `Moved ${count} lead(s) to the Trash`);
+    return { ok: true, message: `Moved ${count} lead(s) to the Trash (restore within 30 days from Leads → Trash).` };
   }
 
   const scope = await leadChangeWhere(user, "edit");

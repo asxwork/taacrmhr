@@ -22,6 +22,8 @@ export async function runDaily(forceWeekly = false) {
   const today = startOfDay(new Date());
   const yesterday = subDays(today, 1);
 
+  // Deleted leads older than 30 days leave the Trash for good.
+  await (await import("./lead-trash")).purgeTrash().catch((e) => console.error("Trash purge failed:", e));
   // 0. Approved salary revisions whose effective date has arrived.
   await applyDueRevisions();
   const employees = await db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, userId: true, fullName: true, probationEnd: true, status: true } });

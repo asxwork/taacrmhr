@@ -251,7 +251,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
             {canDelete && !editing && (
               <form action={deleteLead} className="mt-5 border-t border-line pt-3">
                 <input type="hidden" name="id" value={id} />
-                <button className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-red-600"><Trash2 className="size-4" /> Delete lead</button>
+                <button className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-red-600"><Trash2 className="size-4" /> Delete lead (to the Trash for 30 days)</button>
               </form>
             )}
           </Card>

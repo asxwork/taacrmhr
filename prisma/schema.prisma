@@ -2669,3 +2669,24 @@ model DevHook {
   lastStatus String?
   createdAt  DateTime  @default(now())
 }
+
+/// Deleted leads, kept for 30 days so they can be restored (CRM → Leads → Trash). `data` holds the lead with its
+/// activities and property matches as JSON; restoring puts them back with the same ids and lead number.
+model LeadTrash {
+  id            String   @id @default(cuid())
+  leadId        String
+  number        Int?
+  name          String
+  phone         String?
+  ownerId       String?
+  ownerName     String?
+  bitrixId      Int?
+  activities    Int      @default(0)
+  data          String // @longtext
+  deletedById   String?
+  deletedByName String?
+  deletedAt     DateTime @default(now())
+
+  @@index([deletedAt])
+  @@index([bitrixId])
+}

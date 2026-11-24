@@ -158,8 +158,8 @@ export async function deleteLead(fd: FormData) {
   const id = str(fd, "id");
   const lead = scope ? await db.lead.findFirst({ where: { id, ...scope } }) : null;
   if (lead) {
-    await db.lead.delete({ where: { id } });
-    await audit(user.id, "delete", "lead", id, `Deleted lead ${lead.name}`);
+    await (await import("@/lib/lead-trash")).trashLeads([id], user);
+    await audit(user.id, "delete", "lead", id, `Moved lead ${lead.name} to the Trash`);
   }
   revalidatePath("/crm/leads");
   redirect("/crm/leads");

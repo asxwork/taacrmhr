@@ -63,6 +63,7 @@ export const FEATURES = [
   { key: "crm-bitrix", label: "Import from Bitrix", group: "CRM", app: "crm", paths: ["/settings/bitrix-import"], about: "Bring leads in from Bitrix24" },
   { key: "crm-bitrix-backup", label: "Bitrix backup to Google Drive", group: "CRM", app: "crm", paths: [], about: "Daily full copy of all Bitrix24 leads, activities and comments in Google Drive" },
   { key: "crm-bitrix-sync", label: "Bitrix sync", group: "CRM", app: "crm", paths: ["/settings/bitrix-sync"], about: "Keep AMS updated with new and changed Bitrix24 leads automatically" },
+  { key: "crm-trash", label: "Leads trash", group: "CRM", app: "crm", paths: ["/crm/leads/trash"], about: "Deleted leads kept 30 days and restorable (deletes still go to the Trash when it's off)" },
   { key: "crm-layouts", label: "CRM layouts", group: "CRM", app: "crm", paths: ["/crm/settings/layouts"], about: "Menus per role" },
   { key: "hr-dashboard", label: "HR dashboard", group: "HR", app: "hr", paths: ["/hr"], exact: true, about: "HR start page with widgets" },
   { key: "hr-employees", label: "Employees", group: "HR", app: "hr", paths: ["/hr/employees"], about: "Employee list and profiles" },

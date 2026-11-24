@@ -9,5 +9,8 @@ schema = schema.replace(/provider\s*=\s*"sqlite"/, 'provider = "mysql"');
 // Long-text fields are tagged `// @text`; MySQL needs @db.Text beyond 191 chars.
 schema = schema.replace(/^(\s*\w+\s+String\??)(\s*)\/\/ @text/gm, "$1 @db.Text$2// @text");
 
+// Very long JSON (e.g. a deleted lead with all its activities) is tagged `// @longtext`.
+schema = schema.replace(/^(\s*\w+\s+String\??)(\s*)\/\/ @longtext/gm, "$1 @db.LongText$2// @longtext");
+
 writeFileSync(path, schema);
 console.log("schema.prisma now targets MySQL");

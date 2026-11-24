@@ -59,7 +59,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
   stages: LeadStage[];
   assignees: Opt[];
   automations: AutomationOption[];
-  perms: { canCreate: boolean; canEdit: boolean; canDelete: boolean; canExport: boolean; canAssign: boolean; canAddActivity: boolean; canBulk: boolean; canImport: boolean; isSuperAdmin: boolean; canMerge?: boolean; canConfigure?: boolean; canRoles?: boolean };
+  perms: { canCreate: boolean; canEdit: boolean; canDelete: boolean; canExport: boolean; canAssign: boolean; canAddActivity: boolean; canBulk: boolean; canImport: boolean; isSuperAdmin: boolean; canMerge?: boolean; canConfigure?: boolean; canRoles?: boolean; canTrash?: boolean };
 }) {
   const [filters, setFilters] = useState<LeadFilters>(initialFilters);
   const [view, setView] = useState<View>(initialView);
@@ -274,7 +274,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
             </div>
           </details>
         )}
-        {(perms.canImport || perms.canExport || perms.canMerge || perms.canConfigure || perms.canRoles) && (
+        {(perms.canImport || perms.canExport || perms.canMerge || perms.canTrash || perms.canConfigure || perms.canRoles) && (
           // CRM settings (like Bitrix's gear): import, export, duplicates and setup, each only for people who may use it.
           <details className="group relative">
             <summary className="flex size-10 cursor-pointer list-none items-center justify-center rounded-lg border border-line bg-surface shadow-xs hover:bg-canvas [&::-webkit-details-marker]:hidden" title="CRM settings" aria-label="CRM settings">
@@ -293,9 +293,10 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                   <a href={exportHref("/api/export/leads")} className="block px-4 py-2 hover:bg-canvas">Export leads to CSV</a>
                 </div>
               )}
-              {perms.canMerge && (
+              {(perms.canMerge || perms.canTrash) && (
                 <div className="py-1">
-                  <Link href="/crm/duplicates" className="block px-4 py-2 hover:bg-canvas">Find and merge duplicates</Link>
+                  {perms.canMerge && <Link href="/crm/duplicates" className="block px-4 py-2 hover:bg-canvas">Find and merge duplicates</Link>}
+                  {perms.canTrash && <Link href="/crm/leads/trash" className="block px-4 py-2 hover:bg-canvas">Trash (deleted leads)</Link>}
                 </div>
               )}
               {(perms.canConfigure || perms.canRoles) && (
@@ -731,7 +732,7 @@ function SelectionBar({ count, total, forAll, onForAll, onClear, editHref, merge
         {/* 2–10 ticked: merge exactly these on the side-by-side merge screen. */}
         {mergeHref && <Link href={mergeHref} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium hover:bg-canvas" title="Merge the ticked leads into one">Merge {count}</Link>}
         {canDelete && (
-          <button type="button" disabled={busy} onClick={() => confirm(`Delete ${count} lead(s)? This can't be undone.`) && run("delete")} className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-red-600 hover:bg-red-50">
+          <button type="button" disabled={busy} onClick={() => confirm(`Move ${count} lead(s) to the Trash? You can restore them for 30 days (Leads → Trash).`) && run("delete")} className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-red-600 hover:bg-red-50">
             <Trash2 className="size-4" /> Delete
           </button>
         )}

@@ -1,3 +1,4 @@
+import { disabledFeatures } from "@/lib/features";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { can, requirePermission, scopeFor } from "@/lib/permissions";
@@ -102,6 +103,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           canAddActivity: can(user, "crm.activities", "create"),
           canBulk: can(user, "crm.leads", "bulk"),
           canImport: canCreate && can(user, "crm.leads", "import"),
+          canTrash: can(user, "crm.leads", "delete") && !(await disabledFeatures()).has("crm-trash"),
           canMerge: can(user, "crm.merge"), canConfigure: can(user, "settings.company"), canRoles: can(user, "settings.roles"),
           isSuperAdmin: user.isSuperAdmin,
         }}
