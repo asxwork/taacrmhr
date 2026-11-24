@@ -7,7 +7,9 @@ import { OUTCOMES, nextTarget, outcome, queueWhere } from "@/lib/calls";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { DrillTiles } from "@/components/drill-tiles";
 import { CallCard } from "@/components/calls/call-card";
-import { completeMyNumbers, logCall, saveCallFeedback, setCallMode } from "./actions";
+import { completeMyNumbers, editCallRemarks, logCall, saveCallFeedback, setCallMode } from "./actions";
+import { LastCalls } from "@/components/calls/last-calls";
+import { fmtPhone } from "@/lib/crm-shared";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { agentDay, callReportText, pkDay } from "@/lib/call-daily";
 import { CopyText } from "@/components/calls/copy-text";
@@ -29,7 +31,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   }
   const user = viewer;
   const day = pkDay();
-  const [target, queued, callbacks, s, lastLog, note, modeRow, myCounts, myBatches] = await Promise.all([
+  const [target, queued, callbacks, s, lastLog, note, modeRow, myCounts, myBatches, lastCalls] = await Promise.all([
     nextTarget(user.id),
     db.callTarget.count({ where: queueWhere(user.id) }),
     db.callTarget.count({ where: { assigneeId: user.id, status: "callback" } }),
@@ -39,6 +41,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
     db.setting.findUnique({ where: { key: `calls.mode.${user.id}` } }),
     db.callTarget.groupBy({ by: ["campaignId", "status"], where: { assigneeId: user.id }, _count: true }),
     db.callBatch.findMany({ where: { assigneeId: user.id }, select: { campaignId: true, completedAt: true } }),
+    db.callLog.findMany({ where: { agentId: user.id }, orderBy: { startedAt: "desc" }, take: 3, include: { target: { select: { name: true } } } }),
   ]);
   // My share of each campaign: how many numbers, how many still never called, and whether I marked it completed.
   const campIds = [...new Set(myCounts.map((r) => r.campaignId))];
@@ -79,6 +82,15 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
           );
         })}
       </ul>
+    </Card>
+  );
+
+  // My last 3 calls, with an Edit for wrong remarks.
+  const lastCallsCard = lastCalls.length > 0 && (
+    <Card className="p-5">
+      <p className="mb-3 text-xs uppercase tracking-wide text-muted">My last calls</p>
+      <LastCalls action={editCallRemarks} rows={lastCalls.map((l) => ({ id: l.id, who: l.target?.name ?? fmtPhone(l.phone), outcome: outcome(l.outcome)?.label ?? l.outcome, notes: l.notes, when: format(l.startedAt, "h:mm a") }))} />
+      <p className="mt-3 text-[11px] text-muted">You can fix the remarks of your last 3 calls.</p>
     </Card>
   );
 
@@ -136,7 +148,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       {!target ? (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <Card><EmptyState title="Your queue is empty" description="No numbers are due right now. Your supervisor can give you a new batch, or check your callbacks." /></Card>
-          <div className="space-y-4">{todayCard}{myCampaigns}</div>
+          <div className="space-y-4">{todayCard}{lastCallsCard}{myCampaigns}</div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
@@ -166,6 +178,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
                 {target.notes && <p className="mt-2 whitespace-pre-line text-xs text-muted">{target.notes}</p>}
               </Card>
             )}
+            {lastCallsCard}
             {myCampaigns}
             <p className="text-center text-xs text-muted"><Link href="/calls/callbacks" className="hover:underline">My callbacks</Link> · <Link href="/calls/history" className="hover:underline">History</Link></p>
           </div>

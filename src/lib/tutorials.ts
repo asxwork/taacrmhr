@@ -293,6 +293,7 @@ export const TUTORIALS: Tutorial[] = [
       "Pick the outcome: Interested, Call back, Not interested / Do not call (never called again), Not answered / Busy, Voicemail, Switched off, Wrong number, Duplicate number or WhatsApp sent.",
       "For Call back choose the date and time; for Interested tick “Send to the CRM” so a sales agent gets the lead.",
       "Write your remarks and press Save & next number: in Click to call mode the next number is called automatically (untick “Call the next number automatically” to stop that). Faster: press 1–9 to pick the result and Ctrl + Enter to save.",
+      "Typed a wrong remark? My last calls (right side) shows your 3 latest calls: press Edit, fix the remarks and Save. Older calls can't be changed.",
       "My campaigns (right side) shows how many of your numbers you've called in each campaign. When none is left uncalled, press Mark as completed: numbers you couldn't reach stop coming back (planned callbacks stay) and your supervisor is told.",
       "End of the day: write your feedback in the Today so far box and press Save feedback. Today's report fills in by itself (Total Calls, Connected, No Answer, Qualified, Feedback and the totals, in the WhatsApp format); press Send on WhatsApp and pick your team group, or Copy.",
     ],

@@ -365,3 +365,27 @@ export async function completeMyNumbers(fd: FormData) {
   for (const s of supervisors) if (s.id !== user.id) await notify(s.id, `${user.name} completed their numbers: ${c?.name ?? "campaign"}`, { body: `${total} number(s)${left ? `, ${left} still open in the campaign` : ", campaign finished"}.`, link: `/calls/campaigns/${campaignId}` }).catch(() => {});
   refresh();
 }
+
+/** Agent: fix the remarks of one of their own 3 latest calls (older calls can't be changed). */
+export async function editCallRemarks(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const id = str(fd, "logId");
+  const latest = await db.callLog.findMany({ where: { agentId: user.id }, orderBy: { startedAt: "desc" }, take: 3, select: { id: true, notes: true, targetId: true } });
+  const log = latest.find((l) => l.id === id);
+  if (!log) return { error: "Only your last 3 calls can be changed." };
+  const notes = str(fd, "notes").slice(0, 4000) || null;
+  await db.callLog.update({ where: { id }, data: { notes } });
+  // The number's running notes carry the same words: swap the old remark for the new one there too.
+  if (log.targetId && log.notes !== notes) {
+    const t = await db.callTarget.findUnique({ where: { id: log.targetId }, select: { notes: true } });
+    if (t) {
+      const old = log.notes ?? "";
+      const next = old && t.notes?.includes(old) ? t.notes.replace(old, notes ?? "").replace(/\n{2,}/g, "\n").trim() : [t.notes, notes].filter(Boolean).join("\n");
+      await db.callTarget.update({ where: { id: log.targetId }, data: { notes: next || null } });
+    }
+  }
+  await audit(user.id, "update", "callLog", id, `Remarks changed by ${user.name}`);
+  revalidatePath("/calls");
+  revalidatePath("/calls/history");
+  return { ok: true, message: "Remarks saved." };
+}
