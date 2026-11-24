@@ -81,7 +81,7 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
+        <div className={mode === "landline" ? "w-full min-w-0" : "min-w-0 flex-1"}>
           <p className="truncate text-2xl font-semibold">{target.name || "Unknown name"}</p>
           <p className="text-xs text-muted">{target.status === "callback" ? "Callback due" : target.attempts ? `Attempt ${target.attempts + 1}` : "First call"}</p>
         </div>
@@ -96,6 +96,11 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
             <div className="flex flex-col gap-1.5">
               <button type="button" onClick={() => { void navigator.clipboard.writeText(target.phone.replace(/\s/g, "")); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className="flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm hover:bg-canvas"><Copy className="size-4" /> {copied ? "Copied" : "Copy"}</button>
               <button type="button" onClick={() => setStartedAt(Date.now())} className={cn("flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium", startedAt ? "bg-emerald-600 text-white" : "border border-emerald-500/50 text-emerald-700 hover:bg-emerald-500/10")}><Timer className="size-4" /> {startedAt ? "Timing…" : "Start timer"}</button>
+            </div>
+            {/* Optional: Call (phone link, never automatic in landline mode) and WhatsApp. */}
+            <div className="flex flex-col gap-1.5">
+              <a href={dialPrefix ? `tel:${dialNum}` : telHref(target.phone)} onClick={() => setStartedAt((t) => t || Date.now())} className="flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700"><Phone className="size-4" /> Call</a>
+              <a href={wa} target="_blank" rel="noreferrer" className="flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/50 px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-500/10"><MessageCircle className="size-4" /> WhatsApp</a>
             </div>
           </div>
         ) : (<>
