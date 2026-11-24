@@ -34,6 +34,8 @@ export type LeadRow = {
   statusId: string;
   ownerId: string | null;
   owner: string | null;
+  /** The responsible person's photo (employee profile), small. */
+  ownerPhoto?: string | null;
   /** Dates are formatted here, in the company time zone (APP_TIMEZONE), like every other page. */
   created: string;
   reshuffleCount: number | null;
@@ -102,7 +104,7 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
   const [leads, total, overdue, dueToday, none] = await Promise.all([
     db.lead.findMany({
       where,
-      include: { source: { select: { name: true } }, project: { select: { name: true } }, owner: { select: { name: true, active: true } }, createdBy: { select: { name: true } } },
+      include: { source: { select: { name: true } }, project: { select: { name: true } }, owner: { select: { name: true, active: true, employee: { select: { photo: true } } } }, createdBy: { select: { name: true } } },
       orderBy: leadOrderBy(filters.sort),
       skip: view === "list" ? (page - 1) * size : 0,
       take: view === "list" ? size : 500,
@@ -150,6 +152,7 @@ export async function loadLeadList(user: SessionUser, filters: LeadFilters, view
       statusId: l.statusId,
       ownerId: l.ownerId,
       owner: l.owner?.name ?? null,
+      ownerPhoto: l.owner?.employee?.photo ? `/api/files/${l.owner.employee.photo}?w=80` : null,
       created: format(l.createdAt, "d MMM yyyy"),
       reshuffleCount: l.reshuffledAt ? l.reshuffleCount : null,
       editable: canEditRow({ ...l, ownerActive: l.owner?.active ?? null }),

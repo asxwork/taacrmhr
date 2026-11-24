@@ -98,10 +98,13 @@ export function EmptyState({ title, description, action }: { title: string; desc
   );
 }
 
-export function Avatar({ name, className }: { name: string; className?: string }) {
+/** Initials, or the person's photo (from their employee profile) when `src` is given. */
+export function Avatar({ name, className, src }: { name: string; className?: string; src?: string | null }) {
   return (
-    <span className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-navy-900/8 text-xs font-semibold text-navy-900", className)}>
+    <span className={cn("relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-navy-900/8 text-xs font-semibold text-navy-900", className)} title={name}>
       {initials(name)}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {src && <img src={src} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />}
     </span>
   );
 }

@@ -420,7 +420,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                           {l.phone && l.phoneTel && <a href={l.phoneTel} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium text-navy-900 active:bg-canvas"><Phone className="size-4" /> Call</a>}
                           {l.phone && l.phoneWa && <a href={l.phoneWa} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#25D366]/40 px-3 text-sm font-medium text-[#128C7E] active:bg-[#25D366]/10" aria-label={`WhatsApp ${l.name}`}><MessageCircle className="size-4" /> WhatsApp</a>}
                           {perms.canAddActivity && <button type="button" onClick={(e) => openMenu("activity", l, e.currentTarget)} className="inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm text-muted active:bg-canvas">+ Activity</button>}
-                          {l.owner && <span className="ml-auto" title={l.owner}><Avatar name={l.owner} className="size-7 text-[10px]" /></span>}
+                          {l.owner && <span className="ml-auto" title={l.owner}><Avatar name={l.owner} src={l.ownerPhoto} className="size-7 text-[10px]" /></span>}
                         </div>
                       </div>
                     </li>
@@ -502,7 +502,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                               {perms.canAddActivity && <button type="button" onClick={(e) => openMenu("activity", l, e.currentTarget)} className="mt-0.5 whitespace-nowrap text-xs text-muted hover:text-navy-900 hover:underline">+ Add activity</button>}
                             </td>
                           );
-                          case "owner": return <td key={k} className="td whitespace-nowrap">{l.owner ? <span className="flex items-center gap-2 text-sm" title={l.owner}><Avatar name={l.owner} className="size-7 text-[10px]" /><span className="hidden 2xl:inline">{l.owner}</span></span> : <span className="text-muted">—</span>}</td>;
+                          case "owner": return <td key={k} className="td whitespace-nowrap">{l.owner ? <span className="flex items-center gap-2 text-sm" title={l.owner}><Avatar name={l.owner} src={l.ownerPhoto} className="size-7 text-[10px]" /><span className="hidden 2xl:inline">{l.owner}</span></span> : <span className="text-muted">—</span>}</td>;
                           case "reshuffle": return <td key={k} className="td whitespace-nowrap text-sm">{l.reshuffleCount != null ? <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">Yes · {l.reshuffleCount}×</span> : <span className="text-muted">No</span>}</td>;
                           case "score": return <td key={k} className="td whitespace-nowrap text-sm tabular-nums" title={l.scoreWhy.join("\n")}>{l.score}<span className="text-muted">/100</span></td>;
                           case "budget": return <td key={k} className="td whitespace-nowrap text-sm tabular-nums">{l.budget ? fmtPKR(l.budget) : <span className="text-muted">—</span>}</td>;

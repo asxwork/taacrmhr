@@ -13,7 +13,7 @@ export const metadata = { title: "My Profile" };
 export default async function MePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const session = await requireUser();
   const [user, company] = await Promise.all([
-    db.user.findUniqueOrThrow({ where: { id: session.id }, include: { branch: true, manager: true } }),
+    db.user.findUniqueOrThrow({ where: { id: session.id }, include: { branch: true, manager: true, employee: { select: { photo: true } } } }),
     getCompanyAppearance(),
   ]);
 
@@ -32,7 +32,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
         <Card className="p-6">
           <div className="mb-6 flex items-center gap-4">
-            <Avatar name={user.name} className="size-14 text-base" />
+            <Avatar name={user.name} src={user.employee?.photo ? `/api/files/${user.employee.photo}?w=160` : null} className="size-14 text-base" />
             <div>
               <p className="text-lg font-semibold">{user.name}</p>
               <p className="text-sm text-muted">{user.title || "—"}</p>

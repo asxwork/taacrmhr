@@ -37,7 +37,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
   const [users, branches, roles, departments, counts, allUsers] = await Promise.all([
     db.user.findMany({
       where,
-      include: { branch: true, manager: true, employee: { select: { id: true, department: { select: { name: true } }, designation: { select: { name: true } } } }, roles: { include: { role: true } }, _count: { select: { permissionOverrides: true } } },
+      include: { branch: true, manager: true, employee: { select: { id: true, photo: true, department: { select: { name: true } }, designation: { select: { name: true } } } }, roles: { include: { role: true } }, _count: { select: { permissionOverrides: true } } },
       orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
     db.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -147,7 +147,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                     <td className="td">
                       {/* In Settings the row edits the account; the profile is its own link under the name. */}
                       <div className="flex items-center gap-3">
-                        <Link href={editHref(u.id)} scroll={false} className="shrink-0"><Avatar name={u.name} /></Link>
+                        <Link href={editHref(u.id)} scroll={false} className="shrink-0"><Avatar name={u.name} src={u.employee?.photo ? `/api/files/${u.employee.photo}?w=80` : null} /></Link>
                         <div className="min-w-0">
                           <Link href={editHref(u.id)} scroll={false} className="font-medium hover:underline">{u.name}</Link>
                           <p className="truncate text-xs text-muted">{u.email}{u.employee && canSeeProfiles && <> · <Link href={`/hr/employees/${u.employee.id}?from=users`} className="font-medium text-navy-900 hover:underline">View profile</Link></>}</p>
