@@ -287,21 +287,29 @@ export async function createLoginForEmployee(_: FormState, fd: FormData): Promis
   const emp = await db.employee.findUnique({ where: { id: str(fd, "id") } });
   if (!emp || emp.userId) return { error: "This employee already has a login." };
   const email = str(fd, "email").toLowerCase();
-  const password = str(fd, "password");
+  // How they get in: "link" = email them a link to choose their own password; otherwise the temporary password typed
+  // (or generated) here, which they must change at their first sign-in.
+  const byLink = str(fd, "how") === "link";
+  const password = byLink ? (await import("node:crypto")).randomBytes(24).toString("base64url") : str(fd, "password");
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email." };
-  if (password.length < 8) return { error: "Temporary password must be at least 8 characters." };
+  if (!byLink && password.length < 8) return { error: "Temporary password must be at least 8 characters." };
+  if (byLink && !(await import("@/lib/mail")).smtpConfigured()) return { error: "Email isn't set up yet (Settings → Integrations): choose a temporary password instead." };
   if (await db.user.findUnique({ where: { email } })) return { error: "A login with this email already exists." };
   const role = await db.role.findUnique({ where: { id: str(fd, "roleId") } });
   // Only Super Admins may hand out roles other than Employee from here.
   const allowedRole = role && (user.isSuperAdmin || role.name === "Employee") ? role : await db.role.findUnique({ where: { name: "Employee" } });
   const created = await db.user.create({
-    data: { name: emp.fullName, email, phone: emp.phone, passwordHash: await hashPassword(password), roles: allowedRole ? { create: { roleId: allowedRole.id } } : undefined },
+    data: { name: emp.fullName, email, phone: emp.phone, branchId: emp.branchId, passwordHash: await hashPassword(password), mustChangePassword: !byLink, roles: allowedRole ? { create: { roleId: allowedRole.id } } : undefined },
   });
   await db.employee.update({ where: { id: emp.id }, data: { userId: created.id } });
   await syncUserFromEmployee(emp.id);
-  await audit(user.id, "create", "user", created.id, `Created login ${email} for ${emp.fullName}`);
+  await audit(user.id, "create", "user", created.id, `Created login ${email} for ${emp.fullName}${byLink ? " (set-password link emailed)" : ""}`);
+  if (byLink) await (await import("@/lib/invites")).sendLoginEmail(created, user.id).catch(() => null);
   revalidatePath(path(emp.id));
-  return { ok: true, message: `Login created. Share the email and temporary password with ${emp.fullName}; they can change it under My Profile.` };
+  const username = email.split("@")[0];
+  return { ok: true, message: byLink
+    ? `Login created for ${emp.fullName}: a link to choose their password was emailed to ${email}. They sign in with “${username}” or their email.`
+    : `Login created for ${emp.fullName}. Tell them: username “${username}” (or ${email}) and the temporary password; they choose their own at the first sign-in.` };
 }
 
 /** "Relocation — moving to Lahore": the picked reason, then any details. */

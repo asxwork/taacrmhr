@@ -4,7 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { exitReasons } from "@/lib/exit-reasons";
 import { notFound } from "next/navigation";
 import { differenceInCalendarDays, format } from "date-fns";
-import { ArrowLeft, ArrowRightLeft, Check, CheckCircle2, FileText, LogOut, RotateCcw, Trash2, UserCheck } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Check, CheckCircle2, FileText, LogOut, RotateCcw, Trash2, UserCheck, KeyRound } from "lucide-react";
 import { requireUser, type SessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { can, scopeFor, scopeWhere } from "@/lib/permissions";
@@ -20,11 +20,13 @@ import { BasicProfile } from "@/components/hr/basic-profile";
 import { Row, SectionTitle } from "@/components/hr/profile-parts";
 import { AssignmentForm, DocumentForm, ResignForm } from "../forms";
 import { orgOptions } from "../org-data";
+import { GiveLogin } from "./give-login";
+import { smtpConfigured } from "@/lib/mail";
 import { addEmployeeNote, completeExit, createLoginForEmployee, confirmEmployee, deleteDocument, deleteEmployeePermanently, rehireEmployee, toggleChecklistItem } from "../actions";
 
 export const metadata = { title: "Employee" };
 
-type SP = { from?: string; tab?: string; assign?: string; resign?: string; delete?: string };
+type SP = { from?: string; tab?: string; assign?: string; resign?: string; delete?: string; login?: string };
 
 export default async function EmployeePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SP> }) {
   const user = await requireUser();
@@ -50,6 +52,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
 
   const actions = canEdit && (
     <>
+      {!emp.user && emp.status !== "left" && <LinkButton href={`${path}?login=1`} scroll={false} className="h-8 text-xs"><KeyRound className="size-3.5" /> Give AMS login</LinkButton>}
       {emp.status !== "left" && <LinkButton href={`${path}?assign=1`} variant="secondary" scroll={false} className="h-8 text-xs"><ArrowRightLeft className="size-3.5" /> Role / transfer</LinkButton>}
       {emp.status === "probation" && (
         <form action={confirmEmployee}><input type="hidden" name="id" value={id} /><Button className="h-8 text-xs"><UserCheck className="size-3.5" /> Confirm</Button></form>
@@ -212,6 +215,11 @@ export default async function EmployeePage({ params, searchParams }: { params: P
         ]}
       />
 
+      {sp.login && canEdit && !emp.user && emp.status !== "left" && (
+        <Drawer title={`Give ${emp.fullName} an AMS login`} closeHref={path} width="max-w-lg">
+          <GiveLogin id={id} name={emp.fullName} email={emp.officialEmail ?? emp.personalEmail ?? ""} roles={roles} canMail={smtpConfigured()} successHref={`${path}?tab=user`} />
+        </Drawer>
+      )}
       {sp.assign && canEdit && org && (
         <Drawer title="Change role or transfer" closeHref={path}>
           <AssignmentForm employee={emp} org={org} cancelHref={path} />
