@@ -47,6 +47,7 @@ export const ADMIN_EXTRA_TUTORIALS: Tutorial[] = [
       "New leads, stage / responsible / phone / project changes, new activities, comments and stage changes come in. Only Bitrix → AMS: nothing is sent to Bitrix.",
       "Sync now runs one straight away; Full sync re-reads every lead. The last run shows what came in.",
       "If it lists Bitrix names with no AMS person, add them in Settings → Users with the same name; the next sync picks them up.",
+      "Sync only adds and updates: it never deletes anything made in AMS (activities, comments, notes or leads added by your agents). If a lead's stage or responsible person is changed in Bitrix after it was changed in AMS, the Bitrix change wins.",
     ] }),
   A({ key: "bitrix-backup", superAdmin: true, title: "Bitrix backup to Google Drive", who: "Super Admin", href: "/settings/bitrix-sync",
     summary: "Every day a full copy of all Bitrix leads, activities, comments and stage history is saved in Google Drive.",
