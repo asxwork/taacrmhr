@@ -70,8 +70,8 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
           // The latest day in the list, written the way the team shares it: each agent, then the totals.
           const day = reports[0]!.date;
           const ofDay = reports.filter((r) => r.date === day).map((r) => ({ r, s: JSON.parse(r.data) as DaySummary }));
-          const text = [...ofDay.map(({ r, s }) => callReportText(s, notes.get(`${r.agentId}|${day}`), names.get(r.agentId) ?? "")), callTotalsText(ofDay.map((x) => x.s))].join("\n\n");
-          return <Card className="mb-4 p-5"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{format(new Date(`${day}T12:00:00`), "EEE d MMM")} · copy for WhatsApp</p><CopyText text={text} label="Copy all" /></Card>;
+          const text = [`*CALLING REPORT · ${format(new Date(`${day}T12:00:00`), "d MMM yyyy")}*`, ...ofDay.map(({ r, s }) => callReportText(s, notes.get(`${r.agentId}|${day}`), names.get(r.agentId) ?? "")), callTotalsText(ofDay.map((x) => x.s))].join("\n\n");
+          return <Card className="mb-4 p-5"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{format(new Date(`${day}T12:00:00`), "EEE d MMM")} · copy for WhatsApp</p><CopyText text={text} label="Copy all" /><a href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex h-9 items-center gap-2 rounded-lg bg-[#25D366] px-3 text-sm font-semibold text-white hover:bg-[#1ebe5b]">Send on WhatsApp</a></Card>;
         })()}
         {!reports.length ? <Card><EmptyState title="No daily reports in this period" description="The first ones arrive after today’s shifts end." /></Card> : (
           <Card className="overflow-x-auto">

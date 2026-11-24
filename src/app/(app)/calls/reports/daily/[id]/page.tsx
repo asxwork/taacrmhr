@@ -44,7 +44,8 @@ export default async function DailyCallReport({ params, searchParams }: { params
         actions={<PrintButton fileName={`calls-${agent.name}-${date}`} />} />
       <Card className="mb-5 p-5">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Report (copy for WhatsApp)</p>
-        <CopyText text={callReportText(s, note?.feedback, agent.name)} />
+        <CopyText text={callReportText(s, note?.feedback, agent.name, { title: "CALLING REPORT", totals: true })} />
+        <a href={`https://wa.me/?text=${encodeURIComponent(callReportText(s, note?.feedback, agent.name, { title: "CALLING REPORT", totals: true }))}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex h-9 items-center gap-2 rounded-lg bg-[#25D366] px-3 text-sm font-semibold text-white hover:bg-[#1ebe5b]">Send on WhatsApp</a>
       </Card>
       <Card className="p-5 sm:p-6" data-print-area>
         <DayReport s={s} />

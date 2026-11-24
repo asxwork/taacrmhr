@@ -9,7 +9,9 @@ import { DrillTiles } from "@/components/drill-tiles";
 import { CallCard } from "@/components/calls/call-card";
 import { logCall, saveCallFeedback, setCallMode } from "./actions";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { agentDay, pkDay } from "@/lib/call-daily";
+import { agentDay, callReportText, pkDay } from "@/lib/call-daily";
+import { CopyText } from "@/components/calls/copy-text";
+import { MessageCircle } from "lucide-react";
 import { HourChart } from "@/components/calls/day-report";
 
 export const metadata = { title: "Dialer" };
@@ -39,6 +41,8 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   const mode = modeRow?.value === "landline" ? "landline" : "system";
   let extra: Record<string, string> = {};
   try { extra = target?.extra ? JSON.parse(target.extra) : {}; } catch {}
+  // Today's report in the team's WhatsApp format, ready to copy or send to the group.
+  const report = callReportText(s, note?.feedback, undefined, { title: mode === "landline" ? "LANDLINE CALLING REPORT" : "INTERNATIONAL CALLING REPORT", totals: true });
   const waText = (target?.campaign.waMessage ?? "").replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
 
   const todayCard = (
@@ -59,7 +63,14 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
         <textarea id="call-feedback" name="feedback" rows={3} defaultValue={note?.feedback ?? ""} placeholder="e.g. Most calls unanswered; those who answered aren't planning to buy or sell right now." className="input text-sm" />
         <SubmitButton className="h-9" variant="secondary">{note ? "Update feedback" : "Save feedback"}</SubmitButton>
       </ActionForm>
-      <p className="mt-3 text-[11px] text-muted">Your report (calls, connected, no answer, qualified, feedback) is sent automatically when your shift ends.</p>
+      <div className="mt-4 border-t border-line pt-3">
+        <p className="mb-2 text-xs font-medium text-muted">Today&apos;s report</p>
+        <CopyText text={report} />
+        <a href={`https://wa.me/?text=${encodeURIComponent(report)}`} target="_blank" rel="noreferrer" className="mt-2 flex h-9 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-3 text-sm font-semibold text-white hover:bg-[#1ebe5b]">
+          <MessageCircle className="size-4" /> Send on WhatsApp (pick the group)
+        </a>
+      </div>
+      <p className="mt-3 text-[11px] text-muted">Save your feedback first so it&apos;s in the report. It&apos;s also sent automatically when your shift ends.</p>
     </Card>
   );
 
