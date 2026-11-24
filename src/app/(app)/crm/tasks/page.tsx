@@ -13,23 +13,33 @@ import { Card, Drawer, LinkButton, PageHeader } from "@/components/ui";
 import { hrefWith } from "@/components/crm/bits";
 import { Composer } from "@/components/crm/composer";
 import { Timeline, type TimelineItem } from "@/components/crm/timeline";
+import { fieldAccess } from "@/lib/field-rules";
+import { maskPhone } from "@/lib/field-defs";
+import { fmtPhone, telHref } from "@/lib/crm-shared";
 
 export const metadata = { title: "Tasks & Calendar" };
 
 type SP = { view?: string; who?: string; month?: string; new?: string; all?: string };
 
 const RELATED = {
-  lead: { select: { id: true, name: true } },
+  lead: { select: { id: true, name: true, phone: true } },
   deal: { select: { id: true, title: true } },
-  contact: { select: { id: true, name: true } },
+  contact: { select: { id: true, name: true, phone: true } },
   company: { select: { id: true, name: true } },
 } as const;
 
-type Related = { lead: { id: string; name: string } | null; deal: { id: string; title: string } | null; contact: { id: string; name: string } | null; company: { id: string; name: string } | null };
-function context(a: Related) {
+type Related = { lead: { id: string; name: string; phone?: string | null } | null; deal: { id: string; title: string } | null; contact: { id: string; name: string; phone?: string | null } | null; company: { id: string; name: string } | null };
+/** Phone shown on task cards: full (call + WhatsApp), masked, or not at all, by the viewer's field rules. */
+type PhoneMode = "full" | "masked" | "hidden";
+function phoneBits(phone: string | null | undefined, mode: PhoneMode) {
+  if (!phone || mode === "hidden") return {};
+  if (mode === "masked") return { phone: maskPhone(phone) };
+  return { phone: fmtPhone(phone), tel: telHref(phone), wa: `https://wa.me/${fmtPhone(phone).replace(/\D/g, "")}` };
+}
+function context(a: Related, mode: PhoneMode = "full") {
   if (a.deal) return { label: a.deal.title, href: `/crm/deals/${a.deal.id}` };
-  if (a.lead) return { label: a.lead.name, href: `/crm/leads/${a.lead.id}` };
-  if (a.contact) return { label: a.contact.name, href: `/crm/contacts/${a.contact.id}` };
+  if (a.lead) return { label: a.lead.name, href: `/crm/leads/${a.lead.id}`, ...phoneBits(a.lead.phone, mode) };
+  if (a.contact) return { label: a.contact.name, href: `/crm/contacts/${a.contact.id}`, ...phoneBits(a.contact.phone, mode) };
   if (a.company) return { label: a.company.name, href: `/crm/companies/${a.company.id}` };
   return null;
 }
@@ -56,7 +66,8 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       db.activity.findMany({ where: { ...base, doneAt: { gte: subDays(now, 7) } }, include: { ...TIMELINE_INCLUDE, ...RELATED }, orderBy: { doneAt: "desc" }, take: 30 }),
     ]);
     const editable = await editableActivityIds(user, [...open, ...done].map((a) => a.id));
-    const toItem = (a: (typeof open)[number]): TimelineItem => ({ ...a, context: context(a) });
+    const phoneMode = (await fieldAccess(user))["lead.phone"] as PhoneMode;
+    const toItem = (a: (typeof open)[number]): TimelineItem => ({ ...a, context: context(a, phoneMode) });
     const groups: [string, TimelineItem[], string?][] = [
       ["Overdue", open.filter((a) => a.dueAt! < startOfDay(now)).map(toItem), "text-red-600"],
       ["Today", open.filter((a) => a.dueAt! >= startOfDay(now) && a.dueAt! <= endOfDay(now)).map(toItem)],

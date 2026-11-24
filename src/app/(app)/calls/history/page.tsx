@@ -5,6 +5,8 @@ import { outcome } from "@/lib/calls";
 import { fmtPhone } from "@/lib/crm-shared";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
+import { BulkAll, BulkBar, BulkTick } from "@/components/calls/bulk-bar";
+import { bulkCallLogs, countDuplicateLogs, deleteDuplicateLogs } from "../actions";
 
 export const metadata = { title: "Call history" };
 
@@ -18,18 +20,27 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
     where: { startedAt: { gte: day, lt: new Date(day.getTime() + 86_400_000) }, ...(all ? {} : { agentId: user.id }) },
     include: { target: { select: { name: true } } }, orderBy: { startedAt: "desc" }, take: 1000,
   });
+  const dupes = user.isSuperAdmin ? await countDuplicateLogs(day, new Date(day.getTime() + 86_400_000)) : 0;
   const agents = new Map((await db.user.findMany({ where: { id: { in: [...new Set(logs.map((l) => l.agentId))] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
   return (
     <>
       <PageHeader title="Call history" description={`${logs.length} call(s) on ${format(day, "EEEE d MMMM")}`}
-        actions={<AutoFilterForm><input type="date" name="date" defaultValue={format(day, "yyyy-MM-dd")} className="input h-9" aria-label="Day" /></AutoFilterForm>} />
+        actions={<div className="flex flex-wrap items-center gap-2">
+          {dupes > 0 && (
+            <form action={deleteDuplicateLogs}><input type="hidden" name="date" value={format(day, "yyyy-MM-dd")} />
+              <button className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 px-3 text-sm text-red-700 hover:bg-red-50" title="Same agent, number and result within 10 minutes: keeps the first">Delete duplicates ({dupes})</button>
+            </form>
+          )}
+          <AutoFilterForm><input type="date" name="date" defaultValue={format(day, "yyyy-MM-dd")} className="input h-9" aria-label="Day" /></AutoFilterForm>
+        </div>} />
       <Card className="overflow-x-auto">
         {logs.length === 0 ? <EmptyState title="No calls on this day" /> : (
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Time</th><th className="px-4 py-2.5">Who</th>{all && <th className="px-4 py-2.5">Agent</th>}<th className="px-4 py-2.5">Outcome</th><th className="px-4 py-2.5">Talk</th><th className="px-4 py-2.5">Notes</th></tr></thead>
+            <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr>{user.isSuperAdmin && <th className="w-10 px-4 py-2.5"><BulkAll form="bulk-logs" /></th>}<th className="px-4 py-2.5">Time</th><th className="px-4 py-2.5">Who</th>{all && <th className="px-4 py-2.5">Agent</th>}<th className="px-4 py-2.5">Outcome</th><th className="px-4 py-2.5">Talk</th><th className="px-4 py-2.5">Notes</th></tr></thead>
             <tbody className="divide-y divide-line">
               {logs.map((l) => (
                 <tr key={l.id}>
+                  {user.isSuperAdmin && <td className="px-4 py-2"><BulkTick form="bulk-logs" id={l.id} label={l.target?.name ?? l.phone} /></td>}
                   <td className="px-4 py-2 tabular-nums">{format(l.startedAt, "h:mm a")}</td>
                   <td className="px-4 py-2"><span className="font-medium">{l.target?.name ?? "—"}</span><span className="block font-mono text-xs text-muted">{fmtPhone(l.phone)}</span></td>
                   {all && <td className="px-4 py-2">{agents.get(l.agentId) ?? "—"}</td>}
@@ -42,6 +53,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
           </table>
         )}
       </Card>
+      {user.isSuperAdmin && <BulkBar form="bulk-logs" action={bulkCallLogs} noun="call history entr(ies)" ops={[{ value: "delete", label: "Delete", danger: true }]} />}
     </>
   );
 }

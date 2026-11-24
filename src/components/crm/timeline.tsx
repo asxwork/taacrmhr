@@ -1,6 +1,6 @@
 import Link from "@/components/link";
 import { format, isPast, isToday, isYesterday, startOfDay } from "date-fns";
-import { CalendarCheck, CalendarClock, Check, CircleDot, Info, MapPin, MessageSquare, Phone, Plus, StickyNote, Trash2, Users } from "lucide-react";
+import { CalendarCheck, CalendarClock, Check, CircleDot, Info, MapPin, MessageSquare, Phone, Plus, StickyNote, Trash2, Users, MessageCircle } from "lucide-react";
 import { cn, fmtAgo } from "@/lib/utils";
 import { deleteActivity, toggleActivity } from "@/app/(app)/crm/activity-actions";
 
@@ -14,7 +14,8 @@ export type TimelineItem = {
   createdAt: Date;
   owner: { name: string } | null;
   createdBy: { name: string } | null;
-  context?: { label: string; href: string } | null;
+  /** The lead / deal / contact it's about; phone shows a call link and WhatsApp (when the viewer may see it). */
+  context?: { label: string; href: string; phone?: string | null; tel?: string | null; wa?: string | null } | null;
 };
 
 const ICON: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -103,7 +104,15 @@ function TodoCard({ item, path, editable, canDelete }: { item: TimelineItem; pat
           {overdue ? "Overdue · " : "Deadline "}{format(item.dueAt!, "EEE, d MMM, h:mm a")}
         </p>
         {item.body && item.body !== item.subject && <p className="mt-2 whitespace-pre-line rounded-lg border border-line bg-canvas/50 px-3 py-2 text-sm">{item.body}</p>}
-        {item.context && <p className="mt-2 text-xs"><Link href={item.context.href} className="text-navy-900 hover:underline">{item.context.label}</Link></p>}
+        {item.context && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <Link href={item.context.href} className="font-medium text-navy-900 hover:underline">{item.context.label}</Link>
+            {item.context.phone && (item.context.tel
+              ? <a href={item.context.tel} className="inline-flex items-center gap-1 font-mono text-xs tabular-nums text-ink/80 hover:text-navy-900 hover:underline"><Phone className="size-3.5" />{item.context.phone}</a>
+              : <span className="font-mono text-xs text-muted">{item.context.phone}</span>)}
+            {item.context.wa && <a href={item.context.wa} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-[#25D366]/40 px-1.5 py-0.5 text-xs font-medium text-[#128C7E] hover:bg-[#25D366]/10" aria-label={`WhatsApp ${item.context.label}`}><MessageCircle className="size-3.5" /> WhatsApp</a>}
+          </div>
+        )}
         {editable && (
           <div className="mt-3 flex items-center gap-2">
             <form action={toggleActivity}>

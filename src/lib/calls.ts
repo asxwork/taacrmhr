@@ -75,7 +75,7 @@ export async function recordOutcome(input: { targetId: string; agentId: string; 
   const status = dnc ? "dnc"
     : input.outcome === "callback" ? "callback"
     : o.final ? "done"
-    : attempts >= t.campaign.maxAttempts && input.outcome !== "whatsapp_sent" ? "done" : t.status === "new" && input.outcome === "whatsapp_sent" ? "new" : "retry";
+    : attempts >= t.campaign.maxAttempts && input.outcome !== "whatsapp_sent" ? "done" : "retry"; // WhatsApp sent: the next number comes; this one returns later for a call
   await db.callLog.create({
     data: { targetId: t.id, campaignId: t.campaignId, agentId: input.agentId, phone: t.phone, outcome: input.outcome, notes: input.notes ?? null, durationSec: input.durationSec ?? null, pbxCallId: input.pbxCallId ?? null, channel: input.channel ?? (input.outcome === "whatsapp_sent" ? "whatsapp" : "phone") },
   });

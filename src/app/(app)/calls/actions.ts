@@ -389,3 +389,42 @@ export async function editCallRemarks(_: FormState, fd: FormData): Promise<FormS
   revalidatePath("/calls/history");
   return { ok: true, message: "Remarks saved." };
 }
+
+/** Same agent, same number, same result within 10 minutes of the one before: a repeated entry. */
+async function duplicateLogIds(from: Date, to: Date) {
+  const logs = await db.callLog.findMany({ where: { startedAt: { gte: from, lt: to } }, orderBy: { startedAt: "asc" }, select: { id: true, agentId: true, phone: true, outcome: true, startedAt: true } });
+  const last = new Map<string, Date>();
+  const dupes: string[] = [];
+  for (const l of logs) {
+    const k = `${l.agentId}|${l.phone.replace(/\D/g, "")}|${l.outcome}`;
+    const prev = last.get(k);
+    if (prev && +l.startedAt - +prev < 10 * 60_000) dupes.push(l.id);
+    else last.set(k, l.startedAt);
+  }
+  return dupes;
+}
+export async function countDuplicateLogs(from: Date, to: Date) { return (await duplicateLogIds(from, to)).length; }
+
+/** Calls → History (Super Admin): delete the repeated entries of that day, keeping the first of each. */
+export async function deleteDuplicateLogs(fd: FormData) {
+  const user = await requireUser();
+  if (!user.isSuperAdmin) return;
+  const day = new Date(`${str(fd, "date")}T00:00:00`);
+  if (Number.isNaN(+day)) return;
+  const ids = await duplicateLogIds(day, new Date(+day + 86_400_000));
+  if (ids.length) await db.callLog.deleteMany({ where: { id: { in: ids } } });
+  await audit(user.id, "delete", "callLog", null, `Deleted ${ids.length} duplicate call entr${ids.length === 1 ? "y" : "ies"} on ${str(fd, "date")}`);
+  revalidatePath("/calls/history");
+}
+
+/** Calls → History (Super Admin): delete ticked entries. */
+export async function bulkCallLogs(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!user.isSuperAdmin) return { error: "Only a Super Admin can delete call history." };
+  const ids = [...new Set(fd.getAll("ids").map(String).filter(Boolean))];
+  if (!ids.length || str(fd, "op") !== "delete") return { error: "Tick entries and choose Delete." };
+  const n = (await db.callLog.deleteMany({ where: { id: { in: ids } } })).count;
+  await audit(user.id, "delete", "callLog", null, `Deleted ${n} call history entr${n === 1 ? "y" : "ies"}`);
+  revalidatePath("/calls/history");
+  return { ok: true, message: `${n} entr${n === 1 ? "y" : "ies"} deleted.` };
+}
