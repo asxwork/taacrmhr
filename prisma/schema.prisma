@@ -998,6 +998,8 @@ model CallBatch {
   campaign   CallCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   name       String
   assigneeId String?
+  /// The agent marked their numbers in this batch as finished (Dialer → My campaigns → Mark as completed).
+  completedAt DateTime?
   createdAt  DateTime     @default(now())
   targets    CallTarget[]
 

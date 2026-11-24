@@ -150,7 +150,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
                 const done = b.targets.filter((t) => ["done", "dnc"].includes(t.status)).length;
                 return (
                   <tr key={b.id}>
-                    <td className="px-4 py-2.5 font-medium">{b.name}<span className="block text-xs font-normal text-muted">{format(b.createdAt, "d MMM")}</span></td>
+                    <td className="px-4 py-2.5 font-medium">{b.name}<span className="block text-xs font-normal text-muted">{format(b.createdAt, "d MMM")}{b.completedAt && <span className="ml-1.5 font-medium text-emerald-700">· Completed by agent {format(b.completedAt, "d MMM, h:mm a")}</span>}</span></td>
                     <td className="px-4 py-2.5"><div className="flex items-center gap-2"><div className="h-2 w-40 rounded-full bg-canvas"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${b.targets.length ? (done / b.targets.length) * 100 : 0}%` }} /></div><span className="text-xs tabular-nums text-muted">{done}/{b.targets.length}</span></div></td>
                     <td className="px-4 py-2.5">
                       <form action={reassignBatch} className="flex gap-2">

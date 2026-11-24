@@ -7,7 +7,7 @@ import { OUTCOMES, nextTarget, outcome, queueWhere } from "@/lib/calls";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { DrillTiles } from "@/components/drill-tiles";
 import { CallCard } from "@/components/calls/call-card";
-import { logCall, saveCallFeedback, setCallMode } from "./actions";
+import { completeMyNumbers, logCall, saveCallFeedback, setCallMode } from "./actions";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { agentDay, callReportText, pkDay } from "@/lib/call-daily";
 import { CopyText } from "@/components/calls/copy-text";
@@ -29,7 +29,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   }
   const user = viewer;
   const day = pkDay();
-  const [target, queued, callbacks, s, lastLog, note, modeRow] = await Promise.all([
+  const [target, queued, callbacks, s, lastLog, note, modeRow, myCounts, myBatches] = await Promise.all([
     nextTarget(user.id),
     db.callTarget.count({ where: queueWhere(user.id) }),
     db.callTarget.count({ where: { assigneeId: user.id, status: "callback" } }),
@@ -37,7 +37,18 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
     db.callLog.findFirst({ where: { agentId: user.id, startedAt: { gte: new Date(Date.now() - 90_000) } }, orderBy: { startedAt: "desc" }, include: { target: { select: { name: true, phone: true, leadId: true } } } }),
     db.callDayNote.findUnique({ where: { agentId_date: { agentId: user.id, date: day.date } } }),
     db.setting.findUnique({ where: { key: `calls.mode.${user.id}` } }),
+    db.callTarget.groupBy({ by: ["campaignId", "status"], where: { assigneeId: user.id }, _count: true }),
+    db.callBatch.findMany({ where: { assigneeId: user.id }, select: { campaignId: true, completedAt: true } }),
   ]);
+  // My share of each campaign: how many numbers, how many still never called, and whether I marked it completed.
+  const campIds = [...new Set(myCounts.map((r) => r.campaignId))];
+  const campNames = new Map((await db.callCampaign.findMany({ where: { id: { in: campIds } }, select: { id: true, name: true, status: true } })).map((c) => [c.id, c]));
+  const mine = campIds.map((id) => {
+    const n = (...st: string[]) => myCounts.filter((r) => r.campaignId === id && st.includes(r.status)).reduce((a, r) => a + r._count, 0);
+    const batches = myBatches.filter((b) => b.campaignId === id);
+    return { id, name: campNames.get(id)?.name ?? "Campaign", total: n("new", "retry", "callback", "done", "dnc"), fresh: n("new"), retry: n("retry"), callback: n("callback"),
+      completed: batches.length > 0 && batches.every((b) => b.completedAt) };
+  }).filter((c) => c.total > 0 && !(c.completed && !c.fresh && !c.retry && !c.callback && campNames.get(c.id)?.status === "done"));
   const mode = modeRow?.value === "landline" ? "landline" : "system";
   let extra: Record<string, string> = {};
   try { extra = target?.extra ? JSON.parse(target.extra) : {}; } catch {}
@@ -46,6 +57,30 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   // Today's report in the team's WhatsApp format, ready to copy or send to the group.
   const report = callReportText(s, note?.feedback, undefined, { title: mode === "landline" ? "LANDLINE CALLING REPORT" : "INTERNATIONAL CALLING REPORT", totals: true });
   const waText = (target?.campaign.waMessage ?? "").replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
+
+  const myCampaigns = mine.length > 0 && (
+    <Card className="p-5">
+      <p className="mb-3 text-xs uppercase tracking-wide text-muted">My campaigns</p>
+      <ul className="space-y-3">
+        {mine.map((c) => {
+          const called = c.total - c.fresh;
+          return (
+            <li key={c.id}>
+              <div className="flex items-baseline justify-between gap-2 text-sm"><span className="min-w-0 truncate font-medium">{c.name}</span><span className="shrink-0 tabular-nums text-xs text-muted">{called} / {c.total} called</span></div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-canvas"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.round((called / Math.max(1, c.total)) * 100)}%` }} /></div>
+              {c.completed ? <p className="mt-1.5 text-xs font-medium text-emerald-700">Completed ✓{c.callback ? ` · ${c.callback} callback(s) still planned` : ""}</p>
+                : c.fresh === 0 ? (
+                  <form action={completeMyNumbers} className="mt-2">
+                    <input type="hidden" name="campaignId" value={c.id} />
+                    <button className="h-8 w-full rounded-lg bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700">Mark as completed{c.retry ? ` (${c.retry} not reached won't come back)` : ""}</button>
+                  </form>
+                ) : <p className="mt-1.5 text-xs text-muted">{c.fresh} not called yet</p>}
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
 
   const todayCard = (
     <Card className="p-5">
@@ -101,7 +136,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       {!target ? (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <Card><EmptyState title="Your queue is empty" description="No numbers are due right now. Your supervisor can give you a new batch, or check your callbacks." /></Card>
-          {todayCard}
+          <div className="space-y-4">{todayCard}{myCampaigns}</div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
@@ -131,6 +166,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
                 {target.notes && <p className="mt-2 whitespace-pre-line text-xs text-muted">{target.notes}</p>}
               </Card>
             )}
+            {myCampaigns}
             <p className="text-center text-xs text-muted"><Link href="/calls/callbacks" className="hover:underline">My callbacks</Link> · <Link href="/calls/history" className="hover:underline">History</Link></p>
           </div>
         </div>

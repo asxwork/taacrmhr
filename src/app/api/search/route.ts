@@ -9,7 +9,7 @@ import { maskPhone } from "@/lib/field-defs";
 import { fmtPKR, phoneKey, PROPERTY_TYPES } from "@/lib/crm-shared";
 import { TUTORIALS } from "@/lib/tutorials";
 
-// Global search (Ctrl+K). Every group applies the same scope as its list page, so nobody finds what they can't open.
+// Global search (Ctrl+E). Every group applies the same scope as its list page, so nobody finds what they can't open.
 // "Smart" parts: lead numbers (#123), phone numbers in any format, several words in any order, and property
 // questions like "3 bed apartment dha under 2 crore" that turn into an inventory search.
 type Hit = { title: string; sub?: string; href: string };

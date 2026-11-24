@@ -277,12 +277,12 @@ export function Sidebar({ apps, initialApp, user, unread, urgent = 0, chat = -1,
   const searchButton = (compact: boolean) => (
     <button
       onClick={openSearch}
-      title={compact ? "Search (Ctrl+K)" : undefined}
+      title={compact ? "Search (Ctrl+E)" : undefined}
       aria-label="Search"
       className={cn("mb-1 flex items-center gap-3 rounded-lg bg-white/[0.06] text-[13px] text-white/55 transition-colors hover:bg-white/10 hover:text-white", compact ? "mx-auto size-10 justify-center" : "mx-3 h-9 px-3")}
     >
       <Search className="size-4 shrink-0" />
-      {!compact && <><span className="flex-1 text-left">Search…</span><kbd className="rounded border border-white/15 px-1.5 text-[10px]">Ctrl K</kbd></>}
+      {!compact && <><span className="flex-1 text-left">Search…</span><kbd className="rounded border border-white/15 px-1.5 text-[10px]">Ctrl E</kbd></>}
     </button>
   );
 

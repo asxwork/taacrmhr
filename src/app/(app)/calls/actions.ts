@@ -340,3 +340,28 @@ export async function saveCallOrder(_: FormState, fd: FormData): Promise<FormSta
   revalidatePath(`/calls/campaigns/${id}`);
   return { ok: true, message: `Call order saved: ${n.toLocaleString()} number(s) put in order. New batches and agents' next numbers follow it.` };
 }
+
+/**
+ * Agent: "Mark as completed" for their share of a campaign once none of their numbers is still uncalled. Their numbers
+ * waiting for another try stop coming back (due callbacks stay), their batches show as completed, supervisors are told,
+ * and a campaign with nothing left to call becomes done.
+ */
+export async function completeMyNumbers(fd: FormData) {
+  const user = await requireUser();
+  if (!can(user, "calls", "edit")) return;
+  const campaignId = str(fd, "campaignId");
+  const mine = { campaignId, assigneeId: user.id };
+  if (await db.callTarget.count({ where: { ...mine, status: "new" } })) return; // still uncalled numbers
+  const closed = (await db.callTarget.updateMany({ where: { ...mine, status: "retry" }, data: { status: "done" } })).count;
+  await db.callBatch.updateMany({ where: { campaignId, assigneeId: user.id, completedAt: null }, data: { completedAt: new Date() } });
+  const c = await db.callCampaign.findUnique({ where: { id: campaignId }, select: { name: true } });
+  const total = await db.callTarget.count({ where: mine });
+  await audit(user.id, "update", "callBatch", campaignId, `${user.name} completed their ${total} number(s) in ${c?.name}${closed ? ` (${closed} not reached closed)` : ""}`);
+  // Nothing left to call anywhere in the campaign: it's done.
+  const left = await db.callTarget.count({ where: { campaignId, status: { in: ["new", "retry", "callback"] } } });
+  if (!left) await db.callCampaign.update({ where: { id: campaignId }, data: { status: "done" } });
+  const { notify } = await import("@/lib/notify");
+  const supervisors = await db.user.findMany({ where: { active: true, OR: [{ isSuperAdmin: true }, { roles: { some: { role: { permissions: { some: { module: "calls", action: "assign", scope: "all" } } } } } }] }, select: { id: true } });
+  for (const s of supervisors) if (s.id !== user.id) await notify(s.id, `${user.name} completed their numbers: ${c?.name ?? "campaign"}`, { body: `${total} number(s)${left ? `, ${left} still open in the campaign` : ", campaign finished"}.`, link: `/calls/campaigns/${campaignId}` }).catch(() => {});
+  refresh();
+}

@@ -16,7 +16,7 @@ const GROUP_ICON: Record<string, React.ComponentType<{ className?: string }>> = 
 /** Opens the palette from anywhere (sidebar button, phone top bar). */
 export const openSearch = () => window.dispatchEvent(new Event("open-search"));
 
-/** Ctrl+K / ⌘K: jump to a page or find a lead, deal, contact, unit or employee. */
+/** Ctrl+E / ⌘E: jump to a page or find a lead, deal, contact, unit or employee. */
 export function CommandPalette({ pages }: { pages: { href: string; label: string; icon: string; path?: string[] }[] }) {
   const router = useRouter();
   const [state, setState] = useState<"closed" | "open" | "closing">("closed");
@@ -38,7 +38,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "e") {
         e.preventDefault();
         setState((s) => (s === "open" ? "closing" : "open"));
       }
@@ -232,7 +232,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
         <div className="hidden shrink-0 items-center gap-4 border-t border-line bg-canvas/60 px-4 py-2 text-[11px] text-muted sm:flex">
           <span><kbd className="font-sans">↑</kbd> <kbd className="font-sans">↓</kbd> to move</span>
           <span><kbd className="font-sans">↵</kbd> to open</span>
-          <span className="ml-auto">Ctrl K to toggle</span>
+          <span className="ml-auto">Ctrl E to toggle</span>
         </div>
       </div>
     </div>
