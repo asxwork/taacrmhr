@@ -56,7 +56,7 @@ export async function nextTarget(agentId: string) {
   for (const status of ["callback", "new", "retry"]) {
     const t = await db.callTarget.findFirst({
       where: { AND: [where, { status }] }, include: { campaign: true, logs: { orderBy: { startedAt: "desc" }, take: 5 } },
-      orderBy: status === "callback" ? { callbackAt: "asc" } : status === "new" ? { createdAt: "asc" } : { lastCalledAt: "asc" },
+      orderBy: status === "callback" ? { callbackAt: "asc" } : status === "new" ? [{ position: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }] : { lastCalledAt: "asc" },
     });
     if (t) return t;
   }
@@ -140,13 +140,19 @@ export async function importNumbers(campaignId: string, rows: ReturnType<typeof 
   ]);
   const skip = new Set([...existing.map((e) => e.phoneKey), ...dnc.map((d) => d.phoneKey)]);
   const seen = new Set<string>();
+  // Each number keeps its row in the file, after the numbers already in the campaign; the call order is then applied.
+  const base = (await db.callTarget.aggregate({ where: { campaignId }, _max: { rowNo: true } }))._max.rowNo ?? 0;
+  let row = base;
   const data = rows.flatMap((r) => {
     const key = phoneKey(r.phone)!;
     if (skip.has(key) || seen.has(key)) return [];
     seen.add(key);
-    return [{ campaignId, phone: r.phone, phoneKey: key, name: r.name, extra: r.extra ? JSON.stringify(r.extra) : null }];
+    row++;
+    return [{ campaignId, phone: r.phone, phoneKey: key, name: r.name, extra: r.extra ? JSON.stringify(r.extra) : null, rowNo: row, position: row }];
   });
   for (let i = 0; i < data.length; i += 500) await db.callTarget.createMany({ data: data.slice(i, i + 500) });
+  const camp = await db.callCampaign.findUnique({ where: { id: campaignId }, select: { callOrder: true } });
+  if (data.length && camp && camp.callOrder !== "top") await applyCallOrder(campaignId);
   return { added: data.length, duplicates: rows.length - data.length - dnc.filter((d) => keys.includes(d.phoneKey)).length, dnc: dnc.length };
 }
 
@@ -155,7 +161,7 @@ export async function importNumbers(campaignId: string, rows: ReturnType<typeof 
  * turn, so a short list is shared fairly); without it, all remaining numbers are dealt round-robin to the agents.
  */
 export async function makeBatches(campaignId: string, agentIds: string[], size: number, plan?: Record<string, number>) {
-  const free = await db.callTarget.findMany({ where: { campaignId, assigneeId: null, status: { in: ["new", "retry"] } }, select: { id: true }, orderBy: { createdAt: "asc" } });
+  const free = await db.callTarget.findMany({ where: { campaignId, assigneeId: null, status: { in: ["new", "retry"] } }, select: { id: true }, orderBy: [{ position: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }] });
   if (!free.length || !agentIds.length) return { batches: 0, numbers: 0, left: free.length };
   const agents = (await db.user.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } })).sort((a, b) => agentIds.indexOf(a.id) - agentIds.indexOf(b.id));
   const count = await db.callBatch.count({ where: { campaignId } });
@@ -207,3 +213,36 @@ export function isCallSupervisor(user: SessionUser) {
   return scopeFor(user, "calls", "assign") === "all";
 }
 
+
+export const CALL_ORDERS = [["top", "Top first (file order)"], ["bottom", "Bottom first (last row first)"], ["random", "Random"], ["column", "By a column"]] as const;
+
+/**
+ * Puts the campaign's numbers in its call order (CallCampaign.callOrder): which numbers go into batches first and which
+ * number an agent gets next. Numbers from before rows were remembered keep their upload order.
+ */
+export async function applyCallOrder(campaignId: string) {
+  const c = await db.callCampaign.findUnique({ where: { id: campaignId }, select: { callOrder: true, orderField: true, orderDesc: true } });
+  if (!c) return 0;
+  const rows = await db.callTarget.findMany({ where: { campaignId }, select: { id: true, rowNo: true, createdAt: true, extra: true, name: true } });
+  const row = (t: (typeof rows)[number]) => t.rowNo ?? Number.MAX_SAFE_INTEGER;
+  rows.sort((a, b) => row(a) - row(b) || +a.createdAt - +b.createdAt);
+  if (c.callOrder === "bottom") rows.reverse();
+  else if (c.callOrder === "random") for (let i = rows.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [rows[i], rows[j]] = [rows[j]!, rows[i]!]; }
+  else if (c.callOrder === "column" && c.orderField) {
+    const val = (t: (typeof rows)[number]) => {
+      if (c.orderField === "Name") return t.name ?? "";
+      try { return String((JSON.parse(t.extra ?? "{}") as Record<string, string>)[c.orderField!] ?? ""); } catch { return ""; }
+    };
+    // Empty values last; numbers compared as numbers (10 after 9), the rest A→Z.
+    rows.sort((a, b) => {
+      const x = val(a), y = val(b);
+      if (!x !== !y) return x ? -1 : 1;
+      const r = x.localeCompare(y, undefined, { numeric: true, sensitivity: "base" });
+      return c.orderDesc ? -r : r;
+    });
+  }
+  for (let i = 0; i < rows.length; i += 200) {
+    await db.$transaction(rows.slice(i, i + 200).map((t, k) => db.callTarget.update({ where: { id: t.id }, data: { position: i + k + 1 } })));
+  }
+  return rows.length;
+}

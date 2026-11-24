@@ -978,6 +978,10 @@ model CallCampaign {
   kind        String       @default("csr")
   /// Sheet columns kept for the record but not shown to agents (JSON list of names).
   hiddenFields String? // @text
+  /// Which numbers are called first: top (file order), bottom (last row first), random, column (by orderField).
+  callOrder   String       @default("top")
+  orderField  String?
+  orderDesc   Boolean      @default(false)
   status      String       @default("active")
   createdById String?
   createdAt   DateTime     @default(now())
@@ -1019,10 +1023,14 @@ model CallTarget {
   callbackAt   DateTime?
   notes        String? // @text
   leadId       String?
+  /// Row in the imported file (1, 2, 3…) and the place in the campaign's call order (see CallCampaign.callOrder).
+  rowNo        Int?
+  position     Int?
   createdAt    DateTime     @default(now())
   logs         CallLog[]
 
   @@index([campaignId, status])
+  @@index([campaignId, position])
   @@index([assigneeId, status])
   @@index([phoneKey])
 }

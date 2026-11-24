@@ -324,3 +324,19 @@ export async function saveVisibleFields(_: FormState, fd: FormData): Promise<For
   revalidatePath("/calls");
   return { ok: true, message: "Saved. Agents see the ticked details on their next number." };
 }
+
+/** Campaign → Call order: top, bottom, random or by a column (A→Z / Z→A). Re-orders the numbers straight away. */
+export async function saveCallOrder(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!manager(user)) return { error: "Only calling supervisors can change this." };
+  const id = str(fd, "campaignId");
+  const order = ["top", "bottom", "random", "column"].includes(str(fd, "order")) ? str(fd, "order") : "top";
+  const field = str(fd, "field");
+  if (order === "column" && !field) return { error: "Choose the column to sort by." };
+  await db.callCampaign.update({ where: { id }, data: { callOrder: order, orderField: order === "column" ? field.slice(0, 120) : null, orderDesc: order === "column" && str(fd, "desc") === "1" } });
+  const { applyCallOrder } = await import("@/lib/calls");
+  const n = await applyCallOrder(id);
+  await audit(user.id, "update", "callCampaign", id, `Call order: ${order}${order === "column" ? ` by ${field}${str(fd, "desc") === "1" ? " (Z→A)" : ""}` : ""}`);
+  revalidatePath(`/calls/campaigns/${id}`);
+  return { ok: true, message: `Call order saved: ${n.toLocaleString()} number(s) put in order. New batches and agents' next numbers follow it.` };
+}

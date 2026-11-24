@@ -19,6 +19,7 @@ import { bulkTargets, createBatches, deleteCampaign, reassignBatch, saveVisibleF
 import { BulkAll, BulkBar, BulkTick, DeleteCampaign } from "@/components/calls/bulk-bar";
 import { CampaignForm } from "@/components/calls/campaign-form";
 import { ImportNumbers } from "@/components/calls/import-numbers";
+import { CallOrder } from "@/components/calls/call-order";
 import { listImportFiles } from "@/lib/call-files";
 import { requireUser } from "@/lib/auth";
 
@@ -74,6 +75,10 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           <ul className="space-y-1 text-sm">{files.map((f) => <li key={f.name}><a href={`/api/calls/files/${id}/${encodeURIComponent(f.name)}`} className="font-medium text-navy-900 hover:underline">{f.name}</a> <span className="text-xs text-muted">{Math.max(1, Math.round(f.size / 1024))} KB</span></li>)}</ul>
         </Card>
       )}
+      <Card className="mb-6 p-5">
+        <h2 className="mb-3 text-sm font-semibold">Call order</h2>
+        <CallOrder campaignId={id} order={c.callOrder} field={c.orderField} desc={c.orderDesc} fields={fields} />
+      </Card>
       {fields.length > 0 && (
         <Card className="mb-6 p-5">
           <h2 className="mb-1 text-sm font-semibold">What agents see</h2>
