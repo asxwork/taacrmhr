@@ -30,7 +30,8 @@ export default async function DeveloperPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="max-w-6xl">
-      <PageHeader title="Developer resources" description="Connect AMS to your website, other apps and AI assistants. Each connection works with the permissions of the person who made it." />
+      <PageHeader title="Developer resources" description="Connect AMS to your website, other apps and AI assistants. Each connection works with the permissions of the person who made it."
+        actions={<Link href="/settings/developer/docs" className="inline-flex h-10 items-center rounded-lg border border-line bg-surface px-3 text-sm font-medium hover:bg-canvas">API reference</Link>} />
 
       <div className="grid gap-4 md:grid-cols-3">
         {CARDS.map((c) => (

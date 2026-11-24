@@ -151,7 +151,7 @@ export function HookForm({ kind, preset, hook, appUrl, scopes, events, methods }
               <li key={m.name} className="px-4 py-2"><code className="font-mono text-[13px] font-medium">{m.name}</code>{m.write && <span className="ml-1.5 rounded bg-amber-50 px-1.5 text-[10px] font-medium text-amber-700">changes data</span>}<p className="text-xs text-muted">{m.about}</p></li>
             ))}
           </ul>
-          <p className="border-t border-line px-4 py-2 text-xs text-muted">Call: <code>GET or POST {appUrl}/api/rest/&lt;key&gt;/&lt;method&gt;</code> with the options as query or JSON. Answers <code>{"{ result, total, next }"}</code>.</p>
+          <p className="border-t border-line px-4 py-2 text-xs text-muted">Call: <code>GET or POST {appUrl}/api/rest/&lt;key&gt;/&lt;method&gt;</code> with the options as query or JSON. Answers <code>{"{ result, total, next }"}</code>. <Link href="/settings/developer/docs" className="font-medium text-navy-900 underline">Full API reference</Link></p>
         </details>
       )}
     </div>

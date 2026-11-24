@@ -26,7 +26,8 @@ export const ADMIN_EXTRA_TUTORIALS: Tutorial[] = [
     summary: "Connect AMS to your website, Zapier / Make / Google Sheets, other systems and AI assistants like Claude.",
     steps: [
       "Settings → Developer resources. Inbound webhook: name it, tick what it can reach (CRM, Users, HR) and press Make the key. Copy the link: it's shown once.",
-      "Use the link with a method at the end, e.g. …/api/rest/<key>/crm.lead.list for your newest leads, or crm.lead.add to send a lead from your website. Open “Methods this key can call” to see them all.",
+      "Use the link with a method at the end, e.g. …/api/rest/<key>/crm.lead.list for your newest leads, or crm.lead.add to send a lead from your website. For your own code, put the key in a header instead (…/api/rest/crm.lead.add with Authorization: Bearer <key>) so it never shows in server logs.",
+      "API reference (button at the top) lists every method with its exact parameters, examples and error codes — give it to whoever builds the connection. crm.lead.add needs name and a phone or email; same phone or email as an open lead adds to it instead of a duplicate.",
       "Outbound webhook: paste the address that should hear about changes and tick the events (lead added, lead changed, activity added, deal added / changed). Send a test checks it.",
       "AI assistant (MCP): makes a key with AI assistant ticked and shows the MCP address and the line to paste into Claude Code or Claude Desktop.",
       "Every key works with the permissions of the person who made it. Lost or leaked? Open it and press Renew key; Off or Delete stops it at once.",

@@ -100,18 +100,38 @@ export const DEV_METHODS: DevMethod[] = [
     run: async ({ user, p }) => { need(can(user, "crm.leads")); return { result: leadOut(await findLead(user, p)) }; },
   },
   {
-    name: "crm.lead.add", scope: "crm", write: true, about: "Adds a lead (shared out by rotation, duplicates merged by phone/email, like website leads).",
+    name: "crm.lead.add", scope: "crm", write: true,
+    about: "Adds a lead. Needs name and a phone or an email. A lead with the same phone or email that is still open isn't duplicated: the enquiry is added to it (status merged). Without responsible, it's shared out by rotation like website leads.",
     params: [
-      { name: "name", type: "string", about: "Client name", required: true }, { name: "phone", type: "string", about: "Phone (phone or email needed)" },
-      { name: "email", type: "string", about: "Email" }, { name: "source", type: "string", about: "Source name, e.g. Website" },
-      { name: "message", type: "string", about: "What they asked / notes" }, { name: "campaign", type: "string", about: "Campaign" },
-      { name: "location", type: "string", about: "Area" }, { name: "budget", type: "string", about: "Budget" },
+      { name: "name", type: "string", about: "Client name", required: true },
+      { name: "phone", type: "string", about: "Phone in any format (+92 300 1234567, 0300…, +971…). Phone or email is required" },
+      { name: "email", type: "string", about: "Email. Phone or email is required" },
+      { name: "source", type: "string", about: "Source name as in CRM settings, e.g. Website, Facebook, Zameen (default Website)" },
+      { name: "notes", type: "string", about: "What they asked; saved as the lead's notes (alias: message)" },
+      { name: "campaign", type: "string", about: "Campaign name" },
+      { name: "project", type: "string", about: "Project name; linked when it's in your Inventory projects" },
+      { name: "location", type: "string", about: "Area / city" },
+      { name: "budget", type: "string", about: "Budget, e.g. 2.5 crore, 25000000" },
+      { name: "interest", type: "string", about: "buy, rent, invest or sell" },
+      { name: "property_type", type: "string", about: "e.g. Apartment, Plot, House" },
+      { name: "responsible", type: "string", about: "Give it to this person (email, name or user id) instead of rotation; the key's owner needs Leads → Reassign" },
     ],
     run: async ({ user, p }) => {
       need(can(user, "crm.leads", "create"));
+      if (!str(p.name)) throw new ApiError("INVALID", "name is required.");
+      if (!str(p.phone) && !str(p.email)) throw new ApiError("INVALID", "phone or email is required.");
+      let assignee: { id: string; branchId: string | null } | null = null;
+      if (str(p.responsible)) { need(can(user, "crm.leads", "assign"), "Your account can't choose who gets leads (Leads → Reassign); leave responsible out to use the rotation."); assignee = await findUser(p.responsible); }
       const { ingestLead, normalizeIncoming } = await import("./lead-intake");
-      const r = await ingestLead(normalizeIncoming(p), "api", { id: `dev:${user.id}`, name: "API" });
-      return { result: r };
+      const input = normalizeIncoming({ ...p, message: p.notes ?? p.message });
+      const r = await ingestLead(input, "api", { id: `dev:${user.id}`, name: "API", ...(assignee ? { assigneeIds: [assignee.id] } : {}) });
+      if (r.status === "ignored") throw new ApiError("INVALID", "phone or email is required.");
+      if (r.status === "created" && str(p.project)) {
+        const pr = await db.project.findFirst({ where: { name: str(p.project) } });
+        await db.lead.update({ where: { id: r.leadId }, data: pr ? { projectId: pr.id } : { projectName: str(p.project).slice(0, 190) } });
+      }
+      const lead = await db.lead.findUnique({ where: { id: r.leadId }, select: { id: true, number: true, owner: { select: { name: true } } } });
+      return { result: { id: lead!.id, number: lead!.number, status: r.status, responsible: lead!.owner?.name ?? null } };
     },
   },
   {
@@ -249,4 +269,9 @@ export async function callMethod(name: string, token: string, params: Record<str
   if (!method) throw new ApiError("METHOD_NOT_FOUND", `Unknown method ${name}.`);
   const { user } = await authorize(token, method, via);
   return method.run({ user, p: params });
+}
+
+/** The published list: every method with its scope, what it does and its exact parameters. */
+export function methodList(scopes?: Set<string>) {
+  return DEV_METHODS.filter((m) => !scopes || scopes.has(m.scope)).map((m) => ({ method: m.name, scope: m.scope, changes_data: !!m.write, description: m.about, params: m.params.map((p) => ({ name: p.name, type: p.type, required: !!p.required, description: p.about })) }));
 }
