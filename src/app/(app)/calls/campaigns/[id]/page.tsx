@@ -1,4 +1,4 @@
-import { isCallSupervisor } from "@/lib/calls";
+import { isCallSupervisor, dialerPeople } from "@/lib/calls";
 import { redirect } from "next/navigation";
 import Link from "@/components/link";
 import { ListLink } from "@/components/list-memory";
@@ -11,7 +11,7 @@ import { OUTCOMES, callAgents, outcome } from "@/lib/calls";
 import { fmtPhone } from "@/lib/crm-shared";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Badge, Button, Card, Drawer, Field, LinkButton, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, Drawer, LinkButton, PageHeader } from "@/components/ui";
 import { DrillTiles } from "@/components/drill-tiles";
 import { BarList } from "@/components/charts";
 import { AutoFilterForm } from "@/components/auto-filter-form";
@@ -20,6 +20,7 @@ import { BulkAll, BulkBar, BulkTick, DeleteCampaign } from "@/components/calls/b
 import { CampaignForm } from "@/components/calls/campaign-form";
 import { ImportNumbers } from "@/components/calls/import-numbers";
 import { CallOrder } from "@/components/calls/call-order";
+import { BatchMaker } from "@/components/calls/batch-maker";
 import { listImportFiles } from "@/lib/call-files";
 import { requireUser } from "@/lib/auth";
 
@@ -32,14 +33,15 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const c = await db.callCampaign.findUnique({ where: { id } });
   if (!c) notFound();
-  const [byStatus, byOutcome, batches, agents, targets, unassigned, samples] = await Promise.all([
+  const [byStatus, byOutcome, batches, agents, targets, unassigned, samples, people] = await Promise.all([
     db.callTarget.groupBy({ by: ["status"], where: { campaignId: id }, _count: true }),
     db.callTarget.groupBy({ by: ["outcome"], where: { campaignId: id, outcome: { not: null } }, _count: true }),
     db.callBatch.findMany({ where: { campaignId: id }, include: { targets: { select: { status: true } } }, orderBy: { createdAt: "asc" } }),
-    callAgents(true, c.kind === "sales" ? "sales" : "csr"),
+    callAgents(true),
     db.callTarget.findMany({ where: { campaignId: id, ...(sp.status && { status: sp.status }) }, orderBy: [{ lastCalledAt: "desc" }, { createdAt: "asc" }], take: 200 }),
     db.callTarget.count({ where: { campaignId: id, assigneeId: null, status: { in: ["new", "retry"] } } }),
     db.callTarget.findMany({ where: { campaignId: id, extra: { not: null } }, select: { extra: true }, take: 300 }),
+    dialerPeople(),
   ]);
   const viewer = await requireUser();
   const files = viewer.isSuperAdmin ? await listImportFiles(id) : [];
@@ -112,27 +114,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
         </Card>
         <Card className="p-5">
           <h2 className="mb-1 text-sm font-semibold">Make batches</h2>
-          <p className="mb-3 text-xs text-muted"><b className="text-ink">{unassigned}</b> unassigned number{unassigned === 1 ? "" : "s"}. Tick agents and set how many batches each gets.</p>
-          <ActionForm action={createBatches} className="space-y-3">
-            <input type="hidden" name="campaignId" value={id} />
-            <Field label="Numbers per batch"><input name="size" type="number" min={1} max={5000} defaultValue={Math.min(50, Math.max(1, unassigned)) || 50} className="input w-32" /></Field>
-            {agents.length === 0 ? <p className="text-xs text-muted">{c.kind === "sales" ? "No sales agents with dialer access yet: give their role Calls → Read and Edit (own) in Roles & Permissions." : "Give someone the CSR Agent role first."}</p> : (
-              <div className="max-h-56 divide-y divide-line overflow-y-auto rounded-lg border border-line">
-                <div className="flex items-center justify-between bg-canvas/60 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted"><span>Agent</span><span>Batches</span></div>
-                {agents.map((a) => (
-                  <label key={a.id} className="flex items-center gap-2 px-3 py-1.5 text-sm has-[:checked]:bg-navy-900/[0.04]">
-                    <input type="checkbox" name="agents" value={a.id} className="accent-navy-900" />
-                    <span className="min-w-0 flex-1 truncate">{a.name}</span>
-                    <input type="number" name={`count_${a.id}`} min={0} max={100} defaultValue={1} className="input h-8 w-16 text-center" aria-label={`Batches for ${a.name}`} />
-                  </label>
-                ))}
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <SubmitButton pendingText="Assigning…">Give batches</SubmitButton>
-              <button type="submit" name="mode" value="all" className="inline-flex h-10 items-center rounded-lg border border-line px-3 text-sm hover:bg-canvas">Split all equally</button>
-            </div>
-          </ActionForm>
+          <BatchMaker campaignId={id} unassigned={unassigned} people={people} kind={c.kind === "sales" ? "sales" : "csr"} action={createBatches} />
         </Card>
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold">Outcomes</h2>

@@ -246,3 +246,23 @@ export async function applyCallOrder(campaignId: string) {
   }
   return rows.length;
 }
+
+/**
+ * Everyone who can be given call batches: Super Admins and anyone with Calls access through a role or a personal
+ * exception (Settings → Users → Access). kind: csr (CSR Agent role) or sales (everyone else). canLog: they have
+ * Calls → Edit, which the dialer needs to save results.
+ */
+export async function dialerPeople() {
+  const users = await db.user.findMany({
+    where: { active: true, OR: [{ isSuperAdmin: true }, { roles: { some: { role: { permissions: { some: { module: "calls", scope: { not: "none" } } } } } } }, { permissionOverrides: { some: { module: "calls", scope: { not: "none" } } } }] },
+    select: { id: true, name: true, isSuperAdmin: true, title: true, roles: { select: { role: { select: { name: true, permissions: { where: { module: "calls" }, select: { action: true, scope: true } } } } } }, permissionOverrides: { where: { module: "calls" }, select: { action: true, scope: true } } },
+    orderBy: { name: "asc" },
+  });
+  return users.map((u) => {
+    const own = u.permissionOverrides.find((p) => p.action === "edit");
+    const viaRole = u.roles.some((r) => r.role.permissions.some((p) => p.action === "edit" && p.scope !== "none"));
+    const canLog = u.isSuperAdmin || (own ? own.scope !== "none" : viaRole);
+    const csr = u.roles.some((r) => r.role.name.trim().toLowerCase() === "csr agent");
+    return { id: u.id, name: u.name, kind: (csr ? "csr" : "sales") as "csr" | "sales", canLog, roles: u.isSuperAdmin ? "Super Admin" : u.roles.map((r) => r.role.name).join(", ") || u.title || "" };
+  });
+}
