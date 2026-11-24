@@ -6,9 +6,10 @@ import { Plus } from "lucide-react";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { Badge, Card, Drawer, EmptyState, LinkButton, PageHeader } from "@/components/ui";
+import { BulkAll, BulkBar, BulkTick } from "@/components/calls/bulk-bar";
 import { CampaignForm } from "@/components/calls/campaign-form";
 
-import { createDemoCampaign } from "../actions";
+import { createDemoCampaign, bulkCampaigns } from "../actions";
 
 export const metadata = { title: "Campaigns" };
 const TONE = { active: "green", paused: "amber", done: "neutral" } as const;
@@ -29,10 +30,11 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
       <Card className="overflow-x-auto">
         {campaigns.length === 0 ? <EmptyState title="No campaigns yet" description="Create one, paste or upload numbers, and hand out batches." /> : (
           <table className="w-full min-w-[720px] text-sm">
-            <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Campaign</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5 text-right">Numbers</th><th className="px-4 py-2.5 text-right">Left to call</th><th className="px-4 py-2.5 text-right">Done</th><th className="px-4 py-2.5 text-right">Batches</th><th className="px-4 py-2.5">Created</th></tr></thead>
+            <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="w-10 px-4 py-2.5"><BulkAll form="bulk-campaigns" /></th><th className="px-4 py-2.5">Campaign</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5 text-right">Numbers</th><th className="px-4 py-2.5 text-right">Left to call</th><th className="px-4 py-2.5 text-right">Done</th><th className="px-4 py-2.5 text-right">Batches</th><th className="px-4 py-2.5">Created</th></tr></thead>
             <tbody className="divide-y divide-line">
               {campaigns.map((c) => (
                 <tr key={c.id}>
+                  <td className="px-4 py-2.5"><BulkTick form="bulk-campaigns" id={c.id} label={c.name} /></td>
                   <td className="px-4 py-2.5"><Link href={`/calls/campaigns/${c.id}`} className="font-medium hover:underline">{c.name}</Link>{c.description && <span className="block text-xs text-muted">{c.description}</span>}</td>
                   <td className="px-4 py-2.5"><Badge tone={TONE[c.status as keyof typeof TONE] ?? "neutral"}>{c.status}</Badge></td>
                   <td className="px-4 py-2.5 text-right tabular-nums">{c._count.targets}</td>
@@ -46,6 +48,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
           </table>
         )}
       </Card>
+      <BulkBar form="bulk-campaigns" action={bulkCampaigns} noun="campaign(s)" ops={[{ value: "active", label: "Activate" }, { value: "paused", label: "Pause" }, { value: "done", label: "Mark done" }, { value: "delete", label: "Delete (with their numbers)", danger: true }]} />
       {sp.new && (
         <Drawer title="New campaign" closeHref="/calls/campaigns" width="max-w-xl">
           <CampaignForm />

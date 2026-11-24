@@ -3,7 +3,7 @@ import { Field } from "@/components/ui";
 import { saveCampaign } from "@/app/(app)/calls/actions";
 
 /** New / edit campaign: name, script, WhatsApp message, tries and the CRM lead source. */
-export function CampaignForm({ c }: { c?: { id: string; name: string; description: string | null; script: string | null; waMessage: string | null; maxAttempts: number; sourceName: string | null } }) {
+export function CampaignForm({ c }: { c?: { id: string; name: string; description: string | null; script: string | null; waMessage: string | null; maxAttempts: number; sourceName: string | null; dialPrefix?: string | null } }) {
   return (
     <ActionForm action={saveCampaign} className="space-y-4">
       {c && <input type="hidden" name="id" value={c.id} />}
@@ -18,6 +18,9 @@ export function CampaignForm({ c }: { c?: { id: string; name: string; descriptio
       <div className="grid grid-cols-2 gap-3">
         <Field label="Tries before giving up"><input name="maxAttempts" type="number" min={1} max={10} defaultValue={c?.maxAttempts ?? 3} className="input" /></Field>
         <Field label="Lead source in the CRM"><input name="sourceName" defaultValue={c?.sourceName ?? "CC"} className="input" /></Field>
+        <Field label="Dial prefix (optional)" hint="Added before every number when calling, e.g. 27 for your 3CX route: +971 52 440 7884 is dialled as 27971524407884. The saved number doesn't change.">
+          <input name="dialPrefix" defaultValue={c?.dialPrefix ?? ""} inputMode="numeric" pattern="[0-9*#+]{0,10}" maxLength={10} placeholder="e.g. 27" className="input w-40 font-mono" />
+        </Field>
       </div>
       <SubmitButton>{c ? "Save" : "Create campaign"}</SubmitButton>
     </ActionForm>

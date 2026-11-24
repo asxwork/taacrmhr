@@ -10,29 +10,40 @@ export async function readSheetFile(file: File): Promise<{ headers: string[]; ro
     await wb.xlsx.load(await file.arrayBuffer());
     const ws = wb.worksheets[0];
     if (!ws) return { headers: [], rows: [] };
+    // A cell can be plain, a formula result, rich text, or a link whose text is itself rich text: read every layer.
     const text = (v: unknown): string => {
       if (v == null) return "";
       if (v instanceof Date) return v.toISOString();
-      if (typeof v === "object") {
-        const o = v as Record<string, unknown>;
-        if ("text" in o) return String(o.text ?? "");
-        if ("result" in o) return String(o.result ?? "");
-        if ("richText" in o) return (o.richText as { text: string }[]).map((r) => r.text).join("");
-        if ("hyperlink" in o) return String(o.hyperlink ?? "").replace(/^mailto:/, "");
-        return "";
-      }
-      return String(v);
+      if (typeof v !== "object") return String(v);
+      const o = v as Record<string, unknown>;
+      if (Array.isArray(o.richText)) return (o.richText as { text?: string }[]).map((r) => r.text ?? "").join("");
+      if ("text" in o) return text(o.text);
+      if ("result" in o) return text(o.result);
+      if ("hyperlink" in o) return String(o.hyperlink ?? "").replace(/^mailto:/, "");
+      if ("error" in o) return "";
+      return "";
     };
+    // Every column with data gets a header: empty ones become "Column 5", repeated ones "Phone (2)".
+    const width = Math.max(ws.columnCount, ws.getRow(1).cellCount);
     const headers: string[] = [];
-    ws.getRow(1).eachCell({ includeEmpty: true }, (c, i) => { headers[i] = normHeader(text(c.value)); });
+    const seen = new Map<string, number>();
+    for (let i = 1; i <= width; i++) {
+      let h = normHeader(text(ws.getRow(1).getCell(i).value)) || `column ${i}`;
+      const n = (seen.get(h) ?? 0) + 1;
+      seen.set(h, n);
+      if (n > 1) h = `${h} (${n})`;
+      headers[i] = h;
+    }
     const rows: Record<string, string>[] = [];
     ws.eachRow({ includeEmpty: false }, (row, n) => {
       if (n === 1) return;
       const r: Record<string, string> = {};
       row.eachCell({ includeEmpty: false }, (c, i) => { if (headers[i]) r[headers[i]!] = text(c.value).trim(); });
-      rows.push(r);
+      if (Object.values(r).some(Boolean)) rows.push(r);
     });
-    return { headers: headers.filter(Boolean), rows };
+    // Leave out columns that are empty in every row (and have no real name).
+    const used = headers.filter((h, i) => h && (!/^column \d+$/.test(h) || rows.some((r) => r[headers[i]!])));
+    return { headers: used, rows };
   }
   const parsed = Papa.parse<Record<string, string>>((await file.text()).replace(/^﻿/, ""), { header: true, skipEmptyLines: "greedy", transformHeader: normHeader });
   return { headers: parsed.meta.fields ?? [], rows: parsed.data };

@@ -15,7 +15,8 @@ import { Badge, Button, Card, Drawer, Field, LinkButton, PageHeader } from "@/co
 import { DrillTiles } from "@/components/drill-tiles";
 import { BarList } from "@/components/charts";
 import { AutoFilterForm } from "@/components/auto-filter-form";
-import { createBatches, reassignBatch, sendTargetToCrm, setCampaignStatus, uploadNumbers } from "../../actions";
+import { bulkTargets, createBatches, deleteCampaign, reassignBatch, sendTargetToCrm, setCampaignStatus, uploadNumbers } from "../../actions";
+import { BulkAll, BulkBar, BulkTick, DeleteCampaign } from "@/components/calls/bulk-bar";
 import { CampaignForm } from "@/components/calls/campaign-form";
 import { ImportNumbers } from "@/components/calls/import-numbers";
 
@@ -47,6 +48,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
         <div className="flex gap-2">
           <LinkButton href={`/calls/campaigns/${id}?edit=1`} variant="secondary" scroll={false}>Edit</LinkButton>
           <form action={setCampaignStatus}><input type="hidden" name="id" value={id} /><input type="hidden" name="status" value={c.status === "active" ? "paused" : "active"} /><Button variant="secondary">{c.status === "active" ? "Pause" : "Resume"}</Button></form>
+          <DeleteCampaign id={id} name={c.name} action={deleteCampaign} />
         </div>
       } />
       <DrillTiles className="mb-6 lg:grid-cols-5 xl:grid-cols-5" tiles={[
@@ -133,10 +135,11 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       </div>
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
-          <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Number</th><th className="px-4 py-2.5">Agent</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5">Last outcome</th><th className="px-4 py-2.5">Tries</th><th className="px-4 py-2.5" /></tr></thead>
+          <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="w-10 px-4 py-2.5"><BulkAll form="bulk-numbers" /></th><th className="px-4 py-2.5">Number</th><th className="px-4 py-2.5">Agent</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5">Last outcome</th><th className="px-4 py-2.5">Tries</th><th className="px-4 py-2.5" /></tr></thead>
           <tbody className="divide-y divide-line">
             {targets.map((t) => (
               <tr key={t.id}>
+                <td className="px-4 py-2"><BulkTick form="bulk-numbers" id={t.id} label={t.name ?? t.phone} /></td>
                 <td className="px-4 py-2"><span className="font-medium">{t.name ?? "—"}</span><span className="block font-mono text-xs text-muted">{fmtPhone(t.phone)}</span></td>
                 <td className="px-4 py-2">{t.assigneeId ? names.get(t.assigneeId) ?? "—" : <span className="text-muted">unassigned</span>}</td>
                 <td className="px-4 py-2">{STATUS_LABEL[t.status] ?? t.status}{t.status === "callback" && t.callbackAt && <span className="block text-xs text-muted">{format(t.callbackAt, "d MMM, h:mm a")}</span>}</td>
@@ -151,6 +154,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           </tbody>
         </table>
       </Card>
+      <BulkBar form="bulk-numbers" action={bulkTargets} noun="number(s)" people={agents.map((a) => ({ id: a.id, name: a.name }))} ops={[{ value: "assign", label: "Give to an agent", needsPerson: true }, { value: "unassign", label: "Back to unassigned" }, { value: "reset", label: "Call again (reset)" }, { value: "dnc", label: "Do not call", danger: true }, { value: "delete", label: "Delete", danger: true }]} />
       <p className="mt-2 text-xs text-muted">Showing up to 200 numbers. Outcomes: {OUTCOMES.map((o) => o.label).join(", ")}.</p>
 
       {sp.edit && <Drawer title={`Edit ${c.name}`} closeHref={`/calls/campaigns/${id}`} width="max-w-xl"><CampaignForm c={c} /></Drawer>}

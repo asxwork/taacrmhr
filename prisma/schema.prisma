@@ -971,6 +971,8 @@ model CallCampaign {
   maxAttempts Int          @default(3)
   /// Lead source for numbers converted to leads.
   sourceName  String?
+  /// Digits dialled before every number of this campaign (e.g. "27" for a 3CX route): +971… is dialled as 27971….
+  dialPrefix  String?
   status      String       @default("active")
   createdById String?
   createdAt   DateTime     @default(now())

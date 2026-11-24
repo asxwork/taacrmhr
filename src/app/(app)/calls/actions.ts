@@ -23,6 +23,7 @@ export async function saveCampaign(_: FormState, fd: FormData): Promise<FormStat
   const data = {
     name, description: str(fd, "description") || null, script: str(fd, "script").slice(0, 8000) || null, waMessage: str(fd, "waMessage").slice(0, 1000) || null,
     maxAttempts: Math.max(1, Math.min(10, Number(str(fd, "maxAttempts")) || 3)), sourceName: str(fd, "sourceName") || null,
+    dialPrefix: str(fd, "dialPrefix").replace(/[^0-9*#+]/g, "").slice(0, 10) || null,
   };
   const id = str(fd, "id");
   const c = id ? await db.callCampaign.update({ where: { id }, data }) : await db.callCampaign.create({ data: { ...data, createdById: user.id } });
@@ -205,9 +206,13 @@ export async function previewSheet(_: SheetState, fd: FormData): Promise<SheetSt
   const guess = headers.map((h) => {
     const looksPhone = /phone|mobile|cell|contact|whatsapp|number|tel/.test(h) && !/unit|plot|flat|cnic|passport|file|id$/.test(h);
     if (looksPhone && phones < 2) return phones++ === 0 ? "phone" : "phone2";
-    if (/^(full )?name$|client name|customer name|^name /.test(h)) return "name";
+    if (/^first ?name|^given name|^fname$/.test(h)) return "first";
+    if (/^last ?name|^surname|^family name|^lname$/.test(h)) return "last";
+    if (/(^|\b)(full )?name$|^name\b|client|customer|buyer|owner name|contact name/.test(h) && !/project|unit|building|company|agent|developer|tower|file|deal(?! ?owner)/.test(h)) return "name";
     return "detail";
   });
+  // One column per role: keep the first guess for name / first / last.
+  for (const r of ["name", "first", "last"]) { let seen = false; guess.forEach((g, i) => { if (g === r) { if (seen) guess[i] = "detail"; seen = true; } }); }
   if (!guess.includes("phone")) { const i = headers.findIndex((_, i) => sheet.rows.slice(0, 20).some((r) => (r[headers[i]!] ?? "").replace(/\D/g, "").length >= 9)); if (i >= 0) guess[i] = "phone"; }
   return { id, headers, sample: sheet.rows.slice(0, 4).map((r) => headers.map((h) => r[h] ?? "")), total: sheet.rows.length, guess };
 }
@@ -221,13 +226,15 @@ export async function importSheet(_: SheetState, fd: FormData): Promise<SheetSta
   const label = hold.headers.map((h, i) => (str(fd, `label_${i}`) || h).slice(0, 60));
   const pi = role.indexOf("phone");
   if (pi < 0) return { error: "Choose which column has the phone number." };
-  const p2 = role.indexOf("phone2"), ni = role.indexOf("name");
+  const p2 = role.indexOf("phone2"), ni = role.indexOf("name"), fi = role.indexOf("first"), li = role.indexOf("last");
   const rows = hold.rows.map((r) => {
     const v = (i: number) => (i >= 0 ? (r[hold.headers[i]!] ?? "").trim() : "");
     const extra: Record<string, string> = {};
     role.forEach((x, i) => { if (x === "detail" && v(i)) extra[label[i]!] = v(i).slice(0, 500); });
     if (v(p2)) extra["Other phone"] = v(p2);
-    return { phone: v(pi), name: v(ni) || null, extra: Object.keys(extra).length ? extra : null };
+    // Full name: the Name column, else First + Last name joined.
+    const name = v(ni) || [v(fi), v(li)].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    return { phone: v(pi), name: name || null, extra: Object.keys(extra).length ? extra : null };
   }).filter((r) => (phoneKey(r.phone) ?? "").length >= 7); // a real number, not a name or a unit code
   if (!rows.length) return { error: "No phone numbers found in that column (a phone needs at least 7 digits). Check which column you chose as Phone number." };
   const res = await importNumbers(hold.campaignId, rows);
@@ -235,4 +242,61 @@ export async function importSheet(_: SheetState, fd: FormData): Promise<SheetSta
   await audit(user.id, "create", "callTarget", hold.campaignId, `Imported ${res.added} number(s) from a sheet`);
   revalidatePath(`/calls/campaigns/${hold.campaignId}`);
   return { ok: true, message: `Added ${res.added} number${res.added === 1 ? "" : "s"}${res.duplicates > 0 ? `, skipped ${res.duplicates} duplicate(s)` : ""}${res.dnc ? `, ${res.dnc} on the do-not-call list` : ""}. Agents see the columns you chose on each call.` };
+}
+
+/** Campaigns list → bulk: activate, pause, mark done or delete (numbers and batches go too; calls made stay in History). */
+export async function bulkCampaigns(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!manager(user)) return { error: "Only calling supervisors can manage campaigns." };
+  const ids = [...new Set(fd.getAll("ids").map(String).filter(Boolean))];
+  const op = str(fd, "op");
+  if (!ids.length) return { error: "Tick at least one campaign." };
+  if (op === "delete") {
+    const n = (await db.callCampaign.deleteMany({ where: { id: { in: ids } } })).count;
+    await audit(user.id, "delete", "callCampaign", null, `Deleted ${n} campaign(s)`);
+    refresh();
+    return { ok: true, message: `${n} campaign(s) deleted.` };
+  }
+  if (!["active", "paused", "done"].includes(op)) return { error: "Choose what to do." };
+  const n = (await db.callCampaign.updateMany({ where: { id: { in: ids } }, data: { status: op } })).count;
+  refresh();
+  return { ok: true, message: `${n} campaign(s) set to ${op}.` };
+}
+
+export async function deleteCampaign(fd: FormData) {
+  const user = await requireUser();
+  if (!manager(user)) return;
+  const c = await db.callCampaign.findUnique({ where: { id: str(fd, "id") } });
+  if (!c) return;
+  await db.callCampaign.delete({ where: { id: c.id } });
+  await audit(user.id, "delete", "callCampaign", c.id, `Deleted campaign ${c.name}`);
+  refresh();
+  redirect("/calls/campaigns");
+}
+
+/** A campaign's numbers → bulk: give to an agent, back to unassigned, call again, do not call, or delete. */
+export async function bulkTargets(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!manager(user)) return { error: "Only calling supervisors can change numbers." };
+  const ids = [...new Set(fd.getAll("ids").map(String).filter(Boolean))];
+  const op = str(fd, "op");
+  if (!ids.length) return { error: "Tick at least one number." };
+  const where = { id: { in: ids } };
+  let n = 0, msg = "";
+  if (op === "delete") { n = (await db.callTarget.deleteMany({ where })).count; msg = "deleted"; }
+  else if (op === "unassign") { n = (await db.callTarget.updateMany({ where, data: { assigneeId: null, batchId: null } })).count; msg = "back to unassigned"; }
+  else if (op === "assign") {
+    const to = str(fd, "value");
+    if (!(await db.user.findFirst({ where: { id: to, active: true } }))) return { error: "Choose an agent." };
+    n = (await db.callTarget.updateMany({ where, data: { assigneeId: to } })).count; msg = "given to the agent";
+  } else if (op === "reset") { n = (await db.callTarget.updateMany({ where, data: { status: "new", outcome: null, attempts: 0, callbackAt: null } })).count; msg = "set to call again"; }
+  else if (op === "dnc") {
+    const rows = await db.callTarget.findMany({ where, select: { phoneKey: true } });
+    for (const k of new Set(rows.map((r) => r.phoneKey))) await db.dncNumber.upsert({ where: { phoneKey: k }, update: {}, create: { phoneKey: k, reason: `Bulk, by ${user.name}` } });
+    n = (await db.callTarget.updateMany({ where, data: { status: "dnc" } })).count; msg = "put on the do-not-call list";
+  } else return { error: "Choose what to do." };
+  await audit(user.id, "update", "callTarget", null, `Bulk ${op} on ${n} number(s)`);
+  refresh();
+  revalidatePath("/calls/campaigns/[id]", "page");
+  return { ok: true, message: `${n} number(s) ${msg}.` };
 }

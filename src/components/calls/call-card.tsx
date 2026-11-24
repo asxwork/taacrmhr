@@ -21,14 +21,17 @@ const TONES: Record<string, string> = {
  * phone link that starts a timer), message it on WhatsApp with the campaign's text, then pick what happened.
  * Saving loads the next number.
  */
-export function CallCard({ target, outcomes, action, waText, mode = "system", details = [] }: {
+export function CallCard({ target, outcomes, action, waText, mode = "system", details = [], dialPrefix }: {
   target: { id: string; name: string | null; phone: string; status: string; attempts: number };
   outcomes: Opt[]; action: (s: FormState, fd: FormData) => Promise<FormState>; waText: string;
   /** system: Call button (softphone or phone link). landline: the number shown big to dial by hand. */
   mode?: "system" | "landline";
   /** The client's details from the uploaded sheet (project, unit, nationality…). */
   details?: [string, string][];
+  /** Campaign's dial prefix (e.g. "27" for a 3CX route): dialled before the number's digits, without + or 00. */
+  dialPrefix?: string | null;
 }) {
+  const dialNum = dialPrefix ? `${dialPrefix}${target.phone.replace(/\D/g, "").replace(/^00/, "")}` : target.phone;
   const box = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   // Speed keys: 1–9 pick "What happened?", Ctrl+Enter saves and loads the next number.
@@ -67,6 +70,7 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
             <div className="rounded-xl border-2 border-navy-900/15 bg-canvas px-5 py-2.5 text-center">
               <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted"><Hash className="size-3" /> Dial on your landline</p>
               <p className="select-all font-mono text-[28px] font-bold leading-tight tracking-wide tabular-nums">{fmtPhone(target.phone)}</p>
+              {dialPrefix && <p className="text-xs text-muted">with prefix: <span className="select-all font-mono">{dialNum}</span></p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <button type="button" onClick={() => { void navigator.clipboard.writeText(target.phone.replace(/\s/g, "")); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className="flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm hover:bg-canvas"><Copy className="size-4" /> {copied ? "Copied" : "Copy"}</button>
@@ -81,17 +85,18 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
               <PhoneCall className="size-5 animate-pulse" /> {live.state === "talking" ? "Hang up" : "Cancel"}
             </button>
           ) : viaPbx ? (
-            <button type="button" disabled={!!phone.call} onClick={() => { setEnded(null); phone.dial(target.phone, { targetId: target.id }); }}
+            <button type="button" disabled={!!phone.call} onClick={() => { setEnded(null); phone.dial(dialNum, { targetId: target.id }); }}
               className="flex h-14 items-center gap-2 rounded-xl bg-emerald-600 px-6 text-lg font-semibold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50">
               <Phone className="size-5" /> {ended ? "Call again" : "Call"}
             </button>
           ) : (
-            <a href={telHref(target.phone)} onClick={() => setStartedAt(Date.now())}
+            <a href={dialPrefix ? `tel:${dialNum}` : telHref(target.phone)} onClick={() => setStartedAt(Date.now())}
               className={cn("flex h-14 items-center gap-2 rounded-xl px-6 text-lg font-semibold text-white shadow transition", startedAt ? "bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700")}>
               {startedAt ? <PhoneCall className="size-5 animate-pulse" /> : <Phone className="size-5" />} {startedAt ? "Calling…" : "Call"}
             </a>
           )}
-          <a href={telHref(target.phone)} className="select-all font-mono text-base font-semibold tabular-nums text-ink hover:underline">{fmtPhone(target.phone)}</a>
+          <a href={dialPrefix ? `tel:${dialNum}` : telHref(target.phone)} className="select-all font-mono text-base font-semibold tabular-nums text-ink hover:underline">{fmtPhone(target.phone)}</a>
+          {dialPrefix && <span className="text-[11px] text-muted" title="The campaign's dial prefix is added when calling">dials <span className="font-mono">{dialNum}</span></span>}
         </div>
         <a href={wa} target="_blank" rel="noreferrer" className="flex h-14 items-center gap-2 rounded-xl border border-emerald-500/50 px-5 font-semibold text-emerald-700 hover:bg-emerald-500/10">
           <MessageCircle className="size-5" /> WhatsApp

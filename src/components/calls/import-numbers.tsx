@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { importSheet, previewSheet, type SheetState } from "@/app/(app)/calls/actions";
 
-const ROLES = [["phone", "Phone number"], ["phone2", "Second phone"], ["name", "Name"], ["detail", "Show to agent"], ["skip", "Don't import"]] as const;
+const ROLES = [["phone", "Phone number"], ["phone2", "Second phone"], ["name", "Full name"], ["first", "First name"], ["last", "Last name"], ["detail", "Show to agent"], ["skip", "Don't import"]] as const;
 const pretty = (h: string) => h.replace(/\b\w/g, (c) => c.toUpperCase());
 
 /** Upload a sheet, then say what each column is (phone, name, details shown to the agent, or skip). */
@@ -36,7 +36,7 @@ export function ImportNumbers({ campaignId }: { campaignId: string }) {
     return (
       <form action={save} className="space-y-3">
         <input type="hidden" name="id" value={id} />
-        <p className="text-sm"><b>{preview.total?.toLocaleString()}</b> rows found. Say what each column is:</p>
+        <p className="text-sm"><b>{preview.total?.toLocaleString()}</b> rows and <b>{preview.headers.length}</b> columns found. Say what each column is:</p>
         <div className="max-h-[28rem] overflow-y-auto rounded-lg border border-line">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-canvas text-left text-xs text-muted"><tr><th className="px-3 py-2 font-medium">Column</th><th className="px-3 py-2 font-medium">Is</th><th className="px-3 py-2 font-medium">Example</th></tr></thead>
@@ -58,6 +58,7 @@ export function ImportNumbers({ campaignId }: { campaignId: string }) {
           </table>
         </div>
         {!cur.includes("phone") && <p className="text-sm text-amber-700">Choose the column with the phone number.</p>}
+        {!cur.includes("name") && !cur.includes("first") && !cur.includes("last") && <p className="text-sm text-amber-700">No name column chosen: agents will see “Unknown name”. Pick Full name, or First name and Last name.</p>}
         {done?.error && <p role="alert" className="text-sm text-red-700">{done.error}</p>}
         <div className="flex flex-wrap items-center gap-3">
           <button type="submit" disabled={saving || !cur.includes("phone")} className="inline-flex h-9 items-center rounded-lg bg-navy-900 px-4 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-50">{saving ? "Importing…" : `Import ${preview.total?.toLocaleString()} rows`}</button>

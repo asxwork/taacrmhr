@@ -93,7 +93,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <Card className="p-6">
-            <CallCard key={target.id} target={target} mode={mode} details={Object.entries(extra).filter(([, v]) => String(v).trim())} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} />
+            <CallCard key={target.id} target={target} mode={mode} dialPrefix={target.campaign.dialPrefix} details={Object.entries(extra).filter(([, v]) => String(v).trim())} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} />
           </Card>
           <div className="space-y-4">
             {todayCard}
