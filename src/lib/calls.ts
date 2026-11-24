@@ -160,7 +160,7 @@ export async function importNumbers(campaignId: string, rows: ReturnType<typeof 
  * Splits unassigned numbers into batches of `size`. With `plan` each agent gets their own number of batches (dealt in
  * turn, so a short list is shared fairly); without it, all remaining numbers are dealt round-robin to the agents.
  */
-export async function makeBatches(campaignId: string, agentIds: string[], size: number, plan?: Record<string, number>) {
+export async function makeBatches(campaignId: string, agentIds: string[], size: number, plan?: Record<string, number>, givenById?: string) {
   const free = await db.callTarget.findMany({ where: { campaignId, assigneeId: null, status: { in: ["new", "retry"] } }, select: { id: true }, orderBy: [{ position: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }] });
   if (!free.length || !agentIds.length) return { batches: 0, numbers: 0, left: free.length };
   const agents = (await db.user.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } })).sort((a, b) => agentIds.indexOf(a.id) - agentIds.indexOf(b.id));
@@ -179,8 +179,8 @@ export async function makeBatches(campaignId: string, agentIds: string[], size: 
   for (const agent of turns) {
     const slice = free.slice(used, used + size);
     if (!slice.length) break;
-    const batch = await db.callBatch.create({ data: { campaignId, name: `Batch ${count + made + 1} · ${agent.name}`, assigneeId: agent.id } });
-    await db.callTarget.updateMany({ where: { id: { in: slice.map((t) => t.id) } }, data: { batchId: batch.id, assigneeId: agent.id } });
+    const batch = await db.callBatch.create({ data: { campaignId, name: `Batch ${count + made + 1} · ${agent.name}`, assigneeId: agent.id, givenById: givenById ?? null } });
+    await db.callTarget.updateMany({ where: { id: { in: slice.map((t) => t.id) } }, data: { batchId: batch.id, assigneeId: agent.id, givenById: givenById ?? null, givenAt: new Date() } });
     made++; used += slice.length;
   }
   return { batches: made, numbers: used, left: free.length - used };

@@ -44,6 +44,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
     dialerPeople(),
   ]);
   const viewer = await requireUser();
+  const givers = new Map((await db.user.findMany({ where: { id: { in: [...new Set(targets.map((t) => t.givenById).filter((x): x is string => !!x))] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
   const files = viewer.isSuperAdmin ? await listImportFiles(id) : [];
   // Every detail column the numbers have, and which ones agents don't see.
   const fields = [...new Set(samples.flatMap((t) => { try { return Object.keys(JSON.parse(t.extra!)); } catch { return []; } }))];
@@ -55,7 +56,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   return (
     <>
       <ListLink href="/calls/campaigns" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="size-4" /> Campaigns</ListLink>
-      <PageHeader title={c.name} description={`${c.kind === "sales" ? "Sales campaign: sales agents call; an interested caller becomes their own lead." : "CSR campaign: the calling team calls; interested callers go to the sales team by rotation."}${c.description ? ` · ${c.description}` : ""}`} actions={
+      <PageHeader title={c.name} description={`${c.kind === "sales" ? "Sales campaign: sales agents call; an interested caller becomes their own lead." : "CSR campaign: the calling team calls; interested callers go to the sales team by rotation."}${c.description ? ` · ${c.description}` : ""}${c.numbersFrom ? ` · Numbers from: ${c.numbersFrom}` : ""}`} actions={
         <div className="flex gap-2">
           <LinkButton href={`/calls/campaigns/${id}?edit=1`} variant="secondary" scroll={false}>Edit</LinkButton>
           <form action={setCampaignStatus}><input type="hidden" name="id" value={id} /><input type="hidden" name="status" value={c.status === "active" ? "paused" : "active"} /><Button variant="secondary">{c.status === "active" ? "Pause" : "Resume"}</Button></form>
@@ -155,13 +156,13 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       </div>
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
-          <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="w-10 px-4 py-2.5"><BulkAll form="bulk-numbers" /></th><th className="px-4 py-2.5">Number</th><th className="px-4 py-2.5">Agent</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5">Last outcome</th><th className="px-4 py-2.5">Tries</th><th className="px-4 py-2.5" /></tr></thead>
+          <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="w-10 px-4 py-2.5"><BulkAll form="bulk-numbers" /></th><th className="px-4 py-2.5">Number</th><th className="px-4 py-2.5">Agent · given by</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5">Last outcome</th><th className="px-4 py-2.5">Tries</th><th className="px-4 py-2.5" /></tr></thead>
           <tbody className="divide-y divide-line">
             {targets.map((t) => (
               <tr key={t.id}>
                 <td className="px-4 py-2"><BulkTick form="bulk-numbers" id={t.id} label={t.name ?? t.phone} /></td>
                 <td className="px-4 py-2"><span className="font-medium">{t.name ?? "—"}</span><span className="block font-mono text-xs text-muted">{fmtPhone(t.phone)}</span></td>
-                <td className="px-4 py-2">{t.assigneeId ? names.get(t.assigneeId) ?? "—" : <span className="text-muted">unassigned</span>}</td>
+                <td className="px-4 py-2">{t.assigneeId ? names.get(t.assigneeId) ?? "—" : <span className="text-muted">unassigned</span>}{t.givenById && <span className="block text-xs text-muted">by {names.get(t.givenById) ?? givers.get(t.givenById) ?? "—"}{t.givenAt ? ` · ${format(t.givenAt, "d MMM")}` : ""}</span>}</td>
                 <td className="px-4 py-2">{STATUS_LABEL[t.status] ?? t.status}{t.status === "callback" && t.callbackAt && <span className="block text-xs text-muted">{format(t.callbackAt, "d MMM, h:mm a")}</span>}</td>
                 <td className="px-4 py-2">{t.outcome ? <Badge tone={outcome(t.outcome)?.tone === "green" ? "green" : outcome(t.outcome)?.tone === "red" ? "red" : "neutral"}>{outcome(t.outcome)?.label}</Badge> : "—"}{t.lastCalledAt && <span className="block text-xs text-muted">{format(t.lastCalledAt, "d MMM, h:mm a")}</span>}</td>
                 <td className="px-4 py-2 tabular-nums">{t.attempts}</td>

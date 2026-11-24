@@ -25,6 +25,7 @@ export async function saveCampaign(_: FormState, fd: FormData): Promise<FormStat
     maxAttempts: Math.max(1, Math.min(10, Number(str(fd, "maxAttempts")) || 3)), sourceName: str(fd, "sourceName") || null,
     dialPrefix: str(fd, "dialPrefix").replace(/[^0-9*#+]/g, "").slice(0, 10) || null,
     kind: str(fd, "kind") === "sales" ? "sales" : "csr",
+    numbersFrom: str(fd, "numbersFrom").slice(0, 190) || null,
   };
   const id = str(fd, "id");
   const c = id ? await db.callCampaign.update({ where: { id }, data }) : await db.callCampaign.create({ data: { ...data, createdById: user.id } });
@@ -69,7 +70,7 @@ export async function createBatches(_: FormState, fd: FormData): Promise<FormSta
   // "Give batches": each ticked agent gets their own number of batches. "Split all": everything left, shared equally.
   const plan = str(fd, "mode") === "all" ? undefined : Object.fromEntries(agents.map((a) => [a, Math.max(0, Math.min(100, Math.floor(Number(str(fd, `count_${a}`)) || 0)))]));
   if (plan && !Object.values(plan).some((n) => n > 0)) return { error: "Enter how many batches each ticked agent gets (or use Split all equally)." };
-  const res = await makeBatches(campaignId, agents, size, plan);
+  const res = await makeBatches(campaignId, agents, size, plan, user.id);
   if (!res.numbers) return { error: "There are no unassigned numbers left in this campaign." };
   await audit(user.id, "assign", "callBatch", campaignId, `${res.batches} batch(es), ${res.numbers} numbers`);
   revalidatePath(`/calls/campaigns/${campaignId}`);
@@ -97,7 +98,14 @@ export async function logCall(_: FormState, fd: FormData): Promise<FormState> {
   if (!target || (target.assigneeId !== user.id && !manager(user))) return { error: "This number isn't assigned to you." };
   const o = str(fd, "outcome") as Outcome;
   if (!OUTCOMES.some((x) => x.value === o)) return { error: "Choose what happened." };
-  const callbackAt = str(fd, "callbackAt") ? new Date(str(fd, "callbackAt")) : null;
+  // Pressed twice (slow connection, Ctrl+Enter again): the first save counts, the repeat is ignored.
+  if (await db.callLog.findFirst({ where: { targetId: target.id, agentId: user.id, startedAt: { gte: new Date(Date.now() - 30_000) } }, select: { id: true } })) {
+    refresh();
+    return { ok: true, message: "Saved. Next number loaded." };
+  }
+  const callbackAt = str(fd, "callbackAt") ? new Date(`${str(fd, "callbackAt")}${/[zZ]|[+-]\d\d:?\d\d$/.test(str(fd, "callbackAt")) ? "" : "+05:00"}`) : null;
+  // A callback in the past would be due at once and bring the same number straight back.
+  if (o === "callback" && callbackAt && +callbackAt < Date.now() + 60_000) return { error: "Choose a call-back time in the future." };
   // Softphone calls send the real talk time and the SIP Call-ID; phone-link calls are timed from the click.
   const started = Number(str(fd, "startedAt"));
   const talk = str(fd, "talkSec") === "" ? NaN : Number(str(fd, "talkSec"));
@@ -299,7 +307,7 @@ export async function bulkTargets(_: FormState, fd: FormData): Promise<FormState
   else if (op === "assign") {
     const to = str(fd, "value");
     if (!(await db.user.findFirst({ where: { id: to, active: true } }))) return { error: "Choose an agent." };
-    n = (await db.callTarget.updateMany({ where, data: { assigneeId: to } })).count; msg = "given to the agent";
+    n = (await db.callTarget.updateMany({ where, data: { assigneeId: to, givenById: user.id, givenAt: new Date() } })).count; msg = "given to the agent";
   } else if (op === "reset") { n = (await db.callTarget.updateMany({ where, data: { status: "new", outcome: null, attempts: 0, callbackAt: null } })).count; msg = "set to call again"; }
   else if (op === "dnc") {
     const rows = await db.callTarget.findMany({ where, select: { phoneKey: true } });

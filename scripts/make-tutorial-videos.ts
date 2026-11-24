@@ -158,7 +158,9 @@ async function main() {
     const out = path.join(dir, "out.mp4");
     const total = times[times.length - 1]!.end;
     sh("ffmpeg", ["-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", path.join(dir, "list.txt"), ...(audio ? ["-i", audio] : []),
-      "-vf", "fps=25,format=yuv420p", "-c:v", "libx264", "-preset", "slow", "-tune", "stillimage", "-crf", "21", "-g", "250",
+      // 10 fps is plenty for slides and light to play on slow PCs and phones; a keyframe at each slide (and at least
+      // every 10 s) makes start and seeking quick.
+      "-vf", "fps=10,format=yuv420p", "-c:v", "libx264", "-preset", "slow", "-tune", "stillimage", "-crf", "21", "-g", "100", "-sc_threshold", "40",
       ...(audio ? ["-c:a", "copy"] : ["-an"]), "-t", total.toFixed(2), "-movflags", "+faststart", out]);
     renameSync(out, old);
     // Still preview shown before the video starts (the title screen), so the player never looks empty.

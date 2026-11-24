@@ -33,6 +33,18 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
 }) {
   const dialNum = dialPrefix ? `${dialPrefix}${target.phone.replace(/\D/g, "").replace(/^00/, "")}` : target.phone;
   const box = useRef<HTMLDivElement>(null);
+  // Saving: the card is locked until the next number arrives (no double saves from a second click or Ctrl+Enter).
+  // Unlocks again if the save shows an error, or after 15 s.
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  useEffect(() => {
+    if (!saving) return;
+    const started = Date.now();
+    const t = setInterval(() => {
+      if (box.current?.querySelector("[role=alert]") || Date.now() - started > 15_000) { savingRef.current = false; setSaving(false); }
+    }, 400);
+    return () => clearInterval(t);
+  }, [saving]);
   const telLink = useRef<HTMLAnchorElement>(null);
   // Auto-dial: after "Save & next number" the next number is called straight away (Click to call mode). On by default;
   // the tick under the button turns it off (remembered on this device).
@@ -45,7 +57,8 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       const form = { current: box.current?.querySelector("form") ?? null };
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); form.current?.requestSubmit(); return; }
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); if (!savingRef.current) form.current?.requestSubmit(); return; }
+      if (savingRef.current) return;
       if (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.tagName === "SELECT" || e.ctrlKey || e.metaKey || e.altKey) return;
       const n = Number(e.key);
       if (n >= 1 && n <= outcomes.length) { const r = form.current?.querySelector<HTMLInputElement>(`input[name=outcome][value="${outcomes[n - 1]!.value}"]`); if (r) { r.click(); } }
@@ -140,7 +153,18 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
           ))}
         </dl>
       )}
-      <div ref={box} onSubmitCapture={() => { if (mode === "system" && autoDial) { try { sessionStorage.setItem("ams:dial-next", String(Date.now())); } catch {} } }}>
+      <div ref={box} className="relative" onSubmitCapture={(e) => {
+        if (savingRef.current) { e.preventDefault(); e.stopPropagation(); return; }
+        // Clear an old error first so a new one can be noticed.
+        box.current?.querySelectorAll("[role=alert]").forEach((n) => n.remove());
+        savingRef.current = true; setSaving(true);
+        if (mode === "system" && autoDial) { try { sessionStorage.setItem("ams:dial-next", String(Date.now())); } catch {} }
+      }}>
+      {saving && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-surface/70 backdrop-blur-[1px]" role="status" aria-live="polite">
+          <span className="flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2 text-sm font-medium text-white shadow-lg"><span className="size-3 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Saving… loading the next number</span>
+        </div>
+      )}
       <ActionForm key={target.id} action={action} className="space-y-4">
         <input type="hidden" name="targetId" value={target.id} />
         <input type="hidden" name="startedAt" value={startedAt || ""} />
@@ -160,7 +184,7 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
         </fieldset>
         {picked === "callback" && (
           <label className="block text-sm font-medium">Call back at
-            <input type="datetime-local" name="callbackAt" required className="input mt-1 w-64" />
+            <input type="datetime-local" name="callbackAt" required min={new Date(Date.now() + 5 * 3600_000 + 60_000).toISOString().slice(0, 16)} className="input mt-1 w-64" />
           </label>
         )}
         {picked === "interested" && (

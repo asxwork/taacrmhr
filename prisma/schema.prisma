@@ -979,6 +979,8 @@ model CallCampaign {
   /// Sheet columns kept for the record but not shown to agents (JSON list of names).
   hiddenFields String? // @text
   /// Which numbers are called first: top (file order), bottom (last row first), random, column (by orderField).
+  /// Where the numbers came from / who provided them (shown to agents), e.g. "Emaar buyers list from Ahmed".
+  numbersFrom String?
   callOrder   String       @default("top")
   orderField  String?
   orderDesc   Boolean      @default(false)
@@ -1000,6 +1002,8 @@ model CallBatch {
   assigneeId String?
   /// The agent marked their numbers in this batch as finished (Dialer → My campaigns → Mark as completed).
   completedAt DateTime?
+  /// Who gave this batch to the agent (a supervisor or a Super Admin).
+  givenById  String?
   createdAt  DateTime     @default(now())
   targets    CallTarget[]
 
@@ -1028,6 +1032,9 @@ model CallTarget {
   /// Row in the imported file (1, 2, 3…) and the place in the campaign's call order (see CallCampaign.callOrder).
   rowNo        Int?
   position     Int?
+  /// Who gave this number to its agent (batch or "Give to an agent"), and when.
+  givenById    String?
+  givenAt      DateTime?
   createdAt    DateTime     @default(now())
   logs         CallLog[]
 

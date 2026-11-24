@@ -1,5 +1,5 @@
 import Link from "@/components/link";
-import { Pencil, Plus, Search, Upload } from "lucide-react";
+import { Eye, Pencil, Plus, Search, ShieldCheck, Upload, UserRound } from "lucide-react";
 import { db } from "@/lib/db";
 import { managerUserIds } from "@/lib/managers";
 import { can, requirePermission } from "@/lib/permissions";
@@ -169,7 +169,11 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
                     <td className="td text-muted">{u.manager?.name ?? "—"}</td>
                     <td className="td text-right tabular-nums">{openLeads.get(u.id) ? <Link href={`/crm/leads?owner=${u.id}`} className={u.active ? "hover:underline" : "font-medium text-amber-700 hover:underline"} title={u.active ? "Open their leads" : "Old employee's leads: only a Super Admin can move them"}>{openLeads.get(u.id)}</Link> : <span className="text-muted">—</span>}</td>
                     <td className="td text-muted">{u.lastLoginAt ? fmtAgo(u.lastLoginAt) : <span className="text-amber-700">Never</span>}</td>
-                    <td className="td text-right">
+                    <td className="td whitespace-nowrap text-right">
+                      {/* Quick options: see AMS as them, their access, their profile. */}
+                      {actor.isSuperAdmin && !actor.viewAs && u.id !== actor.id && u.active && !u.isSuperAdmin && <a href={`/api/view-as?user=${u.id}`} title={`View as ${u.name}: their menus and data, read-only`} aria-label={`View as ${u.name}`} className="inline-flex size-8 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"><Eye className="size-4" /></a>}
+                      {can(actor, "settings.roles") && !u.isSuperAdmin && <Link href={`/settings/users/${u.id}/access`} title="Access: what they can see and do" aria-label={`Access of ${u.name}`} className="inline-flex size-8 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"><ShieldCheck className="size-4" /></Link>}
+                      {u.employee && canSeeProfiles && <Link href={`/hr/employees/${u.employee.id}?from=users`} title="Employee profile" aria-label={`Profile of ${u.name}`} className="inline-flex size-8 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"><UserRound className="size-4" /></Link>}
                       {can(actor, "settings.users", "edit") && <Link href={editHref(u.id)} scroll={false} title="Edit account (roles, branch, password)" aria-label={`Edit account of ${u.name}`} className="inline-flex size-8 items-center justify-center rounded-lg text-muted hover:bg-canvas hover:text-ink"><Pencil className="size-4" /></Link>}
                     </td>
                   </tr>

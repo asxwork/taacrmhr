@@ -53,6 +53,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       completed: batches.length > 0 && batches.every((b) => b.completedAt) };
   }).filter((c) => c.total > 0 && !(c.completed && !c.fresh && !c.retry && !c.callback && campNames.get(c.id)?.status === "done"));
   const mode = modeRow?.value === "landline" ? "landline" : "system";
+  const givenBy = target?.givenById ? (await db.user.findUnique({ where: { id: target.givenById }, select: { name: true, isSuperAdmin: true } })) : null;
   let extra: Record<string, string> = {};
   try { extra = target?.extra ? JSON.parse(target.extra) : {}; } catch {}
   // Details the supervisor chose to keep hidden from agents (Campaign → What agents see).
@@ -153,7 +154,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <Card className="p-6">
-            <CallCard key={target.id} target={target} mode={mode} dialPrefix={target.campaign.dialPrefix} details={Object.entries(extra).filter(([, v]) => String(v).trim())} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} />
+            <CallCard key={`${target.id}-${target.attempts}-${target.status}-${target.lastCalledAt?.getTime() ?? 0}`} target={target} mode={mode} dialPrefix={target.campaign.dialPrefix} details={Object.entries(extra).filter(([, v]) => String(v).trim())} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} />
           </Card>
           <div className="space-y-4">
             {todayCard}
@@ -162,6 +163,8 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
               <p className="font-medium">{target.campaign.name}</p>
               {target.campaign.description && <p className="mt-1 whitespace-pre-line text-sm text-muted">{target.campaign.description}</p>}
               {target.campaign.sourceName && <p className="mt-2 text-xs text-muted">Source: <b className="font-medium text-ink">{target.campaign.sourceName}</b></p>}
+              {target.campaign.numbersFrom && <p className="mt-1 text-xs text-muted">Numbers from: <b className="font-medium text-ink">{target.campaign.numbersFrom}</b></p>}
+              {givenBy && <p className="mt-1 text-xs text-muted">Given to you by: <b className="font-medium text-ink">{givenBy.name}{givenBy.isSuperAdmin ? " (Super Admin)" : ""}</b>{target.givenAt ? ` · ${format(target.givenAt, "d MMM")}` : ""}</p>}
             </Card>
             {target.campaign.script && (
               <Card className="p-5">

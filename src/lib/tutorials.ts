@@ -304,6 +304,7 @@ export const TUTORIALS: Tutorial[] = [
     summary: "Upload numbers, split them into batches for agents, and watch the team live.",
     steps: [
       "Choose the campaign type: CSR (the calling team; interested callers go to the sales team by rotation) or Sales (sales agents call; an interested caller becomes their own lead). Make batches only lists agents of that type.",
+      "Fill “Numbers came from” (e.g. Emaar buyers list, provided by Ahmed): agents see it on every call, with who gave them the numbers.",
       "Calls → Campaigns → New campaign: name, script, WhatsApp message and, if your phone system needs it, a dial prefix (e.g. 27 for a 3CX route: +971… is dialled as 27971…; the saved number doesn't change).",
       "Add numbers: choose an Excel (.xlsx) or CSV file, then say what each column is — Phone number, Second phone, Full name, or First name + Last name (joined), Show to agent (project, unit, nationality, email…, rename them if you like), Keep, hide from agents, or Don't import (hide as many columns as you like). Change it any time in What agents see on the campaign: tick what agents see, untick to hide, Save. Every column of the sheet is listed. Duplicates and do-not-call numbers are skipped.",
       "Call order on the campaign: Top first (file order), Bottom first, Random, or By a column (e.g. Unit or Project, A→Z / Z→A). It decides which numbers go into batches first and which number each agent gets next.",

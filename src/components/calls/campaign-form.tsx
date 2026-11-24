@@ -3,7 +3,7 @@ import { Field } from "@/components/ui";
 import { saveCampaign } from "@/app/(app)/calls/actions";
 
 /** New / edit campaign: name, script, WhatsApp message, tries and the CRM lead source. */
-export function CampaignForm({ c }: { c?: { id: string; name: string; description: string | null; script: string | null; waMessage: string | null; maxAttempts: number; sourceName: string | null; dialPrefix?: string | null; kind?: string } }) {
+export function CampaignForm({ c }: { c?: { id: string; name: string; description: string | null; script: string | null; waMessage: string | null; maxAttempts: number; sourceName: string | null; dialPrefix?: string | null; kind?: string; numbersFrom?: string | null } }) {
   return (
     <ActionForm action={saveCampaign} className="space-y-4">
       {c && <input type="hidden" name="id" value={c.id} />}
@@ -21,6 +21,9 @@ export function CampaignForm({ c }: { c?: { id: string; name: string; descriptio
             <option value="csr">CSR (calling team)</option>
             <option value="sales">Sales agents</option>
           </select>
+        </Field>
+        <Field label="Numbers came from (optional)" hint="Shown to agents on every call, e.g. “Emaar buyers list, provided by Ahmed”.">
+          <input name="numbersFrom" defaultValue={c?.numbersFrom ?? ""} maxLength={190} placeholder="e.g. Emaar buyers list, provided by Ahmed" className="input" />
         </Field>
         <Field label="Tries before giving up"><input name="maxAttempts" type="number" min={1} max={10} defaultValue={c?.maxAttempts ?? 3} className="input" /></Field>
         <Field label="Lead source in the CRM"><input name="sourceName" defaultValue={c?.sourceName ?? "CC"} className="input" /></Field>
