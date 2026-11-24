@@ -40,6 +40,10 @@ export default async function ApiDocs() {
           <li><b className="text-ink">429 QUERY_LIMIT_EXCEEDED</b>: more than 120 calls a minute on one key. Lists return 50 at a time: pass <code>start</code> = the <code>next</code> you got.</li>
           <li>Each key works with the permissions of the person who made it, only within its scopes ({DEV_SCOPES.map((s) => s.key).join(", ")}). Call <code>methods</code> to get this list for a key as JSON.</li>
         </ul>
+        <p className="font-medium">Scripts written for Bitrix24</p>
+        <p className="text-muted">Change only the link: AMS understands Bitrix&apos;s shapes for <code>crm.lead.add</code> (<code>fields[…]</code>, answers <code>{`{"result": <lead number>}`}</code>), <code>user.get</code> (send its <code>ID</code> as <code>ASSIGNED_BY_ID</code>), <code>crm.status.list?filter[ENTITY_ID]=SOURCE</code> (send its <code>STATUS_ID</code> as <code>SOURCE_ID</code>) and <code>crm.lead.userfield.add</code> (accepted, does nothing). A <code>UF_…PROJECT…</code> field sets the project; <code>FORM_NAME</code> goes into the notes and campaign.</p>
+        <code className={code}>{`POST ${base}/api/rest/<key>/crm.lead.add.json
+{"fields":{"NAME":"Ali","LAST_NAME":"Khan","PHONE":[{"VALUE":"+92 300 1234567"}],"SOURCE_ID":"Facebook","ASSIGNED_BY_ID":"<id from user.get>","COMMENTS":"3 bed","UF_CRM_PROJECT":"Emaar Oceanfront","FORM_NAME":"Meta form A"}}`}</code>
       </Card>
 
       <div className="space-y-4">

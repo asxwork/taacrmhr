@@ -69,6 +69,35 @@ const findUser = async (v: unknown) => {
   return u;
 };
 
+// ── Bitrix-compatible calls: scripts written for Bitrix24 (crm.lead.add with {fields:{…}}) work with only the link changed.
+const multi = (v: unknown): string => {
+  if (v == null) return "";
+  if (typeof v !== "object") return str(v);
+  const list = Array.isArray(v) ? v : Object.values(v as object);
+  return list.map((x) => (x && typeof x === "object" ? str((x as Record<string, unknown>).VALUE) : str(x))).find(Boolean) ?? "";
+};
+const BX_SOURCES: Record<string, string> = { WEB: "Website", WEBFORM: "Website", CALL: "Phone", EMAIL: "Email", ADVERTISING: "Advertising", PARTNER: "Partner", RECOMMENDATION: "Referral", OTHER: "Other" };
+/** Bitrix lead fields → AMS crm.lead.add params. */
+function fromBitrixFields(f: Record<string, unknown>): Record<string, unknown> {
+  const get = (k: string) => str(f[k]);
+  const uf = (re: RegExp) => Object.entries(f).find(([k, v]) => k.startsWith("UF_") && re.test(k) && str(v))?.[1];
+  const form = get("FORM_NAME") || str(uf(/FORM/i));
+  const notes = [get("COMMENTS"), get("SOURCE_DESCRIPTION"), form && `Form: ${form}`].filter(Boolean).join("\n");
+  const source = get("SOURCE_ID");
+  return {
+    name: [get("NAME"), get("SECOND_NAME"), get("LAST_NAME")].filter(Boolean).join(" ") || get("TITLE"),
+    phone: multi(f.PHONE), email: multi(f.EMAIL),
+    source: source ? (BX_SOURCES[source.toUpperCase()] ?? source) : undefined,
+    notes: notes || undefined,
+    campaign: get("UTM_CAMPAIGN") || form || undefined,
+    project: str(uf(/PROJECT/i)) || undefined,
+    location: get("ADDRESS_CITY") || get("ADDRESS") || undefined,
+    budget: get("OPPORTUNITY") || undefined,
+    responsible: get("ASSIGNED_BY_ID") || undefined,
+  };
+}
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+
 export const DEV_METHODS: DevMethod[] = [
   // ── CRM
   {
@@ -115,9 +144,12 @@ export const DEV_METHODS: DevMethod[] = [
       { name: "interest", type: "string", about: "buy, rent, invest or sell" },
       { name: "property_type", type: "string", about: "e.g. Apartment, Plot, House" },
       { name: "responsible", type: "string", about: "Give it to this person (email, name or user id) instead of rotation; the key's owner needs Leads → Reassign" },
+      { name: "fields", type: "string", about: "Bitrix style instead of the above: fields[NAME], fields[LAST_NAME], fields[PHONE][0][VALUE], fields[EMAIL][0][VALUE], fields[SOURCE_ID], fields[ASSIGNED_BY_ID], fields[COMMENTS], fields[UF_…PROJECT…], fields[FORM_NAME]. Answers {\"result\": <lead number>}" },
     ],
-    run: async ({ user, p }) => {
+    run: async ({ user, p: raw }) => {
       need(can(user, "crm.leads", "create"));
+      const bitrix = isObj(raw.fields);
+      const p = bitrix ? fromBitrixFields(raw.fields as Record<string, unknown>) : raw;
       if (!str(p.name)) throw new ApiError("INVALID", "name is required.");
       if (!str(p.phone) && !str(p.email)) throw new ApiError("INVALID", "phone or email is required.");
       let assignee: { id: string; branchId: string | null } | null = null;
@@ -131,6 +163,7 @@ export const DEV_METHODS: DevMethod[] = [
         await db.lead.update({ where: { id: r.leadId }, data: pr ? { projectId: pr.id } : { projectName: str(p.project).slice(0, 190) } });
       }
       const lead = await db.lead.findUnique({ where: { id: r.leadId }, select: { id: true, number: true, owner: { select: { name: true } } } });
+      if (bitrix) return { result: lead!.number }; // Bitrix answers with just the new lead's id
       return { result: { id: lead!.id, number: lead!.number, status: r.status, responsible: lead!.owner?.name ?? null } };
     },
   },
@@ -206,8 +239,19 @@ export const DEV_METHODS: DevMethod[] = [
     },
   },
   {
-    name: "crm.status.list", scope: "crm", about: "Lead stages in order (kind: open, converted or junk).", params: [],
-    run: async ({ user }) => { need(can(user, "crm.leads")); return { result: (await db.leadStatus.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, kind: true, color: true } })) }; },
+    name: "crm.status.list", scope: "crm", about: "Lead stages in order (kind: open, converted or junk). Bitrix style: filter[ENTITY_ID]=SOURCE lists sources as STATUS_ID / NAME (send that STATUS_ID as SOURCE_ID).",
+    params: [{ name: "filter[ENTITY_ID]", type: "string", about: "SOURCE or STATUS for the Bitrix-shaped list" }],
+    run: async ({ user, p }) => {
+      need(can(user, "crm.leads"));
+      const entity = isObj(p.filter) ? str(p.filter.ENTITY_ID).toUpperCase() : "";
+      if (entity === "SOURCE") return { result: (await db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { name: true } })).map((s, i) => ({ ENTITY_ID: "SOURCE", STATUS_ID: s.name, NAME: s.name, SORT: (i + 1) * 10 })) };
+      if (entity === "STATUS") return { result: (await db.leadStatus.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } })).map((s, i) => ({ ENTITY_ID: "STATUS", STATUS_ID: s.id, NAME: s.name, SORT: (i + 1) * 10 })) };
+      return { result: (await db.leadStatus.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, kind: true, color: true } })) };
+    },
+  },
+  {
+    name: "crm.lead.userfield.add", scope: "crm", write: true, about: "Bitrix compatibility: accepted and does nothing (AMS already has project; a form name is kept in the lead's notes).", params: [],
+    run: async ({ user }) => { need(can(user, "crm.leads")); return { result: true }; },
   },
   {
     name: "crm.source.list", scope: "crm", about: "Lead sources.", params: [],
@@ -234,6 +278,16 @@ export const DEV_METHODS: DevMethod[] = [
   {
     name: "user.list", scope: "users", about: "Active colleagues (name, email, branch, title).", params: [],
     run: async () => ({ result: (await db.user.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, email: true, title: true, branch: { select: { name: true } } } })).map((u) => ({ id: u.id, name: u.name, email: u.email, title: u.title, branch: u.branch?.name ?? null })) }),
+  },
+  {
+    name: "user.get", scope: "users", about: "Bitrix style: active colleagues as ID, NAME, LAST_NAME, EMAIL (send ID as ASSIGNED_BY_ID). Optional filter[EMAIL] / filter[ID].",
+    params: [{ name: "filter[EMAIL]", type: "string", about: "Only this email" }, { name: "filter[ID]", type: "string", about: "Only this user" }],
+    run: async ({ p }) => {
+      const f = isObj(p.filter) ? p.filter : isObj(p.FILTER) ? p.FILTER : {};
+      const email = str(f.EMAIL ?? p.EMAIL).toLowerCase(), id = str(f.ID ?? p.ID);
+      const rows = await db.user.findMany({ where: { active: true, ...(email ? { email } : {}), ...(id ? { id } : {}) }, orderBy: { name: "asc" }, select: { id: true, name: true, email: true, title: true } });
+      return { result: rows.map((u) => { const [first, ...rest] = u.name.split(" "); return { ID: u.id, ACTIVE: true, NAME: first, LAST_NAME: rest.join(" "), EMAIL: u.email, WORK_POSITION: u.title ?? "" }; }), total: rows.length };
+    },
   },
   // ── HR
   {

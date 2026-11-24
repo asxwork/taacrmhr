@@ -5,6 +5,23 @@ export const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-
 const STATUS: Record<string, number> = { NO_AUTH: 401, ACCESS_DENIED: 403, METHOD_NOT_FOUND: 404, NOT_FOUND: 404, INVALID: 400 };
 const hits = new Map<string, number[]>();
 
+/** PHP-style keys as Bitrix sends them (fields[NAME]=…, fields[PHONE][0][VALUE]=…, filter[ENTITY_ID]=…) → nested objects. */
+function unflatten(p: Record<string, unknown>) {
+  for (const key of Object.keys(p)) {
+    const m = key.match(/^([^[\]]+)((?:\[[^[\]]*\])+)$/);
+    if (!m) continue;
+    const parts = [m[1]!, ...[...m[2]!.matchAll(/\[([^[\]]*)\]/g)].map((x) => x[1]!)];
+    let o = p as Record<string, unknown>;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const k = parts[i]!;
+      if (typeof o[k] !== "object" || o[k] === null) o[k] = {};
+      o = o[k] as Record<string, unknown>;
+    }
+    o[parts.at(-1)!] = p[key];
+    delete p[key];
+  }
+}
+
 /** Shared by both ways in: the key in the URL (/api/rest/<key>/<method>) or in a header (/api/rest/<method>). */
 export async function handleRest(req: Request, token: string, method: string) {
   const t0 = Date.now();
@@ -22,6 +39,7 @@ export async function handleRest(req: Request, token: string, method: string) {
       else if (type.includes("form")) for (const [k, v] of (await req.formData()).entries()) if (typeof v === "string") p[k] = v;
     } catch { return Response.json({ error: "INVALID", error_description: "The body isn't valid JSON or form data." }, { status: 400, headers: CORS }); }
   }
+  unflatten(p);
   try {
     const name = method.replace(/\.json$/, "");
     // "methods": the published list of what this key can call, with every parameter.

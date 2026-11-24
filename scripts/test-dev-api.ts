@@ -45,6 +45,27 @@ async function makeKey(userId: string, scopes: string) {
     r = await post(`/api/rest/${token}/crm.lead.add`, { name: "API Test Lead again", phone: "0300 5550001" });
     check("same phone again → merged, no duplicate", r.status === 200 && r.body.result?.status === "merged" && r.body.result?.id === leads[0], r);
 
+    // Bitrix-shaped calls (scripts written for Bitrix24 work with only the link changed).
+    r = await call(`/api/rest/${token}/user.get.json?filter[EMAIL]=${encodeURIComponent(agent.email)}`);
+    const bxUser = r.body.result?.[0];
+    check("bitrix user.get → ID / NAME / EMAIL", r.status === 200 && bxUser?.ID === agent.id && bxUser?.EMAIL === agent.email && typeof bxUser?.NAME === "string", r);
+    r = await call(`/api/rest/${token}/crm.status.list?filter[ENTITY_ID]=SOURCE`);
+    const bxSource = (r.body.result ?? []).find((x: any) => x.NAME === "Website");
+    check("bitrix crm.status.list SOURCE → STATUS_ID / NAME", r.status === 200 && bxSource?.STATUS_ID === "Website", r);
+    r = await post(`/api/rest/${token}/crm.lead.add.json`, { fields: { NAME: "Bitrix", LAST_NAME: "Shape", PHONE: [{ VALUE: "+92 300 5550003", VALUE_TYPE: "WORK" }], EMAIL: [{ VALUE: "bx-test@example.com" }], SOURCE_ID: bxSource?.STATUS_ID, ASSIGNED_BY_ID: bxUser?.ID, COMMENTS: "2 bed", UF_CRM_PROJECT: "Test Tower", FORM_NAME: "Meta form A" } });
+    const bxLead = typeof r.body.result === "number" ? await db.lead.findFirst({ where: { number: r.body.result }, select: { id: true, name: true, phone: true, ownerId: true, notes: true, projectName: true, project: { select: { name: true } } } }) : null;
+    if (bxLead) leads.push(bxLead.id);
+    check("bitrix crm.lead.add (JSON) → {result: number}, fields mapped", r.status === 200 && bxLead?.name === "Bitrix Shape" && bxLead.ownerId === agent.id && !!bxLead.notes?.includes("Meta form A") && (bxLead.projectName ?? bxLead.project?.name) === "Test Tower", { r, bxLead });
+    const form = new URLSearchParams({ "fields[NAME]": "Form Shape", "fields[PHONE][0][VALUE]": "+92 300 5550004" });
+    r = await call(`/api/rest/${token}/crm.lead.add`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form });
+    const formLead = typeof r.body.result === "number" ? await db.lead.findFirst({ where: { number: r.body.result }, select: { id: true, name: true } }) : null;
+    if (formLead) leads.push(formLead.id);
+    check("bitrix crm.lead.add (fields[…] form data) works", r.status === 200 && formLead?.name === "Form Shape", r);
+    r = await post(`/api/rest/${token}/crm.lead.add`, { fields: { NAME: "No phone" } });
+    check("bitrix crm.lead.add without phone/email → 400", r.status === 400 && r.body.error === "INVALID", r);
+    r = await post(`/api/rest/${token}/crm.lead.userfield.add`, { fields: { FIELD_NAME: "PROJECT", USER_TYPE_ID: "string" } });
+    check("bitrix crm.lead.userfield.add → accepted", r.status === 200 && r.body.result === true, r);
+
     r = await call(`/api/rest/${token}/hr.employee.list`);
     check("method outside the key's scopes → 403", r.status === 403 && r.body.error === "ACCESS_DENIED", r);
     r = await call(`/api/rest/${token}/crm.nothing`);
@@ -70,7 +91,7 @@ async function makeKey(userId: string, scopes: string) {
     check("no key at all → 401", r.status === 401, r);
   } finally {
     if (leads.length) { await db.activity.deleteMany({ where: { leadId: { in: leads } } }); await db.lead.deleteMany({ where: { id: { in: leads } } }); }
-    await db.lead.deleteMany({ where: { phoneKey: { in: ["03005550001", "03005550002"] } } }).catch(() => {});
+    await db.lead.deleteMany({ where: { phoneKey: { in: ["03005550001", "03005550002", "03005550003", "03005550004"] } } }).catch(() => {});
     await db.devHook.deleteMany({ where: { id: { in: made } } });
   }
   console.log(failed ? `\n${failed} check(s) failed` : "\nAll checks passed");
