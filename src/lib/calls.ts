@@ -12,14 +12,19 @@ import { scopeFor } from "./permissions";
 export const OUTCOMES = [
   { value: "interested", label: "Interested", tone: "green", reached: true, final: true },
   { value: "callback", label: "Call back", tone: "blue", reached: true, final: false },
-  { value: "not_interested", label: "Not interested", tone: "slate", reached: true, final: true },
-  { value: "not_answered", label: "Not answered", tone: "amber", reached: false, final: false },
-  { value: "busy", label: "Busy", tone: "amber", reached: false, final: false },
+  // Not interested = don't call again: the number also goes on the do-not-call list.
+  { value: "not_interested", label: "Not interested / Do not call", tone: "red", reached: true, final: true },
+  { value: "not_answered", label: "Not answered / Busy", tone: "amber", reached: false, final: false },
+  { value: "voicemail", label: "Voicemail", tone: "amber", reached: false, final: false },
   { value: "switched_off", label: "Switched off", tone: "amber", reached: false, final: false },
   { value: "wrong_number", label: "Wrong number", tone: "red", reached: false, final: true },
-  { value: "already_customer", label: "Already a client", tone: "violet", reached: true, final: true },
-  { value: "do_not_call", label: "Do not call", tone: "red", reached: true, final: true },
+  { value: "already_customer", label: "Duplicate number", tone: "violet", reached: false, final: true },
   { value: "whatsapp_sent", label: "WhatsApp sent", tone: "teal", reached: false, final: false },
+] as const;
+/** Choices no longer offered, still named in History and Reports for calls logged with them. */
+export const OLD_OUTCOMES = [
+  { value: "busy", label: "Busy", tone: "amber", reached: false, final: false },
+  { value: "do_not_call", label: "Do not call", tone: "red", reached: true, final: true },
 ] as const;
 export type Outcome = (typeof OUTCOMES)[number]["value"];
 /** Logged automatically by the softphone (not offered to agents as a choice). */
@@ -28,7 +33,7 @@ export const AUTO_OUTCOMES = [
   { value: "inbound_missed", label: "Inbound · missed", tone: "red", reached: false, final: false },
   { value: "manual_call", label: "Keypad call", tone: "blue", reached: true, final: false },
 ] as const;
-export const outcome = (v: string | null | undefined) => OUTCOMES.find((o) => o.value === v) ?? AUTO_OUTCOMES.find((o) => o.value === v);
+export const outcome = (v: string | null | undefined) => OUTCOMES.find((o) => o.value === v) ?? AUTO_OUTCOMES.find((o) => o.value === v) ?? OLD_OUTCOMES.find((o) => o.value === v);
 
 /** Hours before an unanswered number comes back to the agent. */
 export const RETRY_AFTER_HOURS = 3;
@@ -66,7 +71,8 @@ export async function recordOutcome(input: { targetId: string; agentId: string; 
   if (!o) return { error: "Choose an outcome." };
   if (input.outcome === "callback" && !input.callbackAt) return { error: "When should we call back?" };
   const attempts = input.outcome === "whatsapp_sent" ? t.attempts : t.attempts + 1;
-  const status = input.outcome === "do_not_call" ? "dnc"
+  const dnc = input.outcome === "not_interested" || (input.outcome as string) === "do_not_call";
+  const status = dnc ? "dnc"
     : input.outcome === "callback" ? "callback"
     : o.final ? "done"
     : attempts >= t.campaign.maxAttempts && input.outcome !== "whatsapp_sent" ? "done" : t.status === "new" && input.outcome === "whatsapp_sent" ? "new" : "retry";
@@ -80,7 +86,7 @@ export async function recordOutcome(input: { targetId: string; agentId: string; 
       notes: input.notes ? [t.notes, input.notes].filter(Boolean).join("\n") : t.notes,
     },
   });
-  if (input.outcome === "do_not_call") await db.dncNumber.upsert({ where: { phoneKey: t.phoneKey }, update: {}, create: { phoneKey: t.phoneKey, reason: `Asked not to be called (${t.campaign.name})` } });
+  if (dnc) await db.dncNumber.upsert({ where: { phoneKey: t.phoneKey }, update: {}, create: { phoneKey: t.phoneKey, reason: `Not interested / do not call (${t.campaign.name})` } });
   return { ok: true as const, status };
 }
 

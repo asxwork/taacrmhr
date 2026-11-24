@@ -1,6 +1,6 @@
 // Calls → Wallboard and Reports: per-agent and per-campaign numbers from the call log (shared with CSV export).
 import { db } from "./db";
-import { OUTCOMES, outcome } from "./calls";
+import { OLD_OUTCOMES, OUTCOMES, outcome } from "./calls";
 
 /** `agentId`: only that agent (what an agent sees of their own work). */
 export async function agentStats(from: Date, to: Date, agentId?: string) {
@@ -31,7 +31,7 @@ export async function hourStats(from: Date, to: Date, agentId?: string) {
 
 export async function outcomeStats(from: Date, to: Date, agentId?: string) {
   const rows = await db.callLog.groupBy({ by: ["outcome"], where: { startedAt: { gte: from, lt: to }, ...(agentId ? { agentId } : {}) }, _count: true });
-  return OUTCOMES.map((o) => ({ ...o, count: rows.find((r) => r.outcome === o.value)?._count ?? 0 })).filter((o) => o.count);
+  return [...OUTCOMES, ...OLD_OUTCOMES].map((o) => ({ ...o, count: rows.find((r) => r.outcome === o.value)?._count ?? 0 })).filter((o) => o.count);
 }
 
 export async function campaignStats(from: Date, to: Date, agentId?: string) {

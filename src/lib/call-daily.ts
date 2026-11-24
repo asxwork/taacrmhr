@@ -40,7 +40,7 @@ export async function agentDay(agentId: string, start: Date, end: Date): Promise
   for (const l of logs) if (l.campaignId) byCamp.set(l.campaignId, (byCamp.get(l.campaignId) ?? 0) + 1);
   return {
     calls: logs.length, reached, reachPct: logs.length ? Math.round((reached / logs.length) * 100) : 0, talkMin: Math.round(talk / 60), avgSec: timed.length ? Math.round(talk / timed.length) : 0,
-    interested: count("interested"), callbacks: count("callback"), notAnswered: count("not_answered") + count("busy") + count("switched_off"), wrong: count("wrong_number"),
+    interested: count("interested"), callbacks: count("callback"), notAnswered: count("not_answered") + count("busy") + count("voicemail") + count("switched_off"), wrong: count("wrong_number"),
     whatsapp: count("whatsapp_sent"), inbound: count("inbound_answered"), missed: count("inbound_missed"), leads,
     first: logs[0] ? pkTime(logs[0].startedAt) : null, last: logs.at(-1) ? pkTime(logs.at(-1)!.startedAt) : null, longestGapMin: Math.round(gap),
     outcomes: [...byOutcome.entries()].sort((a, b) => b[1] - a[1]).map(([label, n]) => ({ label, n })), hours,

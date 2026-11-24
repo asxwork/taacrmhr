@@ -33,6 +33,12 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
 }) {
   const dialNum = dialPrefix ? `${dialPrefix}${target.phone.replace(/\D/g, "").replace(/^00/, "")}` : target.phone;
   const box = useRef<HTMLDivElement>(null);
+  const telLink = useRef<HTMLAnchorElement>(null);
+  // Auto-dial: after "Save & next number" the next number is called straight away (Click to call mode). On by default;
+  // the tick under the button turns it off (remembered on this device).
+  const [autoDial, setAutoDial] = useState(true);
+  useEffect(() => { try { setAutoDial(localStorage.getItem("ams:autodial") !== "off"); } catch {} }, []);
+  const dialled = useRef(false);
   const [copied, setCopied] = useState(false);
   // Speed keys: 1–9 pick "What happened?", Ctrl+Enter saves and loads the next number.
   useEffect(() => {
@@ -56,6 +62,21 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
   const [ended, setEnded] = useState<{ callId: string; talkSec: number } | null>(null);
   const done = phone?.lastEnded;
   useEffect(() => { if (done?.targetId === target.id) setEnded({ callId: done.callId, talkSec: done.talkSec }); }, [done, target.id]);
+  useEffect(() => {
+    if (mode !== "system" || dialled.current) return;
+    let due = false;
+    try { due = Date.now() - Number(sessionStorage.getItem("ams:dial-next") || 0) < 20_000; } catch {}
+    if (!due) return;
+    // Through the softphone once it's ready; without one, the phone link (opens 3CX / the phone app).
+    if (phone && phone.status !== "ready") return;
+    dialled.current = true;
+    try { sessionStorage.removeItem("ams:dial-next"); } catch {}
+    const t = setTimeout(() => {
+      if (viaPbx) { setEnded(null); phone!.dial(dialNum, { targetId: target.id }); }
+      else telLink.current?.click();
+    }, 600);
+    return () => clearTimeout(t);
+  }, [mode, phone, viaPbx, dialNum, target.id]);
   const wa = `https://wa.me/${fmtPhone(target.phone).replace(/\D/g, "")}${waText ? `?text=${encodeURIComponent(waText)}` : ""}`;
   return (
     <div>
@@ -90,7 +111,7 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
               <Phone className="size-5" /> {ended ? "Call again" : "Call"}
             </button>
           ) : (
-            <a href={dialPrefix ? `tel:${dialNum}` : telHref(target.phone)} onClick={() => setStartedAt(Date.now())}
+            <a ref={telLink} href={dialPrefix ? `tel:${dialNum}` : telHref(target.phone)} onClick={() => setStartedAt(Date.now())}
               className={cn("flex h-14 items-center gap-2 rounded-xl px-6 text-lg font-semibold text-white shadow transition", startedAt ? "bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700")}>
               {startedAt ? <PhoneCall className="size-5 animate-pulse" /> : <Phone className="size-5" />} {startedAt ? "Calling…" : "Call"}
             </a>
@@ -114,7 +135,7 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
           ))}
         </dl>
       )}
-      <div ref={box}>
+      <div ref={box} onSubmitCapture={() => { if (mode === "system" && autoDial) { try { sessionStorage.setItem("ams:dial-next", String(Date.now())); } catch {} } }}>
       <ActionForm key={target.id} action={action} className="space-y-4">
         <input type="hidden" name="targetId" value={target.id} />
         <input type="hidden" name="startedAt" value={startedAt || ""} />
@@ -143,6 +164,12 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
         <textarea name="notes" rows={2} className="input" placeholder="Remarks (what they said, budget, area…)" aria-label="Remarks" />
         <div className="flex flex-wrap items-center gap-3">
           <SubmitButton className="h-11 w-full sm:w-auto sm:px-8">Save &amp; next number</SubmitButton>
+          {mode === "system" && (
+            <label className="flex items-center gap-1.5 text-xs text-muted">
+              <input type="checkbox" checked={autoDial} onChange={(e) => { setAutoDial(e.target.checked); try { localStorage.setItem("ams:autodial", e.target.checked ? "on" : "off"); } catch {} }} className="accent-navy-900" />
+              Call the next number automatically
+            </label>
+          )}
           <span className="hidden text-xs text-muted sm:inline">Keys: 1–{Math.min(9, outcomes.length)} pick the result · Ctrl + Enter saves</span>
         </div>
       </ActionForm>
