@@ -129,10 +129,11 @@ export const TUTORIALS: Tutorial[] = [
       "Open a lead from the list. The call and WhatsApp buttons at the top dial straight away.",
       "Log what happened: call, note, WhatsApp, meeting or email from the box on the right.",
       "Always plan the next step (a follow-up with a date) — leads with nothing planned show up in Follow-ups.",
-      "Move the lead along with the stage bar. Matching units for the client's budget and area are listed below.",
+      "Move the lead along with the stage bar. To close it, press Close lead at the end of the bar: Complete lead (convert to deal) or close without a deal (Not Interested, Not Valid, Junk). A closed lead shows its status there in red; click any stage to reopen it.",
+      "The arrows next to the name (or Alt + ← / →) go to the previous or next lead of your list; Back returns to your list with the same filters.",
       "When the client is ready to buy, press Convert to deal: a deal and a contact are created and the history carries over.",
     ],
-    tips: ["Leads not worked in time can go On-hold and come back for reassignment (CRM Settings → On-hold rules)."],
+    tips: ["Matching units for the client's budget and area are on the Matching units tab."],
   },
   {
     key: "follow-ups", group: "CRM", module: "crm.leads", title: "Follow-ups and tasks", who: "Agents, managers", href: "/crm/follow-ups", chapter: "follow-ups",
@@ -784,8 +785,9 @@ export const TUTORIALS: Tutorial[] = [
     summary: "Give someone a bit more or less than their role without making a new role.",
     steps: [
       "Settings → Users → open the person → Access exceptions.",
-      "Each cell starts on “Role: …” (what their roles give). Pick a different level to override just that permission.",
-      "Save. The users list shows a badge on people with exceptions.",
+      "Pick the app tab (CRM, HR, Finance…) or search for a feature. Each feature shows only the actions it has: Read, Add, Edit, Delete, Export…",
+      "Each box shows what their roles give (marked “role”). Choose another level — No access, Own only, Team, Branch or Everyone — to change just that permission; it turns amber and says “changed”.",
+      "Back to role undoes a feature's changes. Press Save access; it applies on their next page load.",
     ],
   },
   {

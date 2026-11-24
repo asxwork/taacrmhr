@@ -113,5 +113,8 @@
  "sign-in": 51,
  "bitrix-import": 57,
  "bitrix-sync": 46,
- "bitrix-backup": 44
+ "bitrix-backup": 44,
+ "lead-page": 61,
+ "access-exceptions": 42,
+ "developer": 64
 }

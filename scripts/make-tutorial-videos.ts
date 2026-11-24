@@ -142,7 +142,9 @@ async function main() {
       times = slides.map((s) => { const d = Math.min(12, Math.max(4.5, 2.5 + s.text.length * 0.055)); const r = { start: at, end: at + d }; at += d; return r; });
     }
 
-    await page.goto(`${BASE}${t.href ?? FALLBACK[t.group]}`, { waitUntil: "networkidle" }).catch(() => {});
+    // SHOTS='{"lead-page":"/crm/leads/<id>"}' films guides that have no page link of their own on a real example.
+    const shots = JSON.parse(process.env.SHOTS ?? "{}") as Record<string, string>;
+    await page.goto(`${BASE}${shots[t.key] ?? t.href ?? FALLBACK[t.group]}`, { waitUntil: "networkidle" }).catch(() => {});
     await page.waitForTimeout(1200);
     const list2: string[] = [];
     for (let i = 0; i < slides.length; i++) {
