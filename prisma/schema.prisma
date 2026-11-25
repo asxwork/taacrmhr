@@ -2702,6 +2702,8 @@ model CallTemplate {
   body      String // @text
   ownerId   String?
   shared    Boolean  @default(false)
+  /// The campaign it's for (offered first in that campaign's dialer); empty = every campaign.
+  campaignId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

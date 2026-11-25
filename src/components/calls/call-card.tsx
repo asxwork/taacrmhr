@@ -21,11 +21,13 @@ const TONES: Record<string, string> = {
  * phone link that starts a timer), message it on WhatsApp with the campaign's text, then pick what happened.
  * Saving loads the next number.
  */
-export function CallCard({ target, outcomes, action, waText: campaignText, templates = [], extraButton, mode = "system", details = [], dialPrefix }: {
+export function CallCard({ target, outcomes, action, waText: campaignText, templates = [], campaignId = "", extraButton, mode = "system", details = [], dialPrefix }: {
   target: { id: string; name: string | null; phone: string; status: string; attempts: number };
   outcomes: Opt[]; action: (s: FormState, fd: FormData) => Promise<FormState>; waText: string;
   /** Calls → Templates (own and shared), already filled in with the client's and agent's names. */
-  templates?: { id: string; name: string; text: string }[];
+  templates?: { id: string; name: string; text: string; forCampaign?: boolean }[];
+  /** The number's campaign: the picked template is remembered per campaign. */
+  campaignId?: string;
   /** e.g. the Listing button for CSR agents. */
   extraButton?: React.ReactNode;
   /** system: Call button (softphone or phone link). landline: the number shown big to dial by hand. */
@@ -97,12 +99,18 @@ export function CallCard({ target, outcomes, action, waText: campaignText, templ
   }, [mode, phone, viaPbx, dialNum, target.id]);
   // WhatsApp text: the campaign's message, or a template the agent picks (remembered on this device).
   const [tpl, setTpl] = useState("");
-  useEffect(() => { try { const v = localStorage.getItem("ams:call-tpl") ?? ""; if (templates.some((t) => t.id === v)) setTpl(v); } catch {} }, [templates]);
+  // Remembered per campaign; without a choice yet, the first template made for this campaign.
+  const tplKey = `ams:call-tpl:${campaignId}`;
+  useEffect(() => {
+    let v: string | null = null;
+    try { v = localStorage.getItem(tplKey); } catch {}
+    setTpl(v !== null && (v === "" || templates.some((t) => t.id === v)) ? v : templates.find((t) => t.forCampaign)?.id ?? "");
+  }, [templates, tplKey]);
   const waText = templates.find((t) => t.id === tpl)?.text ?? campaignText;
   const tplPicker = templates.length > 0 && (
-    <select value={tpl} onChange={(e) => { setTpl(e.target.value); try { localStorage.setItem("ams:call-tpl", e.target.value); } catch {} }} className="input h-9 w-48 text-xs" aria-label="WhatsApp message" title="Message sent with the WhatsApp button">
+    <select value={tpl} onChange={(e) => { setTpl(e.target.value); try { localStorage.setItem(tplKey, e.target.value); } catch {} }} className="input h-9 w-48 text-xs" aria-label="WhatsApp message" title="Message sent with the WhatsApp button">
       <option value="">{campaignText ? "Campaign message" : "No message"}</option>
-      {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      {templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.forCampaign ? " ★" : ""}</option>)}
     </select>
   );
   const wa = `https://wa.me/${fmtPhone(target.phone).replace(/\D/g, "")}${waText ? `?text=${encodeURIComponent(waText)}` : ""}`;
@@ -198,7 +206,7 @@ export function CallCard({ target, outcomes, action, waText: campaignText, templ
             {outcomes.map((o) => (
               <label key={o.value} className="cursor-pointer">
                 <input type="radio" name="outcome" value={o.value} required className="peer sr-only" onChange={() => setPicked(o.value)} />
-                <span className={cn("relative flex h-11 items-center justify-center rounded-lg border px-2 text-center text-sm font-medium transition hover:bg-canvas", TONES[o.tone])}>{o.label}{outcomes.indexOf(o) < 9 && <kbd className="absolute right-1.5 top-1 text-[9px] font-normal opacity-50">{outcomes.indexOf(o) + 1}</kbd>}</span>
+                <span className={cn("relative flex h-11 flex-col items-center justify-center rounded-lg border px-2 text-center text-sm font-medium leading-tight transition hover:bg-canvas", TONES[o.tone])}>{o.label.includes(" / ") ? <>{o.label.split(" / ")[0]}<span className="text-[10px] font-normal opacity-70">{o.label.split(" / ").slice(1).join(" / ")}</span></> : o.label}{outcomes.indexOf(o) < 9 && <kbd className="absolute right-1.5 top-1 text-[9px] font-normal opacity-50">{outcomes.indexOf(o) + 1}</kbd>}</span>
               </label>
             ))}
           </div>

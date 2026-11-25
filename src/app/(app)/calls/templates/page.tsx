@@ -15,6 +15,11 @@ export default async function CallTemplatesPage({ searchParams }: { searchParams
   const supervisor = isCallSupervisor(user);
   const sp = await searchParams;
   const rows = await db.callTemplate.findMany({ where: supervisor ? {} : { OR: [{ ownerId: user.id }, { shared: true }] }, orderBy: [{ shared: "desc" }, { name: "asc" }] });
+  // Campaigns a template can be for: the agent's own campaigns (supervisors: every campaign that isn't finished).
+  const campaigns = supervisor
+    ? await db.callCampaign.findMany({ where: { status: { not: "done" } }, orderBy: { createdAt: "desc" }, select: { id: true, name: true } })
+    : await db.callCampaign.findMany({ where: { targets: { some: { assigneeId: user.id } } }, orderBy: { createdAt: "desc" }, select: { id: true, name: true } });
+  const campName = new Map((await db.callCampaign.findMany({ where: { id: { in: rows.map((r) => r.campaignId).filter((x): x is string => !!x) } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
   const owners = new Map((await db.user.findMany({ where: { id: { in: rows.map((r) => r.ownerId).filter((x): x is string => !!x) } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
   const mayEdit = (r: (typeof rows)[number]) => r.ownerId === user.id || supervisor;
   const editing = rows.find((r) => r.id === sp.edit && mayEdit(r));
@@ -24,6 +29,13 @@ export default async function CallTemplatesPage({ searchParams }: { searchParams
       <label className="block text-sm font-medium">Name<input name="name" required defaultValue={t?.name} placeholder="e.g. First message, Brochure, After no answer" className="input mt-1" /></label>
       <label className="block text-sm font-medium">Message
         <textarea name="body" required rows={7} defaultValue={t?.body} className="input mt-1" placeholder={"Assalam o Alaikum {{name}}, this is {{agent}} from The Advisor Associates…"} />
+      </label>
+      <label className="block text-sm font-medium">Use it in
+        <select name="campaignId" defaultValue={t?.campaignId ?? ""} className="input mt-1">
+          <option value="">All my campaigns</option>
+          {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <span className="mt-1 block text-xs font-normal text-muted">A template for one campaign shows only in that campaign&apos;s dialer, at the top of the list.</span>
       </label>
       <p className="text-xs text-muted"><code>{"{{name}}"}</code> becomes the client&apos;s name and <code>{"{{agent}}"}</code> your name.</p>
       {supervisor && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="shared" defaultChecked={t?.shared} className="accent-navy-900" /> Shared: every calling agent can use it</label>}
@@ -43,6 +55,7 @@ export default async function CallTemplatesPage({ searchParams }: { searchParams
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium">{r.name}</p>
                 {r.shared ? <Badge tone="green">Shared</Badge> : r.ownerId !== user.id && <Badge tone="neutral">{owners.get(r.ownerId ?? "") ?? "Agent"}</Badge>}
+                <Badge tone={r.campaignId ? "navy" : "neutral"}>{r.campaignId ? campName.get(r.campaignId) ?? "Campaign" : "All campaigns"}</Badge>
                 {mayEdit(r) && (
                   <div className="ml-auto flex items-center gap-1">
                     <Link href={`/calls/templates?edit=${r.id}`} className="rounded-md px-2 py-1 text-sm text-navy-900 hover:bg-canvas dark:text-ink">Edit</Link>

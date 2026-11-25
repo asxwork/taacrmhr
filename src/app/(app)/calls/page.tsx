@@ -9,6 +9,7 @@ import { DrillTiles } from "@/components/drill-tiles";
 import { CallCard } from "@/components/calls/call-card";
 import { completeMyNumbers, createCallListing, editCallRemarks, logCall, saveCallFeedback, setCallMode, setDialCampaign } from "./actions";
 import { ListingButton } from "@/components/calls/listing-button";
+import { CampaignSwitch } from "@/components/calls/campaign-switch";
 import { disabledFeatures } from "@/lib/features";
 import { LastCalls } from "@/components/calls/last-calls";
 import { fmtPhone } from "@/lib/crm-shared";
@@ -70,7 +71,10 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   const report = callReportText(s, note?.feedback, undefined, { title: mode === "landline" ? "LANDLINE CALLING REPORT" : "INTERNATIONAL CALLING REPORT", totals: true });
   const fill = (t: string) => t.replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
   const off = await disabledFeatures();
-  const templates = off.has("calls-templates") ? [] : (await db.callTemplate.findMany({ where: { OR: [{ ownerId: user.id }, { shared: true }] }, orderBy: [{ shared: "asc" }, { name: "asc" }], select: { id: true, name: true, body: true } })).map((t) => ({ id: t.id, name: t.name, text: fill(t.body) }));
+  const templates = off.has("calls-templates") ? [] : (await db.callTemplate.findMany({
+    where: { AND: [{ OR: [{ ownerId: user.id }, { shared: true }] }, { OR: [{ campaignId: null }, ...(target ? [{ campaignId: target.campaignId }] : [])] }] },
+    orderBy: [{ shared: "asc" }, { name: "asc" }], select: { id: true, name: true, body: true, campaignId: true },
+  })).sort((a, b) => Number(!a.campaignId) - Number(!b.campaignId)).map((t) => ({ id: t.id, name: t.name, text: fill(t.body), forCampaign: !!t.campaignId }));
   const queueCamps = queueByCamp.map((r) => ({ id: r.campaignId, n: r._count, name: campNames.get(r.campaignId)?.name ?? "Campaign" }));
   const waText = (target?.campaign.waMessage ?? "").replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
 
@@ -158,23 +162,17 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
           {lastLog.target?.leadId && <> · <Link href={`/crm/leads/${lastLog.target.leadId}`} className="font-medium underline">sent to the CRM</Link></>}
         </p>
       )}
-      {queueCamps.length > 1 && (
-        // Several campaigns: call from all of them, or pick one.
-        <form action={setDialCampaign} className="mb-4 flex flex-wrap items-center gap-2" aria-label="Campaign to call">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted">Calling from</span>
-          {[{ id: "", name: "All my campaigns", n: queueCamps.reduce((a, c) => a + c.n, 0) }, ...queueCamps].map((c) => (
-            <button key={c.id || "all"} name="campaignId" value={c.id} className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${(picked ?? "") === c.id ? "border-navy-900 bg-navy-900 text-white" : "border-line bg-surface text-muted hover:text-ink"}`}>
-              {c.name} <span className="ml-1 tabular-nums opacity-70">{c.n}</span>
-            </button>
-          ))}
-        </form>
-      )}
       {target && (
         // The campaign this number belongs to, at the top where the agent looks first.
         <Card className="mb-4 flex flex-wrap items-start gap-x-8 gap-y-2 border-l-4 border-l-navy-900 px-5 py-3">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">Campaign</p>
-            <p className="font-semibold">{target.campaign.name}{target.campaign.roundOf && <span className="ml-2 align-middle"><Badge tone="amber">2nd round</Badge></span>}</p>
+            {queueCamps.length > 1 ? (
+              // Several campaigns: switch here (All = numbers from every campaign, in queue order).
+              <CampaignSwitch key={picked ?? "all"} action={setDialCampaign} value={picked ?? ""} options={[{ id: "", label: `All my campaigns (${queueCamps.reduce((a, c) => a + c.n, 0)})` }, ...queueCamps.map((c) => ({ id: c.id, label: `${c.name} (${c.n})` }))]} />
+            ) : <p className="font-semibold">{target.campaign.name}</p>}
+            {(picked === null && queueCamps.length > 1) && <p className="mt-0.5 text-xs text-muted">This number: <b className="font-medium text-ink">{target.campaign.name}</b></p>}
+            {target.campaign.roundOf && <span className="mt-1 inline-block"><Badge tone="amber">2nd round</Badge></span>}
             {target.campaign.description && <p className="mt-0.5 whitespace-pre-line text-sm text-muted">{target.campaign.description}</p>}
           </div>
           <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted">
@@ -192,7 +190,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <Card className="p-6">
-            <CallCard key={`${target.id}-${target.attempts}-${target.status}-${target.lastCalledAt?.getTime() ?? 0}`} target={target} mode={mode} dialPrefix={target.campaign.dialPrefix} details={Object.entries(extra).filter(([, v]) => String(v).trim())} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} templates={templates}
+            <CallCard key={`${target.id}-${target.attempts}-${target.status}-${target.lastCalledAt?.getTime() ?? 0}`} target={target} mode={mode} dialPrefix={target.campaign.dialPrefix} details={Object.entries(extra).filter(([, v]) => String(v).trim())} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} templates={templates} campaignId={target.campaignId}
               extraButton={isCsrAgent(user) && <ListingButton action={createCallListing} targetId={target.id} name={target.name} phone={target.phone} />} />
           </Card>
           <div className="space-y-4">

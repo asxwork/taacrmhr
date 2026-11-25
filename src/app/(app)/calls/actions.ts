@@ -474,11 +474,15 @@ export async function saveCallTemplate(_: FormState, fd: FormData): Promise<Form
   if (!name) return { error: "Give the template a name." };
   if (body.length < 2) return { error: "Write the message." };
   const shared = manager(user) && fd.get("shared") === "on";
+  // The campaign it's for: one of the agent's own campaigns (supervisors: any campaign); empty = every campaign.
+  let campaignId: string | null = str(fd, "campaignId") || null;
+  if (campaignId && !manager(user) && !(await db.callTarget.findFirst({ where: { campaignId, assigneeId: user.id }, select: { id: true } }))) campaignId = null;
+  if (campaignId && !(await db.callCampaign.findUnique({ where: { id: campaignId }, select: { id: true } }))) campaignId = null;
   if (id) {
     const t = await db.callTemplate.findUnique({ where: { id } });
     if (!t || (t.ownerId !== user.id && !manager(user))) return { error: "You can't change this template." };
-    await db.callTemplate.update({ where: { id }, data: { name, body, shared } });
-  } else await db.callTemplate.create({ data: { name, body, shared, ownerId: user.id } });
+    await db.callTemplate.update({ where: { id }, data: { name, body, shared, campaignId } });
+  } else await db.callTemplate.create({ data: { name, body, shared, campaignId, ownerId: user.id } });
   revalidatePath("/calls/templates"); revalidatePath("/calls");
   return { ok: true, message: "Template saved." };
 }
