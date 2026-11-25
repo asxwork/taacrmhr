@@ -10,7 +10,7 @@ export async function saveMyNotifications(_: FormState, fd: FormData): Promise<F
   const user = await requireUser();
   const email = (EMAIL_MODES.map((m) => m[0]) as string[]).includes(String(fd.get("email"))) ? (String(fd.get("email")) as EmailMode) : "daily";
   const muted = NOTIFY_CATEGORIES.map(([k]) => k).filter((k) => fd.get(`mute:${k}`) === "on") as NotifyCategory[];
-  await saveNotifyPrefs(user.id, { email, muted });
+  await saveNotifyPrefs(user.id, { email, muted, ...(fd.has("allLeadsShown") ? { allLeads: fd.get("allLeads") === "on" } : {}) });
   revalidatePath("/profile/notifications");
   return { ok: true, message: "Saved." };
 }

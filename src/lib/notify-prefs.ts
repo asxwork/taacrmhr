@@ -5,7 +5,8 @@ import { memo, forget } from "./memo";
 import type { NotifyCategory } from "./notify";
 
 export type EmailMode = "daily" | "instant" | "urgent" | "off";
-export type NotifyPrefs = { email: EmailMode; muted: NotifyCategory[] };
+/** allLeads: also tell me about every new lead from the API, website and portals, whoever gets it (unset = on for Super Admins). */
+export type NotifyPrefs = { email: EmailMode; muted: NotifyCategory[]; allLeads?: boolean };
 export const DEFAULT_PREFS: NotifyPrefs = { email: "daily", muted: [] };
 export const EMAIL_MODES: [EmailMode, string, string][] = [
   ["daily", "One summary email a day (recommended)", "Every morning: your leads, follow-ups and everything that happened. Urgent things still come straight away."],
@@ -26,4 +27,20 @@ export async function saveNotifyPrefs(userId: string, prefs: NotifyPrefs) {
   const value = JSON.stringify(prefs);
   await db.setting.upsert({ where: { key: key(userId) }, update: { value }, create: { key: key(userId), value } });
   forget(`setting:${key(userId)}`);
+}
+
+/**
+ * People to tell about every new incoming lead, besides its responsible person: Super Admins (unless they turned it
+ * off) and anyone who turned "Every new lead" on.
+ */
+export async function newLeadWatchers(): Promise<string[]> {
+  const [admins, rows] = await Promise.all([
+    db.user.findMany({ where: { active: true, isSuperAdmin: true }, select: { id: true } }),
+    db.setting.findMany({ where: { key: { startsWith: "notify:prefs:" }, value: { contains: "allLeads" } }, select: { key: true, value: true } }),
+  ]);
+  const choice = new Map(rows.map((r) => { try { return [r.key.slice("notify:prefs:".length), (JSON.parse(r.value) as NotifyPrefs).allLeads] as const; } catch { return [r.key, undefined] as const; } }));
+  const ids = new Set(admins.filter((a) => choice.get(a.id) !== false).map((a) => a.id));
+  for (const [id, on] of choice) if (on === true) ids.add(id);
+  if (!ids.size) return [];
+  return (await db.user.findMany({ where: { id: { in: [...ids] }, active: true }, select: { id: true } })).map((u) => u.id);
 }

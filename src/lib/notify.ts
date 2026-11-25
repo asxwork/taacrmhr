@@ -8,14 +8,14 @@ export const APP_URL = () => (process.env.APP_URL ?? "http://localhost:3000").re
  * In-app notification, plus an email copy when SMTP is configured and the user has an address.
  * `link` is an app path like /crm/leads/abc.
  */
-export async function notify(userId: string | null | undefined, title: string, opts: { body?: string; link?: string; email?: boolean; category?: NotifyCategory; priority?: NotifyPriority } = {}) {
+export async function notify(userId: string | null | undefined, title: string, opts: { body?: string; link?: string; email?: boolean; category?: NotifyCategory; priority?: NotifyPriority; /** asked for: skips the Super Admin filter */ watch?: boolean } = {}) {
   if (!userId) return;
   const category = opts.category ?? categoryOf(opts.link);
   const priority = opts.priority ?? priorityOf(title);
   const prefs = await (await import("./notify-prefs")).notifyPrefs(userId);
   // A muted category (Profile → Notifications) skips everything except urgent items.
   if (prefs.muted.includes(category) && priority !== "urgent") return;
-  if (priority !== "urgent" && !(await forSuperAdmin(userId, opts.link))) return;
+  if (priority !== "urgent" && !opts.watch && !(await forSuperAdmin(userId, opts.link))) return;
   // Limits so nobody gets flooded (imports, automations, many leads at once):
   // 1. The same notification (same title and link) within 30 minutes is not repeated.
   // 2. A burst (6+ in 10 minutes) still shows in the bell, but without more phone pushes or instant emails.

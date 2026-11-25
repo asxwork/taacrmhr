@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth";
+import { scopeFor } from "@/lib/permissions";
 import { EMAIL_MODES, notifyPrefs } from "@/lib/notify-prefs";
 import { NOTIFY_CATEGORIES } from "@/lib/notify";
 import { digestFor } from "@/lib/daily-digest";
@@ -16,10 +17,13 @@ export default async function MyNotificationsPage() {
   const user = await requireUser();
   const prefs = await notifyPrefs(user.id);
   const preview = await digestFor(user.id).catch(() => null);
+  // "Every new lead": for people who can see all leads (on by default for Super Admins).
+  const canWatch = user.isSuperAdmin || scopeFor(user, "crm.leads") === "all";
+  const allLeads = prefs.allLeads ?? user.isSuperAdmin;
   return (
     <>
       <PageHeader title="Notifications & emails" description="By default you get one email each morning with your day, instead of an email for every notification. Urgent things (overdue, failures, security) still come straight away." />
-      {user.isSuperAdmin && <p className="mb-4 rounded-lg bg-sky-50 px-4 py-2.5 text-sm text-sky-800">As a Super Admin you only get notifications about your own leads and deals, about yourself, and urgent ones; everyone else&apos;s activity stays in the app.</p>}
+      {user.isSuperAdmin && <p className="mb-4 rounded-lg bg-sky-50 px-4 py-2.5 text-sm text-sky-800">As a Super Admin you get notifications about your own leads and deals, about yourself, urgent ones, and (if ticked below) every new lead that comes in; everyone else&apos;s activity stays in the app.</p>}
       <ActionForm action={saveMyNotifications} className="grid gap-5 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="mb-3 font-semibold">Email</h2>
@@ -43,6 +47,15 @@ export default async function MyNotificationsPage() {
               </label>
             ))}
           </div>
+          {canWatch && (
+            <div className="mt-4 border-t border-line pt-3">
+              <input type="hidden" name="allLeadsShown" value="1" />
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-canvas">
+                <input type="checkbox" name="allLeads" defaultChecked={allLeads} className="accent-navy-900" />
+                <span className="flex-1"><span className="block text-sm font-medium">Every new lead</span><span className="block text-xs text-muted">A notification (with sound) for each new lead from the API, website, Facebook or portals, whoever it&apos;s given to.</span></span>
+              </label>
+            </div>
+          )}
           <div className="mt-4"><SubmitButton>Save</SubmitButton></div>
         </Card>
       </ActionForm>

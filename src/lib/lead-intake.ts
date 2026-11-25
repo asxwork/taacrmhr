@@ -134,6 +134,11 @@ export async function ingestLead(input: IncomingLead, origin: "webform" | "faceb
   });
   await logSystem({ leadId: lead.id }, `Lead received from ${channel}`, null);
   await notify(owner?.id, `New lead: ${name}`, { body: `From ${channel}${phone ? ` · ${phone}` : ""}`, link: `/crm/leads/${lead.id}`, email: true });
+  // Super Admins (and anyone who asked) hear about every new incoming lead too, whoever it went to.
+  const ownerName = owner?.id ? (await db.user.findUnique({ where: { id: owner.id }, select: { name: true } }))?.name : null;
+  for (const id of await (await import("./notify-prefs")).newLeadWatchers()) {
+    if (id !== owner?.id) await notify(id, `New lead: ${name}`, { body: `From ${channel}${ownerName ? ` · given to ${ownerName}` : " · not assigned"}`, link: `/crm/leads/${lead.id}`, watch: true }).catch(() => {});
+  }
   await db.webhookLog.create({ data: { source: logSource, status: "created", summary: `Lead “${name}”${phone ? ` (${phone})` : ""}`, leadId: lead.id } });
   await (await import("./lead-rules")).leadEvent("created", lead.id);
   return { status: "created" as const, leadId: lead.id };
