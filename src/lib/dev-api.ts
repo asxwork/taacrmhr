@@ -66,7 +66,7 @@ async function findSource(v: unknown) {
   const s = str(v);
   if (!s) return null;
   const all = await db.leadSource.findMany({ where: { active: true }, select: { id: true, name: true } });
-  const hit = all.find((x) => x.name.trim().toLowerCase() === s.toLowerCase());
+  const hit = all.find((x) => x.id === s || x.name.trim().toLowerCase() === s.toLowerCase());
   if (!hit) throw new ApiError("INVALID", `Unknown source "${s}". Use one of: ${all.map((x) => x.name).join(", ")} (crm.source.list).`);
   return hit;
 }
@@ -93,13 +93,14 @@ function fromBitrixFields(f: Record<string, unknown>): Record<string, unknown> {
   const get = (k: string) => str(f[k]);
   const uf = (re: RegExp) => Object.entries(f).find(([k, v]) => k.startsWith("UF_") && re.test(k) && str(v))?.[1];
   const form = get("FORM_NAME") || str(uf(/FORM/i));
-  const notes = [get("COMMENTS"), get("SOURCE_DESCRIPTION"), form && `Form: ${form}`].filter(Boolean).join("\n");
   const source = get("SOURCE_ID");
   return {
     name: [get("NAME"), get("SECOND_NAME"), get("LAST_NAME")].filter(Boolean).join(" ") || get("TITLE"),
     phone: multi(f.PHONE), email: multi(f.EMAIL),
     source: source ? (BX_SOURCES[source.toUpperCase()] ?? source) : undefined,
-    notes: notes || undefined,
+    // Notes only from COMMENTS; SOURCE_DESCRIPTION is Source information (as in Bitrix), never copied into Notes.
+    notes: get("COMMENTS") || undefined,
+    source_info: get("SOURCE_DESCRIPTION") || undefined,
     campaign: get("UTM_CAMPAIGN") || form || undefined,
     project: str(uf(/PROJECT/i)) || undefined,
     location: get("ADDRESS_CITY") || get("ADDRESS") || undefined,
@@ -156,20 +157,25 @@ export const DEV_METHODS: DevMethod[] = [
       { name: "interest", type: "string", about: "buy, rent, invest or sell" },
       { name: "property_type", type: "string", about: "e.g. Apartment, Plot, House" },
       { name: "responsible_id", type: "string", about: "Give it to this person (user id from user.list; an email or name also works; alias: responsible) instead of rotation; the key's owner needs Leads → Reassign" },
-      { name: "fields", type: "string", about: "Bitrix style instead of the above: fields[NAME], fields[LAST_NAME], fields[PHONE][0][VALUE], fields[EMAIL][0][VALUE], fields[SOURCE_ID], fields[ASSIGNED_BY_ID], fields[COMMENTS], fields[UF_…PROJECT…], fields[FORM_NAME]. Answers {\"result\": <lead number>}" },
+      { name: "fields", type: "string", about: "Bitrix style instead of the above: fields[NAME], fields[LAST_NAME], fields[PHONE][0][VALUE], fields[EMAIL][0][VALUE], fields[SOURCE_ID], fields[ASSIGNED_BY_ID], fields[COMMENTS] (Notes), fields[SOURCE_DESCRIPTION] (Source information), fields[UF_…PROJECT…], fields[FORM_NAME]. Answers {\"result\": <lead number>} unless a plain name is sent too" },
     ],
     run: async ({ user, p: raw }) => {
       need(can(user, "crm.leads", "create"));
       const bitrix = isObj(raw.fields);
-      const p = bitrix ? fromBitrixFields(raw.fields as Record<string, unknown>) : raw;
+      // Bitrix-shaped `fields`, plus any plain parameters sent beside it (those win when both are given).
+      const plain = Object.fromEntries(Object.entries(raw).filter(([k, v]) => k !== "fields" && str(v)));
+      const p = bitrix ? { ...fromBitrixFields(raw.fields as Record<string, unknown>), ...plain } : raw;
+      // Pure Bitrix callers (no plain name) get Bitrix's answer, just the lead number; everyone else the AMS answer.
+      const bitrixReply = bitrix && !str(raw.name);
       if (!str(p.name)) throw new ApiError("INVALID", "name is required.");
       if (!str(p.phone) && !str(p.email)) throw new ApiError("INVALID", "phone or email is required.");
       // Bitrix-shaped calls keep Bitrix's behaviour: an unknown SOURCE_ID is ignored rather than refused.
-      const source = bitrix ? await findSource(p.source).catch(() => null) : await findSource(p.source);
+      const source = bitrixReply ? await findSource(p.source).catch(() => null) : await findSource(p.source ?? p.source_id);
       let assignee: { id: string; branchId: string | null } | null = null;
       if (str(responsibleOf(p))) { need(can(user, "crm.leads", "assign"), "Your account can't choose who gets leads (Leads → Reassign); leave responsible_id out to use the rotation."); assignee = await findUser(responsibleOf(p)); }
       const { ingestLead, normalizeIncoming } = await import("./lead-intake");
-      const input = { ...normalizeIncoming({ ...p, message: p.notes ?? p.message }), source: source?.name };
+      // Notes are only ever what was sent as `notes` (or its alias `message`): never derived from other fields.
+      const input = { ...normalizeIncoming(p), source: source?.name, message: str(p.notes ?? p.message) || undefined };
       const r = await ingestLead(input, "api", { id: `dev:${user.id}`, name: "API", ...(assignee ? { assigneeIds: [assignee.id] } : {}) });
       if (r.status === "ignored") throw new ApiError("INVALID", "phone or email is required.");
       // Source information and project: set on a new lead; on a merged (existing) lead only where still empty.
@@ -184,7 +190,7 @@ export const DEV_METHODS: DevMethod[] = [
       if (source && !created && !cur?.sourceId) extra.sourceId = source.id;
       if (Object.keys(extra).length) await db.lead.update({ where: { id: r.leadId }, data: extra });
       const lead = await db.lead.findUnique({ where: { id: r.leadId }, select: { id: true, number: true, owner: { select: { name: true } } } });
-      if (bitrix) return { result: lead!.number }; // Bitrix answers with just the new lead's id
+      if (bitrixReply) return { result: lead!.number }; // Bitrix answers with just the new lead's id
       return { result: { id: lead!.id, number: lead!.number, status: r.status, responsible: lead!.owner?.name ?? null } };
     },
   },

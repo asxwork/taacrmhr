@@ -56,6 +56,17 @@ async function makeKey(userId: string, scopes: string) {
     r = await post(`/api/rest/${token}/crm.lead.update`, { id: got?.body.result?.id, source: "website", source_info: "Changed" });
     check("crm.lead.update sets source and source_info", r.status === 200 && r.body.result?.source === "Website" && r.body.result?.source_info === "Changed", r);
 
+    // Notes are only what's sent as notes: never copied from source_info / SOURCE_DESCRIPTION (also with fields beside).
+    r = await post(`/api/rest/${token}/crm.lead.add`, { name: "Notes Test", phone: "+92 000 0000001", source_info: "hello", fields: { NAME: "Notes", LAST_NAME: "Test", PHONE: [{ VALUE: "+92 000 0000001" }], SOURCE_DESCRIPTION: "hello" } });
+    const nt = r.body.result?.id ? (await call(`/api/rest/${token}/crm.lead.get?id=${r.body.result.id}`)).body.result : null;
+    if (nt) leads.push(nt.id);
+    check("source_info + fields → Source information only, Notes empty, AMS answer", nt?.source_info === "hello" && !nt.notes && nt.name === "Notes Test", { r: r.body, nt });
+    r = await post(`/api/rest/${token}/crm.lead.add`, { name: "Notes Test", phone: "+92 000 0000001", source_info: "again" });
+    const nt2 = (await call(`/api/rest/${token}/crm.lead.get?id=${nt?.id}`)).body.result;
+    check("duplicate merge keeps Notes empty and Source information", r.body.result?.status === "merged" && !nt2?.notes && nt2?.source_info === "hello", { r: r.body, nt2 });
+    r = await post(`/api/rest/${token}/crm.lead.update`, { id: nt?.id, notes: "call back" });
+    check("notes sent → saved, source_info unchanged", r.body.result?.notes === "call back" && r.body.result?.source_info === "hello", r.body);
+
     // Bitrix-shaped calls (scripts written for Bitrix24 work with only the link changed).
     r = await call(`/api/rest/${token}/user.get.json?filter[EMAIL]=${encodeURIComponent(agent.email)}`);
     const bxUser = r.body.result?.[0];
@@ -66,7 +77,7 @@ async function makeKey(userId: string, scopes: string) {
     r = await post(`/api/rest/${token}/crm.lead.add.json`, { fields: { NAME: "Bitrix", LAST_NAME: "Shape", PHONE: [{ VALUE: "+92 300 5550003", VALUE_TYPE: "WORK" }], EMAIL: [{ VALUE: "bx-test@example.com" }], SOURCE_ID: bxSource?.STATUS_ID, ASSIGNED_BY_ID: bxUser?.ID, COMMENTS: "2 bed", UF_CRM_PROJECT: "Test Tower", FORM_NAME: "Meta form A" } });
     const bxLead = typeof r.body.result === "number" ? await db.lead.findFirst({ where: { number: r.body.result }, select: { id: true, name: true, phone: true, ownerId: true, notes: true, projectName: true, project: { select: { name: true } } } }) : null;
     if (bxLead) leads.push(bxLead.id);
-    check("bitrix crm.lead.add (JSON) → {result: number}, fields mapped", r.status === 200 && bxLead?.name === "Bitrix Shape" && bxLead.ownerId === agent.id && !!bxLead.notes?.includes("Meta form A") && (bxLead.projectName ?? bxLead.project?.name) === "Test Tower", { r, bxLead });
+    check("bitrix crm.lead.add (JSON) → {result: number}, fields mapped", r.status === 200 && bxLead?.name === "Bitrix Shape" && bxLead.ownerId === agent.id && bxLead.notes === "2 bed" && (bxLead.projectName ?? bxLead.project?.name) === "Test Tower", { r, bxLead });
     const form = new URLSearchParams({ "fields[NAME]": "Form Shape", "fields[PHONE][0][VALUE]": "+92 300 5550004" });
     r = await call(`/api/rest/${token}/crm.lead.add`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form });
     const formLead = typeof r.body.result === "number" ? await db.lead.findFirst({ where: { number: r.body.result }, select: { id: true, name: true } }) : null;
@@ -102,7 +113,7 @@ async function makeKey(userId: string, scopes: string) {
     check("no key at all → 401", r.status === 401, r);
   } finally {
     if (leads.length) { await db.activity.deleteMany({ where: { leadId: { in: leads } } }); await db.lead.deleteMany({ where: { id: { in: leads } } }); }
-    await db.lead.deleteMany({ where: { phoneKey: { in: ["03005550001", "03005550002", "03005550003", "03005550004", "03715550005", "03715550006"] } } }).catch(() => {});
+    await db.lead.deleteMany({ where: { phoneKey: { in: ["03005550001", "03005550002", "03005550003", "03005550004", "03715550005", "03715550006", "0920000000001", "920000000001", "00000000001"] } } }).catch(() => {});
     await db.devHook.deleteMany({ where: { id: { in: made } } });
   }
   console.log(failed ? `\n${failed} check(s) failed` : "\nAll checks passed");
