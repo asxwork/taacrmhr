@@ -1,7 +1,7 @@
 import { PushToggle } from "@/components/push-toggle";
 import Link from "@/components/link";
 import { revalidatePath } from "next/cache";
-import { AlertTriangle, Briefcase, Clock, Settings2, Target, Wallet } from "lucide-react";
+import { AlertTriangle, Bell, Briefcase, Clock, Settings2, Target, Wallet } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NOTIFY_CATEGORIES } from "@/lib/notify";
@@ -52,7 +52,8 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       <div className="mb-3 flex flex-wrap gap-1.5">
         {tabs.map(([k, l, n, red]) => (
           <Link key={k} href={k ? `/notifications?tab=${k}` : "/notifications"} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm", tab === k ? "border-navy-900 bg-navy-900 text-white" : "border-line bg-surface hover:bg-canvas")}>
-            {red && <AlertTriangle className={cn("size-3.5", tab === k ? "text-white" : "text-red-600")} />}{l}
+            {red ? <AlertTriangle className={cn("size-3.5", tab === k ? "text-white" : "text-red-600")} />
+              : (() => { const Icon = k in CAT_ICON ? CAT_ICON[k as keyof typeof CAT_ICON] : Bell; return <Icon className={cn("size-3.5", tab === k ? "text-white" : "text-muted")} />; })()}{l}
             {n > 0 && <span className={cn("rounded-full px-1.5 text-[11px] font-semibold", red ? "bg-red-600 text-white" : tab === k ? "bg-white/20" : "bg-canvas text-muted")}>{n}</span>}
           </Link>
         ))}

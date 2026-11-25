@@ -1,3 +1,4 @@
+import { Briefcase, Settings2, Target, UserPlus, Wallet } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { scopeFor } from "@/lib/permissions";
 import { EMAIL_MODES, notifyPrefs } from "@/lib/notify-prefs";
@@ -10,6 +11,8 @@ import { saveMyNotifications } from "./actions";
 
 export const metadata = { title: "Notifications & emails" };
 
+const CAT_ICON = { crm: Target, hr: Briefcase, finance: Wallet, system: Settings2 } as const;
+const CAT_TONE = { crm: "bg-sky-100 text-sky-700", hr: "bg-violet-100 text-violet-700", finance: "bg-emerald-100 text-emerald-700", system: "bg-slate-100 text-slate-600" } as const;
 const ABOUT: Record<string, string> = { crm: "Leads, deals, calls, inventory", hr: "Leave, attendance, requests, payslips", finance: "Expenses, approvals, cash", system: "Everything else" };
 
 /** Profile → Notifications: how many emails you get (one daily summary by default) and which kinds you don't want. */
@@ -40,18 +43,23 @@ export default async function MyNotificationsPage() {
           <h2 className="mb-1 font-semibold">Mute</h2>
           <p className="mb-3 text-xs text-muted">Muted kinds don&apos;t notify you at all (urgent ones still do).</p>
           <div className="space-y-1">
-            {NOTIFY_CATEGORIES.map(([k, label]) => (
+            {NOTIFY_CATEGORIES.map(([k, label]) => {
+              const Icon = CAT_ICON[k];
+              return (
               <label key={k} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-canvas">
                 <input type="checkbox" name={`mute:${k}`} defaultChecked={prefs.muted.includes(k)} className="accent-navy-900" />
+                <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${CAT_TONE[k]}`}><Icon className="size-4" /></span>
                 <span className="flex-1"><span className="block text-sm font-medium">{label}</span><span className="block text-xs text-muted">{ABOUT[k]}</span></span>
               </label>
-            ))}
+              );
+            })}
           </div>
           {canWatch && (
             <div className="mt-4 border-t border-line pt-3">
               <input type="hidden" name="allLeadsShown" value="1" />
               <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-canvas">
                 <input type="checkbox" name="allLeads" defaultChecked={allLeads} className="accent-navy-900" />
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><UserPlus className="size-4" /></span>
                 <span className="flex-1"><span className="block text-sm font-medium">Every new lead</span><span className="block text-xs text-muted">A notification (with sound) for each new lead from the API, website, Facebook or portals, whoever it&apos;s given to.</span></span>
               </label>
             </div>
