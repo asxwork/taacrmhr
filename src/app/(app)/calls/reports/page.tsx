@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { isCallSupervisor } from "@/lib/calls";
 import { db } from "@/lib/db";
 import { agentStats, campaignStats, hourStats, outcomeStats } from "@/lib/call-reports";
+import { agentsDetailed, type CallNumbers } from "@/lib/call-agent-report";
 import { callReportText, callTotalsText, pkDay, type DaySummary } from "@/lib/call-daily";
 import { CopyText } from "@/components/calls/copy-text";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
@@ -20,10 +21,10 @@ export const metadata = { title: "Call Reports" };
 const mmss = (s: number) => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "—");
 
 /** Calls → Reports: the period overview (agents, hours, outcomes, campaigns) and the end-of-shift daily reports. */
-export default async function CallReports({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; tab?: string; agent?: string }> }) {
+export default async function CallReports({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; tab?: string; agent?: string; campaign?: string }> }) {
   const viewer = await requirePermission("calls");
   const sp = await searchParams;
-  const tab = sp.tab === "daily" ? "daily" : "overview";
+  const tab = sp.tab === "daily" ? "daily" : sp.tab === "agents" ? "agents" : "overview";
   // Agents see only their own numbers; supervisors see everyone (lib/calls isCallSupervisor).
   const supervisor = isCallSupervisor(viewer);
   // Agents don't get the reports section: their own day report is on the dialer (and here).
@@ -34,6 +35,7 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
   const to = parse(sp.to, new Date());
   const end = new Date(to.getTime() + 86_400_000);
   const range = { from: format(from, "yyyy-MM-dd"), to: format(to, "yyyy-MM-dd") };
+  const campaignOptions = tab === "agents" ? await db.callCampaign.findMany({ orderBy: { createdAt: "desc" }, take: 200, select: { id: true, name: true } }) : [];
   const tabLink = (t: string) => `/calls/reports?tab=${t}&from=${range.from}&to=${range.to}`;
 
   const header = (
@@ -44,12 +46,18 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
             <input type="hidden" name="tab" value={tab} />
             <input type="date" name="from" defaultValue={range.from} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="From" />
             <input type="date" name="to" defaultValue={range.to} className="input h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="To" />
+            {tab === "agents" && (
+              <select name="campaign" defaultValue={sp.campaign ?? ""} className="input h-9 min-w-0 flex-1 sm:w-52 sm:flex-none" aria-label="Campaign">
+                <option value="">All campaigns</option>
+                {campaignOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            )}
           </AutoFilterForm>
           {tab === "overview" && <a href={`/api/calls/export?from=${range.from}&to=${range.to}`} className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-2 text-sm hover:bg-surface"><Download className="size-4" /> CSV</a>}
         </div>
       } />
       <div className="mb-5 flex w-fit rounded-lg bg-black/5 p-0.5">
-        {([["overview", "Overview"], ["daily", "Daily reports"]] as const).map(([t, l]) => (
+        {([["overview", "Overview"], ["agents", "Agents (detailed)"], ["daily", "Daily reports"]] as const).map(([t, l]) => (
           <Link key={t} href={tabLink(t)} className={cn("rounded-md px-3 py-1.5 text-sm", t === tab ? "bg-surface font-medium shadow-xs" : "text-muted")}>{l}</Link>
         ))}
       </div>
@@ -108,6 +116,39 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
     );
   }
 
+  if (tab === "agents") {
+    const campaignId = sp.campaign && campaignOptions.some((c) => c.id === sp.campaign) ? sp.campaign : undefined;
+    const { rows, total } = await agentsDetailed(from, end, { campaignId });
+    const person = (id: string) => `/calls/reports/agent/${id}?from=${range.from}&to=${range.to}${campaignId ? `&campaign=${campaignId}` : ""}`;
+    const cells = (r: CallNumbers) => [r.calls, r.perDay, r.days, `${r.reached} · ${r.reachPct}%`, `${r.interested} · ${r.interestedPct}%`, r.callbacks, r.notAnswered + r.voicemail, r.switchedOff, r.wrong, r.notInterested, r.duplicate, r.whatsapp, `${r.talkMin} min`, mmss(r.avgSec)];
+    const head = ["Agent", "Calls", "Per day", "Days", "Connected", "Interested", "Callbacks", "No answer", "Switched off", "Wrong", "Not interested", "Duplicate", "WhatsApp", "Talk", "Avg call"];
+    return (
+      <>
+        {header}
+        <p className="mb-3 text-sm text-muted">Every agent&apos;s calls in the period{campaignId ? " for this campaign" : ""}. Interested % is of connected calls. Click a name for their person-by-person report (every day, campaigns, hours, latest calls).</p>
+        <Card className="overflow-x-auto">
+          {!rows.length ? <EmptyState title="No calls in this period" /> : (
+            <table className="w-full min-w-[1200px] text-sm">
+              <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr>{head.map((h) => <th key={h} className="whitespace-nowrap px-3 py-2.5 font-medium">{h}</th>)}</tr></thead>
+              <tbody className="divide-y divide-line">
+                {rows.map((r) => (
+                  <tr key={r.id} className="hover:bg-canvas/60">
+                    <td className="whitespace-nowrap px-3 py-2"><Link href={person(r.id)} className="font-medium text-navy-900 hover:underline dark:text-ink">{r.name}</Link></td>
+                    {cells(r).map((v, i) => <td key={i} className={cn("whitespace-nowrap px-3 py-2 tabular-nums", i === 0 && "font-semibold")}>{v}</td>)}
+                  </tr>
+                ))}
+                <tr className="bg-canvas/60 font-semibold">
+                  <td className="px-3 py-2">Team total</td>
+                  {cells(total).map((v, i) => <td key={i} className="whitespace-nowrap px-3 py-2 tabular-nums">{v}</td>)}
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </Card>
+      </>
+    );
+  }
+
   const [agents, outcomes, campaigns, hours] = await Promise.all([agentStats(from, end, only), outcomeStats(from, end, only), campaignStats(from, end, only), hourStats(from, end, only)]);
   const today = pkDay().date;
   return (
@@ -115,7 +156,7 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
       {header}
       <Card className="mb-6 overflow-x-auto">
         <ReportTable head={["Agent", "Calls", "Reached", "Reach %", "Interested", "Callbacks", "WhatsApp", "Talk min", "Avg call", "Today"]}
-          rows={agents.map((a) => [a.name, a.calls, a.reached, `${a.reachRate}%`, a.interested, a.callbacks, a.whatsapp, a.talkMin, mmss(a.avgSec),
+          rows={agents.map((a) => [<Link key={`n${a.id}`} href={`/calls/reports/agent/${a.id}?from=${range.from}&to=${range.to}`} className="font-medium hover:underline">{a.name}</Link>, a.calls, a.reached, `${a.reachRate}%`, a.interested, a.callbacks, a.whatsapp, a.talkMin, mmss(a.avgSec),
             supervisor || a.id === viewer.id ? <Link key={a.id} href={`/calls/reports/daily/live?agent=${a.id}&date=${today}`} className="text-xs font-medium underline">Live day</Link> : ""])} empty="No calls in this period." />
       </Card>
       <Card className="mb-6 p-5"><h2 className="mb-3 text-sm font-semibold">Calls by hour</h2><HourChart hours={hours} /></Card>
