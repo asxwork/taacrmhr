@@ -61,6 +61,17 @@ async function findLead(user: SessionUser, p: Record<string, unknown>, action: "
   if (!lead) throw new ApiError("NOT_FOUND", "No lead with that id or number (or you can't open it).");
   return lead;
 }
+/** A source NAME (any letter case) → the source; unknown names are an error, never a silent "Website". */
+async function findSource(v: unknown) {
+  const s = str(v);
+  if (!s) return null;
+  const all = await db.leadSource.findMany({ where: { active: true }, select: { id: true, name: true } });
+  const hit = all.find((x) => x.name.trim().toLowerCase() === s.toLowerCase());
+  if (!hit) throw new ApiError("INVALID", `Unknown source "${s}". Use one of: ${all.map((x) => x.name).join(", ")} (crm.source.list).`);
+  return hit;
+}
+const responsibleOf = (p: Record<string, unknown>) => p.responsible_id ?? p.responsible;
+
 const findUser = async (v: unknown) => {
   const s = str(v);
   if (!s) return null;
@@ -135,7 +146,8 @@ export const DEV_METHODS: DevMethod[] = [
       { name: "name", type: "string", about: "Client name", required: true },
       { name: "phone", type: "string", about: "Phone in any format (+92 300 1234567, 0300…, +971…). Phone or email is required" },
       { name: "email", type: "string", about: "Email. Phone or email is required" },
-      { name: "source", type: "string", about: "Source name as in CRM settings, e.g. Website, Facebook, Zameen (default Website)" },
+      { name: "source", type: "string", about: "Source name from crm.source.list, any letter case, e.g. Zameen, Facebook, CC (default Website). An unknown name is refused (400 INVALID)" },
+      { name: "source_info", type: "string", about: "Where exactly it came from (ad title, form answers); saved as Source information" },
       { name: "notes", type: "string", about: "What they asked; saved as the lead's notes (alias: message)" },
       { name: "campaign", type: "string", about: "Campaign name" },
       { name: "project", type: "string", about: "Project name; linked when it's in your Inventory projects" },
@@ -143,7 +155,7 @@ export const DEV_METHODS: DevMethod[] = [
       { name: "budget", type: "string", about: "Budget, e.g. 2.5 crore, 25000000" },
       { name: "interest", type: "string", about: "buy, rent, invest or sell" },
       { name: "property_type", type: "string", about: "e.g. Apartment, Plot, House" },
-      { name: "responsible", type: "string", about: "Give it to this person (email, name or user id) instead of rotation; the key's owner needs Leads → Reassign" },
+      { name: "responsible_id", type: "string", about: "Give it to this person (user id from user.list; an email or name also works; alias: responsible) instead of rotation; the key's owner needs Leads → Reassign" },
       { name: "fields", type: "string", about: "Bitrix style instead of the above: fields[NAME], fields[LAST_NAME], fields[PHONE][0][VALUE], fields[EMAIL][0][VALUE], fields[SOURCE_ID], fields[ASSIGNED_BY_ID], fields[COMMENTS], fields[UF_…PROJECT…], fields[FORM_NAME]. Answers {\"result\": <lead number>}" },
     ],
     run: async ({ user, p: raw }) => {
@@ -152,26 +164,37 @@ export const DEV_METHODS: DevMethod[] = [
       const p = bitrix ? fromBitrixFields(raw.fields as Record<string, unknown>) : raw;
       if (!str(p.name)) throw new ApiError("INVALID", "name is required.");
       if (!str(p.phone) && !str(p.email)) throw new ApiError("INVALID", "phone or email is required.");
+      // Bitrix-shaped calls keep Bitrix's behaviour: an unknown SOURCE_ID is ignored rather than refused.
+      const source = bitrix ? await findSource(p.source).catch(() => null) : await findSource(p.source);
       let assignee: { id: string; branchId: string | null } | null = null;
-      if (str(p.responsible)) { need(can(user, "crm.leads", "assign"), "Your account can't choose who gets leads (Leads → Reassign); leave responsible out to use the rotation."); assignee = await findUser(p.responsible); }
+      if (str(responsibleOf(p))) { need(can(user, "crm.leads", "assign"), "Your account can't choose who gets leads (Leads → Reassign); leave responsible_id out to use the rotation."); assignee = await findUser(responsibleOf(p)); }
       const { ingestLead, normalizeIncoming } = await import("./lead-intake");
-      const input = normalizeIncoming({ ...p, message: p.notes ?? p.message });
+      const input = { ...normalizeIncoming({ ...p, message: p.notes ?? p.message }), source: source?.name };
       const r = await ingestLead(input, "api", { id: `dev:${user.id}`, name: "API", ...(assignee ? { assigneeIds: [assignee.id] } : {}) });
       if (r.status === "ignored") throw new ApiError("INVALID", "phone or email is required.");
-      if (r.status === "created" && str(p.project)) {
+      // Source information and project: set on a new lead; on a merged (existing) lead only where still empty.
+      const cur = await db.lead.findUnique({ where: { id: r.leadId }, select: { sourceInfo: true, projectId: true, projectName: true, sourceId: true } });
+      const extra: Prisma.LeadUncheckedUpdateInput = {};
+      const created = r.status === "created";
+      if (str(p.source_info) && (created || !cur?.sourceInfo)) extra.sourceInfo = str(p.source_info).slice(0, 4000);
+      if (str(p.project) && (created || (!cur?.projectId && !cur?.projectName))) {
         const pr = await db.project.findFirst({ where: { name: str(p.project) } });
-        await db.lead.update({ where: { id: r.leadId }, data: pr ? { projectId: pr.id } : { projectName: str(p.project).slice(0, 190) } });
+        Object.assign(extra, pr ? { projectId: pr.id } : { projectName: str(p.project).slice(0, 190) });
       }
+      if (source && !created && !cur?.sourceId) extra.sourceId = source.id;
+      if (Object.keys(extra).length) await db.lead.update({ where: { id: r.leadId }, data: extra });
       const lead = await db.lead.findUnique({ where: { id: r.leadId }, select: { id: true, number: true, owner: { select: { name: true } } } });
       if (bitrix) return { result: lead!.number }; // Bitrix answers with just the new lead's id
       return { result: { id: lead!.id, number: lead!.number, status: r.status, responsible: lead!.owner?.name ?? null } };
     },
   },
   {
-    name: "crm.lead.update", scope: "crm", write: true, about: "Changes a lead: stage, responsible person, name, phone, email, project or notes.",
+    name: "crm.lead.update", scope: "crm", write: true, about: "Changes a lead: stage, responsible person, name, phone, email, source, source information, project or notes.",
     params: [
       { name: "id", type: "string", about: "Lead id or number", required: true }, { name: "stage", type: "string", about: "New stage name or id" },
-      { name: "responsible", type: "string", about: "New responsible: email, name or id" }, { name: "name", type: "string", about: "Client name" },
+      { name: "responsible_id", type: "string", about: "New responsible: user id (or email / name; alias: responsible)" }, { name: "name", type: "string", about: "Client name" },
+      { name: "source", type: "string", about: "Source name from crm.source.list (any letter case); unknown names are refused" },
+      { name: "source_info", type: "string", about: "Replace the Source information" },
       { name: "phone", type: "string", about: "Phone" }, { name: "email", type: "string", about: "Email" },
       { name: "project", type: "string", about: "Project name" }, { name: "notes", type: "string", about: "Replace the notes" },
     ],
@@ -185,13 +208,15 @@ export const DEV_METHODS: DevMethod[] = [
         if (s.systemKey === "onhold") throw new ApiError("ACCESS_DENIED", "Only the system moves leads to On-hold.");
         if (s.id !== lead.status.id) Object.assign(data, { statusId: s.id, statusChangedAt: new Date() });
       }
-      if (str(p.responsible)) { need(can(user, "crm.leads", "assign"), "Your account can't reassign leads."); const u = (await findUser(p.responsible))!; Object.assign(data, { ownerId: u.id, branchId: u.branchId, assignedAt: new Date() }); }
+      if (str(p.source)) data.sourceId = (await findSource(p.source))!.id;
+      if (p.source_info !== undefined) data.sourceInfo = str(p.source_info).slice(0, 4000) || null;
+      if (str(responsibleOf(p))) { need(can(user, "crm.leads", "assign"), "Your account can't reassign leads."); const u = (await findUser(responsibleOf(p)))!; Object.assign(data, { ownerId: u.id, branchId: u.branchId, assignedAt: new Date() }); }
       if (str(p.name)) data.name = str(p.name).slice(0, 190);
       if (str(p.phone)) data.phone = str(p.phone).slice(0, 40);
       if (str(p.email)) data.email = str(p.email).toLowerCase().slice(0, 190);
       if (str(p.project)) { const pr = await db.project.findFirst({ where: { name: str(p.project) } }); Object.assign(data, pr ? { projectId: pr.id, projectName: null } : { projectName: str(p.project).slice(0, 190) }); }
       if (p.notes !== undefined) data.notes = str(p.notes).slice(0, 8000) || null;
-      if (!Object.keys(data).length) throw new ApiError("INVALID", "Nothing to change: pass stage, responsible, name, phone, email, project or notes.");
+      if (!Object.keys(data).length) throw new ApiError("INVALID", "Nothing to change: pass stage, responsible_id, name, phone, email, source, source_info, project or notes.");
       await db.lead.update({ where: { id: lead.id }, data });
       return { result: leadOut(await findLead(user, { id: lead.id })) };
     },

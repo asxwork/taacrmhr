@@ -32,7 +32,7 @@ async function makeKey(userId: string, scopes: string) {
     check("key in a Bearer header works", r.status === 200 && r.body.result?.id === admin.id, r);
     r = await call(`/api/rest/methods`, { headers: { "x-api-key": token } });
     const add = (r.body.result ?? []).find((m: any) => m.method === "crm.lead.add");
-    check("methods lists crm.lead.add with its parameters", !!add && add.params.some((p: any) => p.name === "name" && p.required) && add.params.some((p: any) => p.name === "responsible"), r.body.result?.length);
+    check("methods lists crm.lead.add with its parameters", !!add && add.params.some((p: any) => p.name === "name" && p.required) && add.params.some((p: any) => p.name === "responsible_id"), r.body.result?.length);
     check("methods only lists the key's scopes", !(r.body.result ?? []).some((m: any) => m.scope === "hr"));
 
     r = await post(`/api/rest/${token}/crm.lead.add`, { phone: "+92 300 5550001" });
@@ -44,6 +44,17 @@ async function makeKey(userId: string, scopes: string) {
     if (r.body.result?.id) leads.push(r.body.result.id);
     r = await post(`/api/rest/${token}/crm.lead.add`, { name: "API Test Lead again", phone: "0300 5550001" });
     check("same phone again → merged, no duplicate", r.status === 200 && r.body.result?.status === "merged" && r.body.result?.id === leads[0], r);
+
+    // source / source_info / project / responsible_id (Google Sheets integration)
+    const src = await db.leadSource.findFirst({ where: { active: true, name: { not: "Website" } } });
+    r = await post(`/api/rest/${token}/crm.lead.add`, { name: "Sheet Lead", phone: "+92 371 5550005", source: src!.name.toUpperCase(), source_info: "189 Sq. Yd. Flat in Clifton", project: "Askari VI", responsible_id: agent.id });
+    if (r.body.result?.id) leads.push(r.body.result.id);
+    const got = r.body.result?.id ? await call(`/api/rest/${token}/crm.lead.get?id=${r.body.result.id}`) : null;
+    check("source (any case), source_info, project, responsible_id saved on create", got?.body.result?.source === src!.name && got.body.result.source_info === "189 Sq. Yd. Flat in Clifton" && got.body.result.project === "Askari VI" && got.body.result.responsible?.id === agent.id, { r: r.body, got: got?.body });
+    r = await post(`/api/rest/${token}/crm.lead.add`, { name: "Bad Source", phone: "+92 371 5550006", source: "Nope Portal" });
+    check("unknown source → 400 INVALID, not Website", r.status === 400 && r.body.error === "INVALID" && /Unknown source/.test(r.body.error_description), r);
+    r = await post(`/api/rest/${token}/crm.lead.update`, { id: got?.body.result?.id, source: "website", source_info: "Changed" });
+    check("crm.lead.update sets source and source_info", r.status === 200 && r.body.result?.source === "Website" && r.body.result?.source_info === "Changed", r);
 
     // Bitrix-shaped calls (scripts written for Bitrix24 work with only the link changed).
     r = await call(`/api/rest/${token}/user.get.json?filter[EMAIL]=${encodeURIComponent(agent.email)}`);
@@ -91,7 +102,7 @@ async function makeKey(userId: string, scopes: string) {
     check("no key at all → 401", r.status === 401, r);
   } finally {
     if (leads.length) { await db.activity.deleteMany({ where: { leadId: { in: leads } } }); await db.lead.deleteMany({ where: { id: { in: leads } } }); }
-    await db.lead.deleteMany({ where: { phoneKey: { in: ["03005550001", "03005550002", "03005550003", "03005550004"] } } }).catch(() => {});
+    await db.lead.deleteMany({ where: { phoneKey: { in: ["03005550001", "03005550002", "03005550003", "03005550004", "03715550005", "03715550006"] } } }).catch(() => {});
     await db.devHook.deleteMany({ where: { id: { in: made } } });
   }
   console.log(failed ? `\n${failed} check(s) failed` : "\nAll checks passed");
