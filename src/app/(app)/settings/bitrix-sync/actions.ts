@@ -50,8 +50,6 @@ export async function bitrixSyncSettings(patch: { enabled?: boolean; every?: num
 export async function bitrixBackupNow() {
   await boss();
   const { bitrixBackupState, runBitrixBackup } = await import("@/lib/bitrix-backup");
-  const { driveConnected } = await import("@/lib/backup");
-  if (!(await driveConnected())) return { error: "Connect Google Drive first in Settings → Backup." };
   if ((await bitrixBackupState()).running) return { error: "A Bitrix backup is already running." };
   void runBitrixBackup();
   return { ok: true };
@@ -64,8 +62,8 @@ export async function bitrixBackupSwitch(enabled: boolean) {
 
 export async function bitrixBackupInfo() {
   await boss();
-  const [{ bitrixBackupState }, { driveConnected }] = await Promise.all([import("@/lib/bitrix-backup"), import("@/lib/backup")]);
-  return { ...(await bitrixBackupState()), drive: await driveConnected() };
+  const [{ bitrixBackupState, bitrixLocalBackups }, { driveConnected }] = await Promise.all([import("@/lib/bitrix-backup"), import("@/lib/backup")]);
+  return { ...(await bitrixBackupState()), drive: await driveConnected(), files: await bitrixLocalBackups() };
 }
 
 export async function bitrixSyncState() {

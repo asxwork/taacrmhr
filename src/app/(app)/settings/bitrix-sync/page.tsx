@@ -4,7 +4,7 @@ import { syncStatus } from "@/lib/bitrix-sync";
 import { PageHeader } from "@/components/ui";
 import { SyncPanel } from "./sync-panel";
 import { BackupPanel } from "./backup-panel";
-import { bitrixBackupState } from "@/lib/bitrix-backup";
+import { bitrixBackupState, bitrixLocalBackups } from "@/lib/bitrix-backup";
 import { driveConnected } from "@/lib/backup";
 import { disabledFeatures } from "@/lib/features";
 
@@ -17,7 +17,7 @@ export default async function BitrixSyncPage() {
     <div className="max-w-3xl">
       <PageHeader title="Bitrix sync" description="While your team still works in Bitrix24, AMS keeps itself updated: new leads, changed stages and responsible people, new activities, comments and stage changes come in automatically." />
       <SyncPanel initial={await syncStatus()} />
-      {!(await disabledFeatures()).has("crm-bitrix-backup") && <BackupPanel initial={{ ...(await bitrixBackupState()), drive: await driveConnected() }} />}
+      {!(await disabledFeatures()).has("crm-bitrix-backup") && <BackupPanel initial={{ ...(await bitrixBackupState()), drive: await driveConnected(), files: await bitrixLocalBackups() }} />}
     </div>
   );
 }

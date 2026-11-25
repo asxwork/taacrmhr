@@ -66,6 +66,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
   const [data, setData] = useState<LeadListData>(initial);
   const [loading, startLoading] = useTransition();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const lastPick = useRef<string | null>(null);
   const [forAll, setForAll] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [menu, setMenu] = useState<Menu>(null);
@@ -195,7 +196,17 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
   const count = forAll ? data.total : selected.size;
   const pageIds = data.rows.filter((r) => r.editable).map((r) => r.id);
   const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
-  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  // Click ticks one lead; Shift + click ticks (or unticks) every lead between the last one clicked and this one.
+  const toggle = (id: string, e?: React.MouseEvent) => {
+    const from = lastPick.current ? pageIds.indexOf(lastPick.current) : -1;
+    const to = pageIds.indexOf(id);
+    if (e?.shiftKey && from >= 0 && to >= 0 && from !== to) {
+      const range = pageIds.slice(Math.min(from, to), Math.max(from, to) + 1);
+      const on = !selected.has(id);
+      setSelected((s) => { const n = new Set(s); for (const r of range) { if (on) n.add(r); else n.delete(r); } return n; });
+    } else setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    lastPick.current = id;
+  };
   const auto = automations.find((a) => a.id === autoId);
 
   const counter = (label: string, n: number, activity: string, tone: string) => (
@@ -400,7 +411,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                   return (
                     <li key={l.id} className={cn("flex gap-3 px-4 py-3", (forAll || selected.has(l.id)) && "bg-navy-900/[0.03]")}>
                       {perms.canEdit && perms.canBulk && l.editable && (
-                        <input type="checkbox" checked={forAll || selected.has(l.id)} disabled={forAll} onChange={() => toggle(l.id)} className="mt-1.5 size-4 shrink-0 accent-navy-900" aria-label={`Select ${l.name}`} />
+                        <input type="checkbox" checked={forAll || selected.has(l.id)} disabled={forAll} onChange={() => {}} onClick={(e) => toggle(l.id, e)} onMouseDown={(e) => e.shiftKey && e.preventDefault()} className="mt-1.5 size-4 shrink-0 accent-navy-900" aria-label={`Select ${l.name}`} title="Shift + click to select a range" />
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start gap-2">
@@ -516,7 +527,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
                       };
                       return (
                         <tr key={l.id} className={cn("align-top transition-colors hover:bg-canvas/60", (forAll || selected.has(l.id)) && "bg-navy-900/[0.03]")}>
-                          <td className="td">{perms.canEdit && perms.canBulk && l.editable && <input type="checkbox" checked={forAll || selected.has(l.id)} disabled={forAll} onChange={() => toggle(l.id)} className="accent-navy-900" aria-label={`Select ${l.name}`} />}</td>
+                          <td className="td">{perms.canEdit && perms.canBulk && l.editable && <input type="checkbox" checked={forAll || selected.has(l.id)} disabled={forAll} onChange={() => {}} onClick={(e) => toggle(l.id, e)} onMouseDown={(e) => e.shiftKey && e.preventDefault()} className="accent-navy-900" aria-label={`Select ${l.name}`} title="Shift + click to select a range" />}</td>
                           {cols.map(cell)}
                         </tr>
                       );

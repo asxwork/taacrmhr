@@ -43,9 +43,11 @@ export async function toggleActivity(fd: FormData) {
 /** Activities are the record of what agents did: deleting needs the Activities → Delete permission (off by default). */
 export async function deleteActivity(fd: FormData) {
   const user = await requireUser();
-  if (!can(user, "crm.activities", "delete")) return;
   const act = await db.activity.findFirst({ where: { id: str(fd, "id"), type: { not: "system" } } });
   if (!act) return;
+  // Activities → Delete removes any activity; everyone can delete what they added themselves, on records they can open.
+  const own = act.createdById === user.id && await canAccessEntity(user, { leadId: act.leadId ?? undefined, dealId: act.dealId ?? undefined, contactId: act.contactId ?? undefined, companyId: act.companyId ?? undefined });
+  if (!can(user, "crm.activities", "delete") && !own) return;
   await db.activity.delete({ where: { id: act.id } });
   await audit(user.id, "delete", "activity", act.id, `Deleted activity “${act.subject}”`);
   revalidatePath(str(fd, "path") || "/crm/tasks");

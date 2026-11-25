@@ -20,6 +20,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ path: st
   if (rel.startsWith("lead-backups/")) return new Response("Not found", { status: 404 });
   // Imported calling sheets: only through /api/calls/files, by a Super Admin.
   if (rel.startsWith("call-imports/")) return new Response("Not found", { status: 404 });
+  // Bitrix backups: only through /api/bitrix-backup, by a Super Admin.
+  if (rel.startsWith("bitrix-backups/")) return new Response("Not found", { status: 404 });
   // HR documents (CNIC scans, contracts…) are private: only the employee and people who can see their record.
   if (rel.startsWith("hr/")) {
     const doc = await db.employeeDocument.findUnique({ where: { path: rel }, include: { employee: { select: { userId: true, branchId: true } } } });

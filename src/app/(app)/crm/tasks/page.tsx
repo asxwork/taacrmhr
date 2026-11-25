@@ -87,7 +87,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
               <p className="text-sm text-muted">Nothing here.</p>
             ) : (
               // 30 per group keeps the page quick for people with many open tasks; Show all lists every one.
-              <Timeline items={sp.all ? items : items.slice(0, 30)} path={path} editableIds={editable} canDelete={can(user, "crm.activities", "delete")} />
+              <Timeline items={sp.all ? items : items.slice(0, 30)} path={path} editableIds={editable} canDelete={can(user, "crm.activities", "delete")} myId={user.id} />
             )}
           </Card>
         ))}

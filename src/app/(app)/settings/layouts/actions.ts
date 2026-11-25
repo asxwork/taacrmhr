@@ -52,3 +52,25 @@ export async function deleteLayout(fd: FormData) {
   await db.layoutProfile.delete({ where: { id: str(fd, "id") } });
   revalidatePath("/", "layout");
 }
+
+/** The menu items kept in the ready-made Minimal CRM layout (permissions still decide what each person sees). */
+const MINIMAL_CRM = ["/dashboard", "/crm/my-day", "/crm/leads?owner=me", "/crm/leads", "/crm/follow-ups", "/crm/tasks", "/crm/deals", "/calls?dial=1", "/calls/callbacks", "/inventory"];
+
+/** One click: a "Minimal" CRM layout for a role (or everyone): a simple list menu with only the everyday screens, opening on My day. */
+export async function applyMinimalCrmLayout(fd: FormData) {
+  const user = await requireUser();
+  if (!user.isSuperAdmin) return;
+  const target = str(fd, "target");
+  const audience = target === "everyone" ? "everyone" : "role";
+  const roleId = audience === "role" ? target : null;
+  if (audience === "role" && !(await db.role.findUnique({ where: { id: target } }))) return;
+  const app = APPS.find((a) => a.key === "crm")!;
+  const all = app.groups.flatMap((g) => g.items.flatMap((i) => i.children ?? [i])).map((i) => i.href);
+  const data = { name: "Minimal", audience, roleId, appKey: "crm", style: "list", hidden: all.filter((h) => !MINIMAL_CRM.includes(h)).join(","), order: null, apps: null, landing: "/crm/my-day" };
+  const cur = await db.layoutProfile.findFirst({ where: { appKey: "crm", audience, roleId } });
+  if (cur) await db.layoutProfile.update({ where: { id: cur.id }, data });
+  else await db.layoutProfile.create({ data: { ...data, sortOrder: await db.layoutProfile.count() } });
+  await audit(user.id, cur ? "update" : "create", "layout", cur?.id ?? "Minimal", `Minimal CRM layout for ${audience === "role" ? "a role" : "everyone"}`);
+  revalidatePath("/", "layout");
+  redirect("/crm/settings/layouts?app=crm");
+}

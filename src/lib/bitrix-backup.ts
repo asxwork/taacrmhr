@@ -1,9 +1,9 @@
 // Full Bitrix24 backup to Google Drive: every lead with its activities, timeline comments, stage history and people,
 // read through the saved Bitrix sync link, saved as an Excel file (easy to open) plus a complete raw copy
 // (.json.gz, every Bitrix field including custom ones). Daily, into "AMS backups / Bitrix backups"; old ones are
-// removed after the backup's keep-days. Read-only for Bitrix.
+// removed after the backup's keep-days. The newest 3 also stay on the server to download (Super Admin). Read-only for Bitrix.
 import { createWriteStream } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import ExcelJS from "exceljs";
 import { db } from "./db";
 import { openSecret } from "./softphone";
+import { UPLOAD_ROOT } from "./files";
 
 const KEY = "bitrix.backup";
 export type BitrixBackupState = { enabled: boolean; lastAt: string | null; lastOk: boolean | null; message: string | null; leads?: number; sizeMb?: number };
@@ -39,10 +40,27 @@ export async function bitrixBackupIfDue() {
   if (!s.enabled || s.running) return false;
   if (s.lastAt && s.lastOk && Date.now() - +new Date(s.lastAt) < 20 * 3600_000) return false;
   if (s.lastAt && !s.lastOk && Date.now() - +new Date(s.lastAt) < 3 * 3600_000) return false; // failed: retry in a few hours
-  const [{ syncConfig }, { driveConnected }] = await Promise.all([import("./bitrix-sync"), import("./backup")]);
-  if (!(await syncConfig()).sealed || !(await driveConnected())) return false;
+  const { syncConfig } = await import("./bitrix-sync");
+  if (!(await syncConfig()).sealed) return false; // without Google Drive it's still kept on the server to download
   await runBitrixBackup();
   return true;
+}
+
+/** Copies kept on the server for downloading to your own computer (Super Admin): the newest 3 backups. */
+export const BITRIX_LOCAL_DIR = path.join(UPLOAD_ROOT, "bitrix-backups");
+const LOCAL_KEEP = 3;
+export const bitrixBackupFile = (name: string) => (/^bitrix-(leads|full)-[\d_-]+\.(xlsx|json\.gz)$/.test(name) ? path.join(BITRIX_LOCAL_DIR, name) : null);
+export async function bitrixLocalBackups() {
+  const names = (await readdir(BITRIX_LOCAL_DIR).catch(() => [] as string[])).filter((n) => bitrixBackupFile(n));
+  const rows = await Promise.all(names.map(async (name) => ({ name, size: (await stat(path.join(BITRIX_LOCAL_DIR, name)).catch(() => null))?.size ?? 0 })));
+  return rows.sort((a, b) => b.name.localeCompare(a.name));
+}
+async function keepLocal(files: [string, string][]) {
+  await mkdir(BITRIX_LOCAL_DIR, { recursive: true });
+  for (const [from, name] of files) await copyFile(from, path.join(BITRIX_LOCAL_DIR, name));
+  // Only the newest few backups stay on the server (Google Drive keeps the long history).
+  const stamps = [...new Set((await bitrixLocalBackups()).map((f) => f.name.replace(/^bitrix-(leads|full)-/, "").replace(/\.(xlsx|json\.gz)$/, "")))].sort().reverse();
+  for (const old of stamps.slice(LOCAL_KEEP)) for (const f of await bitrixLocalBackups()) if (f.name.includes(old)) await rm(path.join(BITRIX_LOCAL_DIR, f.name), { force: true });
 }
 
 export async function runBitrixBackup(): Promise<{ ok: boolean; message: string }> {
@@ -79,12 +97,18 @@ export async function runBitrixBackup(): Promise<{ ok: boolean; message: string 
     const gz = path.join(dir, "bitrix.json.gz");
     const json = JSON.stringify({ exportedAt: at.toISOString(), leads: data.raw.leads, activities: data.raw.activities, comments: data.comments, stageHistory: data.raw.history, users: data.raw.users });
     await pipeline(Readable.from([json]), createGzip(), createWriteStream(gz));
-    st.step = "Uploading to Google Drive…";
-    const { uploadToBackupFolder } = await import("./backup");
-    const a = await uploadToBackupFolder(xlsx, `bitrix-leads-${stamp}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Bitrix backups");
-    const b = await uploadToBackupFolder(gz, `bitrix-full-${stamp}.json.gz`, "application/gzip", "Bitrix backups");
-    const sizeMb = Math.round(((a.size + b.size) / 1024 / 1024) * 10) / 10;
-    const message = `${data.leads.length.toLocaleString()} leads, ${data.activities.length.toLocaleString()} activities, ${data.comments.length.toLocaleString()} comments, ${data.history.length.toLocaleString()} stage changes saved to Google Drive (${sizeMb < 0.1 ? "under 0.1" : sizeMb} MB).`;
+    // A copy stays on the server to download to your own computer, then (when connected) it goes to Google Drive.
+    st.step = "Saving a copy to download…";
+    await keepLocal([[xlsx, `bitrix-leads-${stamp}.xlsx`], [gz, `bitrix-full-${stamp}.json.gz`]]);
+    const sizeMb = Math.round((((await stat(xlsx)).size + (await stat(gz)).size) / 1024 / 1024) * 10) / 10;
+    const { uploadToBackupFolder, driveConnected } = await import("./backup");
+    const drive = await driveConnected();
+    if (drive) {
+      st.step = "Uploading to Google Drive…";
+      await uploadToBackupFolder(xlsx, `bitrix-leads-${stamp}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Bitrix backups");
+      await uploadToBackupFolder(gz, `bitrix-full-${stamp}.json.gz`, "application/gzip", "Bitrix backups");
+    }
+    const message = `${data.leads.length.toLocaleString()} leads, ${data.activities.length.toLocaleString()} activities, ${data.comments.length.toLocaleString()} comments, ${data.history.length.toLocaleString()} stage changes saved${drive ? " to Google Drive and" : ""} ready to download (${sizeMb < 0.1 ? "under 0.1" : sizeMb} MB).`;
     await save({ lastAt: at.toISOString(), lastOk: true, message, leads: data.leads.length, sizeMb });
     return { ok: true, message };
   } catch (e) {

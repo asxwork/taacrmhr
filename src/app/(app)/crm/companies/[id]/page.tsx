@@ -91,7 +91,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
         </div>
         <div className="space-y-6">
           {can(user, "crm.activities", "create") && <Composer entity={{ companyId: id }} emailTo={company.email} path={path} users={actOwners} currentUserId={user.id} />}
-          <Timeline items={activities} path={path} editableIds={editableIds} canDelete={can(user, "crm.activities", "delete")} />
+          <Timeline items={activities} path={path} editableIds={editableIds} canDelete={can(user, "crm.activities", "delete")} myId={user.id} />
         </div>
       </div>
       {sp.edit && canEdit && (

@@ -7,7 +7,7 @@ import { APPS } from "@/lib/nav";
 import { LAYOUT_STYLES } from "@/lib/layouts";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
-import { deleteLayout, saveLayout } from "./actions";
+import { applyMinimalCrmLayout, deleteLayout, saveLayout } from "./actions";
 
 type SP = { new?: string; edit?: string; app?: string; aud?: string; role?: string };
 const AUD = { superadmin: "Super Admin", role: "Role", everyone: "Everyone" } as const;
@@ -43,6 +43,22 @@ export async function LayoutsView({ searchParams, base, only, title = "Layouts" 
           <Link key={k} href={k ? `${base}?app=${k}` : base} className={(filter ?? "") === k ? "shrink-0 whitespace-nowrap rounded-full bg-navy-900 px-3 py-1.5 text-xs text-white" : "shrink-0 whitespace-nowrap rounded-full border border-line px-3 py-1.5 text-xs hover:bg-canvas"}>{l}</Link>
         ))}
       </div>}
+      {filter === "crm" && (
+        // Ready-made: a clean, short menu for people who only work leads (agents).
+        <Card className="mb-4 flex flex-wrap items-center gap-4 p-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-medium">Minimal layout</h2>
+            <p className="text-xs text-muted">A simple list menu with only the everyday screens: CRM home, My day, My leads, All leads, Follow-ups, Tasks, Pipeline, Dialer, Callbacks and Units. Opens on My day. Edit it afterwards like any layout.</p>
+          </div>
+          <form action={applyMinimalCrmLayout} className="flex flex-wrap items-center gap-2">
+            <select name="target" className="input h-9 w-48" defaultValue={roles.find((r) => r.name === "Agent")?.id ?? "everyone"} aria-label="Who gets it">
+              {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              <option value="everyone">Everyone else</option>
+            </select>
+            <button className="h-9 rounded-lg bg-navy-900 px-4 text-sm font-medium text-white hover:bg-navy-800">Use Minimal layout</button>
+          </form>
+        </Card>
+      )}
       {filter && (
         <Card className="mb-4 overflow-hidden">
           <div className="border-b border-line px-4 py-3"><h2 className="font-medium">{appName(filter)}: who sees which layout</h2><p className="text-xs text-muted">Each role can have its own menu, order, sidebar style and start page. Super Admin wins over a role; a role wins over “Everyone else”. No layout = the standard menu.</p></div>

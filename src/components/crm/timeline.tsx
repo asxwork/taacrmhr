@@ -3,6 +3,7 @@ import { format, isPast, isToday, isYesterday, startOfDay } from "date-fns";
 import { CalendarCheck, CalendarClock, Check, CircleDot, Info, MapPin, MessageSquare, Phone, Plus, StickyNote, Trash2, Users, MessageCircle } from "lucide-react";
 import { cn, fmtAgo } from "@/lib/utils";
 import { deleteActivity, toggleActivity } from "@/app/(app)/crm/activity-actions";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export type TimelineItem = {
   id: string;
@@ -14,6 +15,7 @@ export type TimelineItem = {
   createdAt: Date;
   owner: { name: string } | null;
   createdBy: { name: string } | null;
+  createdById?: string | null;
   /** The lead / deal / contact it's about; phone shows a call link and WhatsApp (when the viewer may see it). */
   context?: { label: string; href: string; phone?: string | null; tel?: string | null; wa?: string | null } | null;
 };
@@ -28,7 +30,8 @@ const dayLabel = (d: Date) => (isToday(d) ? "Today" : isYesterday(d) ? "Yesterda
  * Bitrix-style record feed: "Things to do" (open scheduled items, soonest first) as action cards,
  * then history newest-first under day dividers. A rail of icons runs down the left.
  */
-export function Timeline({ items, path, editableIds, canPlan = true, canDelete = false }: { items: TimelineItem[]; path: string; editableIds: Set<string>; canPlan?: boolean; /** Super Admin only. */ canDelete?: boolean }) {
+export function Timeline({ items, path, editableIds, canPlan = true, canDelete = false, myId }: { items: TimelineItem[]; path: string; editableIds: Set<string>; canPlan?: boolean; /** Delete any activity (Activities → Delete). */ canDelete?: boolean; /** The viewer: they can always delete activities they added. */ myId?: string }) {
+  const mayDelete = (i: TimelineItem) => canDelete || (!!myId && i.createdById === myId);
   const open = items.filter((i) => i.dueAt && !i.doneAt).sort((a, b) => +a.dueAt! - +b.dueAt!);
   const history = items.filter((i) => !(i.dueAt && !i.doneAt)).sort((a, b) => +(b.doneAt ?? b.createdAt) - +(a.doneAt ?? a.createdAt));
   const days: { label: string; items: TimelineItem[] }[] = [];
@@ -42,7 +45,7 @@ export function Timeline({ items, path, editableIds, canPlan = true, canDelete =
     <div className="relative before:absolute before:inset-y-0 before:left-[19px] before:w-px before:bg-line">
       <Divider tone="green">Things to do</Divider>
       <ul className="space-y-3">
-        {open.map((i) => <TodoCard key={i.id} item={i} path={path} editable={editableIds.has(i.id)} canDelete={canDelete} />)}
+        {open.map((i) => <TodoCard key={i.id} item={i} path={path} editable={editableIds.has(i.id)} canDelete={mayDelete(i)} />)}
         {open.length === 0 && canPlan && (
           <li className="relative pl-14">
             <Dot className="bg-emerald-600 text-white"><Info className="size-4" /></Dot>
@@ -66,7 +69,7 @@ export function Timeline({ items, path, editableIds, canPlan = true, canDelete =
         <div key={d.label}>
           <Divider>{d.label}</Divider>
           <ul className="space-y-3">
-            {d.items.map((i) => <HistoryRow key={i.id} item={i} path={path} editable={editableIds.has(i.id)} canDelete={canDelete} />)}
+            {d.items.map((i) => <HistoryRow key={i.id} item={i} path={path} editable={editableIds.has(i.id)} canDelete={mayDelete(i)} />)}
           </ul>
         </div>
       ))}
@@ -113,19 +116,19 @@ function TodoCard({ item, path, editable, canDelete }: { item: TimelineItem; pat
             {item.context.wa && <a href={item.context.wa} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-[#25D366]/40 px-1.5 py-0.5 text-xs font-medium text-[#128C7E] hover:bg-[#25D366]/10" aria-label={`WhatsApp ${item.context.label}`}><MessageCircle className="size-3.5" /> WhatsApp</a>}
           </div>
         )}
-        {editable && (
+        {(editable || canDelete) && (
           <div className="mt-3 flex items-center gap-2">
-            <form action={toggleActivity}>
+            {editable && <form action={toggleActivity}>
               <input type="hidden" name="id" value={item.id} />
               <input type="hidden" name="path" value={path} />
               <button className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-navy-900 px-3.5 text-xs font-medium text-white transition hover:bg-navy-800">
                 <Check className="size-3.5" /> Completed
               </button>
-            </form>
+            </form>}
             {canDelete && <form action={deleteActivity} className="ml-auto">
               <input type="hidden" name="id" value={item.id} />
               <input type="hidden" name="path" value={path} />
-              <button title="Delete (Super Admin)" aria-label="Delete" className="rounded-md p-1.5 text-muted transition hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /></button>
+              <ConfirmButton message="Delete this activity?" title="Delete" className="rounded-md p-1.5 text-muted transition hover:bg-red-50 hover:text-red-600"><Trash2 className="size-4" /></ConfirmButton>
             </form>}
           </div>
         )}
@@ -164,7 +167,7 @@ function HistoryRow({ item, path, editable, canDelete }: { item: TimelineItem; p
               {canDelete && <form action={deleteActivity}>
                 <input type="hidden" name="id" value={item.id} />
                 <input type="hidden" name="path" value={path} />
-                <button title="Delete (Super Admin)" aria-label="Delete" className="rounded p-1 text-muted hover:bg-canvas hover:text-red-600"><Trash2 className="size-3.5" /></button>
+                <ConfirmButton message="Delete this activity?" title="Delete" className="rounded p-1 text-muted hover:bg-canvas hover:text-red-600"><Trash2 className="size-3.5" /></ConfirmButton>
               </form>}
             </div>
           )}
