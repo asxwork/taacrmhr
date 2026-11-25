@@ -146,6 +146,7 @@ export const FEATURES = [
   { key: "chat-files", label: "Photos & files in chat", group: "Messenger", app: "chat", paths: [], about: "Sending photos and PDFs" },
   // Boss dashboard
   { key: "boss-crm", label: "CRM report", group: "Boss dashboard", app: "boss", paths: ["/boss?tab=crm"], about: "Detailed sales report tab" },
+  { key: "boss-agent", label: "Agent detail", group: "Boss dashboard", app: "boss", paths: ["/boss?tab=agent"], about: "Pick an agent: leads by stage, calls, follow-ups, closed deals and commission" },
   { key: "boss-hr", label: "HR report", group: "Boss dashboard", app: "boss", paths: ["/boss?tab=hr"], about: "Detailed HR report tab" },
   { key: "boss-layouts", label: "Boss layouts", group: "Boss dashboard", app: "boss", paths: ["/boss/layouts"], about: "What the boss dashboard shows" },
 ] as const;

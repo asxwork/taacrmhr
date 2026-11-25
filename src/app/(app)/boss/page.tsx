@@ -12,11 +12,12 @@ import { disabledFeatures } from "@/lib/features";
 import { BossOverview } from "./overview";
 import { BossCrmReport } from "./crm-report";
 import { BossHrReport } from "./hr-report";
+import { BossAgentReport } from "./agent-report";
 
 export const metadata = { title: "Boss dashboard" };
 
-type SP = { tab?: string; period?: string; from?: string; to?: string };
-const TABS = [["overview", "Overview"], ["crm", "CRM report"], ["hr", "HR report"]] as const;
+type SP = { tab?: string; period?: string; from?: string; to?: string; agent?: string };
+const TABS = [["overview", "Overview"], ["crm", "CRM report"], ["agent", "Agent detail"], ["hr", "HR report"]] as const;
 
 /** The owner's view of the business: an overview, and separate detailed CRM and HR reports for any period. */
 export default async function BossPage({ searchParams }: { searchParams: Promise<SP> }) {
@@ -25,7 +26,7 @@ export default async function BossPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   // Report tabs switched off in Settings → Apps & features (or whose whole app is off) disappear.
   const off = await disabledFeatures();
-  const tabs = TABS.filter(([t]) => t === "overview" || !(off.has(`boss-${t}`) || off.has(`app-${t}`)));
+  const tabs = TABS.filter(([t]) => t === "overview" || !(off.has(`boss-${t}`) || off.has(`app-${t === "agent" ? "crm" : t}`)));
   const tab = tabs.some(([t]) => t === sp.tab) ? sp.tab! : "overview";
   const { from, to } = resolvePeriod(sp.period, sp.from, sp.to);
   const links = await bossLinks(from, to);
@@ -53,6 +54,7 @@ export default async function BossPage({ searchParams }: { searchParams: Promise
       </div>
 
       {tab === "crm" ? <BossCrmReport user={user} from={from} to={to} links={links} />
+        : tab === "agent" ? <BossAgentReport from={from} to={to} agentId={sp.agent} keep={keep} />
         : tab === "hr" ? <BossHrReport user={user} from={from} to={to} />
         : <BossOverview user={user} from={from} to={to} links={links} />}
     </>

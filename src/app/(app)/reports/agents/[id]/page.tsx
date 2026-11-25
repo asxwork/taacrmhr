@@ -5,6 +5,7 @@ import { eachDayOfInterval, endOfDay, format, isSameDay, min } from "date-fns";
 import { ArrowLeft, CalendarCheck, CircleDot, MapPin, MessageSquare, Phone, StickyNote, Users } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { color as stageColor } from "@/lib/crm-shared";
 import { PERIODS, resolvePeriod } from "@/lib/reports";
 import { agentPerformance, followUpLists } from "@/lib/agent-reports";
 import { cn, fmtDateTime } from "@/lib/utils";
@@ -93,9 +94,9 @@ export default async function AgentDetailPage({ params, searchParams }: { params
               <tbody className="divide-y divide-line">
                 {stageRows.map((r) => (
                   <tr key={r.id}>
-                    <td className="px-5 py-2"><span className="inline-flex items-center gap-2"><span className="size-2.5 rounded-full" style={{ background: r.color ?? "#94a3b8" }} />{r.name}</span></td>
+                    <td className="px-5 py-2"><span className="inline-flex items-center gap-2"><span className={`size-2.5 rounded-full ${stageColor(r.color ?? "slate").dot}`} />{r.name}</span></td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      <span className="inline-flex items-center justify-end gap-2"><span className="hidden h-1.5 w-24 overflow-hidden rounded-full bg-canvas sm:block"><span className="block h-full rounded-full" style={{ width: `${(r.now / maxNow) * 100}%`, background: r.color ?? "#94a3b8" }} /></span>
+                      <span className="inline-flex items-center justify-end gap-2"><span className="hidden h-1.5 w-24 overflow-hidden rounded-full bg-canvas sm:block"><span className={`block h-full rounded-full ${stageColor(r.color ?? "slate").bar}`} style={{ width: `${(r.now / maxNow) * 100}%` }} /></span>
                       {r.now ? <ListLink href={`/crm/leads?owner=${id}&stage=${r.id}`} className="w-10 font-medium hover:underline">{r.now}</ListLink> : <span className="w-10 text-muted/50">·</span>}</span>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.came ? <ListLink href={`/crm/leads?owner=${id}&stage=${r.id}${created}`} className="hover:underline">{r.came}</ListLink> : <span className="text-muted/50">·</span>}</td>

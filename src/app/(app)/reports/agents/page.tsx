@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { Info } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { color as stageColor } from "@/lib/crm-shared";
 import { PERIODS, resolvePeriod } from "@/lib/reports";
 import { agentPerformance, STALE_DAYS, type AgentRow } from "@/lib/agent-reports";
 import { cn } from "@/lib/utils";
@@ -131,7 +132,7 @@ export default async function AgentPerformancePage({ searchParams }: { searchPar
               <thead className="border-b border-line bg-canvas/60">
                 <tr>
                   <th className="th sticky left-0 bg-canvas">Agent</th>
-                  {stages.map((st) => <th key={st.id} className="th whitespace-nowrap text-right"><span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: st.color ?? "#94a3b8" }} />{st.name}</span></th>)}
+                  {stages.map((st) => <th key={st.id} className="th whitespace-nowrap text-right"><span className="inline-flex items-center gap-1.5"><span className={`size-2 rounded-full ${stageColor(st.color ?? "slate").dot}`} />{st.name}</span></th>)}
                   <th className="th text-right">Total</th>
                 </tr>
               </thead>

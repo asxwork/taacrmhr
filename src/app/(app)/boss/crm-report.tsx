@@ -67,7 +67,7 @@ export async function BossCrmReport({ user, from, to, links }: { user: SessionUs
             <tbody className="divide-y divide-line">
               {crm.leaderboard.map((a) => (
                 <tr key={a.id} className="hover:bg-canvas/60">
-                  <td className="td"><Link href={links.leads({ owner: a.id })} className="font-medium hover:underline">{a.name}</Link></td>
+                  <td className="td"><Link href={`/boss?tab=agent&agent=${a.id}`} className="font-medium hover:underline">{a.name}</Link></td>
                   <td className="td tabular-nums">{a.leads}</td>
                   <td className="td tabular-nums">{a.converted}{a.leads ? <span className="ml-1 text-xs text-muted">{Math.round((a.converted / a.leads) * 100)}%</span> : null}</td>
                   <td className="td tabular-nums">{a.calls}</td>
