@@ -16,7 +16,7 @@ import type { SessionUser } from "@/lib/auth";
 import { manualHoldError } from "@/lib/lead-hold";
 import { fieldAccess } from "@/lib/field-rules";
 import { applyLeadStatus, runBulkLeads } from "@/lib/lead-ops";
-import { attachUnitToDeal, unitWhere } from "@/lib/inventory";
+import { attachUnitToDeal, syncDealUnits, unitWhere } from "@/lib/inventory";
 
 async function editableLead(user: SessionUser, id: string) {
   // Old employees' leads: only a Super Admin can change them (lib/lead-lock.ts).
@@ -173,12 +173,19 @@ export async function convertLead(_: FormState, fd: FormData): Promise<FormState
   if (!lead) return { error: "Lead not found." };
   if (lead.convertedAt) return { error: "This lead is already converted." };
 
+  // Converting = closing: the deal goes straight to the pipeline's Won stage with the commission form.
   const pipeline = await db.pipeline.findUnique({
     where: { id: str(fd, "pipelineId") },
-    include: { stages: { where: { kind: "open" }, orderBy: { sortOrder: "asc" }, take: 1 } },
+    include: { stages: { where: { kind: "won" }, orderBy: { sortOrder: "asc" }, take: 1 } },
   });
-  if (!pipeline?.stages[0]) return { error: "Choose a pipeline." };
+  if (!pipeline?.stages[0]) return { error: "This pipeline has no Won stage (Settings → CRM → Deal pipelines)." };
   const title = str(fd, "title") || lead.name;
+  const value = parseAmount(str(fd, "value"));
+  if (!value) return { error: "Enter the deal value." };
+  const closedAt = str(fd, "closedAt") ? new Date(`${str(fd, "closedAt")}T12:00:00+05:00`) : new Date();
+  if (Number.isNaN(+closedAt)) return { error: "Choose the closing date." };
+  const pctRaw = parseFloat(str(fd, "commissionPct"));
+  const commissionPct = Number.isFinite(pctRaw) && pctRaw >= 0 && pctRaw <= 100 ? pctRaw : null;
 
   // The property this deal is for: picked in the convert form (defaults to the lead's linked unit).
   const unitScope = await unitWhere(user, "view");
@@ -191,21 +198,27 @@ export async function convertLead(_: FormState, fd: FormData): Promise<FormState
     data: { name: lead.name, phone: lead.phone, phoneKey: lead.phoneKey, phone2: lead.phone2, email: lead.email, sourceId: lead.sourceId, ownerId: lead.ownerId, branchId: lead.branchId },
   });
 
+  const { commissionData } = await import("@/lib/deal-commission");
+  const form = commissionData(fd, value, commissionPct);
   const deal = await db.deal.create({
     data: {
-      title, pipelineId: pipeline.id, stageId: pipeline.stages[0].id, contactId: contact.id, leadId: lead.id, sourceId: lead.sourceId,
-      value: parseAmount(str(fd, "value")) ?? unit?.price ?? lead.budgetMax ?? lead.budgetMin, ownerId: lead.ownerId, branchId: lead.branchId,
+      title, pipelineId: pipeline.id, stageId: pipeline.stages[0].id, stageChangedAt: closedAt, closedAt, contactId: contact.id, leadId: lead.id, sourceId: lead.sourceId,
+      value, commissionPct, ownerId: lead.ownerId, branchId: lead.branchId, notes: str(fd, "notes").slice(0, 4000) || null,
+      ...form,
+      // A unit picked from Inventory fills the property fields left empty.
+      unitNo: form.unitNo ?? unit?.unitNo ?? null, projectName: form.projectName ?? unit?.project?.name ?? null, community: form.community ?? unit?.area ?? null,
     },
   });
   if (unit) {
     const error = await attachUnitToDeal(deal, unit, user.id);
     if (error) await logSystem({ dealId: deal.id }, `Couldn't link ${unit.unitNo}: ${error}`, user.id);
+    else await syncDealUnits(deal.id); // the deal is won: the unit is marked sold
   }
   const converted = await db.leadStatus.findFirst({ where: { kind: "converted" }, orderBy: { sortOrder: "asc" } });
   await db.lead.update({ where: { id: lead.id }, data: { statusId: converted?.id ?? lead.statusId, convertedAt: new Date(), contactId: contact.id } });
   { const lr = await import("@/lib/lead-rules"); const p = await lr.leadPayload(lead.id); if (p) void lr.fireHook("lead.converted", { lead: p }); }
   await logSystem({ leadId: lead.id }, `Converted to deal “${title}”`, user.id);
-  await logSystem({ dealId: deal.id }, `Deal created from lead ${lead.name}`, user.id);
+  await logSystem({ dealId: deal.id }, `Deal closed (Won) from lead ${lead.name}`, user.id);
   await audit(user.id, "update", "lead", lead.id, `Converted lead ${lead.name} to deal ${title}`);
 
   revalidatePath("/crm/leads");

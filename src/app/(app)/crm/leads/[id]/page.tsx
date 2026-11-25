@@ -22,6 +22,7 @@ import { fieldAccess } from "@/lib/field-rules";
 import { maskEmail, maskPhone, shown } from "@/lib/field-defs";
 import { LeadForm } from "../lead-form";
 import { convertLead, deleteLead, setLeadStatus } from "../actions";
+import { CommissionFields } from "@/components/crm/commission-fields";
 import { SafeImg } from "@/components/safe-img";
 
 export const metadata = { title: "Lead" };
@@ -138,7 +139,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
           )}
           {lead.email && em === "full" && <a href={`mailto:${lead.email}`} className={iconBtn} title={lead.email} aria-label="Email"><Mail className="size-4" /></a>}
           {canConvert && (
-            <LinkButton href={`${path}?convert=1`} scroll={false}><ArrowRightLeft className="size-4" /> Convert to deal</LinkButton>
+            <LinkButton href={`${path}?convert=1`} scroll={false}><ArrowRightLeft className="size-4" /> Close deal</LinkButton>
           )}
         </div>
       </div>
@@ -287,7 +288,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
 
       {tab === "deals" && (
         <Card className="overflow-hidden">
-          {!lead.contact && lead.deals.length === 0 ? <EmptyState title="Not converted yet" description="Use Complete lead (Convert to deal) to create a deal and a contact." /> : (
+          {!lead.contact && lead.deals.length === 0 ? <EmptyState title="Not converted yet" description="Use Close deal when the client has bought: it saves the closed deal with its commission form and a contact." /> : (
             <ul className="divide-y divide-line text-sm">
               {lead.contact && (
                 <li className="flex items-center gap-3 px-5 py-3">
@@ -307,35 +308,45 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
       )}
 
       {sp.convert && canConvert && (
-        <Drawer title="Convert to deal" closeHref={path}>
+        <Drawer title="Close the deal" closeHref={path} width="max-w-2xl">
           <p className="mb-4 text-sm text-muted">
-            Creates a deal and a contact for {lead.name} (or links the existing contact with the same phone). The lead is marked converted and its history carries over.
+            Converting means the deal is closed: it&apos;s saved as <b className="text-ink">Won</b> with this commission form, and a contact is made for {lead.name} (or the one with the same phone is linked). The lead is marked converted and its history carries over.
           </p>
           <ActionForm action={convertLead} className="space-y-4">
             <input type="hidden" name="leadId" value={id} />
             <Field label="Deal title">
-              <input name="title" defaultValue={[lead.project?.name ?? lead.propertyType, lead.location].filter(Boolean).join(" — ") || lead.name} className="input" />
+              <input name="title" defaultValue={[lead.project?.name ?? lead.projectName ?? lead.propertyType, lead.location].filter(Boolean).join(" — ") || lead.name} className="input" />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Pipeline">
-                <select name="pipelineId" defaultValue={pipelines.find((p) => p.isDefault)?.id} className="input">
-                  {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {pipelines.length > 1 ? (
+                <Field label="Pipeline">
+                  <select name="pipelineId" defaultValue={pipelines.find((p) => p.isDefault)?.id} className="input">
+                    {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </Field>
+              ) : <input type="hidden" name="pipelineId" value={pipelines[0]?.id ?? ""} />}
+              <Field label="Deal value">
+                <input name="value" required defaultValue={lead.budgetMax ?? lead.budgetMin ?? ""} placeholder="e.g. 2.5 cr" className="input" />
               </Field>
-              <Field label="Deal value" hint="Empty = unit price or budget">
-                <input name="value" placeholder={lead.budgetMax ?? lead.budgetMin ? String(lead.budgetMax ?? lead.budgetMin) : "e.g. 2.5 cr"} className="input" />
+              <Field label="Commission %">
+                <input name="commissionPct" inputMode="decimal" placeholder="e.g. 2" className="input" />
+              </Field>
+              <Field label="Closing date">
+                <input type="date" name="closedAt" required defaultValue={new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10)} className="input" />
               </Field>
             </div>
-            <Field label="Property" hint="Linked to the deal; it is held, booked and sold as the deal moves through its stages.">
+            <Field label="Unit from Inventory" hint="Optional: links the unit (marked sold). Or just type the unit below.">
               <select name="unitId" defaultValue={lead.unit && !lead.unit.activeDealId ? lead.unit.id : ""} className="input">
-                <option value="">No unit yet</option>
+                <option value="">Not in Inventory</option>
                 {lead.unit && !lead.unit.activeDealId && <option value={lead.unit.id}>{unitLabel(lead.unit)}{lead.unit.price ? ` · ${fmtPKR(lead.unit.price)}` : ""} (enquired about)</option>}
                 {matches.filter((u) => u.id !== lead.unitId && !u.activeDealId).slice(0, 25).map((u) => (
                   <option key={u.id} value={u.id}>{unitLabel(u)} · {u.type}{u.price ? ` · ${fmtPKR(u.price)}` : ""}</option>
                 ))}
               </select>
             </Field>
-            <SubmitButton pendingText="Converting…">Create deal</SubmitButton>
+            <CommissionFields d={{ projectName: lead.project?.name ?? lead.projectName, community: lead.location }} />
+            <Field label="Notes"><textarea name="notes" rows={2} className="input" /></Field>
+            <SubmitButton pendingText="Saving…">Close deal</SubmitButton>
           </ActionForm>
         </Drawer>
       )}

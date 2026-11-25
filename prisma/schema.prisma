@@ -374,6 +374,20 @@ model Deal {
   value          Float?
   commissionPct  Float?
   expectedClose  DateTime?
+  /// Commission form (filled when a lead is converted = the deal is closed).
+  unitNo           String?
+  community        String?
+  projectName      String?
+  developer        String?
+  commissionAmount Float?
+  agentSharePct    Float?
+  companySharePct  Float?
+  /// Other agents sharing the commission, e.g. "Ali 10%, Sara 5%".
+  otherAgents      String? // @text
+  downPaymentPct   Float?
+  /// e.g. "60 monthly installments" or "4 yearly".
+  installmentPlan  String?
+  handoverPct      Float?
   lostReason     String?
   notes          String? // @text
   ownerId        String?

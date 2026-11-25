@@ -4,11 +4,13 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Field, LinkButton } from "@/components/ui";
 import { saveDeal } from "./actions";
 import { withCurrent } from "@/lib/deal-types-shared";
+import { CommissionFields } from "@/components/crm/commission-fields";
+import type { CommissionValues } from "@/lib/deal-commission";
 
 type DealValues = {
   id: string; title: string; pipelineId: string; contactId: string | null; value: number | null; commissionPct: number | null;
   expectedClose: Date | null; sourceId: string | null; notes: string | null; ownerId: string | null; dealType?: string | null;
-};
+} & CommissionValues;
 type Opt = { id: string; name: string };
 
 export function DealForm({
@@ -63,7 +65,7 @@ export function DealForm({
         {!hideValue && <Field label="Value (PKR)" hint="e.g. 2.5 cr, 80 lac">
           <input name="value" defaultValue={deal?.value ?? unit?.price ?? ""} className="input" />
         </Field>}
-        <Field label="Expected close">
+        <Field label={deal ? "Expected / closing date" : "Closing date"}>
           <input name="expectedClose" type="date" defaultValue={deal?.expectedClose ? format(deal.expectedClose, "yyyy-MM-dd") : ""} className="input" />
         </Field>
       </div>
@@ -104,6 +106,7 @@ export function DealForm({
           </select>
         </Field>
       )}
+      <CommissionFields d={deal ?? {}} hideMoney={hideValue} />
       <Field label="Notes">
         <textarea name="notes" rows={3} defaultValue={deal?.notes ?? ""} className="input" />
       </Field>

@@ -82,7 +82,8 @@ export default async function DealPage({ params, searchParams }: { params: Promi
       })
     : [];
   const showValue = (await fieldAccess(user))["deal.value"] !== "hidden";
-  const commission = showValue && deal.value && deal.commissionPct ? (deal.value * deal.commissionPct) / 100 : null;
+  const commission = showValue ? deal.commissionAmount ?? (deal.value && deal.commissionPct ? (deal.value * deal.commissionPct) / 100 : null) : null;
+  const pctTxt = (n: number | null) => (n == null ? null : `${n}%`);
   const wa = deal.contact?.phoneKey?.replace(/^0/, "92");
 
   return (
@@ -179,13 +180,31 @@ export default async function DealPage({ params, searchParams }: { params: Promi
                 ["Branch", deal.branch?.name],
                 ["Expected close", fmtDate(deal.expectedClose)],
                 ["Probability", `${deal.stage.probability}%`],
-                ["Commission", showValue && deal.commissionPct ? `${deal.commissionPct}%${commission ? ` · ${fmtPKR(commission)}` : ""}` : null],
+                ["Closed", deal.closedAt && deal.stage.kind === "won" ? fmtDate(deal.closedAt) : null],
                 ["Source", deal.source?.name],
                 ["From lead", deal.lead ? <Link key="l" href={`/crm/leads/${deal.lead.id}`} className="hover:underline">{deal.lead.name}</Link> : null],
                 ["Created", fmtDate(deal.createdAt)],
               ]}
             />
             {deal.notes && <p className="mt-3 whitespace-pre-line rounded-md bg-canvas p-3 text-sm">{deal.notes}</p>}
+          </Card>
+          <Card className="p-5">
+            <h2 className="mb-2 text-sm font-medium">Commission form</h2>
+            <InfoList
+              rows={[
+                ["Unit no.", deal.unitNo],
+                ["Community", deal.community],
+                ["Project", deal.projectName],
+                ["Developer", deal.developer],
+                ["Deal value", showValue && deal.value ? fmtPKR(deal.value) : null],
+                ["Commission", showValue && (commission || deal.commissionPct) ? [deal.commissionPct ? `${deal.commissionPct}%` : null, commission ? fmtPKR(commission) : null].filter(Boolean).join(" · ") : null],
+                ["Agent share", showValue ? [pctTxt(deal.agentSharePct), commission && deal.agentSharePct != null ? fmtPKR((commission * deal.agentSharePct) / 100) : null].filter(Boolean).join(" · ") || null : null],
+                ["Company share", showValue ? [pctTxt(deal.companySharePct), commission && deal.companySharePct != null ? fmtPKR((commission * deal.companySharePct) / 100) : null].filter(Boolean).join(" · ") || null : null],
+                ["Other agents", showValue ? deal.otherAgents : null],
+                ["Payment structure", [deal.downPaymentPct != null ? `${deal.downPaymentPct}% down` : null, deal.installmentPlan, deal.handoverPct != null ? `${deal.handoverPct}% on handover` : null].filter(Boolean).join(" · ") || null],
+              ]}
+            />
+            {canEdit && <Link href={`${path}?edit=1`} scroll={false} className="mt-3 inline-block text-xs font-medium text-navy-900 hover:underline dark:text-ink">Edit commission form</Link>}
           </Card>
           <DealProperty
             dealId={id}

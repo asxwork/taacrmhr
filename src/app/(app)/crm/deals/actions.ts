@@ -1,5 +1,7 @@
 "use server";
 
+import { commissionData } from "@/lib/deal-commission";
+
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -49,6 +51,11 @@ export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
     sourceId: str(fd, "sourceId") || null,
     notes: str(fd, "notes") || null,
     ...(fd.has("dealType") && { dealType: str(fd, "dealType").slice(0, 60) || null }),
+    // Commission form (people who can't see deal values don't send, and can't change, the money parts).
+    ...(fd.has("unitNo") ? (() => {
+      const c = commissionData(fd, parseAmount(str(fd, "value")) ?? existing?.value ?? null, Number.isFinite(commission) ? commission : existing?.commissionPct ?? null);
+      return lockValue ? { unitNo: c.unitNo, community: c.community, projectName: c.projectName, developer: c.developer, downPaymentPct: c.downPaymentPct, installmentPlan: c.installmentPlan, handoverPct: c.handoverPct } : c;
+    })() : {}),
   };
 
   let dealId = id;
@@ -61,12 +68,14 @@ export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
     }
     await audit(user.id, "update", "deal", id, `Updated deal ${title}`);
   } else {
+    // Deals are closed deals: a new one is saved as Won, closed on the date given (today if empty).
     const pipeline = await db.pipeline.findUnique({
       where: { id: str(fd, "pipelineId") },
-      include: { stages: { where: { kind: "open" }, orderBy: { sortOrder: "asc" }, take: 1 } },
+      include: { stages: { where: { kind: "won" }, orderBy: { sortOrder: "asc" }, take: 1 } },
     });
-    if (!pipeline?.stages[0]) return { error: "Choose a pipeline." };
-    const deal = await db.deal.create({ data: { ...data, pipelineId: pipeline.id, stageId: pipeline.stages[0].id } });
+    if (!pipeline?.stages[0]) return { error: "This pipeline has no Won stage (Settings → CRM → Deal pipelines)." };
+    const closedAt = data.expectedClose ?? new Date();
+    const deal = await db.deal.create({ data: { ...data, pipelineId: pipeline.id, stageId: pipeline.stages[0].id, closedAt, stageChangedAt: closedAt } });
     dealId = deal.id;
     await logSystem({ dealId }, "Deal created", user.id);
     const unitScope = str(fd, "unitId") ? await unitWhere(user, "view") : null;
@@ -74,6 +83,7 @@ export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
     if (unit) {
       const error = await attachUnitToDeal(deal, unit, user.id);
       if (error) await logSystem({ dealId }, `Couldn't link ${unit.unitNo}: ${error}`, user.id);
+      else await syncDealUnits(dealId);
     }
     if (ownerId !== user.id) await notify(ownerId, `New deal assigned to you: ${title}`, { body: `By ${user.name}`, link: `/crm/deals/${dealId}`, email: true });
     await audit(user.id, "create", "deal", dealId, `Created deal ${title}`);

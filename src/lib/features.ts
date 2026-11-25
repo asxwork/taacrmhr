@@ -43,7 +43,7 @@ export const FEATURES = [
   { key: "crm-followups", label: "Follow-ups", group: "CRM", app: "crm", paths: ["/crm/follow-ups"], about: "Follow-ups due and overdue" },
   { key: "crm-tasks", label: "Tasks & calendar", group: "CRM", app: "crm", paths: ["/crm/tasks"], about: "Tasks and the calendar" },
   { key: "crm-focus", label: "Focus", group: "CRM", app: "crm", paths: ["/crm/focus"], about: "One lead at a time, best first" },
-  { key: "crm-deals", label: "Deals & pipeline", group: "CRM", app: "crm", paths: ["/crm/deals"], about: "Deal pipeline and deal list" },
+  { key: "crm-deals", label: "Deals", group: "CRM", app: "crm", paths: ["/crm/deals"], about: "Closed deals with their commission form (and older open deals)" },
   { key: "crm-contacts", label: "Contacts & companies", group: "CRM", app: "crm", paths: ["/crm/contacts"], about: "People and companies" },
   { key: "inv-projects", label: "Inventory projects", group: "CRM", app: "crm", paths: ["/inventory/projects", "/inventory?tab=projects"], about: "Projects inside inventory" },
   { key: "inv-developers", label: "Inventory developers", group: "CRM", app: "crm", paths: ["/inventory/developers", "/inventory?tab=developers"], about: "Developers list" },

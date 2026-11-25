@@ -19,20 +19,23 @@ import { fieldAccess } from "@/lib/field-rules";
 export const metadata = { title: "Deals" };
 
 const PAGE_SIZE = 50;
-type SP = { pipeline?: string; q?: string; owner?: string; stage?: string; type?: string; view?: string; page?: string; new?: string; contact?: string; unit?: string };
+type SP = { pipeline?: string; q?: string; owner?: string; stage?: string; type?: string; view?: string; page?: string; new?: string; contact?: string; unit?: string; show?: string };
 
 export default async function DealsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requirePermission("crm.deals");
   const showValue = (await fieldAccess(user))["deal.value"] !== "hidden";
   const sp = await searchParams;
   if (sp.new) redirect(hrefWith("/crm/deals/new", { pipeline: sp.pipeline, contact: sp.contact, unit: sp.unit }, {})); // old links
-  const view = sp.view === "list" ? "list" : "board";
+  // Deals are closed deals (a lead is converted when the client has bought): the list shows Won deals by default;
+  // "All deals" also shows older open and lost ones, with the board.
+  const show = sp.show === "all" ? "all" : "closed";
+  const view = show === "closed" ? "list" : sp.view === "list" ? "list" : "board";
   const page = Math.max(1, Number(sp.page) || 1);
 
   const canCreate = can(user, "crm.deals", "create");
   const [pipelines, scopeOrNull, types] = await Promise.all([getPipelines(), scopeWhere(user, "crm.deals"), dealTypes()]);
   const pipeline = pipelines.find((p) => p.id === sp.pipeline) ?? pipelines.find((p) => p.isDefault) ?? pipelines[0]!;
-  const keep = { pipeline: sp.pipeline, q: sp.q, owner: sp.owner, stage: sp.stage, view: sp.view, type: sp.type };
+  const keep = { pipeline: sp.pipeline, q: sp.q, owner: sp.owner, stage: sp.stage, view: sp.view, type: sp.type, show: sp.show };
 
   const scope = scopeOrNull!;
   const q = sp.q?.trim();
@@ -43,6 +46,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     ...(q && { OR: [{ title: { contains: q } }, { contact: { name: { contains: q } } }, { contact: { phone: { contains: q } } }] }),
     ...(sp.owner && { ownerId: sp.owner }),
     ...(sp.stage && { stageId: sp.stage }),
+    ...(show === "closed" && { stage: { kind: "won" } }),
     ...(sp.type && { dealType: sp.type }),
     // Board: closed deals only from the last 30 days so won/lost columns stay short.
     ...(view === "board" && { OR: [{ closedAt: null }, { closedAt: { gte: recentCutoff } }] }),
@@ -52,14 +56,14 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     db.deal.findMany({
       where,
       include: { stage: true, contact: { select: { name: true } }, owner: { select: { name: true } }, units: { take: 1, include: { unit: { select: { unitNo: true, address: true, project: { select: { name: true } }, block: { select: { name: true } } } } } } },
-      orderBy: { updatedAt: "desc" },
+      orderBy: show === "closed" ? [{ closedAt: "desc" }, { updatedAt: "desc" }] : { updatedAt: "desc" },
       skip: view === "list" ? (page - 1) * PAGE_SIZE : 0,
       take: view === "list" ? PAGE_SIZE : 500,
     }),
     db.deal.count({ where }),
     usersInScope(user, "crm.deals", "view"),
     scopeMatcher(user, "crm.deals", "edit"),
-    db.deal.aggregate({ where: { ...scope, pipelineId: pipeline.id, closedAt: null }, _sum: { value: true }, _count: true }),
+    db.deal.aggregate({ where: { ...scope, pipelineId: pipeline.id, ...(show === "closed" ? { stage: { kind: "won" } } : { closedAt: null }) }, _sum: { value: true }, _count: true }),
     db.deal.aggregate({ where: { ...scope, pipelineId: pipeline.id, stage: { kind: "won" }, closedAt: { gte: startOfMonth(new Date()) } }, _sum: { value: true }, _count: true }),
   ]);
 
@@ -72,7 +76,12 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
         title="Deals"
         actions={
           <>
-            <ViewToggle base="/crm/deals" sp={keep} view={view} />
+            <div className="flex rounded-lg bg-black/5 p-0.5 text-sm">
+              {([["closed", "Closed deals"], ["all", "All deals"]] as const).map(([k, l]) => (
+                <Link key={k} href={hrefWith("/crm/deals", { pipeline: sp.pipeline, q: sp.q, owner: sp.owner, type: sp.type }, k === "all" ? { show: "all" } : {})} className={cn("rounded-md px-3 py-1.5", show === k ? "bg-surface font-medium shadow-xs" : "text-muted hover:text-ink")}>{l}</Link>
+              ))}
+            </div>
+            {show === "all" && <ViewToggle base="/crm/deals" sp={keep} view={view} />}
             {can(user, "crm.deals", "export") && (
               <LinkButton href={hrefWith("/api/export/deals", { ...keep, pipeline: pipeline.id, view: undefined }, {})} variant="secondary" prefetch={false} title="Download CSV" aria-label="Download CSV">
                 <Download className="size-4" />
@@ -102,7 +111,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
           </div>
         )}
         <div className="flex gap-6 text-sm">
-          <span><span className="text-muted">Open </span><b className="font-semibold">{summary._count}</b>{showValue && <> · {fmtPKR(summary._sum.value ?? 0)}</>}</span>
+          <span><span className="text-muted">{show === "closed" ? "Closed deals " : "Open "}</span><b className="font-semibold">{summary._count}</b>{showValue && <> · {fmtPKR(summary._sum.value ?? 0)}</>}</span>
           <span><span className="text-muted">Won this month </span><b className="font-semibold">{wonMonth._count}</b>{showValue && <> · {fmtPKR(wonMonth._sum.value ?? 0)}</>}</span>
         </div>
       </div>
@@ -110,11 +119,12 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
       <AutoFilterForm className="mb-4 flex flex-wrap gap-2">
         <input type="hidden" name="pipeline" value={pipeline.id} />
         {sp.view && <input type="hidden" name="view" value={sp.view} />}
+        {show === "all" && <input type="hidden" name="show" value="all" />}
         <div className="relative min-w-56 flex-1">
           <Search className="absolute left-3 top-2.5 size-4 text-muted" />
           <input name="q" defaultValue={q} aria-label="Search" placeholder="Search deal or client" className="input pl-9" />
         </div>
-        {view === "list" && (
+        {view === "list" && show === "all" && (
           <select name="stage" defaultValue={sp.stage ?? ""} className="input w-40">
             <option value="">All stages</option>
             {pipeline.stages.map((s) => (
@@ -155,7 +165,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
       ) : (
         <Card className="overflow-hidden">
           {deals.length === 0 ? (
-            <EmptyState title="No deals here" description="Convert a lead or create a deal." />
+            <EmptyState title={show === "closed" ? "No closed deals yet" : "No deals here"} description={show === "closed" ? "Use Close deal on a lead when the client has bought." : "Close a lead or create a deal."} />
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -163,9 +173,11 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
                   <thead className="border-b border-line bg-canvas/60">
                     <tr>
                       <th className="th">Deal</th>
-                      <th className="th">Stage</th>
+                      {show === "all" && <th className="th">Stage</th>}
+                      <th className="th">Property</th>
                       <th className="th">Value</th>
-                      <th className="th">Expected close</th>
+                      <th className="th">Commission</th>
+                      <th className="th">{show === "closed" ? "Closed" : "Expected close"}</th>
                       <th className="th">Responsible</th>
                     </tr>
                   </thead>
@@ -176,9 +188,11 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
                           <Link href={`/crm/deals/${d.id}`} className="font-medium hover:underline">{d.title}</Link>
                           <p className="text-xs text-muted">{[d.dealType, d.contact?.name ?? "—"].filter(Boolean).join(" · ")}</p>
                         </td>
-                        <td className="td"><StatusPill name={d.stage.name} colorName={d.stage.color} /></td>
+                        {show === "all" && <td className="td"><StatusPill name={d.stage.name} colorName={d.stage.color} /></td>}
+                        <td className="td text-sm"><span className="block">{[d.unitNo ?? (d.units[0] && unitLabel(d.units[0].unit)), d.projectName].filter(Boolean).join(" · ") || "—"}</span>{d.community && <span className="block text-xs text-muted">{d.community}</span>}</td>
                         <td className="td whitespace-nowrap">{showValue ? fmtPKR(d.value) : "—"}</td>
-                        <td className="td whitespace-nowrap text-muted">{fmtDate(d.expectedClose)}</td>
+                        <td className="td whitespace-nowrap">{showValue ? (d.commissionAmount ?? (d.value && d.commissionPct ? (d.value * d.commissionPct) / 100 : null)) != null ? fmtPKR(d.commissionAmount ?? (d.value! * d.commissionPct!) / 100) : "—" : "—"}</td>
+                        <td className="td whitespace-nowrap text-muted">{fmtDate(show === "closed" ? d.closedAt : d.expectedClose)}</td>
                         <td className="td text-muted">{d.owner?.name ?? "—"}</td>
                       </tr>
                     ))}

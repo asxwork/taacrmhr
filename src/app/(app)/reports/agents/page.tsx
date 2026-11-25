@@ -13,7 +13,7 @@ import { Avatar } from "@/components/ui";
 import { hrefWith } from "@/components/crm/bits";
 
 export const metadata = { title: "Agent performance" };
-type SP = { period?: string; from?: string; to?: string; branch?: string };
+type SP = { period?: string; from?: string; to?: string; branch?: string; scope?: string };
 
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : null);
 const hours = (h: number | null) => (h === null ? "—" : h < 1 ? `${Math.round(h * 60)} min` : h < 48 ? `${h.toFixed(1)} h` : `${Math.round(h / 24)} days`);
@@ -29,6 +29,20 @@ export default async function AgentPerformancePage({ searchParams }: { searchPar
     db.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
   const keep = { period: sp.period, from: sp.from, to: sp.to };
+  // Leads by stage, per agent: every lead they own now (or only the ones that came in during the period).
+  const inPeriod = sp.scope === "period";
+  const [stages, stageCounts] = await Promise.all([
+    db.leadStatus.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, color: true, kind: true } }),
+    db.lead.groupBy({ by: ["ownerId", "statusId"], where: { ownerId: { not: null }, ...(sp.branch ? { branchId: sp.branch } : {}), ...(inPeriod ? { createdAt: { gte: from, lte: to } } : {}) }, _count: true }),
+  ]);
+  const stageOwners = [...new Set(stageCounts.map((c) => c.ownerId!))];
+  const ownerNames = new Map((await db.user.findMany({ where: { id: { in: stageOwners } }, select: { id: true, name: true, active: true } })).map((u) => [u.id, u]));
+  const cellOf = (o: string, st: string) => stageCounts.find((c) => c.ownerId === o && c.statusId === st)?._count ?? 0;
+  const rowTotal = (o: string) => stageCounts.filter((c) => c.ownerId === o).reduce((a, c) => a + c._count, 0);
+  const colTotal = (st: string) => stageCounts.filter((c) => c.statusId === st).reduce((a, c) => a + c._count, 0);
+  const stageRows = stageOwners.sort((a, b) => rowTotal(b) - rowTotal(a));
+  const created = inPeriod ? `&created=custom&cfrom=${format(from, "yyyy-MM-dd")}&cto=${format(to, "yyyy-MM-dd")}` : "";
+  const leadsHref = (o: string, st?: string) => `/crm/leads?owner=${o}${st ? `&stage=${st}` : ""}${created}`;
   const total = rows.reduce((t, r) => ({
     newLeads: t.newLeads + r.newLeads, contactedNew: t.contactedNew + r.contactedNew, neverContacted: t.neverContacted + r.neverContacted,
     calls: t.calls + r.calls, followUpsDue: t.followUpsDue + r.followUpsDue, onTime: t.onTime + r.onTime, overdueNow: t.overdueNow + r.overdueNow,
@@ -94,6 +108,49 @@ export default async function AgentPerformancePage({ searchParams }: { searchPar
               </thead>
               <tbody className="divide-y divide-line">
                 {rows.map((r) => <AgentLine key={r.id} r={r} href={hrefWith(`/reports/agents/${r.id}`, keep, {})} />)}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+      <Card className="mt-6 overflow-hidden">
+        <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-semibold">Leads by stage</h2>
+            <p className="text-xs text-muted">How many leads each agent has in every stage{inPeriod ? ", for leads that came in during the period" : " right now"}. Click a number to open those leads.</p>
+          </div>
+          <div className="flex rounded-lg bg-black/5 p-0.5 text-sm">
+            {([["", "All their leads now"], ["period", "Came in this period"]] as const).map(([k, l]) => (
+              <Link key={k || "all"} href={hrefWith("/reports/agents", { ...keep, branch: sp.branch }, k ? { scope: k } : {})} className={cn("rounded-md px-3 py-1", (sp.scope ?? "") === k ? "bg-surface font-medium shadow-xs" : "text-muted")}>{l}</Link>
+            ))}
+          </div>
+        </div>
+        {stageRows.length === 0 ? <EmptyState title="No leads" /> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-line bg-canvas/60">
+                <tr>
+                  <th className="th sticky left-0 bg-canvas">Agent</th>
+                  {stages.map((st) => <th key={st.id} className="th whitespace-nowrap text-right"><span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: st.color ?? "#94a3b8" }} />{st.name}</span></th>)}
+                  <th className="th text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {stageRows.map((o) => {
+                  const u = ownerNames.get(o);
+                  return (
+                    <tr key={o} className="hover:bg-canvas/60">
+                      <td className="td sticky left-0 whitespace-nowrap bg-surface"><Link href={hrefWith(`/reports/agents/${o}`, keep, {})} className="font-medium text-navy-900 hover:underline dark:text-ink">{u?.name ?? "—"}</Link>{u && !u.active && <span className="ml-1 text-xs text-muted">(inactive)</span>}</td>
+                      {stages.map((st) => { const n = cellOf(o, st.id); return <td key={st.id} className="td text-right tabular-nums">{n ? <Link href={leadsHref(o, st.id)} className="hover:underline">{n}</Link> : <span className="text-muted/50">·</span>}</td>; })}
+                      <td className="td text-right font-semibold tabular-nums"><Link href={leadsHref(o)} className="hover:underline">{rowTotal(o)}</Link></td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-canvas/60 font-semibold">
+                  <td className="td sticky left-0 bg-canvas">Total</td>
+                  {stages.map((st) => <td key={st.id} className="td text-right tabular-nums">{colTotal(st.id) || "·"}</td>)}
+                  <td className="td text-right tabular-nums">{stageCounts.reduce((a, c) => a + c._count, 0)}</td>
+                </tr>
               </tbody>
             </table>
           </div>

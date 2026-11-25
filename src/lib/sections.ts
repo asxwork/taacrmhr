@@ -35,8 +35,8 @@ export const SECTIONS: Section[] = [
   {
     key: "deals",
     tabs: [
-      { href: "/crm/deals", label: "Pipeline", module: "crm.deals", params: { view: null } },
-      { href: "/crm/deals?view=list", label: "Deal list", module: "crm.deals", params: { view: "list" } },
+      { href: "/crm/deals", label: "Closed deals", module: "crm.deals", params: { show: null } },
+      { href: "/crm/deals?show=all", label: "All deals", module: "crm.deals", params: { show: "all" } },
     ],
   },
   {

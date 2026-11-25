@@ -32,6 +32,18 @@ export default async function AgentDetailPage({ params, searchParams }: { params
     db.activity.findMany({ where: { ownerId: id, type: "call", doneAt: { gte: from, lte: to } }, select: { doneAt: true } }),
     db.activity.findMany({ where: { OR: [{ ownerId: id }, { createdById: id }], type: { not: "system" } }, include: { lead: { select: { id: true, name: true } }, deal: { select: { id: true, title: true } } }, orderBy: { createdAt: "desc" }, take: 40 }),
   ]);
+  // Their leads by stage: all they own now, the ones that came in during the period, and leads they moved into each stage.
+  const [stages, nowBy, newBy, moves] = await Promise.all([
+    db.leadStatus.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, color: true } }),
+    db.lead.groupBy({ by: ["statusId"], where: { ownerId: id }, _count: true }),
+    db.lead.groupBy({ by: ["statusId"], where: { ownerId: id, createdAt: { gte: from, lte: to } }, _count: true }),
+    db.activity.findMany({ where: { type: "system", createdById: id, subject: { startsWith: "Status:" }, createdAt: { gte: from, lte: to } }, select: { subject: true } }),
+  ]);
+  const movedTo = new Map<string, number>();
+  for (const m of moves) { const to = m.subject.split("→").pop()?.trim(); if (to) movedTo.set(to, (movedTo.get(to) ?? 0) + 1); }
+  const stageRows = stages.map((st) => ({ ...st, now: nowBy.find((r) => r.statusId === st.id)?._count ?? 0, came: newBy.find((r) => r.statusId === st.id)?._count ?? 0, moved: movedTo.get(st.name) ?? 0 }));
+  const maxNow = Math.max(1, ...stageRows.map((r) => r.now));
+  const created = `&created=custom&cfrom=${format(from, "yyyy-MM-dd")}&cto=${format(to, "yyyy-MM-dd")}`;
   const days = eachDayOfInterval({ start: from, end: min([to, endOfDay(new Date())]) });
   const perDay = days.map((d) => ({ label: format(d, "EEE d MMM"), short: format(d, days.length > 14 ? "d" : "EEE d"), value: calls.filter((c) => isSameDay(c.doneAt!, d)).length }));
 
@@ -73,6 +85,26 @@ export default async function AgentDetailPage({ params, searchParams }: { params
           <Card className="p-5">
             <h2 className="mb-4 text-sm font-medium">Calls logged per day</h2>
             <ColumnChart data={perDay} unit="calls" />
+          </Card>
+          <Card className="overflow-hidden">
+            <div className="border-b border-line px-5 py-3"><h2 className="text-sm font-medium">Leads by stage</h2><p className="text-xs text-muted">Click a number to open those leads.</p></div>
+            <table className="w-full text-sm">
+              <thead className="bg-canvas/60 text-left text-xs text-muted"><tr><th className="px-5 py-2 font-medium">Stage</th><th className="px-3 py-2 text-right font-medium">Their leads now</th><th className="px-3 py-2 text-right font-medium" title="Leads that came in during the period, by the stage they're in now">Came in this period</th><th className="px-5 py-2 text-right font-medium" title="Times they moved a lead into this stage during the period">Moved here in period</th></tr></thead>
+              <tbody className="divide-y divide-line">
+                {stageRows.map((r) => (
+                  <tr key={r.id}>
+                    <td className="px-5 py-2"><span className="inline-flex items-center gap-2"><span className="size-2.5 rounded-full" style={{ background: r.color ?? "#94a3b8" }} />{r.name}</span></td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      <span className="inline-flex items-center justify-end gap-2"><span className="hidden h-1.5 w-24 overflow-hidden rounded-full bg-canvas sm:block"><span className="block h-full rounded-full" style={{ width: `${(r.now / maxNow) * 100}%`, background: r.color ?? "#94a3b8" }} /></span>
+                      {r.now ? <ListLink href={`/crm/leads?owner=${id}&stage=${r.id}`} className="w-10 font-medium hover:underline">{r.now}</ListLink> : <span className="w-10 text-muted/50">·</span>}</span>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{r.came ? <ListLink href={`/crm/leads?owner=${id}&stage=${r.id}${created}`} className="hover:underline">{r.came}</ListLink> : <span className="text-muted/50">·</span>}</td>
+                    <td className="px-5 py-2 text-right tabular-nums">{r.moved || <span className="text-muted/50">·</span>}</td>
+                  </tr>
+                ))}
+                <tr className="bg-canvas/60 font-semibold"><td className="px-5 py-2">Total</td><td className="px-3 py-2 text-right tabular-nums">{stageRows.reduce((a, r) => a + r.now, 0)}</td><td className="px-3 py-2 text-right tabular-nums">{stageRows.reduce((a, r) => a + r.came, 0)}</td><td className="px-5 py-2 text-right tabular-nums">{stageRows.reduce((a, r) => a + r.moved, 0)}</td></tr>
+              </tbody>
+            </table>
           </Card>
           <FollowUpLists lists={lists} showOwner={false} phoneMode={(await fieldAccess(user))["lead.phone"]} />
         </div>
