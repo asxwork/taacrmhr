@@ -1,29 +1,25 @@
-import { FileSpreadsheet } from "lucide-react";
 import { requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
-import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, PageHeader } from "@/components/ui";
-import { importWorkbook } from "../actions";
+import { SHEET_TYPES } from "@/lib/finance-import";
+import { ImportForm } from "./import-form";
 
 export const metadata = { title: "Import Excel · Finance" };
 
 export default async function FinanceImport() {
   await requirePermission("finance", "import");
   const imported = await db.finEntry.count({ where: { importKey: { not: null } } });
+  // Where the expenses in AMS end (Samad's marketing sheet is kept up to date separately, so it isn't counted).
+  const samad = await db.finAccount.findFirst({ where: { name: { contains: "Samad" } }, select: { id: true } });
+  const last = await db.finEntry.findFirst({ where: { importKey: { not: null }, ...(samad ? { accountId: { not: samad.id } } : {}) }, orderBy: { date: "desc" }, select: { date: true } });
+  const lastDay = last ? last.date.toISOString().slice(0, 10) : null;
+  const defaultFrom = last ? new Date(+last.date + 86_400_000).toISOString().slice(0, 10) : "";
   return (
     <>
-      <PageHeader title="Import Excel" description="Bring in your expense sheet. Upload it again any time: rows already imported are skipped." />
+      <PageHeader title="Import Excel" description="Bring in your expense sheet: tick the sheets, choose the day to start from, Preview what will be added, then Import. Rows already imported are skipped." />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1fr]">
         <Card className="p-5">
-          <ActionForm action={importWorkbook} className="space-y-4">
-            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-line p-8 text-center hover:bg-canvas/50">
-              <FileSpreadsheet className="size-8 text-emerald-600" />
-              <span className="text-sm font-medium">Choose the expense workbook (.xlsx)</span>
-              <input type="file" name="file" accept=".xlsx" required className="text-sm" />
-            </label>
-            {imported > 0 && <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="replace" className="mt-0.5" /> <span>Replace the earlier import <span className="block text-xs text-muted">Removes the imported entries first. Entries typed in by hand, and imported entries that have a bill attached or were checked / approved, stay. Use this if the sheet was corrected.</span></span></label>}
-            <SubmitButton>Import</SubmitButton>
-          </ActionForm>
+          <ImportForm sheets={SHEET_TYPES.map(([key, label]) => ({ key, label, on: key !== "samad" }))} defaultFrom={defaultFrom} lastDay={lastDay} canReplace={imported > 0} />
           {imported > 0 && <p className="mt-3 text-xs text-muted">{imported.toLocaleString()} entries came from earlier imports.</p>}
         </Card>
         <Card className="p-5 text-sm">

@@ -32,25 +32,44 @@ const cellNum = (v: ExcelJS.CellValue) => { const n = typeof v === "number" ? v 
 const cellDate = (v: ExcelJS.CellValue) => (v instanceof Date ? v : typeof v === "object" && v && "result" in v && v.result instanceof Date ? v.result : null);
 
 export type ImportResult = { added: number; skipped: number; perSheet: Record<string, number>; holders: string[] };
+export const SHEET_TYPES = [["bushra", "BUSHRA entries (petty cash)"], ["samad", "SAMAD entries (marketing)"], ["other", "OTHER entries (paid by others)"], ["personal", "Sir Personal Expense"]] as const;
+export type SheetType = (typeof SHEET_TYPES)[number][0];
+export type PreviewRow = { sheet: string; date: string; kind: string; amount: number; description: string; party: string | null; category: string | null; holder: string };
+export type ImportOpts = {
+  replace?: boolean;
+  /** Only rows on or after this day (rows before it are ignored even if they're in the file). */
+  from?: Date | null;
+  /** Only these sheets. */
+  sheets?: SheetType[];
+  /** Work out what would be added, without saving anything. */
+  dryRun?: boolean;
+};
 
 /** People who handle the Bahadurabad branch's cash (petty cash Bushra sends them is a transfer to the branch). */
 const BRANCH_PEOPLE: [RegExp, string][] = [[/affan/i, "Affan"], [/riaz|riyaz/i, "Riaz"], [/faizan/i, "Faizan"]];
 export const BRANCH_NAME = "Bahadurabad";
 
-export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string, opts: { replace?: boolean } = {}): Promise<ImportResult & { removed: number }> {
-  await ensureFinanceDefaults();
+export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string, opts: ImportOpts = {}): Promise<ImportResult & { removed: number; preview: PreviewRow[]; totals: Record<string, { in: number; out: number; transfers: number; first: string | null; last: string | null }> }> {
+  const dry = !!opts.dryRun;
+  if (!dry) await ensureFinanceDefaults();
   // Replace: remove what earlier imports added (entries typed in by hand stay).
   // Entries someone has worked on since (bill attached, checked, approved, linked to a bank line) are kept; the re-import skips them.
-  const removed = opts.replace ? (await db.finEntry.deleteMany({ where: { importKey: { not: null }, proofs: { none: {} }, receipt: null, verifiedAt: null, approvedAt: null } })).count : 0;
+  const removed = opts.replace && !dry ? (await db.finEntry.deleteMany({ where: { importKey: { not: null }, proofs: { none: {} }, receipt: null, verifiedAt: null, approvedAt: null } })).count : 0;
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer);
 
   // Caches for holders and categories (created on first use).
-  const holders = new Map((await db.finAccount.findMany()).map((a) => [a.name.toLowerCase(), a.id]));
+  const accounts = await db.finAccount.findMany({ select: { id: true, name: true } });
+  const holders = new Map(accounts.map((a) => [a.name.toLowerCase(), a.id]));
+  const holderNames = new Map<string, string>(accounts.map((a) => [a.id, a.name]));
   const created: string[] = [];
   const holder = async (name: string, kind: string, branch?: string) => {
     const key = name.toLowerCase();
-    if (!holders.has(key)) { holders.set(key, (await db.finAccount.create({ data: { name, kind, branch } })).id); created.push(name); }
+    if (!holders.has(key)) {
+      // Preview: nothing is created, the new holder is only named.
+      const id = dry ? `new:${name}` : (await db.finAccount.create({ data: { name, kind, branch } })).id;
+      holders.set(key, id); holderNames.set(id, name); created.push(name);
+    }
     return holders.get(key)!;
   };
   const cats = await db.finCategory.findMany();
@@ -58,12 +77,12 @@ export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string,
     const mainKey = clean(rawMain).replace(/\(.*?\)/g, "").trim().toLowerCase();
     const mainName = MAIN[mainKey] ?? title(mainKey || "Miscellaneous");
     let main = cats.find((c) => !c.parentId && c.name.toLowerCase() === mainName.toLowerCase());
-    if (!main) { main = await db.finCategory.create({ data: { name: mainName, sortOrder: 50 } }); cats.push(main); }
+    if (!main) { main = dry ? { id: `new:${mainName}`, name: mainName, parentId: null, personal: false } as (typeof cats)[number] : await db.finCategory.create({ data: { name: mainName, sortOrder: 50 } }); cats.push(main); }
     const subKey = clean(rawSub).toLowerCase();
     if (!subKey || subKey === "none" || subKey === mainKey) return { id: main.id, personal: main.personal };
     const subName = SUB[subKey] ?? title(clean(rawSub));
     let sub = cats.find((c) => c.parentId === main!.id && c.name.toLowerCase() === subName.toLowerCase());
-    if (!sub) { sub = await db.finCategory.create({ data: { name: subName, parentId: main.id, personal: main.personal, sortOrder: 50 } }); cats.push(sub); }
+    if (!sub) { sub = dry ? { id: `new:${mainName} › ${subName}`, name: subName, parentId: main.id, personal: main.personal } as (typeof cats)[number] : await db.finCategory.create({ data: { name: subName, parentId: main.id, personal: main.personal, sortOrder: 50 } }); cats.push(sub); }
     return { id: sub.id, personal: main.personal };
   };
   const ownerName = (s: string) => { const t = clean(s); if (/mubeen/i.test(t)) return { name: "Mubeen sir", kind: "owner" }; if (/^muhammad$/i.test(t)) return { name: "Muhammad", kind: "card" }; return { name: title(t.toLowerCase()) || "Unknown", kind: "person" }; };
@@ -75,11 +94,22 @@ export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string,
     seen.set(base, n);
     return createHash("sha1").update(`${base}|${n}`).digest("hex");
   };
-  const res = { added: 0, skipped: 0, perSheet: {} as Record<string, number>, holders: created, removed };
+  const res = { added: 0, skipped: 0, perSheet: {} as Record<string, number>, holders: created, removed, preview: [] as PreviewRow[], totals: {} as Record<string, { in: number; out: number; transfers: number; first: string | null; last: string | null }> };
+  const catName = (id: unknown) => { const c = cats.find((x) => x.id === id); if (!c) return null; const parent = c.parentId ? cats.find((x) => x.id === c.parentId) : null; return parent ? `${parent.name} › ${c.name}` : c.name; };
   // One spelling per payee: "qasim", "Qasim " and "QASIM" all become the first one seen.
   const payees = new Map<string, string>();
   const add = async (sheet: string, data: Parameters<typeof db.finEntry.create>[0]["data"], key: string) => {
     if (await db.finEntry.findUnique({ where: { importKey: key } })) { res.skipped++; return; }
+    const d = (data.date as Date).toISOString().slice(0, 10);
+    const t = (res.totals[sheet] ??= { in: 0, out: 0, transfers: 0, first: null, last: null });
+    if (data.kind === "in") t.in += Number(data.amount); else if (data.kind === "transfer") t.transfers += Number(data.amount); else t.out += Number(data.amount);
+    if (!t.first || d < t.first) t.first = d;
+    if (!t.last || d > t.last) t.last = d;
+    if (dry) {
+      res.preview.push({ sheet, date: d, kind: String(data.kind), amount: Number(data.amount), description: String(data.description ?? ""), party: (data.party as string | null) ?? null, category: catName(data.categoryId), holder: holderNames.get(String(data.accountId)) ?? "" });
+      res.added++; res.perSheet[sheet] = (res.perSheet[sheet] ?? 0) + 1;
+      return;
+    }
     if (typeof data.party === "string" && data.party) {
       const k = payeeKey(data.party);
       if (!payees.has(k)) payees.set(k, data.party.length > 2 && data.party === data.party.toLowerCase() ? title(data.party) : data.party);
@@ -92,7 +122,7 @@ export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string,
   for (const ws of wb.worksheets) {
     const name = ws.name.toUpperCase();
     const type = name.includes("BUSHRA") ? "bushra" : name.includes("SAMAD") ? "samad" : name.includes("OTHER") ? "other" : name.includes("PERSONAL") ? "personal" : null;
-    if (!type) continue;
+    if (!type || (opts.sheets && !opts.sheets.includes(type))) continue;
     // Header row: the row whose cells include "date" and "amount…".
     let header = 0; const col: Record<string, number> = {};
     ws.eachRow((row, r) => {
@@ -115,6 +145,7 @@ export async function importExpenseWorkbook(buffer: ArrayBuffer, userId: string,
       const v = (k: string) => (col[k] ? row.getCell(col[k]).value : null);
       const date = cellDate(v("date"));
       if (!date) continue;
+      if (opts.from && date < opts.from) continue; // already in AMS (entries before the chosen day)
       const amount = cellNum(v("amount")), received = cellNum(v("received"));
       const cat = clean(cellText(v("cat"))), sub = clean(cellText(v("sub"))), desc = clean(cellText(v("desc"))) || cat || "Expense";
       const paidTo = clean(cellText(v("paidTo"))), notes = clean(cellText(v("notes"))) || null;

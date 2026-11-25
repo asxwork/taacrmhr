@@ -156,20 +156,32 @@ export async function saveCategory(_: FormState, fd: FormData): Promise<FormStat
   return { ok: true, message: "Saved." };
 }
 
-/** Import the expense workbook. Rows already imported are skipped, so the same sheet can be uploaded again. */
-export async function importWorkbook(_: FormState, fd: FormData): Promise<FormState> {
+export type ImportState = { error?: string; ok?: boolean; message?: string; imported?: boolean; preview?: import("@/lib/finance-import").PreviewRow[]; totals?: Record<string, { in: number; out: number; transfers: number; first: string | null; last: string | null }>; skipped?: number; holders?: string[] } | undefined;
+
+/**
+ * Import the expense workbook: Preview first (what would be added, nothing saved), then Import. Only the ticked sheets,
+ * and only rows from the chosen day on; rows already imported are skipped, so the same sheet can be uploaded again.
+ */
+export async function importWorkbook(_: ImportState, fd: FormData): Promise<ImportState> {
   const user = await requirePermission("finance", "import");
   const file = fd.get("file");
   if (!(file instanceof File) || !file.size) return { error: "Choose your Excel file (.xlsx)." };
   if (!/\.xlsx$/i.test(file.name)) return { error: "Only .xlsx files can be imported." };
   if (file.size > 20_000_000) return { error: "File is larger than 20 MB." };
+  const { importExpenseWorkbook, SHEET_TYPES } = await import("@/lib/finance-import");
+  const sheets = SHEET_TYPES.map(([k]) => k).filter((k) => fd.get(`sheet_${k}`) === "on");
+  if (!sheets.length) return { error: "Tick at least one sheet to import." };
+  const fromRaw = str(fd, "from");
+  const from = fromRaw ? new Date(`${fromRaw}T00:00:00Z`) : null;
+  if (from && Number.isNaN(+from)) return { error: "Choose a valid start date." };
+  const dryRun = str(fd, "op") !== "import";
   try {
-    const { importExpenseWorkbook } = await import("@/lib/finance-import");
-    const r = await importExpenseWorkbook(await file.arrayBuffer(), user.id, { replace: fd.get("replace") === "on" });
-    await audit(user.id, "import", "finImport", null, `Imported ${r.added} finance entries from ${file.name} (${r.skipped} already there)`);
+    const r = await importExpenseWorkbook(await file.arrayBuffer(), user.id, { replace: !dryRun && fd.get("replace") === "on", from, sheets, dryRun });
+    if (dryRun) return { ok: true, preview: r.preview, totals: r.totals, skipped: r.skipped, holders: r.holders, message: r.added ? `${r.added} entries would be added${r.skipped ? ` (${r.skipped} already in AMS, skipped)` : ""}. Check them below, then press Import.` : `Nothing new to add${r.skipped ? `: all ${r.skipped} rows from that day on are already in AMS` : " from that day on in the ticked sheets"}.` };
+    await audit(user.id, "import", "finImport", null, `Imported ${r.added} finance entries from ${file.name}${from ? ` (from ${fromRaw})` : ""}, sheets ${sheets.join(", ")} (${r.skipped} already there)`);
     revalidatePath("/finance");
     const per = Object.entries(r.perSheet).map(([k, v]) => `${k}: ${v}`).join(", ");
-    return { ok: true, message: `${r.removed ? `Removed ${r.removed} entries from the earlier import. ` : ""}Added ${r.added} entries${per ? ` (${per})` : ""}. ${r.skipped} were already imported and skipped.${r.holders.length ? ` New money holders: ${r.holders.join(", ")}.` : ""}` };
+    return { ok: true, imported: true, message: `${r.removed ? `Removed ${r.removed} entries from the earlier import. ` : ""}Added ${r.added} entries${per ? ` (${per})` : ""}. ${r.skipped} were already imported and skipped.${r.holders.length ? ` New money holders: ${r.holders.join(", ")}.` : ""}` };
   } catch (e) {
     return { error: `Could not read the file: ${e instanceof Error ? e.message : "unknown error"}` };
   }
