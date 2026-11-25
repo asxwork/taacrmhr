@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import { isStaleDeploy, reloadForNewVersion } from "@/lib/stale-deploy";
 
 /** Last-resort screen if the whole app shell fails. */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
+    if (isStaleDeploy(error) && reloadForNewVersion()) return;
     void fetch("/api/errors", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: error.message || error.digest, stack: error.stack, path: location.pathname }) }).catch(() => {});
   }, [error]);
   return (

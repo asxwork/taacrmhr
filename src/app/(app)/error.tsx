@@ -1,19 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import { isStaleDeploy, reloadForNewVersion } from "@/lib/stale-deploy";
 
 /** Friendly screen when a page breaks; the error is reported to Settings → System health. */
 export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    // A page loaded before a redeploy: just reload it once instead of showing an error.
-    // Reloads at most once a minute (so a page that keeps failing doesn't loop), and again after the next deploy.
-    const last = Number(sessionStorage.getItem("ams-reloaded") || 0);
-    if ((error.name === "UnrecognizedActionError" || /was not found on the server|failed-to-find-server-action|Failed to find Server Action|older or newer deployment/i.test(error.message ?? "")) && Date.now() - last > 60_000) {
-      sessionStorage.setItem("ams-reloaded", String(Date.now()));
-      location.reload();
-      return;
-    }
-    sessionStorage.removeItem("ams-reloaded");
+    // A page loaded before a redeploy: just reload it instead of showing an error.
+    if (isStaleDeploy(error) && reloadForNewVersion()) return;
     void fetch("/api/errors", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: error.message || error.digest, stack: error.stack, path: location.pathname }) }).catch(() => {});
   }, [error]);
   return (

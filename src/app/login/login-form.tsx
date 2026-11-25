@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail, ShieldCheck } from "lucide-react";
 import { SubmitButton } from "@/components/action-form";
 import type { FormState } from "@/lib/utils";
@@ -21,6 +21,26 @@ export function LoginForm({ action, resetAction }: { action: (s: FormState, fd: 
   const [remember, setRemember] = useState(true);
   const [forgot, setForgot] = useState(false);
   useEffect(() => { const e = store.get(); if (e) setEmail(e); }, []);
+  // After a deploy: a sign-in page left open would send a sign-in the new version doesn't know. It checks the running
+  // version every minute and reloads itself while nothing is typed; after an update reload it says so once.
+  const [updated, setUpdated] = useState(false);
+  const typed = useRef("");
+  typed.current = password;
+  useEffect(() => {
+    try { if (sessionStorage.getItem("ams-updated")) { setUpdated(true); sessionStorage.removeItem("ams-updated"); } } catch {}
+    let first: string | null = null;
+    const check = async () => {
+      if (document.visibilityState !== "visible") return;
+      const build = await fetch("/api/version", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => d?.build as string | undefined).catch(() => undefined);
+      if (!build) return;
+      if (first === null) { first = build; return; }
+      if (build !== first && !typed.current) location.reload();
+    };
+    void check();
+    const t = setInterval(check, 60_000);
+    document.addEventListener("visibilitychange", check);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", check); };
+  }, []);
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => setCaps(e.getModifierState?.("CapsLock") ?? false);
 
   if (forgot) return (
@@ -40,6 +60,7 @@ export function LoginForm({ action, resetAction }: { action: (s: FormState, fd: 
 
   return (
     <form action={(fd) => { store.set(remember ? email.trim() : ""); formAction(fd); }} className="space-y-4">
+      {updated && <p role="status" className="rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800">AMS was just updated. Please sign in again.</p>}
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">Username or email</span>
         <span className="relative block">
