@@ -6,8 +6,10 @@ import { useEffect } from "react";
 export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     // A page loaded before a redeploy: just reload it once instead of showing an error.
-    if ((error.name === "UnrecognizedActionError" || /was not found on the server|failed-to-find-server-action|Failed to find Server Action|older or newer deployment/i.test(error.message ?? "")) && !sessionStorage.getItem("ams-reloaded")) {
-      sessionStorage.setItem("ams-reloaded", "1");
+    // Reloads at most once a minute (so a page that keeps failing doesn't loop), and again after the next deploy.
+    const last = Number(sessionStorage.getItem("ams-reloaded") || 0);
+    if ((error.name === "UnrecognizedActionError" || /was not found on the server|failed-to-find-server-action|Failed to find Server Action|older or newer deployment/i.test(error.message ?? "")) && Date.now() - last > 60_000) {
+      sessionStorage.setItem("ams-reloaded", String(Date.now()));
       location.reload();
       return;
     }

@@ -53,7 +53,7 @@ export async function uploadNumbers(_: FormState, fd: FormData): Promise<FormSta
   if (file instanceof File && file.size > 5_000_000) return { error: "The file is larger than 5 MB." };
   const rows = parseNumbers(text);
   if (!rows.length) return { error: "No phone numbers found. Paste one per line, or upload a CSV with a phone column." };
-  await (await import("@/lib/call-files")).keepImportFile(campaignId, file instanceof File && file.size ? file.name : "pasted numbers.txt", text);
+  await (await import("@/lib/call-files")).keepImportFile(campaignId, file instanceof File && file.size ? file.name : "pasted numbers.txt", text).catch((e) => console.error("Keeping the imported numbers failed:", e));
   const res = await importNumbers(campaignId, rows.slice(0, 20_000));
   await audit(user.id, "create", "callTarget", campaignId, `Imported ${res.added} number(s)`);
   revalidatePath(`/calls/campaigns/${campaignId}`);
@@ -207,7 +207,7 @@ export async function previewSheet(_: SheetState, fd: FormData): Promise<SheetSt
   let sheet: Awaited<ReturnType<typeof readSheetFile>>;
   try { sheet = await readSheetFile(file); } catch { return { error: "Couldn't read that file. Save it as .xlsx or .csv and try again." }; }
   // The exact file is kept on the server for Super Admins (Campaign → Imported files).
-  await (await import("@/lib/call-files")).keepImportFile(str(fd, "campaignId"), file.name, await file.arrayBuffer());
+  await (await import("@/lib/call-files")).keepImportFile(str(fd, "campaignId"), file.name, await file.arrayBuffer()).catch((e) => console.error("Keeping the imported file failed:", e));
   const headers = sheet.headers.filter(Boolean);
   if (!headers.length || !sheet.rows.length) return { error: "The file has no rows (the first row should be the column names)." };
   for (const [k, v] of sheets) if (Date.now() - v.at > 30 * 60_000) sheets.delete(k);
@@ -247,10 +247,16 @@ export async function importSheet(_: SheetState, fd: FormData): Promise<SheetSta
     if (v(p2)) extra["Other phone"] = v(p2);
     // Full name: the Name column, else First + Last name joined.
     const name = v(ni) || [v(fi), v(li)].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-    return { phone: v(pi), name: name || null, extra: Object.keys(extra).length ? extra : null };
+    // The database keeps up to 190 characters for a name and 40 for a phone (a cell with several numbers: the first).
+    const phone = v(pi).split(/[\/,;|\n]| or /i).map((x) => x.trim()).find((x) => (phoneKey(x) ?? "").length >= 7) ?? v(pi);
+    return { phone: phone.slice(0, 40), name: name ? name.slice(0, 190) : null, extra: Object.keys(extra).length ? extra : null };
   }).filter((r) => (phoneKey(r.phone) ?? "").length >= 7); // a real number, not a name or a unit code
   if (!rows.length) return { error: "No phone numbers found in that column (a phone needs at least 7 digits). Check which column you chose as Phone number." };
-  const res = await importNumbers(hold.campaignId, rows);
+  let res: Awaited<ReturnType<typeof importNumbers>>;
+  try { res = await importNumbers(hold.campaignId, rows); } catch (e) {
+    console.error("Call sheet import failed:", e);
+    return { error: `The numbers couldn't be saved (${e instanceof Error ? e.message.split("\n").filter(Boolean).pop()?.slice(0, 200) : "unknown error"}). Nothing was lost: fix the file or the column choice and try again.` };
+  }
   // "Keep, hide from agents" columns: saved with the number, left off the agent's screen.
   const keep = role.flatMap((x, i) => (x === "keep" ? [label[i]!] : []));
   if (keep.length) {
