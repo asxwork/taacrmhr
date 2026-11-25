@@ -19,8 +19,8 @@
  "weekly-email": 31,
  "unit-holds": 49,
  "crm-reports": 35,
- "dialer": 113,
- "campaigns": 136,
+ "dialer": 172,
+ "campaigns": 170,
  "softphone": 49,
  "hr-dashboard": 27,
  "employees": 51,
@@ -116,5 +116,6 @@
  "bitrix-backup": 44,
  "lead-page": 61,
  "access-exceptions": 42,
- "developer": 64
+ "developer": 64,
+ "call-templates": 58
 }
