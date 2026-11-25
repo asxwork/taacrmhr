@@ -1,9 +1,28 @@
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { accessSync, constants, mkdirSync } from "node:fs";
 import { randomBytes } from "node:crypto";
+import { homedir } from "node:os";
 import path from "node:path";
 
-/** Uploads live outside /public and are served by /api/files (signed-in users only). */
-export const UPLOAD_ROOT = path.resolve(process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads"));
+/** Where uploads used to be kept: inside the app folder, which the host rebuilds on every deploy. */
+export const OLD_UPLOAD_ROOT = path.join(process.cwd(), "uploads");
+
+/**
+ * Uploads (photos, bills, documents…) live outside /public and are served by /api/files (signed-in users only).
+ * On the live server they're kept OUTSIDE the app folder (~/ams-uploads), because every deploy rebuilds the app
+ * folder and files saved inside it were lost. UPLOAD_DIR overrides; locally it stays ./uploads.
+ */
+function uploadRoot() {
+  if (process.env.UPLOAD_DIR) return path.resolve(process.env.UPLOAD_DIR);
+  if (!(process.env.DATABASE_URL ?? "").startsWith("mysql://")) return OLD_UPLOAD_ROOT;
+  const inApp = (d: string) => d === process.cwd() || d.startsWith(process.cwd() + path.sep);
+  const candidates = [homedir() && path.join(homedir(), "ams-uploads"), path.resolve(process.cwd(), "..", "ams-uploads")].filter((d): d is string => !!d && !inApp(d));
+  for (const dir of candidates) {
+    try { mkdirSync(dir, { recursive: true }); accessSync(dir, constants.W_OK); return dir; } catch { /* not writable here: try the next */ }
+  }
+  return OLD_UPLOAD_ROOT;
+}
+export const UPLOAD_ROOT = uploadRoot();
 
 const IMAGE_SIGNATURES: [string, number[]][] = [
   ["jpg", [0xff, 0xd8, 0xff]],

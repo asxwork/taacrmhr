@@ -26,3 +26,17 @@ export async function clearErrors() {
   await audit(user.id, "delete", "settings", null, "Cleared the error log");
   revalidatePath("/settings/health");
 }
+
+/** Bring missing pictures and files back from the newest Google Drive backup (never overwrites a file). */
+export async function restoreMissingFiles(): Promise<FormState> {
+  const user = await superAdmin();
+  try {
+    const r = await (await import("@/lib/upload-safety")).restoreMissingFromBackup();
+    if ("error" in r) return { error: r.error };
+    await audit(user.id, "update", "settings", null, `Restored ${r.restored} missing file(s) from ${r.from}`);
+    revalidatePath("/settings/health");
+    return { ok: true, message: r.restored ? `Brought back ${r.restored} file(s) from ${r.from}.` : `Nothing to bring back: ${r.from} has no files that are missing here.` };
+  } catch (e) {
+    return { error: `Couldn't restore: ${e instanceof Error ? e.message.slice(0, 300) : "unknown error"}` };
+  }
+}

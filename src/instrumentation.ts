@@ -6,6 +6,8 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { recordStart } = await import("./lib/app-starts");
     void recordStart();
+    // Uploads now live outside the app folder (deploys rebuild it): move over whatever is still in the old one.
+    void import("./lib/upload-safety").then((m) => m.moveOldUploads()).then((n) => { if (n) console.log(`Moved ${n} upload(s) to the permanent folder`); }).catch((e) => console.error("Upload move failed:", e));
   }
 }
 

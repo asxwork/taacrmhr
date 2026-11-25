@@ -11,7 +11,9 @@ import { APP_VERSION } from "@/lib/version";
 import { recentStarts } from "@/lib/app-starts";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
-import { clearErrors, saveBanner } from "./actions";
+import { clearErrors, restoreMissingFiles, saveBanner } from "./actions";
+import { OLD_UPLOAD_ROOT, UPLOAD_ROOT } from "@/lib/files";
+import { missingUploads } from "@/lib/upload-safety";
 
 export const metadata = { title: "System health" };
 export const dynamic = "force-dynamic";
@@ -38,6 +40,8 @@ export default async function HealthPage() {
   const noManager = await db.employee.count({ where: { status: { not: "left" }, managerId: null } });
   const starts = await recentStarts(24);
   const memMb = Math.round(process.memoryUsage().rss / 1048576);
+  const files = await missingUploads().catch(() => ({ total: 0, missing: [] as { path: string; what: string }[] }));
+  const safeFolder = UPLOAD_ROOT !== OLD_UPLOAD_ROOT || !url.startsWith("mysql://");
 
   return (
     <>
@@ -93,6 +97,26 @@ export default async function HealthPage() {
           </ActionForm>
         </Card>
       </div>
+
+      {/* Pictures and files: kept outside the app folder (deploys rebuild it), and which saved ones lost their file. */}
+      <Card className={`mb-6 space-y-3 p-4 text-sm ${!safeFolder || files.missing.length ? "border-amber-300" : ""}`}>
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-medium">Pictures &amp; files</h2>
+            <p className="text-xs text-muted">Kept in <code className="break-all">{UPLOAD_ROOT}</code>{safeFolder ? " — outside the app folder, so updates don't touch them." : " — inside the app folder: an update can remove them. Set UPLOAD_DIR to a folder outside the app."}</p>
+          </div>
+          <span className="shrink-0 tabular-nums">{(files.total - files.missing.length).toLocaleString()} of {files.total.toLocaleString()} saved files found</span>
+        </div>
+        {files.missing.length > 0 && (
+          <>
+            <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-900"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><span><b>{files.missing.length}</b> saved picture(s)/file(s) are missing on the server (lost in an earlier update): {Object.entries(files.missing.reduce<Record<string, number>>((a, m) => ({ ...a, [m.what]: (a[m.what] ?? 0) + 1 }), {})).map(([k, n]) => `${k} ${n}`).join(" · ")}.</span></p>
+            <ActionForm action={restoreMissingFiles} className="flex flex-wrap items-center gap-3">
+              <SubmitButton pendingText="Bringing them back…">Bring back missing files from the latest backup</SubmitButton>
+              <span className="text-xs text-muted">From the newest Google Drive backup that has files. Only missing files are written; nothing is overwritten. Files uploaded after that backup can&apos;t come back and need uploading again.</span>
+            </ActionForm>
+          </>
+        )}
+      </Card>
 
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Error log</h2>

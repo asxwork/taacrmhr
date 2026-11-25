@@ -66,7 +66,7 @@ export async function backupConfig(): Promise<BackupConfig> {
   return {
     ...s, clientId: env.id() || s.clientId, clientSecret: env.secret() || openSecret(s.secretSealed ?? null),
     // GOOGLE_REFRESH_TOKEN on the server = connected for good, no sign-in on the page needed.
-    refreshToken: env.refresh() || openToken(s.tokenSealed), keepDays: s.keepDays || 30, includeFiles: !!s.includeFiles,
+    refreshToken: env.refresh() || openToken(s.tokenSealed), keepDays: s.keepDays || 30, includeFiles: s.includeFiles !== false, // uploaded files are in the backup unless turned off
   };
 }
 
@@ -175,6 +175,24 @@ async function upload(token: string, folderId: string, file: string, name: strin
   } as RequestInit & { duplex: "half" });
   if (!res.ok) throw new Error(`Upload failed: ${res.status} ${(await res.text()).slice(0, 300)}`);
   return { id: ((await res.json()) as { id: string }).id, size };
+}
+
+/** The newest backup that has the uploaded files (files-*.zip). */
+export async function latestFilesZip() {
+  const c = await backupConfig();
+  if (!c.clientId || !c.clientSecret || !c.refreshToken) throw new Error("Google Drive isn't connected (Settings → Backup).");
+  const token = await accessToken(c);
+  const q = encodeURIComponent("name contains 'files-' and name contains '.zip' and trashed=false");
+  const res = await drive(token, `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime,size)&orderBy=createdTime desc&pageSize=5`);
+  return ((await res.json()) as { files: { id: string; name: string; createdTime: string }[] }).files[0] ?? null;
+}
+
+/** Downloads a Drive file as a stream (for restoring files). */
+export async function driveFileStream(id: string) {
+  const c = await backupConfig();
+  const token = await accessToken(c);
+  const res = await drive(token, `https://www.googleapis.com/drive/v3/files/${id}?alt=media`);
+  return res.body!;
 }
 
 /** Deletes backups in the folder older than keepDays (always keeping the newest few). */
