@@ -21,9 +21,13 @@ const TONES: Record<string, string> = {
  * phone link that starts a timer), message it on WhatsApp with the campaign's text, then pick what happened.
  * Saving loads the next number.
  */
-export function CallCard({ target, outcomes, action, waText, mode = "system", details = [], dialPrefix }: {
+export function CallCard({ target, outcomes, action, waText: campaignText, templates = [], extraButton, mode = "system", details = [], dialPrefix }: {
   target: { id: string; name: string | null; phone: string; status: string; attempts: number };
   outcomes: Opt[]; action: (s: FormState, fd: FormData) => Promise<FormState>; waText: string;
+  /** Calls → Templates (own and shared), already filled in with the client's and agent's names. */
+  templates?: { id: string; name: string; text: string }[];
+  /** e.g. the Listing button for CSR agents. */
+  extraButton?: React.ReactNode;
   /** system: Call button (softphone or phone link). landline: the number shown big to dial by hand. */
   mode?: "system" | "landline";
   /** The client's details from the uploaded sheet (project, unit, nationality…). */
@@ -57,6 +61,7 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       const form = { current: box.current?.querySelector("form") ?? null };
+      if (el.closest?.("dialog")) return; // typing in the Listing form
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); if (!savingRef.current) form.current?.requestSubmit(); return; }
       if (savingRef.current) return;
       if (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.tagName === "SELECT" || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -90,6 +95,16 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
     }, 600);
     return () => clearTimeout(t);
   }, [mode, phone, viaPbx, dialNum, target.id]);
+  // WhatsApp text: the campaign's message, or a template the agent picks (remembered on this device).
+  const [tpl, setTpl] = useState("");
+  useEffect(() => { try { const v = localStorage.getItem("ams:call-tpl") ?? ""; if (templates.some((t) => t.id === v)) setTpl(v); } catch {} }, [templates]);
+  const waText = templates.find((t) => t.id === tpl)?.text ?? campaignText;
+  const tplPicker = templates.length > 0 && (
+    <select value={tpl} onChange={(e) => { setTpl(e.target.value); try { localStorage.setItem("ams:call-tpl", e.target.value); } catch {} }} className="input h-9 w-48 text-xs" aria-label="WhatsApp message" title="Message sent with the WhatsApp button">
+      <option value="">{campaignText ? "Campaign message" : "No message"}</option>
+      {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+    </select>
+  );
   const wa = `https://wa.me/${fmtPhone(target.phone).replace(/\D/g, "")}${waText ? `?text=${encodeURIComponent(waText)}` : ""}`;
   return (
     <div>
@@ -114,7 +129,9 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
             <div className="flex flex-col gap-1.5">
               <a href={dialPrefix ? `tel:${dialNum}` : telHref(target.phone)} onClick={() => setStartedAt((t) => t || Date.now())} className="flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700"><Phone className="size-4" /> Call</a>
               <a href={wa} target="_blank" rel="noreferrer" className="flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/50 px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-500/10"><MessageCircle className="size-4" /> WhatsApp</a>
+              {tplPicker}
             </div>
+            {extraButton}
           </div>
         ) : (<>
         {/* The call button with the number right under it (tap or copy it on any phone). */}
@@ -137,9 +154,13 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
           <a href={dialPrefix ? `tel:${dialNum}` : telHref(target.phone)} className="select-all font-mono text-base font-semibold tabular-nums text-ink hover:underline">{fmtPhone(target.phone)}</a>
           {dialPrefix && <span className="text-[11px] text-muted" title="The campaign's dial prefix is added when calling">dials <span className="font-mono">{dialNum}</span></span>}
         </div>
-        <a href={wa} target="_blank" rel="noreferrer" className="flex h-14 items-center gap-2 rounded-xl border border-emerald-500/50 px-5 font-semibold text-emerald-700 hover:bg-emerald-500/10">
-          <MessageCircle className="size-5" /> WhatsApp
-        </a>
+        <div className="flex flex-col items-center gap-1">
+          <a href={wa} target="_blank" rel="noreferrer" className="flex h-14 items-center gap-2 rounded-xl border border-emerald-500/50 px-5 font-semibold text-emerald-700 hover:bg-emerald-500/10">
+            <MessageCircle className="size-5" /> WhatsApp
+          </a>
+          {tplPicker}
+        </div>
+        {extraButton}
         </>)}
       </div>
       {details.length > 0 && (
@@ -190,7 +211,9 @@ export function CallCard({ target, outcomes, action, waText, mode = "system", de
         {picked === "interested" && (
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="toCrm" defaultChecked /> Send to the CRM as a lead (the sales team gets it by rotation)</label>
         )}
-        <textarea name="notes" rows={2} className="input" placeholder="Remarks (what they said, budget, area…)" aria-label="Remarks" />
+        <textarea name="notes" rows={picked === "interested" ? 3 : 2} required={picked === "interested"} minLength={picked === "interested" ? 3 : undefined}
+          className={cn("input", picked === "interested" && "border-emerald-500/60 ring-1 ring-emerald-500/30")}
+          placeholder={picked === "interested" ? "Remarks are required for an interested client: what they want, budget, area, when to meet…" : "Remarks (what they said, budget, area…)"} aria-label="Remarks" />
         <div className="flex flex-wrap items-center gap-3">
           <SubmitButton className="h-11 w-full sm:w-auto sm:px-8">Save &amp; next number</SubmitButton>
           {mode === "system" && (

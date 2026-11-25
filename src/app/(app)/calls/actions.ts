@@ -6,8 +6,8 @@ import { db } from "@/lib/db";
 import { requireUser, type SessionUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
-import { phoneKey } from "@/lib/crm-shared";
-import { OUTCOMES, convertToLead, importNumbers, isCallSupervisor, makeBatches, parseNumbers, recordOutcome, type Outcome } from "@/lib/calls";
+import { parseAmount, phoneKey } from "@/lib/crm-shared";
+import { OUTCOMES, convertToLead, importNumbers, isCallSupervisor, isCsrAgent, makeBatches, makeSecondRound, parseNumbers, recordOutcome, type Outcome } from "@/lib/calls";
 import { linkRecording } from "@/lib/softphone";
 import { str, type FormState } from "@/lib/utils";
 
@@ -98,6 +98,7 @@ export async function logCall(_: FormState, fd: FormData): Promise<FormState> {
   if (!target || (target.assigneeId !== user.id && !manager(user))) return { error: "This number isn't assigned to you." };
   const o = str(fd, "outcome") as Outcome;
   if (!OUTCOMES.some((x) => x.value === o)) return { error: "Choose what happened." };
+  if (o === "interested" && str(fd, "notes").length < 3) return { error: "Write the remarks for an interested client (what they want, budget, area…)." };
   // Pressed twice (slow connection, Ctrl+Enter again): the first save counts, the repeat is ignored.
   if (await db.callLog.findFirst({ where: { targetId: target.id, agentId: user.id, startedAt: { gte: new Date(Date.now() - 30_000) } }, select: { id: true } })) {
     refresh();
@@ -116,8 +117,8 @@ export async function logCall(_: FormState, fd: FormData): Promise<FormState> {
   if (pbxCallId) await linkRecording(pbxCallId, user.id);
   let extra = "";
   if (o === "interested" && fd.get("toCrm") === "on") {
-    const lead = await convertToLead(target.id, user.name, user.id);
-    extra = "error" in lead ? ` (${lead.error})` : lead.merged ? " · added to the existing lead in the CRM" : " · sent to the CRM as a new lead";
+    const lead = await convertToLead(target.id, user.name, user.id, !isCsrAgent(user));
+    extra = "error" in lead ? ` (${lead.error})` : lead.merged ? " · added to the existing lead in the CRM" : isCsrAgent(user) ? " · sent to the CRM as a new lead" : " · sent to the CRM as your lead";
   }
   refresh();
   return { ok: true, message: `Saved${extra}. Next number loaded.` };
@@ -127,7 +128,7 @@ export async function sendTargetToCrm(fd: FormData) {
   const user = await requireUser();
   const t = await db.callTarget.findUnique({ where: { id: str(fd, "targetId") } });
   if (!t || !can(user, "calls", "edit") || (t.assigneeId !== user.id && !manager(user))) return;
-  await convertToLead(t.id, user.name, user.id);
+  await convertToLead(t.id, user.name, user.id, !isCsrAgent(user) && t.assigneeId === user.id);
   revalidatePath(`/calls/campaigns/${t.campaignId}`);
   refresh();
 }
@@ -365,12 +366,15 @@ export async function completeMyNumbers(fd: FormData) {
   const c = await db.callCampaign.findUnique({ where: { id: campaignId }, select: { name: true } });
   const total = await db.callTarget.count({ where: mine });
   await audit(user.id, "update", "callBatch", campaignId, `${user.name} completed their ${total} number(s) in ${c?.name}${closed ? ` (${closed} not reached closed)` : ""}`);
+  // CSR agents: unanswered, switched-off and wrong numbers come back to them in the campaign's 2nd round.
+  const round = isCsrAgent(user) ? await makeSecondRound(campaignId, user.id) : null;
+  if (round?.added) await audit(user.id, "create", "callBatch", round.campaignId, `${round.added} number(s) from ${c?.name} moved to ${round.name} for ${user.name}`);
   // Nothing left to call anywhere in the campaign: it's done.
   const left = await db.callTarget.count({ where: { campaignId, status: { in: ["new", "retry", "callback"] } } });
   if (!left) await db.callCampaign.update({ where: { id: campaignId }, data: { status: "done" } });
   const { notify } = await import("@/lib/notify");
   const supervisors = await db.user.findMany({ where: { active: true, OR: [{ isSuperAdmin: true }, { roles: { some: { role: { permissions: { some: { module: "calls", action: "assign", scope: "all" } } } } } }] }, select: { id: true } });
-  for (const s of supervisors) if (s.id !== user.id) await notify(s.id, `${user.name} completed their numbers: ${c?.name ?? "campaign"}`, { body: `${total} number(s)${left ? `, ${left} still open in the campaign` : ", campaign finished"}.`, link: `/calls/campaigns/${campaignId}` }).catch(() => {});
+  for (const s of supervisors) if (s.id !== user.id) await notify(s.id, `${user.name} completed their numbers: ${c?.name ?? "campaign"}`, { body: `${total} number(s)${left ? `, ${left} still open in the campaign` : ", campaign finished"}.${round?.added ? ` ${round.added} unanswered / switched-off / wrong number(s) given back to them in ${round.name}.` : ""}`, link: `/calls/campaigns/${campaignId}` }).catch(() => {});
   refresh();
 }
 
@@ -435,4 +439,79 @@ export async function bulkCallLogs(_: FormState, fd: FormData): Promise<FormStat
   await audit(user.id, "delete", "callLog", null, `Deleted ${n} call history entr${n === 1 ? "y" : "ies"}`);
   revalidatePath("/calls/history");
   return { ok: true, message: `${n} entr${n === 1 ? "y" : "ies"} deleted.` };
+}
+
+/** Dialer: which of my campaigns to call from (empty = all of them, in queue order). */
+export async function setDialCampaign(fd: FormData) {
+  const user = await requireUser();
+  const key = `calls.camp.${user.id}`;
+  const id = str(fd, "campaignId");
+  if (id) await db.setting.upsert({ where: { key }, update: { value: id }, create: { key, value: id } });
+  else await db.setting.deleteMany({ where: { key } });
+  revalidatePath("/calls");
+}
+
+/**
+ * Dialer → Listing (CSR agents): the person on the phone wants to sell or rent out a property, so it's added to
+ * Inventory as a resale / rental listing with the agent as its responsible person.
+ */
+export async function createCallListing(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!can(user, "calls", "edit")) return { error: "You can't add listings from the dialer." };
+  const target = str(fd, "targetId") ? await db.callTarget.findUnique({ where: { id: str(fd, "targetId") }, include: { campaign: { select: { name: true } } } }) : null;
+  if (target && target.assigneeId !== user.id && !manager(user)) return { error: "This number isn't assigned to you." };
+  const { UNIT_TYPES, SIZE_UNITS, guessArea } = await import("@/lib/inventory-shared");
+  const n = (k: string) => { const v = parseFloat(str(fd, k).replace(/,/g, "")); return Number.isFinite(v) ? v : null; };
+  const listingType = str(fd, "listingType") === "rental" ? "rental" : "resale";
+  const type = str(fd, "type");
+  const unitNo = str(fd, "unitNo").slice(0, 60), area = str(fd, "area").slice(0, 80), address = str(fd, "address").slice(0, 300);
+  const owner = str(fd, "propertyOwner").slice(0, 120), ownerPhone = str(fd, "propertyOwnerPhone").slice(0, 40);
+  const size = n("size"), price = parseAmount(str(fd, "price"));
+  if (!UNIT_TYPES.includes(type as (typeof UNIT_TYPES)[number])) return { error: "Choose the property type." };
+  if (!unitNo) return { error: "Unit / plot / house number is required." };
+  if (!area) return { error: "Area / society is required." };
+  if (!size || size <= 0) return { error: "Size is required." };
+  if (!price || price <= 0) return { error: listingType === "rental" ? "Monthly rent is required." : "Demand (price) is required." };
+  if (!owner) return { error: "Owner's name is required." };
+  if ((phoneKey(ownerPhone) ?? "").length < 7) return { error: "Owner's phone number is required." };
+  const beds = n("bedrooms"), baths = n("bathrooms");
+  const unit = await db.unit.create({ data: {
+    listingType, purpose: listingType === "rental" ? "rent" : "sale", type, unitNo, area: area || guessArea(address), address: address || null,
+    size, sizeUnit: SIZE_UNITS.some((s) => s.value === str(fd, "sizeUnit")) ? str(fd, "sizeUnit") : "sqft",
+    bedrooms: beds && Math.round(beds), bathrooms: baths && Math.round(baths), floor: str(fd, "floor").slice(0, 40) || null, price,
+    propertyOwner: owner, propertyOwnerPhone: ownerPhone,
+    notes: [str(fd, "notes").slice(0, 2000), `Added from the dialer by ${user.name}${target ? ` (${target.campaign.name})` : ""}`].filter(Boolean).join("\n"),
+    ownerId: user.id, branchId: user.branchId ?? null,
+  } });
+  if (target) await db.callTarget.update({ where: { id: target.id }, data: { notes: [target.notes, `Listing added: ${type} ${unitNo}, ${area}`].filter(Boolean).join("\n") } });
+  await audit(user.id, "create", "unit", unit.id, `Added listing ${type} ${unitNo} (${area}) from the dialer`);
+  (await import("@/lib/matches")).findMatchesForUnit(unit.id);
+  revalidatePath("/inventory");
+  return { ok: true, message: `Listing added to Inventory: ${type} ${unitNo}, ${area}.` };
+}
+
+// ── Calls → Templates: message texts agents pick in the dialer (own, or shared by a supervisor).
+export async function saveCallTemplate(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!can(user, "calls")) return { error: "You can't use Calls." };
+  const id = str(fd, "id");
+  const name = str(fd, "name").slice(0, 120), body = str(fd, "body").slice(0, 4000);
+  if (!name) return { error: "Give the template a name." };
+  if (body.length < 2) return { error: "Write the message." };
+  const shared = manager(user) && fd.get("shared") === "on";
+  if (id) {
+    const t = await db.callTemplate.findUnique({ where: { id } });
+    if (!t || (t.ownerId !== user.id && !manager(user))) return { error: "You can't change this template." };
+    await db.callTemplate.update({ where: { id }, data: { name, body, shared } });
+  } else await db.callTemplate.create({ data: { name, body, shared, ownerId: user.id } });
+  revalidatePath("/calls/templates"); revalidatePath("/calls");
+  return { ok: true, message: "Template saved." };
+}
+
+export async function deleteCallTemplate(fd: FormData) {
+  const user = await requireUser();
+  const t = await db.callTemplate.findUnique({ where: { id: str(fd, "id") } });
+  if (!t || (t.ownerId !== user.id && !manager(user))) return;
+  await db.callTemplate.delete({ where: { id: t.id } });
+  revalidatePath("/calls/templates"); revalidatePath("/calls");
 }

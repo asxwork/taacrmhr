@@ -3,11 +3,13 @@ import { format } from "date-fns";
 import { redirect } from "next/navigation";
 import { can, requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
-import { OUTCOMES, nextTarget, outcome, queueWhere } from "@/lib/calls";
+import { OUTCOMES, isCsrAgent, nextTarget, outcome, queueWhere } from "@/lib/calls";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { DrillTiles } from "@/components/drill-tiles";
 import { CallCard } from "@/components/calls/call-card";
-import { completeMyNumbers, editCallRemarks, logCall, saveCallFeedback, setCallMode } from "./actions";
+import { completeMyNumbers, createCallListing, editCallRemarks, logCall, saveCallFeedback, setCallMode, setDialCampaign } from "./actions";
+import { ListingButton } from "@/components/calls/listing-button";
+import { disabledFeatures } from "@/lib/features";
 import { LastCalls } from "@/components/calls/last-calls";
 import { fmtPhone } from "@/lib/crm-shared";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -31,9 +33,15 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   }
   const user = viewer;
   const day = pkDay();
+  // The campaign picked at the top (empty = all my campaigns); forgotten when it's no longer in my queue.
+  const [pickRow, queueByCamp] = await Promise.all([
+    db.setting.findUnique({ where: { key: `calls.camp.${user.id}` } }),
+    db.callTarget.groupBy({ by: ["campaignId"], where: queueWhere(user.id), _count: true }),
+  ]);
+  const picked = pickRow?.value && queueByCamp.some((r) => r.campaignId === pickRow.value) ? pickRow.value : null;
   const [target, queued, callbacks, s, lastLog, note, modeRow, myCounts, myBatches, lastCalls] = await Promise.all([
-    nextTarget(user.id),
-    db.callTarget.count({ where: queueWhere(user.id) }),
+    nextTarget(user.id, picked),
+    db.callTarget.count({ where: queueWhere(user.id, new Date(), picked) }),
     db.callTarget.count({ where: { assigneeId: user.id, status: "callback" } }),
     agentDay(user.id, day.start, day.end),
     db.callLog.findFirst({ where: { agentId: user.id, startedAt: { gte: new Date(Date.now() - 90_000) } }, orderBy: { startedAt: "desc" }, include: { target: { select: { name: true, phone: true, leadId: true } } } }),
@@ -60,6 +68,10 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   try { for (const k of JSON.parse(target?.campaign.hiddenFields ?? "[]") as string[]) delete extra[k]; } catch {}
   // Today's report in the team's WhatsApp format, ready to copy or send to the group.
   const report = callReportText(s, note?.feedback, undefined, { title: mode === "landline" ? "LANDLINE CALLING REPORT" : "INTERNATIONAL CALLING REPORT", totals: true });
+  const fill = (t: string) => t.replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
+  const off = await disabledFeatures();
+  const templates = off.has("calls-templates") ? [] : (await db.callTemplate.findMany({ where: { OR: [{ ownerId: user.id }, { shared: true }] }, orderBy: [{ shared: "asc" }, { name: "asc" }], select: { id: true, name: true, body: true } })).map((t) => ({ id: t.id, name: t.name, text: fill(t.body) }));
+  const queueCamps = queueByCamp.map((r) => ({ id: r.campaignId, n: r._count, name: campNames.get(r.campaignId)?.name ?? "Campaign" }));
   const waText = (target?.campaign.waMessage ?? "").replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
 
   const myCampaigns = mine.length > 0 && (
@@ -146,6 +158,32 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
           {lastLog.target?.leadId && <> · <Link href={`/crm/leads/${lastLog.target.leadId}`} className="font-medium underline">sent to the CRM</Link></>}
         </p>
       )}
+      {queueCamps.length > 1 && (
+        // Several campaigns: call from all of them, or pick one.
+        <form action={setDialCampaign} className="mb-4 flex flex-wrap items-center gap-2" aria-label="Campaign to call">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">Calling from</span>
+          {[{ id: "", name: "All my campaigns", n: queueCamps.reduce((a, c) => a + c.n, 0) }, ...queueCamps].map((c) => (
+            <button key={c.id || "all"} name="campaignId" value={c.id} className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${(picked ?? "") === c.id ? "border-navy-900 bg-navy-900 text-white" : "border-line bg-surface text-muted hover:text-ink"}`}>
+              {c.name} <span className="ml-1 tabular-nums opacity-70">{c.n}</span>
+            </button>
+          ))}
+        </form>
+      )}
+      {target && (
+        // The campaign this number belongs to, at the top where the agent looks first.
+        <Card className="mb-4 flex flex-wrap items-start gap-x-8 gap-y-2 border-l-4 border-l-navy-900 px-5 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">Campaign</p>
+            <p className="font-semibold">{target.campaign.name}{target.campaign.roundOf && <span className="ml-2 align-middle"><Badge tone="amber">2nd round</Badge></span>}</p>
+            {target.campaign.description && <p className="mt-0.5 whitespace-pre-line text-sm text-muted">{target.campaign.description}</p>}
+          </div>
+          <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted">
+            {target.campaign.sourceName && <div><dt className="inline">Source: </dt><dd className="inline font-medium text-ink">{target.campaign.sourceName}</dd></div>}
+            {target.campaign.numbersFrom && <div><dt className="inline">Numbers from: </dt><dd className="inline font-medium text-ink">{target.campaign.numbersFrom}</dd></div>}
+            {givenBy && <div><dt className="inline">Given to you by: </dt><dd className="inline font-medium text-ink">{givenBy.name}{givenBy.isSuperAdmin ? " (Super Admin)" : ""}{target.givenAt ? ` · ${format(target.givenAt, "d MMM")}` : ""}</dd></div>}
+          </dl>
+        </Card>
+      )}
       {!target ? (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <Card><EmptyState title="Your queue is empty" description="No numbers are due right now. Your supervisor can give you a new batch, or check your callbacks." /></Card>
@@ -154,18 +192,11 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <Card className="p-6">
-            <CallCard key={`${target.id}-${target.attempts}-${target.status}-${target.lastCalledAt?.getTime() ?? 0}`} target={target} mode={mode} dialPrefix={target.campaign.dialPrefix} details={Object.entries(extra).filter(([, v]) => String(v).trim())} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} />
+            <CallCard key={`${target.id}-${target.attempts}-${target.status}-${target.lastCalledAt?.getTime() ?? 0}`} target={target} mode={mode} dialPrefix={target.campaign.dialPrefix} details={Object.entries(extra).filter(([, v]) => String(v).trim())} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label, tone: o.tone }))} action={logCall} waText={waText} templates={templates}
+              extraButton={isCsrAgent(user) && <ListingButton action={createCallListing} targetId={target.id} name={target.name} phone={target.phone} />} />
           </Card>
           <div className="space-y-4">
             {todayCard}
-            <Card className="p-5">
-              <p className="mb-1 text-xs uppercase tracking-wide text-muted">Campaign</p>
-              <p className="font-medium">{target.campaign.name}</p>
-              {target.campaign.description && <p className="mt-1 whitespace-pre-line text-sm text-muted">{target.campaign.description}</p>}
-              {target.campaign.sourceName && <p className="mt-2 text-xs text-muted">Source: <b className="font-medium text-ink">{target.campaign.sourceName}</b></p>}
-              {target.campaign.numbersFrom && <p className="mt-1 text-xs text-muted">Numbers from: <b className="font-medium text-ink">{target.campaign.numbersFrom}</b></p>}
-              {givenBy && <p className="mt-1 text-xs text-muted">Given to you by: <b className="font-medium text-ink">{givenBy.name}{givenBy.isSuperAdmin ? " (Super Admin)" : ""}</b>{target.givenAt ? ` · ${format(target.givenAt, "d MMM")}` : ""}</p>}
-            </Card>
             {target.campaign.script && (
               <Card className="p-5">
                 <p className="mb-2 text-xs uppercase tracking-wide text-muted">Script</p>

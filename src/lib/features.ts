@@ -49,6 +49,7 @@ export const FEATURES = [
   { key: "inv-developers", label: "Inventory developers", group: "CRM", app: "crm", paths: ["/inventory/developers", "/inventory?tab=developers"], about: "Developers list" },
   { key: "inv-areas", label: "Inventory areas", group: "CRM", app: "crm", paths: ["/inventory/areas", "/inventory?tab=areas"], about: "Areas list" },
   { key: "calls-callbacks", label: "Calls: callbacks", group: "CRM", app: "crm", paths: ["/calls/callbacks"], about: "Calls to return" },
+  { key: "calls-templates", label: "Calls: message templates", group: "CRM", app: "crm", paths: ["/calls/templates"], about: "WhatsApp message templates agents pick in the dialer" },
   { key: "calls-history", label: "Calls: history", group: "CRM", app: "crm", paths: ["/calls/history"], about: "Every call made" },
   { key: "calls-recordings", label: "Calls: recordings", group: "CRM", app: "crm", paths: ["/calls/recordings"], about: "Call recordings" },
   { key: "calls-campaigns", label: "Calls: campaigns & batches", group: "CRM", app: "crm", paths: ["/calls/campaigns"], about: "Number lists split into batches per agent" },

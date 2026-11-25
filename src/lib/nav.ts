@@ -82,6 +82,7 @@ export const APPS: AppDef[] = [
           { href: "/calls?dial=1", label: "Dialer", icon: "phonecall", module: "calls", action: "edit", also: ["/calls"] },
           { href: "/calls/callbacks", label: "Callbacks", icon: "alarm", module: "calls" },
           { href: "/calls/history", label: "History", icon: "history", module: "calls" },
+          { href: "/calls/templates", label: "Templates", icon: "chat", module: "calls" },
           { href: "/calls/recordings", label: "Recordings", icon: "file", superAdmin: true },
           sub("Manage", [
             { href: "/calls/campaigns", label: "Campaigns", icon: "target", module: "calls", callSupervisor: true },

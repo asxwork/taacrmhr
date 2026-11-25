@@ -984,6 +984,9 @@ model CallCampaign {
   callOrder   String       @default("top")
   orderField  String?
   orderDesc   Boolean      @default(false)
+  /// 2nd-round campaign: the campaign whose unanswered / switched-off / wrong numbers it holds (made when a CSR agent
+  /// completes their batch there).
+  roundOf     String?
   status      String       @default("active")
   createdById String?
   createdAt   DateTime     @default(now())
@@ -2689,4 +2692,18 @@ model LeadTrash {
 
   @@index([deletedAt])
   @@index([bitrixId])
+}
+
+/// Calls → Templates: WhatsApp / message texts agents pick from in the dialer. Own templates, or shared (made by a
+/// supervisor) for everyone. {{name}} and {{agent}} are filled in.
+model CallTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  body      String // @text
+  ownerId   String?
+  shared    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
 }

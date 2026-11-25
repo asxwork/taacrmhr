@@ -39,9 +39,9 @@ export const outcome = (v: string | null | undefined) => OUTCOMES.find((o) => o.
 export const RETRY_AFTER_HOURS = 3;
 
 /** The agent's queue in calling order: due callbacks, new numbers, then retries whose wait is over. */
-export function queueWhere(agentId: string, now = new Date()): Prisma.CallTargetWhereInput {
+export function queueWhere(agentId: string, now = new Date(), campaignId?: string | null): Prisma.CallTargetWhereInput {
   return {
-    assigneeId: agentId, campaign: { status: "active" },
+    assigneeId: agentId, campaign: { status: "active" }, ...(campaignId ? { campaignId } : {}),
     OR: [
       { status: "callback", callbackAt: { lte: now } },
       { status: "new" },
@@ -50,8 +50,9 @@ export function queueWhere(agentId: string, now = new Date()): Prisma.CallTarget
   };
 }
 
-export async function nextTarget(agentId: string) {
-  const where = queueWhere(agentId);
+/** The agent's next number; with campaignId only from that campaign (the campaign picked at the top of the dialer). */
+export async function nextTarget(agentId: string, campaignId?: string | null) {
+  const where = queueWhere(agentId, new Date(), campaignId);
   // Callbacks first, then new numbers in upload order, then retries (oldest attempt first).
   for (const status of ["callback", "new", "retry"]) {
     const t = await db.callTarget.findFirst({
@@ -91,15 +92,16 @@ export async function recordOutcome(input: { targetId: string; agentId: string; 
 }
 
 /** Sends the number to the CRM (duplicate check and lead rotation as for any incoming lead). */
-export async function convertToLead(targetId: string, agentName: string, agentId?: string) {
+export async function convertToLead(targetId: string, agentName: string, agentId?: string, agentIsSales = false) {
   const t = await db.callTarget.findUnique({ where: { id: targetId }, include: { campaign: true } });
   if (!t) return { error: "Number not found." };
   if (t.leadId) return { ok: true as const, leadId: t.leadId };
   const res = await ingestLead(
     { name: t.name ?? undefined, phone: t.phone, source: t.campaign.sourceName ?? undefined, campaign: t.campaign.name, message: [`From the calling team (${agentName})`, t.notes].filter(Boolean).join("\n") },
     "api",
-    // Sales campaigns: the sales agent who called gets the lead (no rotation); CSR campaigns go round the sales team.
-    { id: `calls-${t.campaignId}`, name: `Calls: ${t.campaign.name}`, sourceName: t.campaign.sourceName ?? "CC", ...(t.campaign.kind === "sales" && agentId ? { assigneeIds: [agentId] } : {}) },
+    // A sales agent who sends a number to the CRM gets the lead themselves (sales campaigns, or a sales agent working
+    // any campaign); CSR agents' leads go round the sales team.
+    { id: `calls-${t.campaignId}`, name: `Calls: ${t.campaign.name}`, sourceName: t.campaign.sourceName ?? "CC", ...((t.campaign.kind === "sales" || agentIsSales) && agentId ? { assigneeIds: [agentId] } : {}) },
   );
   if (res.status === "ignored") return { error: "This number couldn't be turned into a lead." };
   await db.callTarget.update({ where: { id: t.id }, data: { leadId: res.leadId } });
@@ -207,6 +209,8 @@ export const CAMPAIGN_KINDS = [["csr", "CSR (calling team)"], ["sales", "Sales a
  * and people whose role gives Calls → Assign for everyone. Anyone with the CSR Agent role is always an agent here
  * (their own queue, callbacks, history and report only), whatever else their roles allow.
  */
+export const isCsrAgent = (user: Pick<SessionUser, "roleNames">) => user.roleNames.some((r) => r.trim().toLowerCase() === "csr agent");
+
 export function isCallSupervisor(user: SessionUser) {
   if (user.isSuperAdmin) return true;
   if (user.roleNames.some((r) => r.trim().toLowerCase() === "csr agent")) return false;
@@ -265,4 +269,46 @@ export async function dialerPeople() {
     const csr = u.roles.some((r) => r.role.name.trim().toLowerCase() === "csr agent");
     return { id: u.id, name: u.name, kind: (csr ? "csr" : "sales") as "csr" | "sales", canLog, roles: u.isSuperAdmin ? "Super Admin" : u.roles.map((r) => r.role.name).join(", ") || u.title || "" };
   });
+}
+
+/** Outcomes that go into the 2nd round when a CSR agent completes their batch. */
+export const SECOND_ROUND_OUTCOMES = ["not_answered", "busy", "voicemail", "switched_off", "wrong_number"];
+
+/**
+ * A CSR agent completed their numbers in a campaign: their unanswered, switched-off and wrong numbers go into the
+ * campaign's 2nd round (a copy of the campaign, made once and reused), given back to the same agent as a new batch.
+ */
+export async function makeSecondRound(campaignId: string, agentId: string) {
+  const c = await db.callCampaign.findUnique({ where: { id: campaignId } });
+  if (!c) return null;
+  const rows = await db.callTarget.findMany({
+    where: { campaignId, assigneeId: agentId, outcome: { in: SECOND_ROUND_OUTCOMES }, status: { in: ["done", "retry"] } },
+    orderBy: [{ position: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+    select: { phone: true, phoneKey: true, name: true, extra: true, outcome: true },
+  });
+  if (!rows.length) return null;
+  const name = /2nd round/i.test(c.name) ? c.name : `${c.name} — 2nd round`;
+  const round = (await db.callCampaign.findFirst({ where: { roundOf: c.id } }))
+    ?? (await db.callCampaign.create({ data: {
+      name, description: c.description, script: c.script, waMessage: c.waMessage, maxAttempts: c.maxAttempts, sourceName: c.sourceName,
+      dialPrefix: c.dialPrefix, kind: c.kind, hiddenFields: c.hiddenFields, numbersFrom: c.numbersFrom, callOrder: "top", roundOf: c.id, createdById: c.createdById,
+    } }));
+  if (round.status !== "active") await db.callCampaign.update({ where: { id: round.id }, data: { status: "active" } });
+  const [have, dnc] = await Promise.all([
+    db.callTarget.findMany({ where: { campaignId: round.id, phoneKey: { in: rows.map((r) => r.phoneKey) } }, select: { phoneKey: true } }),
+    db.dncNumber.findMany({ where: { phoneKey: { in: rows.map((r) => r.phoneKey) } }, select: { phoneKey: true } }),
+  ]);
+  const skip = new Set([...have, ...dnc].map((x) => x.phoneKey));
+  const fresh = rows.filter((r) => !skip.has(r.phoneKey) && skip.add(r.phoneKey));
+  if (!fresh.length) return { campaignId: round.id, name: round.name, added: 0 };
+  const agent = await db.user.findUnique({ where: { id: agentId }, select: { name: true } });
+  const batches = await db.callBatch.count({ where: { campaignId: round.id } });
+  const batch = await db.callBatch.create({ data: { campaignId: round.id, name: `Batch ${batches + 1} · ${agent?.name ?? "Agent"}`, assigneeId: agentId } });
+  const base = (await db.callTarget.aggregate({ where: { campaignId: round.id }, _max: { rowNo: true } }))._max.rowNo ?? 0;
+  const labels: Record<string, string> = { not_answered: "Not answered", busy: "Busy", voicemail: "Voicemail", switched_off: "Switched off", wrong_number: "Wrong number" };
+  await db.callTarget.createMany({ data: fresh.map((r, i) => ({
+    campaignId: round.id, batchId: batch.id, assigneeId: agentId, givenAt: new Date(), phone: r.phone, phoneKey: r.phoneKey, name: r.name, extra: r.extra,
+    notes: `1st round: ${labels[r.outcome ?? ""] ?? r.outcome}`, rowNo: base + i + 1, position: base + i + 1,
+  })) });
+  return { campaignId: round.id, name: round.name, added: fresh.length };
 }
