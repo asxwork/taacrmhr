@@ -7,7 +7,7 @@ import { requireUser, type SessionUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { parseAmount, phoneKey } from "@/lib/crm-shared";
-import { OUTCOMES, convertToLead, importNumbers, isCallSupervisor, isCsrAgent, makeBatches, makeSecondRound, parseNumbers, recordOutcome, type Outcome } from "@/lib/calls";
+import { OUTCOMES, applyCallOrder, convertToLead, importNumbers, isCallSupervisor, isCsrAgent, makeBatches, makeSecondRound, parseNumbers, recordOutcome, type Outcome } from "@/lib/calls";
 import { linkRecording } from "@/lib/softphone";
 import { str, type FormState } from "@/lib/utils";
 
@@ -192,82 +192,51 @@ export async function setCallMode(fd: FormData) {
   revalidatePath("/calls");
 }
 
-// ── Sheet import with column picking: step 1 reads the file and guesses, step 2 imports with the chosen columns.
-type SheetHold = { campaignId: string; userId: string; at: number; headers: string[]; rows: Record<string, string>[] };
-const sheets: Map<string, SheetHold> = ((globalThis as unknown as { __callSheets?: Map<string, SheetHold> }).__callSheets ??= new Map());
-export type SheetState = { error?: string; ok?: boolean; message?: string; id?: string; headers?: string[]; sample?: string[][]; total?: number; guess?: string[] } | undefined;
+// ── Sheet import: the browser reads the file and shows the column choice (no big file work on the server, which
+// the host stops when it uses too much memory); the chosen rows then come in parts of up to 1,000.
 
-export async function previewSheet(_: SheetState, fd: FormData): Promise<SheetState> {
+/** The exact file, kept for Super Admins (Campaign → Imported files). Saved as is, never read here. */
+export async function keepCallFile(fd: FormData) {
   const user = await requireUser();
-  if (!manager(user)) return { error: "Only calling supervisors can add numbers." };
+  if (!manager(user)) return;
   const file = fd.get("file");
-  if (!(file instanceof File) || !file.size) return { error: "Choose a CSV or Excel (.xlsx) file." };
-  if (file.size > 10_000_000) return { error: "The file is larger than 10 MB." };
-  const { readSheetFile } = await import("@/lib/sheet-read");
-  let sheet: Awaited<ReturnType<typeof readSheetFile>>;
-  try { sheet = await readSheetFile(file); } catch { return { error: "Couldn't read that file. Save it as .xlsx or .csv and try again." }; }
-  // The exact file is kept on the server for Super Admins (Campaign → Imported files).
+  if (!(file instanceof File) || !file.size || file.size > 20_000_000) return;
   await (await import("@/lib/call-files")).keepImportFile(str(fd, "campaignId"), file.name, await file.arrayBuffer()).catch((e) => console.error("Keeping the imported file failed:", e));
-  const headers = sheet.headers.filter(Boolean);
-  if (!headers.length || !sheet.rows.length) return { error: "The file has no rows (the first row should be the column names)." };
-  for (const [k, v] of sheets) if (Date.now() - v.at > 30 * 60_000) sheets.delete(k);
-  const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-  sheets.set(id, { campaignId: str(fd, "campaignId"), userId: user.id, at: Date.now(), headers, rows: sheet.rows.slice(0, 20_000) });
-  // Best guesses: the first phone-like column is Phone, the next one Second phone, a name column is Name; the rest
-  // are shown to the agent.
-  let phones = 0;
-  const guess = headers.map((h) => {
-    const looksPhone = /phone|mobile|cell|contact|whatsapp|number|tel/.test(h) && !/unit|plot|flat|cnic|passport|file|id$/.test(h);
-    if (looksPhone && phones < 2) return phones++ === 0 ? "phone" : "phone2";
-    if (/^first ?name|^given name|^fname$/.test(h)) return "first";
-    if (/^last ?name|^surname|^family name|^lname$/.test(h)) return "last";
-    if (/(^|\b)(full )?name$|^name\b|client|customer|buyer|owner name|contact name/.test(h) && !/project|unit|building|company|agent|developer|tower|file|deal(?! ?owner)/.test(h)) return "name";
-    return "detail";
-  });
-  // One column per role: keep the first guess for name / first / last.
-  for (const r of ["name", "first", "last"]) { let seen = false; guess.forEach((g, i) => { if (g === r) { if (seen) guess[i] = "detail"; seen = true; } }); }
-  if (!guess.includes("phone")) { const i = headers.findIndex((_, i) => sheet.rows.slice(0, 20).some((r) => (r[headers[i]!] ?? "").replace(/\D/g, "").length >= 9)); if (i >= 0) guess[i] = "phone"; }
-  return { id, headers, sample: sheet.rows.slice(0, 4).map((r) => headers.map((h) => r[h] ?? "")), total: sheet.rows.length, guess };
 }
 
-export async function importSheet(_: SheetState, fd: FormData): Promise<SheetState> {
+type CallRow = { phone: string; name: string | null; extra: Record<string, string> | null };
+/** One part of an import. `last`: the final part (the call order is applied once, hidden columns are saved). */
+export async function importCallRows(input: { campaignId: string; rows: CallRow[]; last: boolean; keep: string[]; total: number }): Promise<{ error?: string; added?: number; duplicates?: number; dnc?: number }> {
   const user = await requireUser();
   if (!manager(user)) return { error: "Only calling supervisors can add numbers." };
-  const hold = sheets.get(str(fd, "id"));
-  if (!hold || hold.userId !== user.id) return { error: "Please choose the file again (it was read too long ago)." };
-  const role = hold.headers.map((_, i) => str(fd, `col_${i}`) || "skip");
-  const label = hold.headers.map((h, i) => (str(fd, `label_${i}`) || h).slice(0, 60));
-  const pi = role.indexOf("phone");
-  if (pi < 0) return { error: "Choose which column has the phone number." };
-  const p2 = role.indexOf("phone2"), ni = role.indexOf("name"), fi = role.indexOf("first"), li = role.indexOf("last");
-  const rows = hold.rows.map((r) => {
-    const v = (i: number) => (i >= 0 ? (r[hold.headers[i]!] ?? "").trim() : "");
-    const extra: Record<string, string> = {};
-    role.forEach((x, i) => { if ((x === "detail" || x === "keep") && v(i)) extra[label[i]!] = v(i).slice(0, 500); });
-    if (v(p2)) extra["Other phone"] = v(p2);
-    // Full name: the Name column, else First + Last name joined.
-    const name = v(ni) || [v(fi), v(li)].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-    // The database keeps up to 190 characters for a name and 40 for a phone (a cell with several numbers: the first).
-    const phone = v(pi).split(/[\/,;|\n]| or /i).map((x) => x.trim()).find((x) => (phoneKey(x) ?? "").length >= 7) ?? v(pi);
-    return { phone: phone.slice(0, 40), name: name ? name.slice(0, 190) : null, extra: Object.keys(extra).length ? extra : null };
-  }).filter((r) => (phoneKey(r.phone) ?? "").length >= 7); // a real number, not a name or a unit code
-  if (!rows.length) return { error: "No phone numbers found in that column (a phone needs at least 7 digits). Check which column you chose as Phone number." };
-  let res: Awaited<ReturnType<typeof importNumbers>>;
-  try { res = await importNumbers(hold.campaignId, rows); } catch (e) {
+  const camp = await db.callCampaign.findUnique({ where: { id: input.campaignId }, select: { id: true, callOrder: true, hiddenFields: true } });
+  if (!camp) return { error: "Campaign not found." };
+  if (!Array.isArray(input.rows) || input.rows.length > 2000) return { error: "Send at most 2,000 rows at a time." };
+  const clipExtra = (e: unknown) => {
+    if (!e || typeof e !== "object") return null;
+    const out = Object.fromEntries(Object.entries(e as Record<string, unknown>).slice(0, 60).map(([k, v]) => [String(k).slice(0, 60), String(v ?? "").slice(0, 500)]).filter(([, v]) => v));
+    return Object.keys(out).length ? out : null;
+  };
+  const rows = input.rows.map((r) => ({ phone: String(r?.phone ?? "").slice(0, 40), name: r?.name ? String(r.name).slice(0, 190) : null, extra: clipExtra(r?.extra) }))
+    .filter((r) => (phoneKey(r.phone) ?? "").length >= 7);
+  let res = { added: 0, duplicates: 0, dnc: 0 };
+  try {
+    if (rows.length) res = await importNumbers(camp.id, rows, { order: false });
+    if (input.last) {
+      if (camp.callOrder !== "top") await applyCallOrder(camp.id);
+      const keep = (input.keep ?? []).map((k) => String(k).slice(0, 60)).filter(Boolean);
+      if (keep.length) {
+        const before: string[] = (() => { try { return JSON.parse(camp.hiddenFields ?? "[]"); } catch { return []; } })();
+        await db.callCampaign.update({ where: { id: camp.id }, data: { hiddenFields: JSON.stringify([...new Set([...before, ...keep])]) } });
+      }
+      await audit(user.id, "create", "callTarget", camp.id, `Imported a sheet of ${input.total} row(s)`);
+      revalidatePath(`/calls/campaigns/${camp.id}`);
+    }
+  } catch (e) {
     console.error("Call sheet import failed:", e);
-    return { error: `The numbers couldn't be saved (${e instanceof Error ? e.message.split("\n").filter(Boolean).pop()?.slice(0, 200) : "unknown error"}). Nothing was lost: fix the file or the column choice and try again.` };
+    return { error: `The numbers couldn't be saved (${e instanceof Error ? e.message.split("\n").filter(Boolean).pop()?.slice(0, 200) : "unknown error"}). Try again; numbers already added aren't added twice.` };
   }
-  // "Keep, hide from agents" columns: saved with the number, left off the agent's screen.
-  const keep = role.flatMap((x, i) => (x === "keep" ? [label[i]!] : []));
-  if (keep.length) {
-    const c = await db.callCampaign.findUnique({ where: { id: hold.campaignId }, select: { hiddenFields: true } });
-    const before: string[] = (() => { try { return JSON.parse(c?.hiddenFields ?? "[]"); } catch { return []; } })();
-    await db.callCampaign.update({ where: { id: hold.campaignId }, data: { hiddenFields: JSON.stringify([...new Set([...before, ...keep])]) } });
-  }
-  sheets.delete(str(fd, "id"));
-  await audit(user.id, "create", "callTarget", hold.campaignId, `Imported ${res.added} number(s) from a sheet`);
-  revalidatePath(`/calls/campaigns/${hold.campaignId}`);
-  return { ok: true, message: `Added ${res.added} number${res.added === 1 ? "" : "s"}${res.duplicates > 0 ? `, skipped ${res.duplicates} duplicate(s)` : ""}${res.dnc ? `, ${res.dnc} on the do-not-call list` : ""}. Agents see the columns you chose on each call.` };
+  return res;
 }
 
 /** Campaigns list → bulk: activate, pause, mark done or delete (numbers and batches go too; calls made stay in History). */

@@ -134,7 +134,7 @@ export function parseNumbers(text: string) {
 }
 
 /** Adds numbers to a campaign, skipping duplicates within the campaign and the do-not-call list. */
-export async function importNumbers(campaignId: string, rows: ReturnType<typeof parseNumbers>) {
+export async function importNumbers(campaignId: string, rows: ReturnType<typeof parseNumbers>, opts: { order?: boolean } = {}) {
   const keys = rows.map((r) => phoneKey(r.phone)!);
   const [existing, dnc] = await Promise.all([
     db.callTarget.findMany({ where: { campaignId, phoneKey: { in: keys } }, select: { phoneKey: true } }),
@@ -154,7 +154,7 @@ export async function importNumbers(campaignId: string, rows: ReturnType<typeof 
   });
   for (let i = 0; i < data.length; i += 500) await db.callTarget.createMany({ data: data.slice(i, i + 500) });
   const camp = await db.callCampaign.findUnique({ where: { id: campaignId }, select: { callOrder: true } });
-  if (data.length && camp && camp.callOrder !== "top") await applyCallOrder(campaignId);
+  if (opts.order !== false && data.length && camp && camp.callOrder !== "top") await applyCallOrder(campaignId);
   return { added: data.length, duplicates: rows.length - data.length - dnc.filter((d) => keys.includes(d.phoneKey)).length, dnc: dnc.length };
 }
 
