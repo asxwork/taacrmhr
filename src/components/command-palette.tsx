@@ -101,10 +101,12 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
   const flat = all.flatMap((g) => g.items);
   const current = Math.min(active, Math.max(flat.length - 1, 0));
 
-  function go(hit: Hit | undefined) {
+  /** newTab: Shift + Enter (or Ctrl/Cmd + click) opens the result in a new browser tab. */
+  function go(hit: Hit | undefined, newTab = false) {
     if (!hit) return;
     close();
-    router.push(hit.href);
+    if (newTab) window.open(hit.href, "_blank", "noopener");
+    else router.push(hit.href);
   }
 
   function move(next: number) {
@@ -116,7 +118,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
     if (e.key === "Escape") { e.preventDefault(); close(); }
     else if (e.key === "ArrowDown" && flat.length) { e.preventDefault(); move((current + 1) % flat.length); }
     else if (e.key === "ArrowUp" && flat.length) { e.preventDefault(); move((current - 1 + flat.length) % flat.length); }
-    else if (e.key === "Enter") { e.preventDefault(); go(flat[current]); }
+    else if (e.key === "Enter") { e.preventDefault(); go(flat[current], e.shiftKey || e.ctrlKey || e.metaKey); }
   }
 
   if (state === "closed") return null;
@@ -181,7 +183,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
                       aria-selected={on}
                       // Only follow the mouse when it actually moves, so a resting pointer doesn't steal the selection.
                       onPointerEnter={(e) => pointer.current && (pointer.current.x !== e.clientX || pointer.current.y !== e.clientY) && setActive(idx)}
-                      onClick={() => go(hit)}
+                      onClick={(e) => go(hit, e.shiftKey || e.ctrlKey || e.metaKey)}
                       className={cn(
                         "group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors duration-100",
                         on ? "bg-navy-900/[0.06]" : "hover:bg-canvas",
@@ -232,6 +234,7 @@ export function CommandPalette({ pages }: { pages: { href: string; label: string
         <div className="hidden shrink-0 items-center gap-4 border-t border-line bg-canvas/60 px-4 py-2 text-[11px] text-muted sm:flex">
           <span><kbd className="font-sans">↑</kbd> <kbd className="font-sans">↓</kbd> to move</span>
           <span><kbd className="font-sans">↵</kbd> to open</span>
+          <span><kbd className="font-sans">Shift</kbd> + <kbd className="font-sans">↵</kbd> new tab</span>
           <span className="ml-auto">Ctrl E to toggle</span>
         </div>
       </div>

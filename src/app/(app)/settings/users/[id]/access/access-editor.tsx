@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcw, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,9 +17,31 @@ export function AccessEditor({ rows, groups, disabled }: { rows: AccessRow[]; gr
   const count = (g: string) => rows.filter((r) => r.group === g).reduce((n, r) => n + r.actions.filter((a) => vals[`${r.key}:${a.key}`]).length, 0);
   const needle = q.trim().toLowerCase();
   const visible = useMemo(() => new Set(rows.filter((r) => (needle ? r.label.toLowerCase().includes(needle) || r.group.toLowerCase().includes(needle) : r.group === tab)).map((r) => r.key)), [rows, needle, tab]);
+  const sections = useMemo(() => rows.filter((r) => visible.has(r.key)), [rows, visible]);
+  // The section in view is highlighted in the bar (the bar stays at the top while the cards scroll under it).
+  const [inView, setInView] = useState<string | null>(null);
+  const pinned = useRef(0); // after a click, keep that section highlighted while the page glides there
+  useEffect(() => {
+    const seen = new Map<string, boolean>();
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) seen.set(e.target.id.slice(2), e.isIntersecting);
+      if (Date.now() < pinned.current) return;
+      setInView(sections.find((r) => seen.get(r.key))?.key ?? null);
+    }, { rootMargin: "-170px 0px -45% 0px" });
+    for (const r of sections) { const el = document.getElementById(`a-${r.key}`); if (el) io.observe(el); }
+    return () => io.disconnect();
+  }, [sections]);
+  const go = (key: string) => {
+    pinned.current = Date.now() + 1500;
+    setInView(key);
+    document.getElementById(`a-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  useEffect(() => { if (inView) document.querySelector(`[data-sec="${inView}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [inView]);
 
   return (
     <div className="space-y-4">
+      {/* Stays at the top while scrolling (like the Leads toolbar): apps, search, and a jump list of this app's sections. */}
+      <div className="sticky top-0 z-20 -mx-1 space-y-2 border-b border-line bg-canvas/95 px-1 pb-2 pt-2 backdrop-blur">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1">
           {groups.map((g) => {
@@ -36,11 +58,24 @@ export function AccessEditor({ rows, groups, disabled }: { rows: AccessRow[]; gr
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a feature…" className="input h-9 pl-9 text-sm" aria-label="Find a feature" />
         </label>
       </div>
+      {sections.length > 1 && (
+        <nav className="flex gap-1 overflow-x-auto pb-0.5 text-xs [scrollbar-width:thin]" aria-label="Sections">
+          {sections.map((r) => {
+            const changed = r.actions.some((a) => vals[`${r.key}:${a.key}`]);
+            return (
+              <button key={r.key} data-sec={r.key} type="button" onClick={() => go(r.key)} className={cn("shrink-0 rounded-full border px-2.5 py-1 font-medium transition", inView === r.key ? "border-navy-900 bg-navy-900 text-white" : "border-line bg-surface text-muted hover:border-navy-900/40 hover:text-ink")}>
+                {r.label}{changed && <span className="ml-1 inline-block size-1.5 rounded-full bg-amber-500 align-middle" />}
+              </button>
+            );
+          })}
+        </nav>
+      )}
+      </div>
 
       {rows.map((r) => {
         const changed = r.actions.filter((a) => vals[`${r.key}:${a.key}`]).length;
         return (
-          <div key={r.key} className={cn("rounded-xl border bg-surface p-4", changed ? "border-amber-300" : "border-line", !visible.has(r.key) && "hidden")}>
+          <div key={r.key} id={`a-${r.key}`} className={cn("scroll-mt-32 rounded-xl border bg-surface p-4", changed ? "border-amber-300" : "border-line", !visible.has(r.key) && "hidden")}>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <p className="font-medium">{r.label}</p>
               {needle && <span className="text-xs text-muted">· {r.group}</span>}
