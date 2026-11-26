@@ -343,13 +343,13 @@ export async function completeMyNumbers(fd: FormData) {
   await audit(user.id, "update", "callBatch", campaignId, `${user.name} completed their ${total} number(s) in ${c?.name}${closed ? ` (${closed} not reached closed)` : ""}`);
   // CSR agents: unanswered, switched-off and wrong numbers come back to them in the campaign's 2nd round.
   const round = isCsrAgent(user) ? await makeSecondRound(campaignId, user.id) : null;
-  if (round?.added) await audit(user.id, "create", "callBatch", round.campaignId, `${round.added} number(s) from ${c?.name} moved to ${round.name} for ${user.name}`);
+  if (round?.added) await audit(user.id, "create", "callBatch", round.campaignId, `${round.added} number(s) in ${c?.name} started a 2nd round for ${user.name}`);
   // Nothing left to call anywhere in the campaign: it's done.
   const left = await db.callTarget.count({ where: { campaignId, status: { in: ["new", "retry", "callback"] } } });
   if (!left) await db.callCampaign.update({ where: { id: campaignId }, data: { status: "done" } });
   const { notify } = await import("@/lib/notify");
   const supervisors = await db.user.findMany({ where: { active: true, OR: [{ isSuperAdmin: true }, { roles: { some: { role: { permissions: { some: { module: "calls", action: "assign", scope: "all" } } } } } }] }, select: { id: true } });
-  for (const s of supervisors) if (s.id !== user.id) await notify(s.id, `${user.name} completed their numbers: ${c?.name ?? "campaign"}`, { body: `${total} number(s)${left ? `, ${left} still open in the campaign` : ", campaign finished"}.${round?.added ? ` ${round.added} unanswered / switched-off / wrong number(s) given back to them in ${round.name}.` : ""}`, link: `/calls/campaigns/${campaignId}` }).catch(() => {});
+  for (const s of supervisors) if (s.id !== user.id) await notify(s.id, `${user.name} completed their numbers: ${c?.name ?? "campaign"}`, { body: `${total} number(s)${left ? `, ${left} still open in the campaign` : ", campaign finished"}.${round?.added ? ` ${round.added} unanswered / switched-off / wrong number(s) given back to them as a 2nd round in this campaign.` : ""}`, link: `/calls/campaigns/${campaignId}` }).catch(() => {});
   refresh();
 }
 
@@ -517,4 +517,41 @@ export async function saveCallGoals(_: FormState, fd: FormData): Promise<FormSta
   await audit(user.id, "update", "callGoal", null, `Saved daily call targets for ${ids.length} agent(s)`);
   revalidatePath("/calls/targets"); revalidatePath("/calls");
   return { ok: true, message: `Saved ${saved} target(s). Agents see theirs on the dialer straight away.` };
+}
+
+/**
+ * History → Add on a call: a later remark on that number (the client replied, or called again). With a result it's
+ * saved as a new call (counted like any call); without, the remark is added to the call and the number's notes.
+ */
+export async function addCallFollowUp(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!can(user, "calls", "edit")) return { error: "You can't add to calls." };
+  const log = await db.callLog.findUnique({ where: { id: str(fd, "logId") }, include: { target: { select: { id: true, assigneeId: true, notes: true } } } });
+  if (!log) return { error: "Call not found." };
+  if (log.agentId !== user.id && log.target?.assigneeId !== user.id && !manager(user)) return { error: "This isn't your call." };
+  const notes = str(fd, "notes").slice(0, 2000);
+  const o = str(fd, "outcome") as Outcome | "";
+  if (!notes && !o) return { error: "Write the remark." };
+  const { format } = await import("date-fns");
+  if (!o) {
+    const line = `${format(new Date(), "d MMM, h:mm a")} · ${user.name}: ${notes}`;
+    await db.callLog.update({ where: { id: log.id }, data: { notes: [log.notes, line].filter(Boolean).join("\n").slice(0, 4000) } });
+    if (log.target) await db.callTarget.update({ where: { id: log.target.id }, data: { notes: [log.target.notes, line].filter(Boolean).join("\n") } });
+    revalidatePath("/calls/history");
+    return { ok: true, message: "Remark added." };
+  }
+  if (!log.target) return { error: "This call has no number in a campaign, so only a remark can be added." };
+  if (!OUTCOMES.some((x) => x.value === o)) return { error: "Choose what happened." };
+  if (o === "interested" && notes.length < 3) return { error: "Write the remarks for an interested client." };
+  const callbackAt = str(fd, "callbackAt") ? new Date(`${str(fd, "callbackAt")}+05:00`) : null;
+  if (o === "callback" && (!callbackAt || +callbackAt < Date.now() + 60_000)) return { error: "Choose a call-back time in the future." };
+  const res = await recordOutcome({ targetId: log.target.id, agentId: user.id, outcome: o, notes: notes || null, callbackAt });
+  if ("error" in res) return { error: res.error };
+  let extra = "";
+  if (o === "interested" && fd.get("toCrm") === "on") {
+    const lead = await convertToLead(log.target.id, user.name, user.id, !isCsrAgent(user));
+    extra = "error" in lead ? ` (${lead.error})` : lead.merged ? " · added to the existing lead" : " · sent to the CRM";
+  }
+  refresh(); revalidatePath("/calls/history");
+  return { ok: true, message: `Saved as a new call: ${OUTCOMES.find((x) => x.value === o)?.label}${extra}.` };
 }

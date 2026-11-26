@@ -38,7 +38,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
     db.callTarget.groupBy({ by: ["outcome"], where: { campaignId: id, outcome: { not: null } }, _count: true }),
     db.callBatch.findMany({ where: { campaignId: id }, include: { targets: { select: { status: true } } }, orderBy: { createdAt: "asc" } }),
     callAgents(true),
-    db.callTarget.findMany({ where: { campaignId: id, ...(sp.status && { status: sp.status }) }, orderBy: [{ lastCalledAt: "desc" }, { createdAt: "asc" }], take: 200 }),
+    db.callTarget.findMany({ where: { campaignId: id, ...(sp.status === "round2" ? { round: 2 } : sp.status ? { status: sp.status } : {}) }, orderBy: [{ lastCalledAt: "desc" }, { createdAt: "asc" }], take: 200 }),
     db.callTarget.count({ where: { campaignId: id, assigneeId: null, status: { in: ["new", "retry"] } } }),
     db.callTarget.findMany({ where: { campaignId: id, extra: { not: null } }, select: { extra: true }, take: 300 }),
     dialerPeople(),
@@ -151,8 +151,8 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       </Card>
 
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Numbers {sp.status ? `· ${STATUS_LABEL[sp.status] ?? sp.status}` : ""}</h2>
-        <AutoFilterForm><select name="status" defaultValue={sp.status ?? ""} className="input h-8 w-40 text-xs" aria-label="Status"><option value="">All</option>{Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></AutoFilterForm>
+        <h2 className="text-sm font-semibold">Numbers {sp.status ? `· ${sp.status === "round2" ? "2nd round" : STATUS_LABEL[sp.status] ?? sp.status}` : ""}</h2>
+        <AutoFilterForm><select name="status" defaultValue={sp.status ?? ""} className="input h-8 w-40 text-xs" aria-label="Status"><option value="">All</option>{Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}<option value="round2">2nd round</option></select></AutoFilterForm>
       </div>
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
@@ -163,7 +163,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
                 <td className="px-4 py-2"><BulkTick form="bulk-numbers" id={t.id} label={t.name ?? t.phone} /></td>
                 <td className="px-4 py-2"><span className="font-medium">{t.name ?? "—"}</span><span className="block font-mono text-xs text-muted">{fmtPhone(t.phone)}</span></td>
                 <td className="px-4 py-2">{t.assigneeId ? names.get(t.assigneeId) ?? "—" : <span className="text-muted">unassigned</span>}{t.givenById && <span className="block text-xs text-muted">by {names.get(t.givenById) ?? givers.get(t.givenById) ?? "—"}{t.givenAt ? ` · ${format(t.givenAt, "d MMM")}` : ""}</span>}</td>
-                <td className="px-4 py-2">{STATUS_LABEL[t.status] ?? t.status}{t.status === "callback" && t.callbackAt && <span className="block text-xs text-muted">{format(t.callbackAt, "d MMM, h:mm a")}</span>}</td>
+                <td className="px-4 py-2">{STATUS_LABEL[t.status] ?? t.status}{t.round === 2 && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">2nd round</span>}{t.status === "callback" && t.callbackAt && <span className="block text-xs text-muted">{format(t.callbackAt, "d MMM, h:mm a")}</span>}</td>
                 <td className="px-4 py-2">{t.outcome ? <Badge tone={outcome(t.outcome)?.tone === "green" ? "green" : outcome(t.outcome)?.tone === "red" ? "red" : "neutral"}>{outcome(t.outcome)?.label}</Badge> : "—"}{t.lastCalledAt && <span className="block text-xs text-muted">{format(t.lastCalledAt, "d MMM, h:mm a")}</span>}</td>
                 <td className="px-4 py-2 tabular-nums">{t.attempts}</td>
                 <td className={cn("px-4 py-2 text-right")}>

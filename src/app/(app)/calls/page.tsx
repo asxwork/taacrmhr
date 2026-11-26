@@ -199,7 +199,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
               <CampaignSwitch key={picked ?? "all"} action={setDialCampaign} value={picked ?? ""} options={[{ id: "", label: `All my campaigns (${queueCamps.reduce((a, c) => a + c.n, 0)})` }, ...queueCamps.map((c) => ({ id: c.id, label: `${c.name} (${c.n})` }))]} />
             ) : <p className="font-semibold">{target.campaign.name}</p>}
             {(picked === null && queueCamps.length > 1) && <p className="mt-0.5 text-xs text-muted">This number: <b className="font-medium text-ink">{target.campaign.name}</b></p>}
-            {target.campaign.roundOf && <span className="mt-1 inline-block"><Badge tone="amber">2nd round</Badge></span>}
+            {target.round === 2 && <span className="mt-1 inline-block"><Badge tone="amber">2nd round</Badge></span>}
             {target.campaign.description && <p className="mt-0.5 whitespace-pre-line text-sm text-muted">{target.campaign.description}</p>}
           </div>
           <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted">

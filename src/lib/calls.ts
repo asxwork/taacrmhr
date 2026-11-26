@@ -275,40 +275,57 @@ export async function dialerPeople() {
 export const SECOND_ROUND_OUTCOMES = ["not_answered", "busy", "voicemail", "switched_off", "wrong_number"];
 
 /**
- * A CSR agent completed their numbers in a campaign: their unanswered, switched-off and wrong numbers go into the
- * campaign's 2nd round (a copy of the campaign, made once and reused), given back to the same agent as a new batch.
+ * A CSR agent completed their numbers in a campaign: their unanswered, switched-off and wrong numbers start a 2nd round
+ * in the SAME campaign, given back to them as a new batch. Only first-round numbers move, so there's no 3rd round.
  */
 export async function makeSecondRound(campaignId: string, agentId: string) {
-  const c = await db.callCampaign.findUnique({ where: { id: campaignId } });
+  const c = await db.callCampaign.findUnique({ where: { id: campaignId }, select: { id: true, name: true, status: true } });
   if (!c) return null;
   const rows = await db.callTarget.findMany({
-    where: { campaignId, assigneeId: agentId, outcome: { in: SECOND_ROUND_OUTCOMES }, status: { in: ["done", "retry"] } },
-    orderBy: [{ position: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
-    select: { phone: true, phoneKey: true, name: true, extra: true, outcome: true },
+    where: { campaignId, assigneeId: agentId, round: 1, outcome: { in: SECOND_ROUND_OUTCOMES }, status: { in: ["done", "retry"] } },
+    select: { id: true, outcome: true, notes: true },
   });
-  if (!rows.length) return null;
-  const name = /2nd round/i.test(c.name) ? c.name : `${c.name} — 2nd round`;
-  const round = (await db.callCampaign.findFirst({ where: { roundOf: c.id } }))
-    ?? (await db.callCampaign.create({ data: {
-      name, description: c.description, script: c.script, waMessage: c.waMessage, maxAttempts: c.maxAttempts, sourceName: c.sourceName,
-      dialPrefix: c.dialPrefix, kind: c.kind, hiddenFields: c.hiddenFields, numbersFrom: c.numbersFrom, callOrder: "top", roundOf: c.id, createdById: c.createdById,
-    } }));
-  if (round.status !== "active") await db.callCampaign.update({ where: { id: round.id }, data: { status: "active" } });
-  const [have, dnc] = await Promise.all([
-    db.callTarget.findMany({ where: { campaignId: round.id, phoneKey: { in: rows.map((r) => r.phoneKey) } }, select: { phoneKey: true } }),
-    db.dncNumber.findMany({ where: { phoneKey: { in: rows.map((r) => r.phoneKey) } }, select: { phoneKey: true } }),
-  ]);
-  const skip = new Set([...have, ...dnc].map((x) => x.phoneKey));
-  const fresh = rows.filter((r) => !skip.has(r.phoneKey) && skip.add(r.phoneKey));
-  if (!fresh.length) return { campaignId: round.id, name: round.name, added: 0 };
+  // Numbers on the do-not-call list since don't come back.
+  const dnc = new Set((await db.dncNumber.findMany({ where: { phoneKey: { in: (await db.callTarget.findMany({ where: { id: { in: rows.map((r) => r.id) } }, select: { phoneKey: true } })).map((t) => t.phoneKey) } }, select: { phoneKey: true } })).map((d) => d.phoneKey));
+  const keep = rows.length ? (await db.callTarget.findMany({ where: { id: { in: rows.map((r) => r.id) } }, select: { id: true, phoneKey: true } })).filter((t) => !dnc.has(t.phoneKey)).map((t) => t.id) : [];
+  if (!keep.length) return { campaignId: c.id, name: c.name, added: 0 };
   const agent = await db.user.findUnique({ where: { id: agentId }, select: { name: true } });
-  const batches = await db.callBatch.count({ where: { campaignId: round.id } });
-  const batch = await db.callBatch.create({ data: { campaignId: round.id, name: `Batch ${batches + 1} · ${agent?.name ?? "Agent"}`, assigneeId: agentId } });
-  const base = (await db.callTarget.aggregate({ where: { campaignId: round.id }, _max: { rowNo: true } }))._max.rowNo ?? 0;
+  const batch = await db.callBatch.create({ data: { campaignId: c.id, name: `2nd round · ${agent?.name ?? "Agent"}`, assigneeId: agentId } });
   const labels: Record<string, string> = { not_answered: "Not answered", busy: "Busy", voicemail: "Voicemail", switched_off: "Switched off", wrong_number: "Wrong number" };
-  await db.callTarget.createMany({ data: fresh.map((r, i) => ({
-    campaignId: round.id, batchId: batch.id, assigneeId: agentId, givenAt: new Date(), phone: r.phone, phoneKey: r.phoneKey, name: r.name, extra: r.extra,
-    notes: `1st round: ${labels[r.outcome ?? ""] ?? r.outcome}`, rowNo: base + i + 1, position: base + i + 1,
-  })) });
-  return { campaignId: round.id, name: round.name, added: fresh.length };
+  for (const r of rows.filter((x) => keep.includes(x.id))) {
+    await db.callTarget.update({ where: { id: r.id }, data: {
+      round: 2, status: "new", attempts: 0, outcome: null, callbackAt: null, batchId: batch.id, givenAt: new Date(),
+      notes: [r.notes, `1st round: ${labels[r.outcome ?? ""] ?? r.outcome}`].filter(Boolean).join("\n"),
+    } });
+  }
+  if (c.status !== "active") await db.callCampaign.update({ where: { id: c.id }, data: { status: "active" } });
+  return { campaignId: c.id, name: c.name, added: keep.length };
+}
+
+/**
+ * Older 2nd rounds were separate campaigns ("… — 2nd round"): fold them back into their original campaign (the
+ * numbers become round 2 there, with their calls, batches and results), then remove the copy. Runs once, quietly.
+ */
+export async function mergeSecondRoundCampaigns() {
+  const copies = await db.callCampaign.findMany({ where: { roundOf: { not: null } }, select: { id: true, roundOf: true } });
+  for (const copy of copies) {
+    const original = await db.callCampaign.findUnique({ where: { id: copy.roundOf! }, select: { id: true } });
+    if (!original) { await db.callCampaign.update({ where: { id: copy.id }, data: { roundOf: null } }); continue; }
+    await db.callBatch.updateMany({ where: { campaignId: copy.id }, data: { campaignId: original.id } });
+    for (const t of await db.callTarget.findMany({ where: { campaignId: copy.id } })) {
+      const first = await db.callTarget.findFirst({ where: { campaignId: original.id, phoneKey: t.phoneKey }, select: { id: true } });
+      if (first) {
+        await db.callTarget.update({ where: { id: first.id }, data: { round: 2, status: t.status, outcome: t.outcome, attempts: t.attempts, lastCalledAt: t.lastCalledAt, callbackAt: t.callbackAt, notes: t.notes, assigneeId: t.assigneeId, batchId: t.batchId, givenAt: t.givenAt, leadId: t.leadId ?? undefined } });
+        await db.callLog.updateMany({ where: { targetId: t.id }, data: { targetId: first.id, campaignId: original.id } });
+        await db.callTarget.delete({ where: { id: t.id } });
+      } else {
+        await db.callTarget.update({ where: { id: t.id }, data: { campaignId: original.id, round: 2 } });
+        await db.callLog.updateMany({ where: { targetId: t.id }, data: { campaignId: original.id } });
+      }
+    }
+    await db.callLog.updateMany({ where: { campaignId: copy.id }, data: { campaignId: original.id } });
+    await db.callTemplate.updateMany({ where: { campaignId: copy.id }, data: { campaignId: original.id } });
+    await db.callCampaign.delete({ where: { id: copy.id } });
+  }
+  return copies.length;
 }

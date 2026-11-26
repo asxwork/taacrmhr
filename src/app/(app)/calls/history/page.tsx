@@ -8,7 +8,9 @@ import { fmtPhone } from "@/lib/crm-shared";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { BulkAll, BulkBar, BulkTick } from "@/components/calls/bulk-bar";
-import { bulkCallLogs, countDuplicateLogs, deleteDuplicateLogs } from "../actions";
+import { addCallFollowUp, bulkCallLogs, countDuplicateLogs, deleteDuplicateLogs } from "../actions";
+import { FollowUpForm } from "@/components/calls/follow-up-form";
+import { can as canDo } from "@/lib/permissions";
 
 export const metadata = { title: "Call history" };
 
@@ -45,6 +47,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
     all ? db.user.findMany({ where: { id: { in: (await db.callLog.groupBy({ by: ["agentId"], where: { startedAt: { gte: new Date(Date.now() - 90 * 86_400_000) } } })).map((g) => g.agentId) } }, orderBy: { name: "asc" }, select: { id: true, name: true } }) : Promise.resolve([] as { id: string; name: string }[]),
   ]);
   const campName = new Map(campaigns.map((c) => [c.id, c.name]));
+  const canAdd = canDo(user, "calls", "edit");
   const dupes = user.isSuperAdmin && oneDay ? await countDuplicateLogs(day, end) : 0;
   const agents = new Map((await db.user.findMany({ where: { id: { in: [...new Set(logs.map((l) => l.agentId))] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
   return (
@@ -81,7 +84,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
       <Card className="overflow-x-auto">
         {logs.length === 0 ? <EmptyState title="No calls match" description="Change the dates or filters." /> : (
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr>{user.isSuperAdmin && <th className="w-10 px-4 py-2.5"><BulkAll form="bulk-logs" /></th>}<th className="px-4 py-2.5">{oneDay ? "Time" : "When"}</th><th className="px-4 py-2.5">Who</th>{all && <th className="px-4 py-2.5">Agent</th>}<th className="px-4 py-2.5">Campaign</th><th className="px-4 py-2.5">Outcome</th><th className="px-4 py-2.5">Talk</th><th className="px-4 py-2.5">Notes</th></tr></thead>
+            <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr>{user.isSuperAdmin && <th className="w-10 px-4 py-2.5"><BulkAll form="bulk-logs" /></th>}<th className="px-4 py-2.5">{oneDay ? "Time" : "When"}</th><th className="px-4 py-2.5">Who</th>{all && <th className="px-4 py-2.5">Agent</th>}<th className="px-4 py-2.5">Campaign</th><th className="px-4 py-2.5">Outcome</th><th className="px-4 py-2.5">Talk</th><th className="px-4 py-2.5">Notes</th>{canAdd && <th className="px-4 py-2.5" />}</tr></thead>
             <tbody className="divide-y divide-line">
               {logs.map((l) => (
                 <tr key={l.id}>
@@ -92,7 +95,8 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
                   <td className="max-w-40 truncate px-4 py-2 text-xs text-muted">{l.campaignId ? campName.get(l.campaignId) ?? "Deleted campaign" : "—"}</td>
                   <td className="px-4 py-2"><Badge tone={outcome(l.outcome)?.reached ? "green" : "neutral"}>{outcome(l.outcome)?.label ?? l.outcome}</Badge>{l.channel === "whatsapp" && <span className="ml-1 text-xs text-teal-600">WhatsApp</span>}</td>
                   <td className="px-4 py-2 tabular-nums text-xs">{l.durationSec ? `${Math.floor(l.durationSec / 60)}:${String(l.durationSec % 60).padStart(2, "0")}` : "—"}</td>
-                  <td className="max-w-xs truncate px-4 py-2 text-xs text-muted">{l.notes ?? ""}</td>
+                  <td className="max-w-xs px-4 py-2 text-xs text-muted"><span className="line-clamp-3 whitespace-pre-line">{l.notes ?? ""}</span></td>
+                  {canAdd && <td className="px-4 py-2 text-right">{(l.agentId === user.id || all) && <FollowUpForm action={addCallFollowUp} logId={l.id} hasNumber={!!l.targetId} outcomes={OUTCOMES.map((o) => ({ value: o.value, label: o.label }))} />}</td>}
                 </tr>
               ))}
             </tbody>

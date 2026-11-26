@@ -7,6 +7,8 @@ export async function register() {
     const { recordStart } = await import("./lib/app-starts");
     void recordStart();
     // Uploads now live outside the app folder (deploys rebuild it): move over whatever is still in the old one.
+    // 2nd rounds now stay inside their campaign: fold older separate "… — 2nd round" campaigns back in.
+    void import("./lib/calls").then((m) => m.mergeSecondRoundCampaigns()).then((n) => { if (n) console.log(`Merged ${n} 2nd-round campaign(s) into their original campaign`); }).catch((e) => console.error("2nd-round merge failed:", e));
     void import("./lib/upload-safety").then((m) => m.moveOldUploads()).then((n) => { if (n) console.log(`Moved ${n} upload(s) to the permanent folder`); }).catch((e) => console.error("Upload move failed:", e));
   }
 }
