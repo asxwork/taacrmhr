@@ -52,22 +52,22 @@ const two = (n: number) => String(n).padStart(2, "0");
 /** The calls report as the team writes it (copied to WhatsApp): totals, connected, no answer, qualified, feedback. */
 /**
  * The WhatsApp report, in the team's format (*bold* for WhatsApp):
- *   *INTERNATIONAL CALLING REPORT* / Total Calls = *515* / Connected = *81* / No Answer = *434* / Qualified = *00* /
+ *   *INTERNATIONAL CALLING REPORT* / Total Calls = *515* / Connected = *81* / No Answer = *420* / Wrong Number = *14* / Qualified = *00* /
  *   Feedback=… and, for one agent's own report, the totals block under it.
  */
-export function callReportText(s: Pick<DaySummary, "calls" | "reached" | "notAnswered" | "interested">, feedback?: string | null, who?: string, opts: { title?: string; totals?: boolean } = {}) {
+export function callReportText(s: Pick<DaySummary, "calls" | "reached" | "notAnswered" | "interested"> & { wrong?: number }, feedback?: string | null, who?: string, opts: { title?: string; totals?: boolean } = {}) {
   return [
     opts.title ? `*${opts.title}*` : null,
     who ? `*${who}*` : null,
-    `Total Calls = *${two(s.calls)}*`, `Connected = *${two(s.reached)}*`, `No Answer = *${two(s.notAnswered)}*`, `Qualified = *${two(s.interested)}*`,
+    `Total Calls = *${two(s.calls)}*`, `Connected = *${two(s.reached)}*`, `No Answer = *${two(s.notAnswered)}*`, `Wrong Number = *${two(s.wrong ?? 0)}*`, `Qualified = *${two(s.interested)}*`,
     `Feedback=${feedback?.trim() || "—"}`,
     ...(opts.totals ? ["", callTotalsText([s])] : []),
   ].filter((x) => x !== null).join("\n");
 }
 /** The team block at the end of a day's reports. */
-export function callTotalsText(rows: Pick<DaySummary, "calls" | "reached" | "interested">[]) {
-  const t = rows.reduce((a, r) => ({ calls: a.calls + r.calls, reached: a.reached + r.reached, interested: a.interested + r.interested }), { calls: 0, reached: 0, interested: 0 });
-  return [`*Total Calls = ${two(t.calls)}*`, `*Total Connected = ${two(t.reached)}*`, `*Total Qualified = ${two(t.interested)}*`].join("\n");
+export function callTotalsText(rows: (Pick<DaySummary, "calls" | "reached" | "interested"> & { wrong?: number })[]) {
+  const t = rows.reduce<{ calls: number; reached: number; interested: number; wrong: number }>((a, r) => ({ calls: a.calls + r.calls, reached: a.reached + r.reached, interested: a.interested + r.interested, wrong: a.wrong + (r.wrong ?? 0) }), { calls: 0, reached: 0, interested: 0, wrong: 0 });
+  return [`*Total Calls = ${two(t.calls)}*`, `*Total Connected = ${two(t.reached)}*`, `*Total Wrong Number = ${two(t.wrong)}*`, `*Total Qualified = ${two(t.interested)}*`].join("\n");
 }
 
 /** Calling agents: everyone with a softphone extension, plus anyone who logged a call today. */

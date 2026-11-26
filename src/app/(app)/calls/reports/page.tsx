@@ -88,7 +88,7 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
           <Card className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                {["Date", ...(supervisor ? ["Agent"] : []), "Calls", "Connected", "Qualified", "Callbacks", "Talk", "Avg call", "Hours", ""].map((h) => <th key={h} className="px-4 py-2.5 font-medium">{h}</th>)}
+                {["Date", ...(supervisor ? ["Agent"] : []), "Calls", "Connected", "Wrong", "Qualified", "Callbacks", "Talk", "Avg call", "Hours", ""].map((h) => <th key={h} className="px-4 py-2.5 font-medium">{h}</th>)}
               </tr></thead>
               <tbody>
                 {reports.map((r) => {
@@ -99,6 +99,7 @@ export default async function CallReports({ searchParams }: { searchParams: Prom
                       {supervisor && <td className="px-4 py-2.5"><Link href={`/calls/reports?tab=daily&from=${range.from}&to=${range.to}&agent=${r.agentId}`} className="hover:underline">{names.get(r.agentId) ?? "—"}</Link></td>}
                       <td className="px-4 py-2.5 tabular-nums font-medium">{s.calls}</td>
                       <td className="px-4 py-2.5 tabular-nums">{s.reached} <span className="text-xs text-muted">{s.reachPct}%</span></td>
+                      <td className="px-4 py-2.5 tabular-nums">{s.wrong ?? 0}</td>
                       <td className="px-4 py-2.5 tabular-nums">{s.interested}</td>
                       <td className="px-4 py-2.5 tabular-nums">{s.callbacks}</td>
                       <td className="whitespace-nowrap px-4 py-2.5 tabular-nums">{s.talkMin} min</td>
