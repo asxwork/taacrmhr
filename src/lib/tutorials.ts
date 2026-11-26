@@ -387,6 +387,7 @@ export const TUTORIALS: Tutorial[] = [
       "2nd round (CSR campaigns): when a CSR agent completes, AMS makes a copy of the campaign called “… — 2nd round” with that agent's Not answered, Busy, Voicemail, Switched off and Wrong numbers, given back to the same agent. Other agents' numbers join the same 2nd round, without duplicates, and you get a notification with the count.",
       "Agents can work several campaigns at once: give batches from as many campaigns as you like. They choose one or all of them at the top of their dialer, where they also see the campaign's description, source and “Numbers came from”, so keep those filled in.",
       "Wallboard shows each agent live (ready, ringing, on a call) and today's numbers; Reports shows totals by agent and outcome.",
+      "Calls → Targets: give each agent a daily target (an exact number or a range) for calls made, connected and interested. Agents see it on their dialer; Targets shows today's progress and the last 7 days.",
       "Tick campaigns in the list to Activate, Pause, Mark done or Delete them; inside a campaign tick numbers to give them to an agent, send them back to unassigned, call again, put them on do-not-call or delete them. Delete on a campaign removes it with its numbers (calls made stay in History and Reports).",
       "Reports → Daily reports: each agent's report and the team totals in the WhatsApp format, with Copy all and Send on WhatsApp.",
       "Super Admins can download every imported file and pasted list exactly as it came in, under Imported files on the campaign.",

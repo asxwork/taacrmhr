@@ -118,7 +118,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
 
   const goalCard = goalRows.length > 0 && (
     <Card className="p-5">
-      <p className="mb-3 text-xs uppercase tracking-wide text-muted">Today&apos;s target</p>
+      <h2 className="mb-3 text-xs font-normal uppercase tracking-wide text-muted">Today&apos;s target</h2>
       <ul className="space-y-3">
         {goalRows.map((g) => {
           const top = g.goal.max ?? g.goal.min;
@@ -192,7 +192,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       {target && (
         // The campaign this number belongs to, at the top where the agent looks first.
         <Card className="mb-4 flex flex-wrap items-start gap-x-8 gap-y-2 border-l-4 border-l-navy-900 px-5 py-3">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-[18rem] flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">Campaign</p>
             {queueCamps.length > 1 ? (
               // Several campaigns: switch here (All = numbers from every campaign, in queue order).
