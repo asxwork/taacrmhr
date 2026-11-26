@@ -75,6 +75,11 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
     where: { AND: [{ OR: [{ ownerId: user.id }, { shared: true }] }, { OR: [{ campaignId: null }, ...(target ? [{ campaignId: target.campaignId }] : [])] }] },
     orderBy: [{ shared: "asc" }, { name: "asc" }], select: { id: true, name: true, body: true, campaignId: true },
   })).sort((a, b) => Number(!a.campaignId) - Number(!b.campaignId)).map((t) => ({ id: t.id, name: t.name, text: fill(t.body), forCampaign: !!t.campaignId }));
+  // My daily target (Calls → Targets), with today's progress.
+  const { GOAL_METRICS, dailyCounts, goalLabel, goalState, goalsFor } = await import("@/lib/call-goals");
+  const myGoals = off.has("calls-targets") ? {} : (await goalsFor([user.id])).get(user.id) ?? {};
+  const myToday = (await dailyCounts([user.id], [day.date])).get(`${user.id}|${day.date}`) ?? { calls: 0, connected: 0, interested: 0 };
+  const goalRows = GOAL_METRICS.filter(([m]) => myGoals[m]).map(([m, l]) => ({ m, l, goal: myGoals[m]!, n: myToday[m], st: goalState(myToday[m], myGoals[m]!) }));
   const queueCamps = queueByCamp.map((r) => ({ id: r.campaignId, n: r._count, name: campNames.get(r.campaignId)?.name ?? "Campaign" }));
   const waText = (target?.campaign.waMessage ?? "").replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
 
@@ -108,6 +113,28 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       <p className="mb-3 text-xs uppercase tracking-wide text-muted">My last calls</p>
       <LastCalls action={editCallRemarks} rows={lastCalls.map((l) => ({ id: l.id, who: l.target?.name ?? fmtPhone(l.phone), outcome: outcome(l.outcome)?.label ?? l.outcome, notes: l.notes, when: format(l.startedAt, "h:mm a") }))} />
       <p className="mt-3 text-[11px] text-muted">You can fix the remarks of your last 3 calls.</p>
+    </Card>
+  );
+
+  const goalCard = goalRows.length > 0 && (
+    <Card className="p-5">
+      <p className="mb-3 text-xs uppercase tracking-wide text-muted">Today&apos;s target</p>
+      <ul className="space-y-3">
+        {goalRows.map((g) => {
+          const top = g.goal.max ?? g.goal.min;
+          const pct = Math.min(100, Math.round((g.n / Math.max(1, top)) * 100));
+          return (
+            <li key={g.m}>
+              <div className="flex items-baseline justify-between gap-2 text-sm"><span className="font-medium">{g.l}</span><span className="tabular-nums"><b className="text-base">{g.n}</b> <span className="text-muted">/ {goalLabel(g.goal)}</span></span></div>
+              <div className="relative mt-1 h-2 overflow-hidden rounded-full bg-canvas">
+                <div className={`h-full rounded-full ${g.st === "below" ? "bg-amber-400" : g.st === "met" ? "bg-emerald-500" : "bg-sky-500"}`} style={{ width: `${pct}%` }} />
+                {g.goal.max != null && <span className="absolute top-0 h-full w-0.5 bg-ink/30" style={{ left: `${Math.round((g.goal.min / top) * 100)}%` }} title={`Minimum ${g.goal.min}`} />}
+              </div>
+              <p className="mt-1 text-xs text-muted">{g.st === "below" ? `${g.goal.min - g.n} more to reach the target` : g.st === "met" ? "Target met ✓" : "Above the range ✓"}</p>
+            </li>
+          );
+        })}
+      </ul>
     </Card>
   );
 
@@ -185,7 +212,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       {!target ? (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <Card><EmptyState title="Your queue is empty" description="No numbers are due right now. Your supervisor can give you a new batch, or check your callbacks." /></Card>
-          <div className="space-y-4">{todayCard}{lastCallsCard}{myCampaigns}</div>
+          <div className="space-y-4">{goalCard}{todayCard}{lastCallsCard}{myCampaigns}</div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
@@ -194,6 +221,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
               extraButton={isCsrAgent(user) && <ListingButton action={createCallListing} targetId={target.id} name={target.name} phone={target.phone} />} />
           </Card>
           <div className="space-y-4">
+            {goalCard}
             {todayCard}
             {target.campaign.script && (
               <Card className="p-5">

@@ -49,6 +49,7 @@ export const SECTIONS: Section[] = [
       { href: "/calls/campaigns", label: "Campaigns", module: "calls", callSupervisor: true },
       { href: "/calls/dnc", label: "Do-not-call", module: "calls", callSupervisor: true },
       { href: "/calls/wallboard", label: "Wallboard", module: "calls", callSupervisor: true },
+      { href: "/calls/targets", label: "Targets", module: "calls", callSupervisor: true },
       { href: "/calls/reports", label: "Reports", module: "calls", callSupervisor: true },
       { href: "/calls/recordings", label: "Recordings", superAdmin: true },
       { href: "/calls/phone-system", label: "Phone system", superAdmin: true },

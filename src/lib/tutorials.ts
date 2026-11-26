@@ -322,6 +322,7 @@ export const TUTORIALS: Tutorial[] = [
       "The Campaign box above the number shows the campaign's name and details, its source, where the numbers came from and who gave them to you. A 2nd round tag means these are numbers nobody answered the first time.",
       "Choose how you call at the top: Click to call (international numbers through AMS) or Landline (the number is shown big to dial by hand; Start timer measures the call). AMS remembers your choice.",
       "Read the client's details under the name before calling: project and unit they bought, nationality and anything else from the sheet.",
+      "Today's target (right side, if your supervisor set one) shows your calls, connected and interested against the target, and how many are still needed.",
       "Press Call (through your extension if the phone system is connected) or WhatsApp. Under the WhatsApp button pick which message to send: the campaign message or one of your templates (Calls → Templates); templates made for this campaign come first with a ★ and are picked for you. The client's name is filled in.",
       "Pick the outcome: Interested, Call back, Not interested / Do not call (never called again), Not answered / Busy, Voicemail, Switched off, Wrong number, Duplicate number or WhatsApp sent.",
       "Interested: remarks are required, so write what they want, budget, area and when to meet. Tick “Send to the CRM”: a CSR agent's lead goes to a sales agent by rotation; a sales agent's lead is assigned to them.",
@@ -348,6 +349,19 @@ export const TUTORIALS: Tutorial[] = [
       "In the dialer, pick the template in the list under the WhatsApp button, then press WhatsApp: the message opens ready to send. AMS remembers the one you picked for each campaign.",
       "Edit or Delete a template from the list any time.",
     ],
+  },
+  {
+    key: "call-targets", group: "Calls", module: "calls", action: "create", title: "Daily call targets", who: "Calling supervisors, agents", href: "/calls/targets", chapter: "calls",
+    summary: "Give each agent a daily target, an exact number or a range, and watch how they're doing.",
+    steps: [
+      "Open Calls → Targets. The CSR agents tab lists everyone with the dialer; Sales agents and Everyone show the rest.",
+      "For each agent fill Calls made per day: only From for an exact number (e.g. 150), or From and To for a range (e.g. 150 – 200). Connected and Interested per day work the same and are optional.",
+      "Press Save targets. Leave both boxes empty to remove a target.",
+      "Today shows each agent's numbers against their target: amber below target, green met, blue above the range.",
+      "Last 7 days shows one box per day with that day's calls, coloured the same way, so you see who keeps hitting their target.",
+      "Agents see Today's target at the top of their dialer, with a bar and how many calls are still needed.",
+    ],
+    tips: ["Calls made don't count WhatsApp messages.", "Turn the feature off in Settings → Apps & features → Calls: daily targets."],
   },
   {
     key: "call-reports", group: "Calls", module: "calls", title: "Call history and agent calling reports", who: "Calling team, supervisors", href: "/calls/history", chapter: "calls",

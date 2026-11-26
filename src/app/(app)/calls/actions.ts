@@ -494,3 +494,27 @@ export async function deleteCallTemplate(fd: FormData) {
   await db.callTemplate.delete({ where: { id: t.id } });
   revalidatePath("/calls/templates"); revalidatePath("/calls");
 }
+
+/** Calls → Targets: save each agent's daily targets (empty = no target for that measure). Supervisors only. */
+export async function saveCallGoals(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!manager(user)) return { error: "Only calling supervisors can set targets." };
+  const { GOAL_METRICS } = await import("@/lib/call-goals");
+  const ids = [...new Set(fd.getAll("agent").map(String).filter(Boolean))];
+  const num = (k: string) => { const v = str(fd, k); if (!v) return null; const n = Math.round(Number(v)); return Number.isFinite(n) && n >= 0 && n <= 10_000 ? n : NaN; };
+  let saved = 0;
+  for (const agentId of ids) {
+    for (const [metric] of GOAL_METRICS) {
+      const lo = num(`${metric}_min_${agentId}`), hi = num(`${metric}_max_${agentId}`);
+      if (Number.isNaN(lo) || Number.isNaN(hi)) return { error: "Targets are whole numbers (0 to 10,000)." };
+      if (lo === null && hi === null) { await db.callGoal.deleteMany({ where: { agentId, metric } }); continue; }
+      // Only a "to" number: treat it as the exact target. "From" above "to": swapped.
+      const min = Math.min(lo ?? hi!, hi ?? lo!), max = hi !== null && lo !== null && hi !== lo ? Math.max(lo, hi) : null;
+      await db.callGoal.upsert({ where: { agentId_metric: { agentId, metric } }, update: { min, max, createdById: user.id }, create: { agentId, metric, min, max, createdById: user.id } });
+      saved++;
+    }
+  }
+  await audit(user.id, "update", "callGoal", null, `Saved daily call targets for ${ids.length} agent(s)`);
+  revalidatePath("/calls/targets"); revalidatePath("/calls");
+  return { ok: true, message: `Saved ${saved} target(s). Agents see theirs on the dialer straight away.` };
+}

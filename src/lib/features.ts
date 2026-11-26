@@ -54,6 +54,7 @@ export const FEATURES = [
   { key: "calls-recordings", label: "Calls: recordings", group: "CRM", app: "crm", paths: ["/calls/recordings"], about: "Call recordings" },
   { key: "calls-campaigns", label: "Calls: campaigns & batches", group: "CRM", app: "crm", paths: ["/calls/campaigns"], about: "Number lists split into batches per agent" },
   { key: "calls-wallboard", label: "Calls: wallboard", group: "CRM", app: "crm", paths: ["/calls/wallboard"], about: "Live board of agents and batches" },
+  { key: "calls-targets", label: "Calls: daily targets", group: "CRM", app: "crm", paths: ["/calls/targets"], about: "Daily calls / connected / interested targets per agent, shown on their dialer" },
   { key: "calls-reports", label: "Calls: reports & daily report", group: "CRM", app: "crm", paths: ["/calls/reports"], about: "Call reports and the end-of-shift report" },
   { key: "calls-dnc", label: "Calls: do-not-call list", group: "CRM", app: "crm", paths: ["/calls/dnc"], about: "Numbers never to call" },
   { key: "calls-phone", label: "Calls: phone system", group: "CRM", app: "crm", paths: ["/calls/phone-system"], about: "Softphone / phone line setup" },

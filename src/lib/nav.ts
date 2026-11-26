@@ -87,6 +87,7 @@ export const APPS: AppDef[] = [
           sub("Manage", [
             { href: "/calls/campaigns", label: "Campaigns", icon: "target", module: "calls", callSupervisor: true },
             { href: "/calls/wallboard", label: "Wallboard", icon: "gauge", module: "calls", callSupervisor: true },
+            { href: "/calls/targets", label: "Targets", icon: "target", module: "calls", callSupervisor: true },
             { href: "/calls/reports", label: "Reports", icon: "chart", module: "calls", callSupervisor: true },
             { href: "/calls/dnc", label: "Do-not-call", icon: "ban", module: "calls", callSupervisor: true },
             { href: "/calls/phone-system", label: "Phone system", icon: "settings", superAdmin: true },
