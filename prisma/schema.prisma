@@ -2259,6 +2259,14 @@ model FinEntry {
   /// Created from another app: expense (HR claim) | loan (HR advance/loan) | payroll (HR payroll month) | payable | bank
   sourceType  String?
   sourceId    String?
+  /// The company card it was paid with (Finance → Cards).
+  cardId      String?
+  /// Bill details (typed, or read from the bill photo).
+  billNo      String?
+  vendorNtn   String?
+  vendorPhone String?
+  taxAmount   Float?
+  billDetails String? // @text
   proofs      FinProof[]
   createdById String?
   createdAt   DateTime     @default(now())
@@ -2739,4 +2747,19 @@ model CallGoal {
   createdAt   DateTime @default(now())
 
   @@unique([agentId, metric])
+}
+
+/// Finance → Cards: the company's payment cards (e.g. "Meezan Visa •• 1234", held by Mubeen sir). Expenses can say
+/// which card paid; the Cards page shows spending per card.
+model FinCard {
+  id        String   @id @default(cuid())
+  name      String
+  last4     String?
+  kind      String   @default("debit") // debit | credit
+  holder    String?
+  /// The money holder the card spends from (its bank account), if any.
+  accountId String?
+  limit     Float?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
 }

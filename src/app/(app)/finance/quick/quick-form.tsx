@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Camera, Check, Loader2, Sparkles } from "lucide-react";
-import { fillForm, readReceipt } from "../read-receipt";
+import { fillForm, readBill } from "../read-receipt";
 import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +23,7 @@ export function QuickForm({ top, all, holders, defaultHolder, payees }: { top: C
           setPhoto(f ? URL.createObjectURL(f) : null);
           if (!f) return;
           setReading("Reading the bill…");
-          readReceipt(f).then((r) => {
+          readBill(f).then((r) => {
             if (!r) return setReading(null);
             if ("error" in r) return setReading(r.error);
             fillForm(form, r); if (r.categoryId) setCat(r.categoryId);

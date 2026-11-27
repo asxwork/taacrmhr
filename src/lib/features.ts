@@ -131,6 +131,7 @@ export const FEATURES = [
   { key: "fin-checks", label: "Checks", group: "Finance", app: "finance", paths: ["/finance/checks"], about: "Cheques given and received, due dates" },
   { key: "fin-bank", label: "Bank matching", group: "Finance", app: "finance", paths: ["/finance/bank"], about: "Match the bank statement to entries" },
   { key: "fin-budgets", label: "Budgets", group: "Finance", app: "finance", paths: ["/finance/budgets"], about: "Monthly limits per category with alerts" },
+  { key: "fin-cards", label: "Company cards", group: "Finance", app: "finance", paths: ["/finance/cards"], about: "The company's payment cards: pick which card paid an expense, spending per card" },
   { key: "fin-import", label: "Import from Excel", group: "Finance", app: "finance", paths: ["/finance/import"], about: "Bring old entries in from a spreadsheet" },
   { key: "fin-entries", label: "Entries", group: "Finance", app: "finance", paths: ["/finance/entries"], about: "All money in, out and transfers" },
   { key: "fin-boss", label: "Boss view", group: "Finance", app: "finance", paths: ["/finance/boss"], about: "The owner's finance summary" },

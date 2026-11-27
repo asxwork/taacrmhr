@@ -9,6 +9,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 const run = (cmd) => execSync(cmd, { stdio: "inherit" });
+// The free bill reader's files, served by AMS itself (public/ocr).
+try { run("node scripts/copy-ocr.mjs"); } catch { console.warn("Bill reader files not copied"); }
 const url = process.env.DATABASE_URL ?? "";
 
 if (url.startsWith("mysql://")) {

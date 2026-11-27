@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Camera, Loader2, Paperclip, Sparkles } from "lucide-react";
-import { fillForm, readReceipt } from "./read-receipt";
+import { fillForm, readBill } from "./read-receipt";
 
 /** Proof upload: take a photo with the phone camera, or choose files (images / PDF), several at once. */
 export function ProofInputs({ required }: { required?: string }) {
@@ -15,12 +15,12 @@ export function ProofInputs({ required }: { required?: string }) {
     const form = e.target.form;
     if (first && form?.elements.namedItem("amount")) {
       setReading("Reading the bill…");
-      readReceipt(first).then((r) => {
+      readBill(first, (p) => setReading(`Reading the bill… ${Math.round(p * 100)}%`)).then((r) => {
         if (!r) return setReading(null);
         if ("error" in r) return setReading(r.error);
         fillForm(form, r);
-        setReading("Filled from the bill. Please check the amount.");
-      });
+        setReading(r.amount ? "Filled from the bill. Please check the amount and details." : "Couldn't find the total on this bill: type it in.");
+      }).catch(() => setReading(null));
     }
   };
   return (

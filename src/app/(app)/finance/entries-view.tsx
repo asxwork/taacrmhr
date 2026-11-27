@@ -16,8 +16,9 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { deleteEntry, saveEntry, setDefaultView } from "./actions";
 import { SORTS, defaultViewFor, viewQuery } from "./entry-view-prefs";
 import { QuickProof } from "./quick-proof";
+import { BillFields } from "./bill-fields";
 
-export type EntrySP = { sort?: string; party?: string; tag?: string; bill?: string; copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
+export type EntrySP = { card?: string; sort?: string; party?: string; tag?: string; bill?: string; copy?: string; month?: string; holder?: string; cat?: string; kind?: string; q?: string; proof?: string; status?: string; new?: string; edit?: string; page?: string };
 const PAGE = 50;
 
 /** The entries list (all, or Sir personal) with filters, totals and the add/edit panel. */
@@ -30,11 +31,12 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
     sp.bill ? db.finRecurring.findUnique({ where: { id: sp.bill } }) : null,
   ]);
   const limit = financeLimit(user), hLimit = holderLimit(user);
-  const where: Prisma.FinEntryWhereInput = limit ? { AND: [entryWhere(sp, personal, tree), limit] } : entryWhere(sp, personal, tree);
+  const base0: Prisma.FinEntryWhereInput = limit ? { AND: [entryWhere(sp, personal, tree), limit] } : entryWhere(sp, personal, tree);
+  const where: Prisma.FinEntryWhereInput = sp.card ? { AND: [base0, { cardId: sp.card }] } : base0;
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? parse(sp.month, "yyyy-MM", new Date()) : null;
   const q = sp.q?.trim();
   const page = Math.max(1, Number(sp.page) || 1);
-  const [entries, count, sums, holders, payees, tagRows] = await Promise.all([
+  const [entries, count, sums, holders, payees, tagRows, cards] = await Promise.all([
     db.finEntry.findMany({ where, include: { account: true, toAccount: true, category: { include: { parent: true } }, _count: { select: { proofs: true } } }, orderBy: SORTS[sp.sort ?? ""]?.[1] ?? SORTS[""]![1], skip: (page - 1) * PAGE, take: PAGE }),
     db.finEntry.count({ where }),
     db.finEntry.groupBy({ by: ["kind"], where: { AND: [where, { status: "approved" }] }, _sum: { amount: true } }),
@@ -42,10 +44,12 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
     // Payee and tag suggestions scan the whole table: cached, and cleared whenever an entry is saved.
     memo("fin:payees", 10 * 60_000, () => db.finEntry.groupBy({ by: ["party"], where: { party: { not: null } }, _count: true, orderBy: { _count: { party: "desc" } }, take: 400 })),
     memo("fin:tags", 10 * 60_000, () => db.finEntry.findMany({ where: { tags: { not: null } }, select: { tags: true }, distinct: ["tags"], take: 500 })),
+    db.finCard.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] }),
   ]);
+  const cardName = new Map(cards.map((c) => [c.id, `${c.name}${c.last4 ? ` ••${c.last4}` : ""}`]));
   const allTags = [...new Set(tagRows.flatMap((t) => tagList(t.tags)))].sort();
   const total = (k: string) => sums.find((s) => s.kind === k)?._sum.amount ?? 0;
-  const keep = { sort: sp.sort, month: sp.month, holder: sp.holder, cat: sp.cat, kind: sp.kind, q: sp.q, proof: sp.proof, status: sp.status, party: sp.party, tag: sp.tag };
+  const keep = { card: sp.card, sort: sp.sort, month: sp.month, holder: sp.holder, cat: sp.cat, kind: sp.kind, q: sp.q, proof: sp.proof, status: sp.status, party: sp.party, tag: sp.tag };
   const href = (patch: Partial<EntrySP>) => {
     const p = new URLSearchParams(Object.entries({ ...keep, ...patch }).filter(([, v]) => v) as [string, string][]);
     return `${base}${p.size ? `?${p}` : ""}`;
@@ -83,7 +87,9 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
         ))}
       </div>
 
-      <AutoFilterForm className="mb-3 flex flex-wrap gap-2">
+      {/* Stays at the top while scrolling the entries. */}
+      <div className="sticky top-0 z-20 -mx-1 mb-3 border-b border-line bg-canvas/95 px-1 py-2 backdrop-blur">
+      <AutoFilterForm className="flex flex-wrap gap-2">
         <label className="relative min-w-52 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" /><input name="q" defaultValue={q} placeholder="Search what, paid to, notes" aria-label="Search" className="input pl-9" /></label>
         <input name="month" type="month" defaultValue={sp.month} aria-label="Month" className="input w-auto" />
         <select name="holder" defaultValue={sp.holder ?? ""} aria-label="Money holder" className="input w-auto min-w-40"><option value={defaultHolder ? "all" : ""}>Everyone</option>{holders.map((h) => <option key={h.id} value={h.id}>{h.name}{h.id === defaultHolder ? " ★" : ""}</option>)}</select>
@@ -93,7 +99,9 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
         {sp.party && <input type="hidden" name="party" value={sp.party} />}
         <select name="sort" defaultValue={sp.sort ?? ""} aria-label="Sort" className="input w-auto">{Object.entries(SORTS).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select>
         <select name="proof" defaultValue={sp.proof ?? ""} aria-label="Proof" className="input w-auto"><option value="">Any proof</option><option value="missing">No proof yet</option><option value="unverified">Proof not checked</option><option value="verified">Checked ✓</option></select>
+        {cards.length > 0 && <select name="card" defaultValue={sp.card ?? ""} aria-label="Card" className="input w-auto"><option value="">Any card</option>{cards.map((c) => <option key={c.id} value={c.id}>{cardName.get(c.id)}</option>)}</select>}
       </AutoFilterForm>
+      </div>
       {!personal && (currentView ? currentView !== defaultView : !!defaultView) && (
         <form action={setDefaultView} className="-mt-1 mb-3 text-xs">
           <input type="hidden" name="view" value={currentView} />
@@ -124,7 +132,7 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
                       {e.tags && <span className="mt-0.5 flex flex-wrap gap-1">{tagList(e.tags).map((t) => <Link key={t} href={href({ tag: t })} className="rounded bg-canvas px-1.5 py-0.5 text-[10px] text-muted hover:text-ink">#{t}</Link>)}</span>}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-muted">{e.kind === "expense" ? catName(e.category) : e.kind === "in" ? "Money in" : "Transfer"}</td>
-                    <td className="px-4 py-2.5">{e.account.name}</td>
+                    <td className="px-4 py-2.5">{e.account.name}{e.cardId && cardName.get(e.cardId) && <span className="block text-xs text-muted">💳 {cardName.get(e.cardId)}</span>}</td>
                     <td className="px-4 py-2.5 text-muted">{e.kind === "transfer" ? <span className="text-sky-700">→ {e.toAccount?.name ?? "—"}</span> : e.party ? <Link href={href({ party: e.party })} className="hover:text-ink hover:underline">{e.party}</Link> : "—"}</td>
                     <td className={cn("whitespace-nowrap px-4 py-2.5 text-right font-medium tabular-nums", e.kind === "in" ? "text-emerald-700" : e.kind === "transfer" ? "text-sky-700" : "")}>{e.kind === "in" ? "+" : ""}{pkr(e.amount)}</td>
                     <td className="whitespace-nowrap px-3 py-2.5">
@@ -191,8 +199,17 @@ export async function EntriesView({ user, sp, personal, base }: { user: SessionU
             <Field label={formKind === "in" ? "What for" : "Description"}><input name="description" required defaultValue={src?.description} className="input" placeholder={formKind === "in" ? "e.g. Petty cash top-up" : "e.g. Lunch for guest"} /></Field>
             {formKind !== "transfer" && <Field label={formKind === "in" ? "Received from" : "Paid to (payee)"} hint="Pick from the list so the same payee is always spelled the same"><input name="party" list="fin-payees" autoComplete="off" defaultValue={src?.party ?? ""} className="input" placeholder={formKind === "in" ? "e.g. Mubeen sir" : "e.g. K-Electric, Meta, Imtiaz"} /><datalist id="fin-payees">{payees.map((p) => <option key={p.party} value={p.party!} />)}</datalist></Field>}
             <Field label="Tags (optional)" hint={allTags.length ? `Comma separated. Used: ${allTags.slice(0, 8).join(", ")}` : "Comma separated, e.g. DHA office, Skyline project"}><input name="tags" defaultValue={(src && "tags" in src ? src.tags : null) ?? ""} className="input" /></Field>
+            {formKind === "expense" && cards.some((c) => c.active) && (
+              <Field label="Paid with card (optional)">
+                <select name="cardId" defaultValue={(src && "cardId" in src ? src.cardId : null) ?? ""} className="input">
+                  <option value="">Not a card / cash</option>
+                  {cards.filter((c) => c.active || c.id === (src && "cardId" in src ? src.cardId : null)).map((c) => <option key={c.id} value={c.id}>{cardName.get(c.id)}{c.holder ? ` · ${c.holder}` : ""}</option>)}
+                </select>
+              </Field>
+            )}
             <Field label="Notes (optional)"><input name="notes" defaultValue={src?.notes ?? ""} className="input" /></Field>
             <ProofInputs required={proofRequired} />
+            {formKind !== "transfer" && <BillFields d={src && "billNo" in src ? src : null} />}
             {personal && <input type="hidden" name="personal" value="on" />}
             <SubmitButton>{editing ? "Save" : "Add"}</SubmitButton>
           </ActionForm>

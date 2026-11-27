@@ -16,5 +16,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/|brand/|app/AMS.apk|icon.png|manifest.webmanifest|sw.js|api/cron|api/webhooks|api/v1|api/rest/|api/mcp|api/version|iclock|tutorials/).*)"],
+  matcher: ["/((?!_next/|brand/|app/AMS.apk|icon.png|manifest.webmanifest|sw.js|api/cron|api/webhooks|api/v1|api/rest/|api/mcp|api/version|ocr/|iclock|tutorials/).*)"],
 };

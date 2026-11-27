@@ -73,7 +73,7 @@
  "layouts": 53,
  "fin-boss": 41,
  "fin-dashboard": 34,
- "fin-entries": 43,
+ "fin-entries": 59,
  "fin-holders": 29,
  "fin-approvals": 20,
  "fin-bills": 30,
@@ -121,5 +121,6 @@
  "call-reports": 62,
  "leads-trash": 53,
  "boss-agent": 44,
- "call-targets": 63
+ "call-targets": 63,
+ "fin-cards": 45
 }

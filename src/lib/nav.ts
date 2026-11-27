@@ -439,6 +439,7 @@ export const APPS: AppDef[] = [
         label: "Cash", icon: "wallet",
         items: [
           { href: "/finance/holders", label: "Money holders", icon: "wallet", module: "finance" },
+          { href: "/finance/cards", label: "Cards", icon: "card", module: "finance" },
           { href: "/finance/cash-count", label: "Cash count", icon: "check", module: "finance" },
           { href: "/finance/claims", label: "Staff claims", icon: "receipt", module: "finance" },
           { href: "/finance/advances", label: "Advances & loans", icon: "card", module: "finance" },
@@ -582,6 +583,7 @@ export const APPS: AppDef[] = [
           ], "settings"),
           { href: "/finance/categories", label: "Categories", icon: "list", module: "finance.settings", action: "edit" },
           { href: "/finance/holders", label: "Money holders", icon: "wallet", module: "finance" },
+          { href: "/finance/cards", label: "Cards", icon: "card", module: "finance" },
         ],
       },
       {

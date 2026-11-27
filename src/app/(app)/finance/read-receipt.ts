@@ -1,5 +1,5 @@
 "use client";
-export type ReadResult = { amount: number | null; date: string | null; payee: string | null; description: string | null; categoryId: string | null };
+export type ReadResult = { amount: number | null; date: string | null; payee: string | null; description: string | null; categoryId: string | null; billNo?: string | null; vendorNtn?: string | null; vendorPhone?: string | null; taxAmount?: number | null; billDetails?: string | null };
 
 /** Sends the bill to /api/finance/receipt. Returns null when receipt reading is off. */
 export async function readReceipt(file: File): Promise<ReadResult | { error: string } | null> {
@@ -21,4 +21,17 @@ export function fillForm(form: HTMLFormElement | null, d: ReadResult) {
     el.dispatchEvent(new Event("change", { bubbles: true }));
   };
   set("amount", d.amount); set("party", d.payee); set("description", d.description); set("categoryId", d.categoryId); set("date", d.date);
+  set("billNo", d.billNo ?? null); set("vendorNtn", d.vendorNtn ?? null); set("vendorPhone", d.vendorPhone ?? null); set("taxAmount", d.taxAmount ?? null); set("billDetails", d.billDetails ?? null);
+  // Bill details were filled: open their section so they can be checked.
+  if (d.billNo || d.vendorNtn || d.taxAmount) form.querySelector<HTMLDetailsElement>("details[data-bill]")?.setAttribute("open", "");
+}
+
+/** AI reading when it's set up; otherwise the free reading on this device (printed bills, images only). */
+export async function readBill(file: File, onProgress?: (p: number) => void): Promise<ReadResult | { error: string } | null> {
+  const ai = await readReceipt(file);
+  if (ai) return ai;
+  const { readBillOnDevice } = await import("@/lib/bill-ocr");
+  const r = await readBillOnDevice(file, onProgress).catch(() => null);
+  if (!r) return null;
+  return { ...r, description: null, categoryId: null };
 }

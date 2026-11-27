@@ -67,7 +67,7 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
   if (cfg.proofAbove > 0 && amount >= cfg.proofAbove && !files.length && !hadProof) return { error: `Attach the bill, receipt or transfer screenshot: proof is required for ${pkr(cfg.proofAbove)} and above.` };
   const saved: { path: string; name: string; size: number }[] = [];
   for (const f of files.slice(0, 10)) {
-    const res = await saveUpload(f, "finance", { maxBytes: 10_000_000, allowPdf: true });
+    const res = await saveUpload(f, "finance", { maxBytes: 10_000_000, allowPdf: true, toPdf: true });
     if ("error" in res) return { error: `Proof: ${res.error}` };
     saved.push({ path: res.path, name: f.name.slice(0, 120), size: res.size });
   }
@@ -76,6 +76,13 @@ export async function saveEntry(_: FormState, fd: FormData): Promise<FormState> 
     party: await samePayee(str(fd, "party").slice(0, 120)), tags: cleanTags(str(fd, "tags")), personal, notes: str(fd, "notes").slice(0, 1000) || null,
     status, ...(status === "pending" && { approvedAt: null, approvedById: null, rejectReason: null }),
     ...(str(fd, "recurringId") && { recurringId: str(fd, "recurringId") }),
+    // Card and bill details (only when the form has them, so other forms don't wipe them).
+    ...(fd.has("cardId") && { cardId: kind === "expense" && str(fd, "cardId") && (await db.finCard.findUnique({ where: { id: str(fd, "cardId") }, select: { id: true } })) ? str(fd, "cardId") : null }),
+    ...(fd.has("billNo") && {
+      billNo: str(fd, "billNo").slice(0, 80) || null, vendorNtn: str(fd, "vendorNtn").slice(0, 40) || null, vendorPhone: str(fd, "vendorPhone").slice(0, 40) || null,
+      taxAmount: (() => { const t = parseFloat(str(fd, "taxAmount").replace(/,/g, "")); return Number.isFinite(t) && t >= 0 ? t : null; })(),
+      billDetails: str(fd, "billDetails").slice(0, 3000) || null,
+    }),
   };
   const e = id ? await db.finEntry.update({ where: { id }, data }) : await db.finEntry.create({ data: { ...data, createdById: user.id } });
   if (data.recurringId) await db.finRecurring.update({ where: { id: data.recurringId }, data: { lastPaid: date.toISOString().slice(0, 7) } }).catch(() => {});
@@ -196,7 +203,7 @@ export async function addProof(_: FormState, fd: FormData): Promise<FormState> {
   const files = [...fd.getAll("proofs"), ...fd.getAll("photo")].filter((f): f is File => f instanceof File && f.size > 0);
   if (!files.length) return { error: "Choose a file or take a photo." };
   for (const f of files.slice(0, 10)) {
-    const res = await saveUpload(f, "finance", { maxBytes: 10_000_000, allowPdf: true });
+    const res = await saveUpload(f, "finance", { maxBytes: 10_000_000, allowPdf: true, toPdf: true });
     if ("error" in res) return { error: res.error };
     await db.finProof.create({ data: { entryId: e.id, path: res.path, name: f.name.slice(0, 120), size: res.size, createdById: user.id } });
   }
@@ -512,7 +519,7 @@ export async function savePayable(_: FormState, fd: FormData): Promise<FormState
   if (Number.isNaN(billDate.getTime())) return { error: "Enter the bill date." };
   let proof: string | null = null;
   const f = [...fd.getAll("proofs"), ...fd.getAll("photo")].find((x): x is File => x instanceof File && x.size > 0);
-  if (f) { const r = await saveUpload(f, "finance", { maxBytes: 10_000_000, allowPdf: true }); if ("error" in r) return { error: r.error }; proof = r.path; }
+  if (f) { const r = await saveUpload(f, "finance", { maxBytes: 10_000_000, allowPdf: true, toPdf: true }); if ("error" in r) return { error: r.error }; proof = r.path; }
   const p = await db.finPayable.create({ data: { party, description: str(fd, "description").slice(0, 200) || "Bill", amount, billDate, dueDate: due, categoryId: str(fd, "categoryId") || null, proof, createdById: user.id } });
   await audit(user.id, "create", "finEntry", p.id, `Supplier bill from ${party}: ${pkr(amount)}`);
   revalidatePath("/finance/vendors");
@@ -600,4 +607,28 @@ export async function setDefaultView(fd: FormData) {
   if (view) await db.setting.upsert({ where: { key }, update: { value: view }, create: { key, value: view } });
   else await db.setting.deleteMany({ where: { key } });
   revalidatePath("/finance/entries");
+}
+
+/** Finance → Cards: add or change a company payment card. */
+export async function saveCard(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requirePermission("finance.settings", "edit");
+  const id = str(fd, "id");
+  const name = str(fd, "name").slice(0, 80);
+  if (name.length < 2) return { error: "Give the card a name, e.g. Meezan Visa." };
+  const last4 = str(fd, "last4").replace(/\D/g, "").slice(-4) || null;
+  const lim = parseFloat(str(fd, "limit").replace(/,/g, ""));
+  const data = { name, last4, kind: str(fd, "kind") === "credit" ? "credit" : "debit", holder: str(fd, "holder").slice(0, 80) || null, accountId: str(fd, "accountId") || null, limit: Number.isFinite(lim) && lim > 0 ? lim : null, active: fd.get("active") !== "off" };
+  if (id) await db.finCard.update({ where: { id }, data }); else await db.finCard.create({ data });
+  await audit(user.id, id ? "update" : "create", "finCard", id || null, `${id ? "Updated" : "Added"} card ${name}${last4 ? ` ••${last4}` : ""}`);
+  revalidatePath("/finance/cards"); revalidatePath("/finance/entries");
+  redirect("/finance/cards");
+}
+
+export async function toggleCard(fd: FormData) {
+  const user = await requirePermission("finance.settings", "edit");
+  const c = await db.finCard.findUnique({ where: { id: str(fd, "id") } });
+  if (!c) return;
+  await db.finCard.update({ where: { id: c.id }, data: { active: !c.active } });
+  await audit(user.id, "update", "finCard", c.id, `${c.active ? "Switched off" : "Switched on"} card ${c.name}`);
+  revalidatePath("/finance/cards");
 }

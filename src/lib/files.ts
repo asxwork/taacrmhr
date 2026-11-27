@@ -37,7 +37,7 @@ export function saveImage(file: File, dir: string, maxBytes = 5_000_000) {
 }
 
 /** Validates by content (not just extension) and saves under `dir`. Returns the relative path or an error. */
-export async function saveUpload(file: File, dir: string, opts: { maxBytes?: number; allowPdf?: boolean } = {}): Promise<{ path: string; size: number } | { error: string }> {
+export async function saveUpload(file: File, dir: string, opts: { maxBytes?: number; allowPdf?: boolean; /** Save photos as a PDF (with a small preview picture next to it). */ toPdf?: boolean } = {}): Promise<{ path: string; size: number } | { error: string }> {
   const maxBytes = opts.maxBytes ?? 5_000_000;
   if (file.size === 0) return { error: "Empty file." };
   if (file.size > maxBytes) return { error: `${file.name} is larger than ${Math.round(maxBytes / 1e6)} MB.` };
@@ -49,11 +49,39 @@ export async function saveUpload(file: File, dir: string, opts: { maxBytes?: num
     return { error: `${file.name} is not a ${opts.allowPdf ? "PDF, JPG, PNG or WebP file" : "JPG, PNG or WebP image"}.` };
   }
 
-  const rel = path.posix.join(dir, `${Date.now()}-${randomBytes(6).toString("hex")}.${ext}`);
+  const base = path.posix.join(dir, `${Date.now()}-${randomBytes(6).toString("hex")}`);
+  if (opts.toPdf && ext !== "pdf") {
+    // Photos become a one-page PDF (easy to download, print and send); the preview keeps thumbnails working.
+    const pdf = await imageToPdf(buf).catch((e) => { console.error("Image to PDF failed:", e); return null; });
+    if (pdf) {
+      const rel = `${base}.pdf`;
+      await mkdir(path.dirname(path.join(UPLOAD_ROOT, rel)), { recursive: true });
+      await writeFile(path.join(UPLOAD_ROOT, rel), pdf.pdf);
+      await writeFile(path.join(UPLOAD_ROOT, previewOf(rel)), pdf.preview).catch(() => {});
+      return { path: rel, size: pdf.pdf.length };
+    }
+  }
+  const rel = `${base}.${ext}`;
   const abs = path.join(UPLOAD_ROOT, rel);
   await mkdir(path.dirname(abs), { recursive: true });
   await writeFile(abs, buf);
   return { path: rel, size: buf.length };
+}
+
+/** The preview picture kept next to a PDF made from a photo. */
+export const previewOf = (rel: string) => rel.replace(/\.pdf$/i, ".preview.jpg");
+
+/** A photo as a one-page PDF (turned upright, at most 2000 px, JPEG inside), plus an 800 px preview. */
+async function imageToPdf(buf: Buffer) {
+  const sharp = (await import("sharp")).default;
+  const img = await sharp(buf).rotate().resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
+  const meta = await sharp(img).metadata();
+  const w = (meta.width ?? 1000) * 0.75, h = (meta.height ?? 1400) * 0.75; // pixels → points
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "pt", format: [w, h], orientation: w > h ? "landscape" : "portrait", compress: true });
+  doc.addImage(new Uint8Array(img), "JPEG", 0, 0, w, h);
+  const preview = await sharp(img).resize({ width: 800, withoutEnlargement: true }).jpeg({ quality: 75 }).toBuffer();
+  return { pdf: Buffer.from(doc.output("arraybuffer")), preview };
 }
 
 export async function deleteUpload(rel: string) {

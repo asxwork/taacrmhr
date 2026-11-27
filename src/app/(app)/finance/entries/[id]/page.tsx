@@ -5,6 +5,7 @@ import { ArrowDown, ArrowDownLeft, ArrowRight, ArrowUpRight, Clock, FileText, Hi
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
 import { financeLimit, pkr } from "@/lib/finance";
+import { previewOf, resolveUpload } from "@/lib/files";
 import { fileUrl } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
@@ -26,6 +27,8 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
   const limit = financeLimit(user);
   if (limit && !(await db.finEntry.findFirst({ where: { AND: [{ id: e.id }, limit] }, select: { id: true } }))) notFound();
 
+  const card = e.cardId ? await db.finCard.findUnique({ where: { id: e.cardId } }) : null;
+  const { existsSync } = await import("node:fs");
   const ids = [e.createdById, e.verifiedById, e.approvedById, ...e.proofs.map((p) => p.createdById)].filter((x): x is string => !!x);
   const [people, cameFrom, wentOn, history] = await Promise.all([
     db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
@@ -37,6 +40,7 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
   ]);
   const who = (uid: string | null) => people.find((p) => p.id === uid)?.name ?? "—";
   const proofs = [...(e.receipt ? [{ id: "", path: e.receipt, name: "Receipt", createdById: e.createdById, createdAt: e.createdAt }] : []), ...e.proofs];
+  const hasPreview = new Set(proofs.filter((p) => /\.pdf$/i.test(p.path) && existsSync(resolveUpload(previewOf(p.path)) ?? "")).map((p) => p.path));
   const canProof = can(user, mod, "create"), canDel = can(user, mod, "delete"), canVerify = can(user, "finance", "approve");
   const cat = e.category ? (e.category.parent ? `${e.category.parent.name} › ${e.category.name}` : e.category.name) : null;
   const tone = e.kind === "in" ? "text-emerald-700" : e.kind === "transfer" ? "text-sky-700" : "text-ink";
@@ -128,6 +132,12 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
               <dt className="text-muted">Date</dt><dd>{format(e.date, "d MMMM yyyy")}</dd>
               {cat && <><dt className="text-muted">Category</dt><dd>{cat}</dd></>}
               {e.notes && <><dt className="text-muted">Notes</dt><dd className="whitespace-pre-wrap">{e.notes}</dd></>}
+              {card && <><dt className="text-muted">Paid with card</dt><dd>💳 {card.name}{card.last4 ? ` ••${card.last4}` : ""}{card.holder ? ` · ${card.holder}` : ""}</dd></>}
+              {e.billNo && <><dt className="text-muted">Bill no.</dt><dd>{e.billNo}</dd></>}
+              {e.vendorNtn && <><dt className="text-muted">Vendor NTN</dt><dd>{e.vendorNtn}</dd></>}
+              {e.vendorPhone && <><dt className="text-muted">Vendor phone</dt><dd>{e.vendorPhone}</dd></>}
+              {e.taxAmount != null && <><dt className="text-muted">Tax on bill</dt><dd>{pkr(e.taxAmount)}</dd></>}
+              {e.billDetails && <><dt className="text-muted">Other bill details</dt><dd className="max-h-40 overflow-y-auto whitespace-pre-wrap text-xs">{e.billDetails}</dd></>}
               <dt className="text-muted">Entered by</dt><dd>{e.importKey ? "Imported from the Excel sheet" : who(e.createdById)} · {format(e.createdAt, "d MMM yyyy, h:mm a")}</dd>
               {e.approvedAt && <><dt className="text-muted">Approved by</dt><dd>{who(e.approvedById)} · {format(e.approvedAt, "d MMM yyyy")}</dd></>}
             </dl>
@@ -145,7 +155,11 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
                     {isImage(p.path)
                       // eslint-disable-next-line @next/next/no-img-element
                       ? <img loading="lazy" src={fileUrl(p.path, 400)} alt={p.name} className="h-36 w-full bg-canvas object-cover" />
-                      : <span className="flex h-36 flex-col items-center justify-center gap-1 bg-canvas text-muted"><FileText className="size-8" /><span className="text-xs">PDF</span></span>}
+                      : hasPreview.has(p.path)
+                        // A photo saved as PDF: its preview, with a PDF tag.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <span className="relative block"><img loading="lazy" src={fileUrl(previewOf(p.path), 400)} alt={p.name} className="h-36 w-full bg-canvas object-cover" /><span className="absolute right-1.5 top-1.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">PDF</span></span>
+                        : <span className="flex h-36 flex-col items-center justify-center gap-1 bg-canvas text-muted"><FileText className="size-8" /><span className="text-xs">PDF</span></span>}
                     <span className="block truncate px-2 py-1.5 text-xs">{p.name}</span>
                     <span className="block px-2 pb-1.5 text-[10px] text-muted">{who(p.createdById ?? null)} · {format(p.createdAt, "d MMM")}</span>
                   </a>
