@@ -163,6 +163,25 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
+    key: "commissions", group: "CRM", module: "crm.deals", title: "Commission tracker", who: "Agents, managers, accounts", href: "/crm/commissions", chapter: "deals",
+    summary: "Each agent's commission on closed deals: waiting for the developer, received, or paid to the agent.",
+    steps: [
+      "Deals → Commissions lists every closed deal with a commission amount, with the agent's share (commission × agent %).",
+      "The three boxes at the top add up what's waiting for the developer, received but not yet paid to agents, and paid. Press a box to see only those deals; filter by agent or year.",
+      "Managers: when the developer or client pays the company, press Mark received. When the agent gets their money, type the amount (empty = their share) and press Mark paid; the agent gets a notification. Undo puts it back.",
+      "Agents see only their own deals, so they always know what's pending.",
+    ],
+  },
+  {
+    key: "my-day", group: "CRM", module: "crm.leads", title: "My day and lead score", who: "Agents", href: "/crm/my-day",
+    summary: "Your day on one screen, starting with the leads to call first, and why each lead is hot or cold.",
+    steps: [
+      "Leads → My day. Call these first today lists your 10 best open leads you haven't spoken to today, highest lead score first, with the reasons and call / WhatsApp buttons.",
+      "Below are Overdue, Due today, Site visits, Callbacks, New leads and Hot leads with no next step.",
+      "On a lead, Lead score shows each green (+) and red (−) point behind the number, and To make it hotter lists what would raise it, e.g. plan the next step, add the budget, book a site visit.",
+    ],
+  },
+  {
     key: "contacts", group: "CRM", module: "crm.contacts", title: "Contacts and companies", who: "Agents, managers", href: "/crm/contacts", chapter: "property",
     summary: "Your clients and their companies, each with their deals and history.",
     steps: [
