@@ -11,6 +11,8 @@ const files = [
   ["node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js", "tesseract-core-simd-lstm.wasm.js"],
   ["node_modules/tesseract.js-core/tesseract-core-relaxedsimd-lstm.wasm.js", "tesseract-core-relaxedsimd-lstm.wasm.js"],
   ["node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz", "eng.traineddata.gz"],
+  // PDF reader's worker (brochures and payment plans are read in the browser).
+  ["node_modules/pdfjs-dist/build/pdf.worker.min.mjs", "pdf.worker.min.mjs"],
 ];
 let n = 0;
 for (const [from, to] of files) if (existsSync(from)) { copyFileSync(from, path.join(out, to)); n++; }

@@ -36,6 +36,7 @@
     "next": "15.5.29",
     "nodemailer": "^10.2.1",
     "papaparse": "^5.7.0",
+    "pdfjs-dist": "^4.10.38",
     "prisma": "^6.19.3",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
