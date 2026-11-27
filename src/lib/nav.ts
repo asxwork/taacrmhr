@@ -73,6 +73,7 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/crm/deals", label: "Closed deals", icon: "handshake", module: "crm.deals" },
           { href: "/crm/deals?show=all", label: "All deals", icon: "list", module: "crm.deals" },
+          { href: "/crm/commissions", label: "Commissions", icon: "wallet", module: "crm.deals" },
         ],
       },
       {

@@ -388,6 +388,10 @@ model Deal {
   /// e.g. "60 monthly installments" or "4 yearly".
   installmentPlan  String?
   handoverPct      Float?
+  /// Commission tracker: when the company got its commission from the developer/client, and when the agent was paid.
+  commissionReceivedAt DateTime?
+  agentPaidAt          DateTime?
+  agentPaidAmount      Float?
   lostReason     String?
   notes          String? // @text
   ownerId        String?
