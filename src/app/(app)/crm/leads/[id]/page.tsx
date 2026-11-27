@@ -229,7 +229,15 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
                 <Row label="Stage">{lead.status.name}</Row>
                 <Row label="Lead score">
                   <span title={score.why.join("\n")} className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold", score.score >= 60 ? "bg-red-50 text-red-700" : score.score >= 35 ? "bg-amber-50 text-amber-700" : "bg-canvas text-muted")}>{scoreLabel(score.score)} · {score.score}/100</span>
-                  {score.why.length > 0 && <span className="mt-1 block text-[11px] leading-snug text-muted">{score.why.join(" · ")}</span>}
+                  {/* Why this score, and what would make the lead hotter. */}
+                  {score.why.length > 0 && (
+                    <span className="mt-1.5 flex flex-wrap gap-1">
+                      {score.why.map((w) => <span key={w} className={cn("rounded px-1.5 py-0.5 text-[11px]", w.startsWith("-") ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800")}>{w}</span>)}
+                    </span>
+                  )}
+                  {score.tips.length > 0 && (
+                    <span className="mt-1.5 block text-[11px] text-muted"><b className="font-medium text-ink">To make it hotter:</b> {score.tips.join(" · ")}</span>
+                  )}
                 </Row>
                 <Row label="Client name">{lead.name}</Row>
                 <Row label="Phone">{phoneItems.length > 0 && <ContactValues items={phoneItems} />}</Row>

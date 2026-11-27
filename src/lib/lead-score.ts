@@ -25,8 +25,8 @@ export type ScoreExtra = {
 };
 
 /** Score and the reasons behind it (shown when hovering the Hot / Warm badge and on the lead page). */
-export function leadScoreParts(l: ScoreInput & ScoreExtra): { score: number; why: string[] } {
-  if (l.kind !== "open") return { score: 0, why: ["Closed"] };
+export function leadScoreParts(l: ScoreInput & ScoreExtra): { score: number; why: string[]; tips: string[] } {
+  if (l.kind !== "open") return { score: 0, why: ["Closed"], tips: [] };
   const now = l.now ?? new Date();
   const days = (d: Date) => (now.getTime() - d.getTime()) / 86_400_000;
   const why: string[] = [];
@@ -42,7 +42,16 @@ export function leadScoreParts(l: ScoreInput & ScoreExtra): { score: number; why
   if (l.sourceRate != null) add(Math.round(Math.min(1, l.sourceRate / 0.15) * 10), `source converts ${Math.round(l.sourceRate * 100)}%`);
   if (l.fullContact) add(2, "phone and email");
   if (l.nextDue) add(l.nextDue < now ? -10 : 5, l.nextDue < now ? "follow-up overdue" : "next step planned");
-  return { score: Math.max(0, Math.min(100, s)), why };
+  // What the agent can do to make the lead hotter (the points it would add).
+  const tips: string[] = [];
+  if (l.nextDue && l.nextDue < now) tips.push("Do the overdue follow-up now (+15)");
+  else if (!l.nextDue) tips.push("Plan the next step with a date (+5)");
+  if (!l.lastActivityAt || days(l.lastActivityAt) > 7) tips.push("Get in touch: no contact for a week (+15)");
+  if (!l.hasBudget) tips.push("Ask and add the budget (+10)");
+  if (!l.hasProperty) tips.push("Pick the project or unit they want (+8)");
+  if (!l.visited) tips.push("Book a site visit (+15)");
+  if (!l.fullContact) tips.push("Add the missing phone or email (+2)");
+  return { score: Math.max(0, Math.min(100, s)), why, tips: tips.slice(0, 4) };
 }
 
 export function leadScore(l: ScoreInput & ScoreExtra) {
