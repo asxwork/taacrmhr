@@ -183,28 +183,11 @@ const FX = `(() => {
   };
 })()`;
 
-async function main() {
-  const index: Record<string, number> = existsSync(INDEX) ? JSON.parse(readFileSync(INDEX, "utf8")) : {};
-  const wanted = process.argv.slice(2);
-  const list = TUTORIALS.filter((t) => (wanted.length ? wanted.includes(t.key) : index[t.key] !== undefined || process.env.ALL === "1"));
-  const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: SCALE, colorScheme: "light" });
-  const page = await ctx.newPage();
-  await page.goto(`${BASE}/login`);
-  await page.fill("input[name=email]", process.env.LOGIN ?? "admin");
-  await page.fill("input[name=password]", process.env.PASSWORD ?? "");
-  await page.click("button[type=submit]");
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
-  const ready = async () => { await page.evaluate(FX); };
-
-  const report: string[] = [];
-  for (const t of list) {
-    const dir = path.join(tmpdir(), `tut-${t.key}`);
-    rmSync(dir, { recursive: true, force: true }); mkdirSync(dir, { recursive: true });
-    const old = path.join(OUT, `${t.key}.mp4`);
-    const slides = slidesFor(t);
+/** When each step starts: split at the pauses of the existing voice-over, or long enough to read (silent videos). */
+function timesFor(t: Tutorial, slides: Slide[], old: string, dir: string, report: string[]) {
     // The existing voice-over, unless this guide's text changed since it was recorded.
     let audio: string | null = null;
+    mkdirSync(dir, { recursive: true });
     let times: { start: number; end: number }[];
     if (existsSync(old) && !SILENT.has(t.key) && sh("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", old]).trim()) {
       audio = path.join(dir, "voice.m4a");
@@ -221,6 +204,47 @@ async function main() {
       times = slides.map((s) => { const d = Math.min(12, Math.max(4.5, 3 + s.text.length * 0.055)); const r = { start: at, end: at + d }; at += d; return r; });
     }
 
+    return { audio, times: times! };
+}
+
+async function main() {
+  const index: Record<string, number> = existsSync(INDEX) ? JSON.parse(readFileSync(INDEX, "utf8")) : {};
+  const wanted = process.argv.slice(2);
+  const list = TUTORIALS.filter((t) => (wanted.length ? wanted.includes(t.key) : index[t.key] !== undefined || process.env.ALL === "1"));
+  // CHAPTERS_ONLY=1: only (re)write each existing video's step timings (<key>.json), checking they fit the video.
+  if (process.env.CHAPTERS_ONLY === "1") {
+    const report: string[] = [];
+    for (const t of list) {
+      const old = path.join(OUT, `${t.key}.mp4`);
+      if (!existsSync(old)) continue;
+      const slides = slidesFor(t);
+      const dir = path.join(tmpdir(), `tut-ch-${t.key}`);
+      const { audio, times } = timesFor(t, slides, old, dir, report);
+      const total = times[times.length - 1]!.end, real = duration(old);
+      if (Math.abs(total - real) > 1.5) report.push(`${t.key}: steps add up to ${total.toFixed(1)}s but the video is ${real.toFixed(1)}s — remake it`);
+      writeFileSync(path.join(OUT, `${t.key}.json`), JSON.stringify({ duration: Math.round(real), voice: !!audio, chapters: slides.map((sl, i) => ({ t: Math.round((times[i]!.start + (i ? 0.2 : 0)) * 10) / 10, text: sl.text })) }));
+      rmSync(dir, { recursive: true, force: true });
+    }
+    console.log(`Step timings written for ${list.length} guide(s).${report.length ? `\nCheck these:\n${report.join("\n")}` : ""}`);
+    return;
+  }
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: SCALE, colorScheme: "light" });
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}/login`);
+  await page.fill("input[name=email]", process.env.LOGIN ?? "admin");
+  await page.fill("input[name=password]", process.env.PASSWORD ?? "");
+  await page.click("button[type=submit]");
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
+  const ready = async () => { await page.evaluate(FX); };
+
+  const report: string[] = [];
+  for (const t of list) {
+    const dir = path.join(tmpdir(), `tut-${t.key}`);
+    rmSync(dir, { recursive: true, force: true }); mkdirSync(dir, { recursive: true });
+    const old = path.join(OUT, `${t.key}.mp4`);
+    const slides = slidesFor(t);
+    const { audio, times } = timesFor(t, slides, old, dir, report);
     // SHOTS='{"lead-page":"/crm/leads/<id>"}' films guides that have no page link of their own on a real example.
     const shots = JSON.parse(process.env.SHOTS ?? "{}") as Record<string, string>;
     await page.goto(`${BASE}${shots[t.key] ?? t.href ?? FALLBACK[t.group]}`, { waitUntil: "networkidle" }).catch(() => {});
@@ -305,6 +329,8 @@ async function main() {
     // Still preview shown before the video starts (the title screen), so the player never looks empty.
     sh("ffmpeg", ["-v", "error", "-y", "-ss", "0.5", "-i", old, "-frames:v", "1", "-vf", "scale=960:-1", "-q:v", "5", old.replace(/\.mp4$/, ".jpg")]);
     index[t.key] = Math.round(total);
+    // The step list beside the video (Help panel): when each step starts, so clicking a step jumps to it.
+    writeFileSync(path.join(OUT, `${t.key}.json`), JSON.stringify({ duration: Math.round(total), voice: !!audio, chapters: slides.map((sl, i) => ({ t: Math.round((times[i]!.start + (i ? 0.2 : 0)) * 10) / 10, text: sl.text })) }));
     rmSync(dir, { recursive: true, force: true });
     console.log(`✓ ${t.key} (${slides.length} steps, ${Math.round(total)}s${audio ? ", voice" : ", silent"})`);
   }

@@ -87,7 +87,7 @@
  "fin-vendors": 29,
  "fin-checks": 24,
  "fin-branch": 40,
- "fin-quick": 38,
+ "fin-quick": 43,
  "fin-bank": 35,
  "my-day": 34,
  "roles-matrix": 39,
@@ -122,5 +122,6 @@
  "leads-trash": 53,
  "boss-agent": 44,
  "call-targets": 63,
- "fin-cards": 45
+ "fin-cards": 45,
+ "fin-entry": 35
 }

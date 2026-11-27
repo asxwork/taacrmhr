@@ -20,7 +20,7 @@ import { memo } from "@/lib/memo";
 import { PageHelp } from "@/components/page-help";
 import { BackLink } from "@/components/back-link";
 import { visibleTutorials } from "@/lib/tutorial-access";
-import { sectionVideos, videoUrl } from "@/lib/section-videos";
+import { sectionVideos, videoUrl, videoVersions } from "@/lib/section-videos";
 import { SECTIONS, type SectionTab } from "@/lib/sections";
 import { SectionTabs } from "@/components/section-tabs";
 import { NotificationPulse } from "@/components/notification-pulse";
@@ -42,12 +42,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   maybeRunBitrixSync(); // background, when a Bitrix sync is due (Settings → CRM → Bitrix sync)
   // Everything the frame needs, fetched side by side (each is a database round trip on the live server).
   // apps = only the apps and pages this user's roles allow — this is what makes Admin and Agent see different apps.
-  const [jar, h, apps, me, off, security, unread, banner, videos] = await Promise.all([
+  const [jar, h, apps, me, off, security, unread, banner, videos, versions] = await Promise.all([
     cookies(), headers(), appsForUser(user),
     db.employee.findUnique({ where: { userId: user.id }, select: { photo: true } }),
     disabledFeatures(), securitySettings(), Promise.all([unreadCount(user.id), urgentUnread(user.id), can(user, "chat") ? disabledFeatures().then((o) => (o.has("app-chat") ? -1 : chatUnread(user.id))) : Promise.resolve(-1)]),
     memo("setting:banner", 30_000, async () => (await db.setting.findUnique({ where: { key: "maintenance.banner" } }))?.value ?? ""),
-    sectionVideos(),
+    sectionVideos(), videoVersions(),
   ]);
 
   const collapsed = jar.get("sidebar")?.value === "collapsed";
@@ -86,7 +86,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {!user.viewAs && <NotificationPulse unread={unread[0]} chat={unread[2]} />}
       <Suspense><ListMemory /></Suspense>
       {/* "?" help button: the guide for the page you're on, from the sections you use. */}
-      <PageHelp items={visibleTutorials(user).filter((t) => t.href || t.paths?.length).map((t) => ({ key: t.key, title: t.title, summary: t.summary, paths: [...(t.href ? [t.href] : []), ...(t.paths ?? [])], video: videos[t.key] ? videoUrl(t.key) : undefined }))} />
+      <PageHelp items={visibleTutorials(user).filter((t) => t.href || t.paths?.length).map((t) => ({ key: t.key, title: t.title, summary: t.summary, paths: [...(t.href ? [t.href] : []), ...(t.paths ?? [])], video: videos[t.key] ? videoUrl(t.key, versions[t.key]) : undefined }))} />
       <Sidebar
         apps={apps}
         initialApp={current.key as AppKey}

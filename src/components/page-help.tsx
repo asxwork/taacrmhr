@@ -49,7 +49,7 @@ export function PageHelp({ items }: { items: HelpItem[] }) {
   useEffect(() => {
     if (!open || !t) return;
     if (!steps[t.key]) fetch(`/api/help?keys=${t.key}`).then((r) => (r.ok ? r.json() : [])).then((rows: { key: string; steps: string[]; tips: string[] }[]) => setSteps((s) => ({ ...s, ...Object.fromEntries(rows.map((r) => [r.key, { steps: r.steps, tips: r.tips }])) }))).catch(() => {});
-    if (t.video && !(t.key in chapters)) fetch(`/tutorials/sections/${t.key}.json`).then((r) => (r.ok ? r.json() : null)).then((j: { chapters?: Chapter[] } | null) => setChapters((c) => ({ ...c, [t.key]: j?.chapters ?? null }))).catch(() => setChapters((c) => ({ ...c, [t.key]: null })));
+    if (t.video && !(t.key in chapters)) fetch(t.video.replace(/\.mp4(\?|$)/, ".json$1")).then((r) => (r.ok ? r.json() : null)).then((j: { chapters?: Chapter[] } | null) => setChapters((c) => ({ ...c, [t.key]: j?.chapters ?? null }))).catch(() => setChapters((c) => ({ ...c, [t.key]: null })));
   }, [open, t, steps, chapters]);
   if (!matches.length || !t) return null;
   const s = steps[t.key];
@@ -80,7 +80,7 @@ export function PageHelp({ items }: { items: HelpItem[] }) {
             )}
             <div className="overflow-y-auto">
               {t.video ? (
-                <TutorialPlayer key={t.key} src={t.video} poster={t.video.replace(/\.mp4$/, ".jpg")} chapters={ch ?? null} steps={ch ? undefined : [t.summary, ...(s?.steps ?? [])]} />
+                <TutorialPlayer key={t.key} src={t.video} poster={t.video.replace(/\.mp4(\?|$)/, ".jpg$1")} chapters={ch ?? null} steps={ch ? undefined : [t.summary, ...(s?.steps ?? [])]} />
               ) : (
                 <div className="px-5 py-4">
                   <p className="mb-3 text-sm text-muted">{t.summary}</p>

@@ -12,8 +12,8 @@ export type Chapter = { key: string; title: string; start: number };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** Help page body: the full video tour with chapters, then searchable step-by-step tutorials. */
-export function TutorialsView({ tutorials, chapters, video, ranges = null, clips = {} }: {
-  tutorials: Tutorial[]; chapters: Chapter[]; video: string | null; clips?: Record<string, number>;
+export function TutorialsView({ tutorials, chapters, video, ranges = null, clips = {}, versions = {} }: {
+  tutorials: Tutorial[]; chapters: Chapter[]; video: string | null; clips?: Record<string, number>; versions?: Record<string, string>;
   /** Parts of the tour this person may watch ([start, end) seconds); null = all (Super Admins). Other parts are skipped. */
   ranges?: [number, number][] | null;
 }) {
@@ -112,7 +112,7 @@ export function TutorialsView({ tutorials, chapters, video, ranges = null, clips
                       <ChevronDown className="mt-1 size-4 shrink-0 text-muted transition group-open:rotate-180" />
                     </summary>
                     <div className="border-t border-line px-4 py-4">
-                      {clips[t.key] ? <div className="mb-4 w-full max-w-2xl overflow-hidden rounded-xl ring-1 ring-line"><TutorialPlayer src={`/tutorials/sections/${t.key}.mp4`} poster={`/tutorials/sections/${t.key}.jpg`} autoPlay={false} /></div> : null}
+                      {clips[t.key] ? <div className="mb-4 w-full max-w-2xl overflow-hidden rounded-xl ring-1 ring-line"><TutorialPlayer src={`/tutorials/sections/${t.key}.mp4${versions[t.key] ? `?v=${versions[t.key]}` : ""}`} poster={`/tutorials/sections/${t.key}.jpg${versions[t.key] ? `?v=${versions[t.key]}` : ""}`} autoPlay={false} /></div> : null}
                       <ol className="list-decimal space-y-2 pl-5 text-sm">{t.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
                       {t.tips?.length ? <ul className="mt-3 space-y-1 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{t.tips.map((s, i) => <li key={i}>💡 {s}</li>)}</ul> : null}
                       <div className="mt-4 flex flex-wrap gap-2">
