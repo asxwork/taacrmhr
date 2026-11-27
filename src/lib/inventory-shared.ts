@@ -39,9 +39,9 @@ export function guessArea(address: string | null | undefined, extra: string[] = 
 export const areaOf = (u: { area?: string | null; address?: string | null; project?: { location: string | null } | null }) => u.area || u.project?.location || guessArea(u.address);
 
 export const LISTING_TYPES = [
-  { value: "project", label: "Project stock (off-plan)" },
-  { value: "resale", label: "Resale listing" },
-  { value: "rental", label: "Rental listing" },
+  { value: "resale", label: "Sale" },
+  { value: "rental", label: "Rental" },
+  { value: "project", label: "Off-plan" },
 ] as const;
 
 export const FREQUENCIES = [

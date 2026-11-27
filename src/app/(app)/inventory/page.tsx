@@ -268,6 +268,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const max = sp.max ? parseAmount(sp.max) : null;
   const feats = (sp.feat ?? "").split(",").filter(Boolean);
   const beds = Number(sp.beds) || 0;
+  const listingClause: Prisma.UnitWhereInput[] = sp.listing ? [{ listingType: sp.listing }] : [];
   const base: Prisma.UnitWhereInput[] = [
     visible ?? { id: "" },
     ...(q ? [{ OR: [{ unitNo: { contains: q } }, { address: { contains: q } }, { area: { contains: q } }, { project: { name: { contains: q } } }, { project: { developer: { contains: q } } }, { propertyOwner: { contains: q } }] }] : []),
@@ -275,7 +276,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     ...(sp.developer ? [{ project: { developer: sp.developer } }] : []),
     ...(sp.area ? [areaWhere(sp.area)] : []),
     ...(sp.type ? [{ type: sp.type }] : []),
-    ...(sp.listing ? [{ listingType: sp.listing }] : []),
+    ...listingClause,
     // Type (Off-plan, Sale, Rental…): set on the unit, or from its listing type when not set.
     ...(sp.kind ? [{ OR: [{ dealType: sp.kind }, ...(KIND_FROM_LISTING[sp.kind] ? [{ dealType: null, listingType: KIND_FROM_LISTING[sp.kind] }] : [])] }] : []),
     ...(sp.purpose ? [{ purpose: sp.purpose }] : []),
@@ -299,10 +300,20 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   ]);
   const extraOn = [sp.listing, sp.kind, sp.purpose, sp.beds, sp.feat, sp.min, sp.max, sp.sort].filter(Boolean).length;
   const allCount = statusCounts.reduce((s, r) => s + r._count, 0);
+  // Sale / Rental / Off-plan tabs, with how many units each has (within the other filters).
+  const typeCounts = await db.unit.groupBy({ by: ["listingType"], where: { AND: [...base.filter((w) => !listingClause.includes(w)), ...(sp.status ? [{ status: sp.status }] : [])] }, _count: true }).catch(() => []);
+  const typeN = (v: string) => typeCounts.find((r) => r.listingType === v)?._count ?? 0;
 
   return (
     <>
       {header}
+      <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Sale, Rental or Off-plan">
+        {[{ value: "", label: "All" }, ...LISTING_TYPES].map((l) => {
+          const on = (sp.listing ?? "") === l.value;
+          const n = l.value ? typeN(l.value) : typeCounts.reduce((a, r) => a + r._count, 0);
+          return <Link key={l.value || "all"} href={hrefWith("/inventory", keep, { listing: l.value || undefined, page: undefined })} role="tab" aria-selected={on} className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${on ? "border-navy-900 bg-navy-900 text-white" : "border-line bg-surface text-muted hover:text-ink"}`}>{l.label}<span className={`rounded-full px-1.5 text-[11px] tabular-nums ${on ? "bg-white/20" : "bg-canvas"}`}>{n}</span></Link>;
+        })}
+      </div>
       <AutoFilterForm className="mb-3 space-y-2">
         {sp.view && <input type="hidden" name="view" value={sp.view} />}
         {sp.status && <input type="hidden" name="status" value={sp.status} />}
@@ -325,7 +336,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
           </summary>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <select name="kind" defaultValue={sp.kind ?? ""} className="input w-36" aria-label="Type"><option value="">All types</option>{kinds.map((k) => <option key={k} value={k}>{k}</option>)}</select>
-            <select name="listing" defaultValue={sp.listing ?? ""} className="input w-36" aria-label="Listing"><option value="">All listings</option>{LISTING_TYPES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}</select>
+            {sp.listing && <input type="hidden" name="listing" value={sp.listing} />}
             <select name="purpose" defaultValue={sp.purpose ?? ""} className="input w-28" aria-label="Sale or rent"><option value="">Sale & rent</option><option value="sale">For sale</option><option value="rent">For rent</option></select>
             <select name="beds" defaultValue={sp.beds ?? ""} className="input w-28" aria-label="Bedrooms"><option value="">Any beds</option>{[1, 2, 3, 4].map((b) => <option key={b} value={b}>{b} bed</option>)}<option value="5">5+ bed</option></select>
             <input name="min" defaultValue={sp.min} placeholder="Min price" aria-label="Min price" className="input w-28" />
