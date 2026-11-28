@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { employeeAllows } from "@/lib/hr";
 import { can, scopeMatcher } from "@/lib/permissions";
 
-const TYPES: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp", pdf: "application/pdf" };
+const TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", pdf: "application/pdf", gif: "image/gif", heic: "image/heic" };
 
 export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const user = await getCurrentUser();
@@ -54,7 +54,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ path: st
   // CVs: recruitment team only.
   if (rel.startsWith("cvs/") && !can(user, "hr.recruitment") && !(await db.employeeDocument.findUnique({ where: { path: rel } }))) return new Response("Not found", { status: 404 });
   const abs = resolveUpload(rel);
-  const type = TYPES[rel.split(".").pop() ?? ""];
+  const type = TYPES[(rel.split(".").pop() ?? "").toLowerCase()];
   if (!abs || !type) return new Response("Not found", { status: 404 });
   // ?w=64…1200: a smaller copy of a photo (made once with sharp, kept next to the uploads), much lighter on phones.
   const w = Number(new URL(req.url).searchParams.get("w"));

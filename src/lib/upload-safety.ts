@@ -35,6 +35,9 @@ async function referencedFiles() {
   add((await q(() => db.unitImage.findMany({ select: { path: true } }))).map((r) => ({ p: r.path })), "Unit photo");
   add((await q(() => db.employeeDocument.findMany({ select: { path: true } }))).map((r) => ({ p: r.path })), "Employee document");
   add((await q(() => db.expense.findMany({ where: { receipt: { not: null } }, select: { receipt: true } }))).map((r) => ({ p: r.receipt })), "Expense claim receipt");
+  add((await q(() => db.projectImage.findMany({ select: { path: true } }))).map((r) => ({ p: r.path })), "Project photo");
+  add((await q(() => db.finPayable.findMany({ where: { proof: { not: null } }, select: { proof: true } }))).map((r) => ({ p: r.proof })), "Supplier bill");
+  add((await q(() => db.attendancePunch.findMany({ where: { photo: { not: null } }, select: { photo: true }, orderBy: { at: "desc" }, take: 3000 }))).map((r) => ({ p: r.photo })), "Check-in selfie");
   return rows.filter((r) => !/^https?:/i.test(r.path));
 }
 
@@ -47,29 +50,51 @@ export async function missingUploads() {
 }
 
 /**
- * Brings back missing files from the newest Google Drive backup that has a files zip: only files that aren't on
- * the server are written (nothing is overwritten).
+ * Brings back missing files from the Google Drive backups: the newest files zip first, then older ones, until every
+ * missing picture / bill is found (files lost by an old deploy are only in backups made before it). Only missing
+ * files are written, nothing is overwritten; at most `maxZips` zips are opened.
  */
-export async function restoreMissingFromBackup() {
-  const { driveFileStream, latestFilesZip } = await import("./backup");
-  const zip = await latestFilesZip();
-  if (!zip) return { error: "No backup with files was found in Google Drive (Settings → Backup → include files)." };
-  const dir = path.join(tmpdir(), `ams-restore-${Date.now()}`);
-  await mkdir(dir, { recursive: true });
-  const file = path.join(dir, "files.zip");
-  await pipeline(Readable.fromWeb(await driveFileStream(zip.id) as import("node:stream/web").ReadableStream), createWriteStream(file));
+export async function restoreMissingFromBackup(maxZips = 15) {
+  const { driveFileStream, filesZips } = await import("./backup");
+  const zips = await filesZips(maxZips).catch((e: Error) => { throw e; });
+  if (!zips.length) return { error: "No backup with files was found in Google Drive (Settings → Backup → include files)." };
+  const want = new Set((await missingUploads()).missing.map((m) => m.path.replace(/^\/+/, "")));
+  // Also bring back the small preview picture of PDFs made from photos.
+  for (const p of [...want]) if (/\.pdf$/i.test(p)) want.add(p.replace(/\.pdf$/i, ".preview.jpg"));
+  if (!want.size) return { ok: true as const, restored: 0, from: "nothing missing" };
   const unzipper = await import("unzipper");
-  const archive = await unzipper.Open.file(file);
   let restored = 0;
-  for (const entry of archive.files) {
-    if (entry.type !== "File" || entry.path.includes(".thumbs/")) continue;
-    const abs = resolveUpload(entry.path.replace(/^\/+/, ""));
-    if (!abs || existsSync(abs)) continue;
-    await mkdir(path.dirname(abs), { recursive: true });
-    await pipeline(entry.stream(), createWriteStream(abs));
-    restored++;
+  const used: string[] = [];
+  for (const zip of zips) {
+    if (!want.size) break;
+    const dir = path.join(tmpdir(), `ams-restore-${Date.now()}`);
+    await mkdir(dir, { recursive: true });
+    const file = path.join(dir, "files.zip");
+    try {
+      await pipeline(Readable.fromWeb(await driveFileStream(zip.id) as import("node:stream/web").ReadableStream), createWriteStream(file));
+      const archive = await unzipper.Open.file(file);
+      let here = 0;
+      for (const entry of archive.files) {
+        const rel = entry.path.replace(/^\/+/, "");
+        if (entry.type !== "File" || !want.has(rel)) continue;
+        const abs = resolveUpload(rel);
+        if (!abs || existsSync(abs)) { want.delete(rel); continue; }
+        await mkdir(path.dirname(abs), { recursive: true });
+        await pipeline(entry.stream(), createWriteStream(abs));
+        want.delete(rel); restored++; here++;
+      }
+      if (here) used.push(zip.name);
+    } catch (e) { console.error(`Restoring from ${zip.name} failed:`, e); }
+    finally { const { rm } = await import("node:fs/promises"); await rm(dir, { recursive: true, force: true }).catch(() => {}); }
   }
-  const { rm } = await import("node:fs/promises");
-  await rm(dir, { recursive: true, force: true }).catch(() => {});
-  return { ok: true as const, restored, from: zip.name };
+  return { ok: true as const, restored, still: [...want].filter((p) => !p.endsWith(".preview.jpg")).length, from: used.join(", ") || "no backup had them" };
+}
+
+/** At start-up: if pictures / bills are missing and Google Drive backup is connected, restore them in the background. */
+export async function autoRestoreMissing() {
+  const { missing } = await missingUploads();
+  if (!missing.length) return null;
+  const r = await restoreMissingFromBackup().catch((e) => ({ error: String(e) }));
+  console.log(`Missing files: ${missing.length}; restore:`, r);
+  return r;
 }

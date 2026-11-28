@@ -35,7 +35,7 @@ export async function restoreMissingFiles(): Promise<FormState> {
     if ("error" in r) return { error: r.error };
     await audit(user.id, "update", "settings", null, `Restored ${r.restored} missing file(s) from ${r.from}`);
     revalidatePath("/settings/health");
-    return { ok: true, message: r.restored ? `Brought back ${r.restored} file(s) from ${r.from}.` : `Nothing to bring back: ${r.from} has no files that are missing here.` };
+    return { ok: true, message: r.restored ? `Brought back ${r.restored} file(s) from ${r.from}.${r.still ? ` ${r.still} could not be found in any backup.` : ""}` : r.still ? `${r.still} missing file(s) are not in any of the backups in Google Drive.` : "Nothing is missing." };
   } catch (e) {
     return { error: `Couldn't restore: ${e instanceof Error ? e.message.slice(0, 300) : "unknown error"}` };
   }

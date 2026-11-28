@@ -179,12 +179,17 @@ async function upload(token: string, folderId: string, file: string, name: strin
 
 /** The newest backup that has the uploaded files (files-*.zip). */
 export async function latestFilesZip() {
+  return (await filesZips(1))[0] ?? null;
+}
+
+/** The files zips in Google Drive, newest first (older ones still hold files lost before the newest backup ran). */
+export async function filesZips(max = 30) {
   const c = await backupConfig();
   if (!c.clientId || !c.clientSecret || !c.refreshToken) throw new Error("Google Drive isn't connected (Settings → Backup).");
   const token = await accessToken(c);
   const q = encodeURIComponent("name contains 'files-' and name contains '.zip' and trashed=false");
-  const res = await drive(token, `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime,size)&orderBy=createdTime desc&pageSize=5`);
-  return ((await res.json()) as { files: { id: string; name: string; createdTime: string }[] }).files[0] ?? null;
+  const res = await drive(token, `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime,size)&orderBy=createdTime desc&pageSize=${max}`);
+  return ((await res.json()) as { files: { id: string; name: string; createdTime: string }[] }).files ?? [];
 }
 
 /** Downloads a Drive file as a stream (for restoring files). */
