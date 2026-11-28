@@ -1759,7 +1759,7 @@ model Interview {
   /// status: scheduled | done | cancelled | no_show
   durationMin    Int       @default(30)
   location       String?
-  meetingLink    String?
+  meetingLink    String? // @text
   status         String    @default("scheduled")
   invitedAt      DateTime?
   scorecard      String? // @text
