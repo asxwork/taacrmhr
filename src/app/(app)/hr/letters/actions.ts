@@ -46,9 +46,10 @@ export async function issueLetter(_: FormState, fd: FormData): Promise<FormState
   const body = str(fd, "body").slice(0, 30_000);
   if (!title || !body) return { error: "Title and text are required." };
   if (/\{\{\s*\w+\s*\}\}/.test(body.replace(/\{\{\s*(today|issuer)\s*\}\}/g, ""))) return { error: "Some {{placeholders}} are still in the text. Fill them in or remove them." };
-  const letter = await db.employeeLetter.create({ data: { employeeId: emp.id, templateId: str(fd, "templateId") || null, title, body, issuedById: user.id } });
+  const requireSign = fd.get("requireSign") === "on";
+  const letter = await db.employeeLetter.create({ data: { employeeId: emp.id, templateId: str(fd, "templateId") || null, title, body, issuedById: user.id, requireSign } });
   await db.employeeEvent.create({ data: { employeeId: emp.id, type: "note", date: new Date(), title: `Letter issued: ${title}`, byId: user.id } });
-  if (emp.userId) await notify(emp.userId, `New letter: ${title}`, { link: `/print/letter/${letter.id}` });
+  if (emp.userId) await notify(emp.userId, requireSign ? `Please read and sign: ${title}` : `New letter: ${title}`, { link: requireSign ? `/me/documents/sign?letter=${letter.id}` : `/print/letter/${letter.id}`, email: requireSign });
   await audit(user.id, "create", "employeeLetter", letter.id, `Issued ${title} to ${emp.fullName}`);
   revalidatePath("/hr/letters");
   revalidatePath(`/hr/employees/${emp.id}`);

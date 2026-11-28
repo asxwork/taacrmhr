@@ -72,6 +72,7 @@ export default async function LettersPage({ searchParams }: { searchParams: Prom
                 <Field label="Title"><input name="title" required defaultValue={`${tpl.name} · ${emp.fullName}`} className="input" /></Field>
                 <textarea name="body" rows={20} required defaultValue={filled} className="input font-serif text-sm leading-relaxed" aria-label="Letter text" />
                 <p className="text-xs text-muted">Replace anything in [square brackets] before issuing. The employee sees issued letters in My Documents.</p>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="requireSign" defaultChecked={/joining|employment|offer|contract|appointment|agreement/i.test(tpl.name)} /> Ask {emp.fullName.split(" ")[0]} to sign it (e-signature in My Space)</label>
                 <SubmitButton><FilePlus2 className="size-4" /> Issue letter</SubmitButton>
               </ActionForm>
             ) : <EmptyState title="Choose an employee and a letter" description="The template is filled in from their record; you can edit the text before issuing." />}
@@ -83,13 +84,14 @@ export default async function LettersPage({ searchParams }: { searchParams: Prom
         <Card className="overflow-x-auto">
           {issued.length === 0 ? <EmptyState title="No letters issued yet" /> : (
             <table className="w-full min-w-[640px] text-sm">
-              <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Letter</th><th className="px-4 py-2.5">Employee</th><th className="px-4 py-2.5">Issued</th><th className="px-4 py-2.5" /></tr></thead>
+              <thead className="bg-canvas/60 text-left text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-2.5">Letter</th><th className="px-4 py-2.5">Employee</th><th className="px-4 py-2.5">Issued</th><th className="px-4 py-2.5">Signature</th><th className="px-4 py-2.5" /></tr></thead>
               <tbody className="divide-y divide-line">
                 {issued.map((l) => (
                   <tr key={l.id} className={cn(sp.issued === l.id && "bg-emerald-500/5")}>
                     <td className="px-4 py-2.5 font-medium">{l.title}</td>
                     <td className="px-4 py-2.5"><Link href={`/hr/employees/${l.employee.id}?tab=documents`} className="hover:underline">{l.employee.fullName}</Link> <span className="text-xs text-muted">{l.employee.code}</span></td>
                     <td className="px-4 py-2.5 text-xs text-muted">{format(l.issuedAt, "d MMM yyyy, h:mm a")}</td>
+                    <td className="px-4 py-2.5 text-xs">{l.signedAt ? <span className="text-emerald-700">✓ Signed {format(l.signedAt, "d MMM yyyy")}</span> : l.requireSign ? <span className="text-amber-700">Waiting for signature</span> : <span className="text-muted">—</span>}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex justify-end gap-1">
                         <a href={`/print/letter/${l.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-navy-700 hover:bg-canvas"><Printer className="size-3.5" /> Print</a>

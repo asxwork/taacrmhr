@@ -906,6 +906,13 @@ model EmployeeLetter {
   body       String // @text
   issuedById String?
   issuedAt   DateTime        @default(now())
+  /// E-signature: HR asks the employee to sign; they read it in My Space → Documents and sign (drawn signature,
+  /// typed name, time and IP kept).
+  requireSign Boolean   @default(false)
+  signedAt    DateTime?
+  signature   String?
+  signedName  String?
+  signedIp    String?
 
   @@index([employeeId])
 }
@@ -1150,6 +1157,13 @@ model EmployeeDocument {
   verified     Boolean   @default(true)
   uploadedById String?
   createdAt    DateTime  @default(now())
+  /// E-signature: HR asks the employee to sign; they read it in My Space → Documents and sign (drawn signature,
+  /// typed name, time and IP kept).
+  requireSign Boolean   @default(false)
+  signedAt    DateTime?
+  signature   String?
+  signedName  String?
+  signedIp    String?
 
   @@index([employeeId])
   @@index([expiresAt])

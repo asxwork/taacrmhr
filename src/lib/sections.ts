@@ -81,7 +81,7 @@ export const SECTIONS: Section[] = [
       { href: "/me/expenses", label: "Expenses & loans" },
       { href: "/me/swaps", label: "Shift swaps" },
       { href: "/hr/requests", label: "New request" },
-      { href: "/approvals?tab=mine", label: "My requests", params: { tab: "mine" } },
+      { href: "/me/requests", label: "Track my requests" },
     ],
   },
   {

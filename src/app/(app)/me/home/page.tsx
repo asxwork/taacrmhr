@@ -13,6 +13,9 @@ import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { FeedIcon } from "@/components/feed-icon";
 import { PersonAvatar } from "@/components/person-avatar";
 import { CheckInButton } from "../attendance/check-in-button";
+import { SendWish } from "@/components/send-wish";
+import { disabledFeatures } from "@/lib/features";
+import { addDays, differenceInCalendarDays, setYear } from "date-fns";
 
 export const metadata = { title: "My Space" };
 
@@ -35,6 +38,18 @@ export default async function MyHome() {
     geofenceMode(),
     selfieMode(),
   ]);
+  // Celebrations (next 7 days) and this month's kudos leaderboard.
+  const off = await disabledFeatures();
+  const nextYearly = (d: Date) => { let n = setYear(startOfDay(d), now.getFullYear()); if (n < startOfDay(now)) n = setYear(startOfDay(d), now.getFullYear() + 1); return n; };
+  const people = off.has("celebrations") ? [] : await db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, fullName: true, photo: true, dob: true, joiningDate: true, userId: true } });
+  const soon = (d: Date) => differenceInCalendarDays(nextYearly(d), now) <= 6;
+  const celebrations = [
+    ...people.filter((p) => p.dob && soon(p.dob)).map((p) => ({ p, on: nextYearly(p.dob!), what: "Birthday 🎂", wish: "Happy birthday! 🎂 Wishing you a wonderful year ahead." })),
+    ...people.filter((p) => soon(p.joiningDate) && nextYearly(p.joiningDate).getFullYear() - p.joiningDate.getFullYear() > 0).map((p) => { const y = nextYearly(p.joiningDate).getFullYear() - p.joiningDate.getFullYear(); return { p, on: nextYearly(p.joiningDate), what: `${y} year${y === 1 ? "" : "s"} with us 🎉`, wish: `Happy ${y}-year work anniversary! 🎉 Thank you for everything.` }; }),
+  ].sort((a, b) => +a.on - +b.on).slice(0, 8);
+  const kudos = off.has("feed") || off.has("kudos-board") ? [] : await db.feedPost.groupBy({ by: ["employeeId"], where: { kind: "kudos", createdAt: { gte: startOfMonth(now) }, employeeId: { not: null } }, _count: { _all: true }, orderBy: { _count: { employeeId: "desc" } }, take: 5 });
+  const kudosNames = new Map((await db.employee.findMany({ where: { id: { in: kudos.map((k) => k.employeeId!) } }, select: { id: true, fullName: true, photo: true } })).map((e) => [e.id, e]));
+  const toSign = (await db.employeeLetter.count({ where: { employeeId: emp.id, requireSign: true, signedAt: null } })) + (await db.employeeDocument.count({ where: { employeeId: emp.id, requireSign: true, signedAt: null } }));
   const days = att.get(emp.id) ?? [];
   const today = days.find((d) => isToday(d.date));
   const month = summarize(days.filter((d) => d.date <= now));
@@ -48,7 +63,7 @@ export default async function MyHome() {
     { href: "/me/leave", icon: Palmtree, label: "Leave left", value: annual ? `${annual.available}` : "—", sub: annual?.type.name, tone: "text-emerald-600" },
     { href: "/me/payslips", icon: Wallet, label: "Last payslip", value: slip ? fmtPKR(slip.net) : "—", sub: slip ? format(new Date(`${slip.run.month}-01`), "MMMM") : "none yet", tone: "text-navy-900" },
     { href: "/me/attendance", icon: ClipboardCheck, label: "This month", value: `${month.present}`, sub: `present · ${month.late} late · ${month.absent} absent`, tone: "text-sky-600" },
-    { href: "/approvals?tab=mine", icon: MessageSquarePlus, label: "My requests", value: `${pendingReqs}`, sub: "waiting for approval", tone: "text-amber-600" },
+    { href: off.has("me-requests") ? "/approvals?tab=mine" : "/me/requests", icon: MessageSquarePlus, label: "My requests", value: `${pendingReqs}`, sub: "waiting for approval", tone: "text-amber-600" },
   ];
   const actions = [
     { href: "/me/leave", icon: CalendarPlus, label: "Apply leave" },
@@ -86,6 +101,12 @@ export default async function MyHome() {
         </div>
       </Card>
 
+      {toSign > 0 && (
+        <Link href="/me/documents" className="mb-5 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 hover:bg-amber-100">
+          <FileCheck2 className="size-5" /><span className="flex-1"><b className="font-medium">{toSign} document{toSign === 1 ? "" : "s"} waiting for your signature</b><span className="block text-xs">Read and sign in My Documents</span></span><span className="text-xs font-medium">Sign →</span>
+        </Link>
+      )}
+
       <div className="mb-5 grid grid-cols-2 gap-3">
         {tiles.map((t) => (
           <Link key={t.label} href={t.href}>
@@ -108,6 +129,41 @@ export default async function MyHome() {
           </Link>
         ))}
       </div>
+
+      {(celebrations.length > 0 || kudos.length > 0) && (
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {celebrations.length > 0 && (
+            <Card className="p-4">
+              <h2 className="mb-2 text-sm font-semibold">Celebrations this week</h2>
+              <ul className="space-y-2">
+                {celebrations.map(({ p, on, what, wish }) => (
+                  <li key={p.id + what} className="flex items-center gap-2 text-sm">
+                    <PersonAvatar name={p.fullName} photo={p.photo} className="size-8" />
+                    <span className="min-w-0 flex-1"><span className="block truncate font-medium">{p.fullName}</span><span className="block text-xs text-muted">{what} · {differenceInCalendarDays(on, now) === 0 ? "today" : differenceInCalendarDays(on, now) === 1 ? "tomorrow" : format(on, "EEE d MMM")}</span></span>
+                    {p.userId !== user.id && !off.has("feed") && differenceInCalendarDays(on, now) <= 0 && <SendWish employeeId={p.id} text={wish} />}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+          {kudos.length > 0 && (
+            <Card className="p-4">
+              <h2 className="mb-2 text-sm font-semibold">Kudos leaderboard · {format(now, "MMMM")}</h2>
+              <ol className="space-y-2">
+                {kudos.map((k, i) => { const e = kudosNames.get(k.employeeId!); return e ? (
+                  <li key={k.employeeId} className="flex items-center gap-2 text-sm">
+                    <span className="w-5 text-center">{["🥇", "🥈", "🥉"][i] ?? i + 1}</span>
+                    <PersonAvatar name={e.fullName} photo={e.photo} className="size-8" />
+                    <span className="flex-1 truncate font-medium">{e.fullName}{e.id === emp.id && " (you)"}</span>
+                    <span className="text-xs text-muted">{k._count._all} kudos</span>
+                  </li>
+                ) : null; })}
+              </ol>
+              <Link href="/feed" className="mt-2 inline-block text-xs text-navy-900 hover:underline">Give kudos →</Link>
+            </Card>
+          )}
+        </div>
+      )}
 
       {posts.length > 0 && (
         <Card className="p-5">

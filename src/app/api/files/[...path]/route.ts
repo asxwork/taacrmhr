@@ -14,6 +14,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ path: st
   const parts = (await params).path;
   if (parts.some((p) => p === ".." || p === "." || p.includes("\\"))) return new Response("Not found", { status: 404 });
   const rel = parts.join("/");
+  // Signatures are only shown embedded in the signed letter / document (as images inside the page).
+  if (rel.startsWith("signatures/")) return new Response("Not found", { status: 404 });
   // Call recordings are only served by /api/calls/recordings (Super Admin, audited).
   if (rel.startsWith("calls/")) return new Response("Not found", { status: 404 });
   // Lead backups (every phone and email) are downloaded only through /api/lead-backups, by a Super Admin.

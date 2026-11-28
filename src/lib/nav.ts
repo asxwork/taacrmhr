@@ -385,7 +385,7 @@ export const APPS: AppDef[] = [
         items: [
           { href: "/me/home", label: "Home", icon: "home" },
           { href: "/me/attendance", label: "Attendance", icon: "fingerprint" },
-          { href: "/me/leave", label: "Requests", icon: "palm", also: ["/me/expenses", "/me/swaps", "/hr/requests", "/approvals"] },
+          { href: "/me/leave", label: "Requests", icon: "palm", also: ["/me/expenses", "/me/swaps", "/hr/requests", "/approvals", "/me/requests"] },
           { href: "/me/payslips", label: "Payslips", icon: "banknote" },
           { href: "/me/documents", label: "Documents", icon: "filecheck", also: ["/me/policies"] },
           { href: "/me/assets", label: "Assets", icon: "laptop" },

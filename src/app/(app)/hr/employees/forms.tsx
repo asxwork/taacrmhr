@@ -205,7 +205,7 @@ export function ResignForm({ employeeId, cancelHref, reasons = [] }: { employeeI
   );
 }
 
-export function DocumentForm({ employeeId, note }: { employeeId: string; note?: string }) {
+export function DocumentForm({ employeeId, note, askSign }: { employeeId: string; note?: string; askSign?: boolean }) {
   return (
     <ActionForm action={uploadDocument} className="space-y-3">
       <input type="hidden" name="employeeId" value={employeeId} />
@@ -218,6 +218,7 @@ export function DocumentForm({ employeeId, note }: { employeeId: string; note?: 
       </div>
       <input name="file" type="file" required accept="application/pdf,image/jpeg,image/png,image/webp" className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-white" />
       <p className="text-xs text-muted">PDF, JPG, PNG or WebP · up to 10 MB.{note ? ` ${note}` : ""}</p>
+      {askSign && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="requireSign" /> Ask the employee to sign it (contract, joining letter…): they sign in My Space → Documents</label>}
       <SubmitButton pendingText="Uploading…">Upload</SubmitButton>
     </ActionForm>
   );

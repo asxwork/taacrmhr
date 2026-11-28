@@ -245,8 +245,9 @@ export async function uploadDocument(_: FormState, fd: FormData): Promise<FormSt
   if ("error" in res) return { error: res.error };
 
   const doc = await db.employeeDocument.create({
-    data: { employeeId: emp.id, type, title: str(fd, "title") || type, path: res.path, size: res.size, expiresAt: date(fd, "expiresAt"), verified: isHr, uploadedById: user.id },
+    data: { employeeId: emp.id, type, title: str(fd, "title") || type, path: res.path, size: res.size, expiresAt: date(fd, "expiresAt"), verified: isHr, uploadedById: user.id, requireSign: isHr && !isSelf && fd.get("requireSign") === "on" },
   });
+  if (isHr && !isSelf && fd.get("requireSign") === "on" && emp.userId) await notify(emp.userId, `Please read and sign: ${doc.title}`, { link: `/me/documents/sign?doc=${doc.id}`, email: true });
   if (!isHr) {
     await submitRequest({ type: "document", employeeId: emp.id, requesterId: user.id, title: `${emp.fullName}: ${doc.title}`, summary: `New ${type} uploaded for verification`, payload: { documentId: doc.id } });
   }

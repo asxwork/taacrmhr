@@ -528,6 +528,42 @@ export const TUTORIALS: Tutorial[] = [
     tips: ["Roles → Announcements & kudos: Add lets someone post announcements, Delete lets them remove any post."],
   },
   {
+    key: "my-documents-sign", group: "My Space", title: "My documents and e-signature", who: "Every employee", href: "/me/documents",
+    summary: "Your joining and employment letters and every document HR keeps for you, in one place, signed online.",
+    steps: [
+      "My Space → Documents lists your files on record, letters from HR (joining, employment, experience, salary…) and company policies.",
+      "When HR asks you to sign something it shows at the top under Waiting for your signature (and on My Space home). Press Read and sign.",
+      "Read it fully, tick “I have read this and agree”, check your name, draw your signature with your finger or mouse, and press Sign.",
+      "Signed letters open with your signature on the letterhead: Print or Download PDF any time.",
+    ],
+  },
+  {
+    key: "my-requests-tracker", group: "My Space", title: "Track my requests", who: "Every employee", href: "/me/requests",
+    summary: "See where each request is: every approval step, who it's waiting on and for how long.",
+    steps: [
+      "My Space → Requests → Track my requests. Waiting shows open requests; Decided shows approved and rejected ones.",
+      "Each request shows its steps (Sent → Line manager → HR → Approved): green done, amber = where it is now with how long it's been waiting, and who approved each step.",
+      "Comments from approvers appear under the request.",
+    ],
+  },
+  {
+    key: "my-payslips-history", group: "My Space", title: "Payslip history and salary statement", who: "Every employee", href: "/me/payslips",
+    summary: "All your payslips by year with totals, a CSV and a printable salary statement.",
+    steps: [
+      "My Space → Payslips groups payslips by year with the year's gross, tax and net.",
+      "CSV downloads the year (All (CSV) downloads everything). Salary statement opens a printable statement of every month and the totals: for tax returns, bank loans or visas.",
+      "Open a month for the full payslip and its PDF.",
+    ],
+  },
+  {
+    key: "celebrations", group: "My Space", title: "Birthdays, anniversaries and kudos leaderboard", who: "Everyone", href: "/me/home",
+    summary: "My Space home shows this week's birthdays and work anniversaries, and who got the most kudos this month.",
+    steps: [
+      "Celebrations this week lists colleagues' birthdays and work anniversaries for the next 7 days. On the day, press Send wishes: it goes to the feed and they get a notification.",
+      "Kudos leaderboard shows the five people with the most kudos this month. Give kudos from the Feed.",
+    ],
+  },
+  {
     key: "org-chart", group: "My Space", module: "hr.orgchart", title: "Org chart", who: "Everyone", href: "/org-chart",
     summary: "See who reports to whom across the company, with photos.",
     steps: [
@@ -664,6 +700,8 @@ export const TUTORIALS: Tutorial[] = [
       "Open HR → People → Settings → Letter Management and choose a template, or edit the wording.",
       "Pick the employee: the letter fills in their name, designation, dates and salary from their record.",
       "Issue it: it's saved on their profile (Documents) and opens on the letterhead with Print and Download PDF buttons.",
+      "Tick “Ask … to sign it” (on by default for joining, employment, offer and contract letters): the employee gets a notification and email, reads it in My Space → Documents and signs. Issued letters show “Waiting for signature” or “✓ Signed” with the date; the printed letter carries their signature, name, time and IP.",
+      "Documents uploaded on an employee's profile (e.g. a contract PDF) can also be sent for signature: tick “Ask the employee to sign it” when uploading.",
     ],
   },
   {

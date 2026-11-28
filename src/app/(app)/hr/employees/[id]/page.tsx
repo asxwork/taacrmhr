@@ -93,6 +93,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
                   <span className="text-xs text-muted">{d.type} · {Math.max(1, Math.round(d.size / 1024))} KB · {fmtDate(d.createdAt)}</span>
                   <span className="flex-1" />
                   {!d.verified && <Badge tone="amber">Awaiting HR</Badge>}
+                  {d.signedAt ? <Badge tone="green">Signed {fmtDate(d.signedAt)}</Badge> : d.requireSign ? <Badge tone="amber">Waiting for signature</Badge> : null}
                   {days != null && <Badge tone={days < 0 ? "red" : days <= 30 ? "amber" : "neutral"}>{days < 0 ? "Expired" : `Expires ${fmtDate(d.expiresAt)}`}</Badge>}
                   {canEdit && (
                     <form action={deleteDocument}>
@@ -106,7 +107,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
           </ul>
         )}
       </Card>
-      {canEdit && <Card className="p-5"><h2 className="mb-3 text-sm font-medium">Add document</h2><DocumentForm employeeId={id} /></Card>}
+      {canEdit && <Card className="p-5"><h2 className="mb-3 text-sm font-medium">Add document</h2><DocumentForm employeeId={id} askSign /></Card>}
     </div>
   );
 
