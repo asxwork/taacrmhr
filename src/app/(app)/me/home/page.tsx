@@ -15,7 +15,7 @@ import { PersonAvatar } from "@/components/person-avatar";
 import { CheckInButton } from "../attendance/check-in-button";
 import { SendWish } from "@/components/send-wish";
 import { disabledFeatures } from "@/lib/features";
-import { addDays, differenceInCalendarDays, setYear } from "date-fns";
+import { differenceInCalendarDays, setYear } from "date-fns";
 
 export const metadata = { title: "My Space" };
 
