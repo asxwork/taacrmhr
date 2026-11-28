@@ -198,6 +198,17 @@ export const TUTORIALS: Tutorial[] = [
       "Available units shows only what you can sell today.",
       "Projects holds blocks, photos and payment plans for each project.",
       "Open a unit to add photos, change the price or start a deal for it.",
+      "Sale / Rental / Off-plan tabs at the top split the list by listing type.",
+    ],
+  },
+  {
+    key: "inventory-share", group: "CRM", module: "inventory.units", title: "Share a property, owner link and price history", who: "Agents, managers", href: "/inventory",
+    summary: "Send a client a page with the photos and price on WhatsApp, give the owner a live progress link, and track every price change.",
+    steps: [
+      "Open a unit. Share this property → WhatsApp writes a message with the price, size and a link; Copy link copies it. The page shows the photos, price, price per sq ft, size and features, with WhatsApp and Call buttons to you. No login; the owner's details and notes are never shown. The card says how many times it was opened.",
+      "Owner link (Sale and Rental listings): Send to owner (or Copy link) gives the property owner a page with listing views, enquiries, matching buyers, site visits and the price history. Counts only, never the clients' details.",
+      "Price per sq ft shows under the price (marla = 225 sq ft, kanal = 20 marla, sq yd = 9 sq ft).",
+      "Every price change is saved under Price history. When a price drops, agents whose open leads match the unit (or asked about it) get a notification: a good reason to call.",
     ],
   },
   {

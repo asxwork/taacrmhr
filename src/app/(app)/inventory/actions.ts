@@ -149,6 +149,8 @@ export async function saveUnit(_: FormState, fd: FormData): Promise<FormState> {
   }
   await audit(user.id, existing ? "update" : "create", "unit", unit.id, `${existing ? "Updated" : "Added"} unit ${unitNo}`);
   if (!existing || existing.status !== "available" || existing.price !== unit.price) findMatchesForUnit(unit.id);
+  // Price history (and a price-drop alert to agents with matching leads).
+  if (!existing ? unit.price != null : existing.price !== unit.price) await (await import("@/lib/unit-public")).recordPriceChange(unit.id, existing?.price ?? null, unit.price, user.id).catch(() => {});
   revalidatePath("/inventory");
   redirect(`/inventory/units/${unit.id}`);
 }

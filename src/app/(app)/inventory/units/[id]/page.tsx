@@ -15,6 +15,11 @@ import { InfoList, StatusPill } from "@/components/crm/bits";
 import { UnitForm } from "../../forms";
 import { deleteUnit, deleteUnitImage, setUnitCover, setUnitStatus, uploadUnitImages } from "../../actions";
 import { PhotoManager } from "@/components/photo-manager";
+import { CopyLink } from "@/components/copy-link";
+import { disabledFeatures } from "@/lib/features";
+import { APP_URL } from "@/lib/notify";
+import { pricePerSqft, unitToken } from "@/lib/unit-public";
+import { MessageCircle } from "lucide-react";
 
 export const metadata = { title: "Unit" };
 
@@ -46,6 +51,19 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
   const canCreateDeal = can(user, "crm.deals", "create") && !unit.activeDealId && ["available", "hold"].includes(unit.status);
   const rentalPipelineId = unit.purpose === "rent" ? (await db.pipeline.findFirst({ where: { name: { contains: "Rent" } }, select: { id: true } }))?.id : undefined;
 
+  // Sharing: public listing link (WhatsApp), the owner's progress link, and the price history.
+  const off = await disabledFeatures();
+  const isListing = unit.listingType !== "project";
+  const [publicToken, ownerToken, prices] = await Promise.all([
+    off.has("inv-share") ? null : unitToken(unit.id, "public"),
+    off.has("inv-owner") || !isListing || !canEdit ? null : unitToken(unit.id, "owner"),
+    off.has("inv-prices") ? [] : db.unitPrice.findMany({ where: { unitId: unit.id }, orderBy: { changedAt: "desc" }, take: 10 }),
+  ]);
+  const publicUrl = publicToken ? `${APP_URL()}/p/${publicToken}?a=${user.id}` : null;
+  const ownerUrl = ownerToken ? `${APP_URL()}/o/${ownerToken}` : null;
+  const ppsf = pricePerSqft(unit.price, unit.size, unit.sizeUnit);
+  const shareText = publicUrl ? `${[unit.bedrooms ? `${unit.bedrooms} bed` : null, unit.type, unit.project?.name ?? unit.area].filter(Boolean).join(" · ")}\n${fmtPKR(unit.price)}${unit.purpose === "rent" ? " / month" : ""} · ${sizeLabel(unit.size, unit.sizeUnit)}\nPhotos and details: ${publicUrl}` : "";
+
   const editData = sp.edit && canEdit
     ? await Promise.all([
         db.project.findMany({ include: { blocks: { orderBy: { sortOrder: "asc" } } }, orderBy: { name: "asc" } }),
@@ -69,6 +87,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
             {unit.block ? ` · ${unit.block.name}` : ""}
           </p>
           <p className="mt-1 text-2xl font-semibold text-navy-900">{fmtPKR(unit.price)}{unit.purpose === "rent" && <span className="text-sm font-normal text-muted"> / month</span>}</p>
+          {ppsf && unit.purpose !== "rent" && !off.has("inv-prices") && <p className="text-sm text-muted">{fmtPKR(ppsf)} per sq ft</p>}
         </div>
         <div className="flex flex-wrap gap-2">
           {canCreateDeal && <LinkButton href={`/crm/deals/new?unit=${unit.id}${unit.purpose === "rent" ? "&pipeline=" + (rentalPipelineId ?? "") : ""}`} prefetch><Handshake className="size-4" /> Create deal</LinkButton>}
@@ -136,6 +155,44 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
               ]}
             />
           </Card>
+          {(publicUrl || ownerUrl) && (
+            <Card className="space-y-3 p-5">
+              {publicUrl && (
+                <div>
+                  <h2 className="text-sm font-medium">Share this property</h2>
+                  <p className="mb-2 text-xs text-muted">A page with the photos, price and your contact. No login needed; the property owner&apos;s details and notes aren&apos;t shown. {unit.publicViews ? `Opened ${unit.publicViews} time${unit.publicViews === 1 ? "" : "s"}.` : ""}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700"><MessageCircle className="size-4" /> WhatsApp</a>
+                    <CopyLink url={publicUrl} />
+                    <a href={publicUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center px-2 text-sm text-navy-900 hover:underline">Open</a>
+                  </div>
+                </div>
+              )}
+              {ownerUrl && (
+                <div className="border-t border-line pt-3">
+                  <h2 className="text-sm font-medium">Owner link</h2>
+                  <p className="mb-2 text-xs text-muted">Send to the property owner: they see views, enquiries, matching buyers, site visits and price history (counts only, no client details).</p>
+                  <div className="flex flex-wrap gap-2">
+                    {unit.propertyOwnerPhone && <a href={`https://wa.me/${unit.propertyOwnerPhone.replace(/\D/g, "").replace(/^0/, "92")}?text=${encodeURIComponent(`Assalam o Alaikum${unit.propertyOwner ? ` ${unit.propertyOwner}` : ""}, you can see how your property is doing here any time: ${ownerUrl}`)}`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm hover:bg-canvas"><MessageCircle className="size-4 text-emerald-600" /> Send to owner</a>}
+                    <CopyLink url={ownerUrl} />
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+          {prices.length > 0 && (
+            <Card className="p-5">
+              <h2 className="mb-2 text-sm font-medium">Price history</h2>
+              <ul className="divide-y divide-line text-sm">
+                {prices.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-2 py-1.5">
+                    <span className="text-xs text-muted">{format(p.changedAt, "d MMM yyyy")}</span>
+                    <span className={p.oldPrice && p.price && p.price < p.oldPrice ? "text-emerald-700" : p.oldPrice && p.price && p.price > p.oldPrice ? "text-red-700" : ""}>{p.oldPrice ? `${fmtPKR(p.oldPrice)} → ` : ""}<b className="font-medium">{fmtPKR(p.price)}</b></span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
           {enquiries.length > 0 && (
             <Card className="p-5">
               <h2 className="mb-2 text-sm font-medium">Leads for this property <span className="text-muted">{enquiries.length}</span></h2>

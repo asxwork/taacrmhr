@@ -537,6 +537,10 @@ model Unit {
   activeDealId       String?
   /// A manual "On hold" ends on its own at this time (Settings → CRM → Unit holds); null = no expiry.
   holdUntil          DateTime?
+  /// Public listing page (/p/<token>, no login, shared on WhatsApp) and the owner's progress page (/o/<token>).
+  publicToken        String?
+  ownerToken         String?
+  publicViews        Int         @default(0)
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
   images             UnitImage[]
@@ -544,6 +548,9 @@ model Unit {
 
   leads   Lead[]          @relation("LeadUnit")
   matches PropertyMatch[]
+
+  @@index([publicToken])
+  @@index([ownerToken])
 
   @@index([projectId])
   @@index([status])
@@ -2768,4 +2775,16 @@ model FinCard {
   limit     Float?
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
+}
+
+/// Inventory: each price change of a unit (price history, price per sq ft over time, price-drop alerts).
+model UnitPrice {
+  id        String   @id @default(cuid())
+  unitId    String
+  oldPrice  Float?
+  price     Float?
+  byId      String?
+  changedAt DateTime @default(now())
+
+  @@index([unitId, changedAt])
 }
