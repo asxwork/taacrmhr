@@ -2122,9 +2122,38 @@ model FeedPost {
   /// Who sees it: "all", "dept:<id>", "branch:<id>" or "people:<employeeId,employeeId>". The author always sees it.
   audience   String    @default("all")
   likes      String    @default("") // comma-separated user ids
+  /// Announcements: everyone must press "Got it" (read receipts show who saw / confirmed it).
+  requireAck Boolean   @default(false)
   createdAt  DateTime  @default(now())
 
   @@index([createdAt])
+}
+
+/// Read receipt of an announcement: seen when it was shown to the person, acknowledged when they pressed Got it.
+model FeedRead {
+  id      String    @id @default(cuid())
+  postId  String
+  userId  String
+  seenAt  DateTime  @default(now())
+  ackedAt DateTime?
+
+  @@unique([postId, userId])
+  @@index([userId])
+}
+
+/// Tutorials quiz: a person passed the short quiz of one tutorial (best score kept).
+model TutorialQuiz {
+  id       String   @id @default(cuid())
+  userId   String
+  key      String
+  score    Int
+  total    Int
+  passedAt DateTime?
+  tries    Int      @default(1)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, key])
+  @@index([key])
 }
 
 /// Exit interview filled by a leaver (or HR on their behalf).

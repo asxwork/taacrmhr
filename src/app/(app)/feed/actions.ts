@@ -34,9 +34,10 @@ export async function postToFeed(_: FormState, fd: FormData): Promise<FormState>
   if (typeof audience !== "string") return audience;
   if (kind === "announcement") {
     if (!can(user, "hr.feed", "create")) return { error: "You can't post announcements." };
-    const post = await db.feedPost.create({ data: { kind, authorId: user.id, title: str(fd, "title").slice(0, 120) || null, body, audience, pinned: fd.get("pinned") === "on" } });
+    const requireAck = fd.get("requireAck") === "on" && !(await disabledFeatures()).has("feed-receipts");
+    const post = await db.feedPost.create({ data: { kind, authorId: user.id, title: str(fd, "title").slice(0, 120) || null, body, audience, pinned: fd.get("pinned") === "on" || requireAck, requireAck } });
     const to = (await audienceUsers(audience)).filter((id) => id !== user.id);
-    if (to.length) await db.notification.createMany({ data: to.map((id) => ({ userId: id, title: `📢 ${post.title ?? "New announcement"}`, body: body.slice(0, 200), link: "/feed" })) });
+    if (to.length) await db.notification.createMany({ data: to.map((id) => ({ userId: id, title: `📢 ${requireAck ? "Please read and confirm: " : ""}${post.title ?? "New announcement"}`, body: body.slice(0, 200), link: `/feed#p${post.id}` })) });
   } else {
     const to = await db.employee.findFirst({ where: { id: str(fd, "employeeId"), status: { not: "left" } }, select: { id: true, userId: true } });
     if (!to) return { error: "Choose who the kudos is for." };
@@ -73,5 +74,28 @@ export async function togglePin(fd: FormData) {
   const post = await db.feedPost.findUnique({ where: { id: str(fd, "id") }, select: { id: true, pinned: true } });
   if (!post) return;
   await db.feedPost.update({ where: { id: post.id }, data: { pinned: !post.pinned } });
+  revalidatePath("/feed");
+}
+
+/** "Got it": the person confirms they read an announcement. */
+export async function ackPost(fd: FormData) {
+  const user = await requireUser();
+  const postId = str(fd, "id");
+  const have = await db.feedRead.findUnique({ where: { postId_userId: { postId, userId: user.id } } });
+  if (have) await db.feedRead.update({ where: { id: have.id }, data: { ackedAt: have.ackedAt ?? new Date() } });
+  else await db.feedRead.create({ data: { postId, userId: user.id, ackedAt: new Date() } });
+  revalidatePath("/feed");
+  revalidatePath("/me/home");
+}
+
+/** The author / moderators remind everyone who hasn't seen (or confirmed) an announcement yet. */
+export async function remindUnread(fd: FormData) {
+  const user = await requireUser();
+  const post = await db.feedPost.findUnique({ where: { id: str(fd, "id") } });
+  if (!post || post.kind !== "announcement" || (post.authorId !== user.id && !can(user, "hr.feed", "delete"))) return;
+  const reads = await db.feedRead.findMany({ where: { postId: post.id }, select: { userId: true, ackedAt: true } });
+  const done = new Set(reads.filter((r) => (post.requireAck ? r.ackedAt : true)).map((r) => r.userId));
+  const to = (await audienceUsers(post.audience)).filter((id) => id !== post.authorId && !done.has(id));
+  if (to.length) await db.notification.createMany({ data: to.map((id) => ({ userId: id, title: `🔔 Reminder: ${post.requireAck ? "please read and confirm" : "please read"} “${post.title ?? "announcement"}”`, body: post.body.slice(0, 200), link: `/feed#p${post.id}` })) });
   revalidatePath("/feed");
 }

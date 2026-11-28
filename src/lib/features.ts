@@ -120,6 +120,8 @@ export const FEATURES = [
   { key: "celebrations", label: "Birthdays & anniversaries", group: "HR", app: "hr", paths: [], about: "This week's birthdays and work anniversaries on My Space home, with Send wishes" },
   { key: "me-requests", label: "Request tracker", group: "HR", app: "hr", paths: ["/me/requests"], about: "Employees see each request's approval steps, who it's waiting on and for how long" },
   { key: "esign", label: "E-signature on letters & documents", group: "HR", app: "hr", paths: ["/me/documents/sign"], about: "HR asks employees to sign letters and documents; they sign in My Space → Documents" },
+  { key: "feed-receipts", label: "Announcement read receipts", group: "HR", app: "hr", paths: [], about: "Who has seen each announcement, Must confirm (Got it) and reminders to those who haven't" },
+  { key: "tutorial-quiz", label: "Tutorial quizzes", group: "HR", app: "hr", paths: ["/help/progress"], about: "A short quiz after each tutorial and a completion view per person" },
   { key: "orgchart", label: "Org chart", group: "HR", app: "hr", paths: ["/org-chart"], about: "Who reports to whom, with photos" },
   { key: "docreminders", label: "Document expiry reminders", group: "HR", app: "hr", paths: [], about: "Remind employees before their CNIC, passport or documents expire" },
   { key: "exitinterviews", label: "Exit interviews", group: "HR", app: "hr", paths: ["/hr/exits/interviews", "/me/exit-interview"], about: "Leavers answer a short exit survey" },

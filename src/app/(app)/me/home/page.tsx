@@ -50,6 +50,11 @@ export default async function MyHome() {
   const kudos = off.has("feed") || off.has("kudos-board") ? [] : await db.feedPost.groupBy({ by: ["employeeId"], where: { kind: "kudos", createdAt: { gte: startOfMonth(now) }, employeeId: { not: null } }, _count: { _all: true }, orderBy: { _count: { employeeId: "desc" } }, take: 5 });
   const kudosNames = new Map((await db.employee.findMany({ where: { id: { in: kudos.map((k) => k.employeeId!) } }, select: { id: true, fullName: true, photo: true } })).map((e) => [e.id, e]));
   const toSign = (await db.employeeLetter.count({ where: { employeeId: emp.id, requireSign: true, signedAt: null } })) + (await db.employeeDocument.count({ where: { employeeId: emp.id, requireSign: true, signedAt: null } }));
+  const toConfirm = off.has("feed") || off.has("feed-receipts") ? 0 : await (async () => {
+    const posts = await db.feedPost.findMany({ where: { AND: [await (await import("@/lib/feed")).feedWhere(user.id), { requireAck: true, authorId: { not: user.id } }] }, select: { id: true }, take: 50 });
+    const acked = await db.feedRead.count({ where: { userId: user.id, postId: { in: posts.map((p) => p.id) }, ackedAt: { not: null } } });
+    return posts.length - acked;
+  })();
   const days = att.get(emp.id) ?? [];
   const today = days.find((d) => isToday(d.date));
   const month = summarize(days.filter((d) => d.date <= now));
@@ -101,6 +106,11 @@ export default async function MyHome() {
         </div>
       </Card>
 
+      {toConfirm > 0 && (
+        <Link href="/feed" className="mb-3 flex items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 hover:bg-sky-100">
+          <span className="text-lg">📢</span><span className="flex-1"><b className="font-medium">{toConfirm} announcement{toConfirm === 1 ? "" : "s"} to read and confirm</b><span className="block text-xs">Open the feed and press Got it</span></span><span className="text-xs font-medium">Read →</span>
+        </Link>
+      )}
       {toSign > 0 && (
         <Link href="/me/documents" className="mb-5 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 hover:bg-amber-100">
           <FileCheck2 className="size-5" /><span className="flex-1"><b className="font-medium">{toSign} document{toSign === 1 ? "" : "s"} waiting for your signature</b><span className="block text-xs">Read and sign in My Documents</span></span><span className="text-xs font-medium">Sign →</span>

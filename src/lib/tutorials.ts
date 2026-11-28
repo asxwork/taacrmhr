@@ -524,8 +524,19 @@ export const TUTORIALS: Tutorial[] = [
       "Give kudos: pick a colleague, write what they did and press Send — they get a notification and everyone sees it.",
       "Tap the heart to like a post.",
       "HR / management post announcements (optionally pinned to the top); everyone is notified.",
+      "Tick Must confirm on an announcement: it's pinned, everyone sees a “Got it, I've read this” button, and My Space home reminds them until they press it.",
+      "Read receipts: on your own announcements (and for moderators) “Seen by … of … · Confirmed … of …” shows; open it for the names not done yet and press Remind them to notify only those people.",
     ],
     tips: ["Roles → Announcements & kudos: Add lets someone post announcements, Delete lets them remove any post."],
+  },
+  {
+    key: "tutorial-quiz", group: "Getting started", title: "Tutorial quizzes and progress", who: "Everyone; HR and Super Admins see progress", href: "/help",
+    summary: "Check you've learned a guide with a 3-question quiz; HR sees who has passed what.",
+    steps: [
+      "Open any tutorial and press Take the quiz (3 questions): pick which line really belongs to that guide. 2 of 3 right passes; New questions gives a fresh set.",
+      "Passed guides get a ✓ quiz tag, and the top of the Tutorials page shows how many you've passed.",
+      "HR and Super Admins: Everyone's progress (or /help/progress) shows each person's passed quizzes, or each tutorial's count. Filter by CRM, HR, Finance… to check new joiners learned their part.",
+    ],
   },
   {
     key: "my-documents-sign", group: "My Space", title: "My documents and e-signature", who: "Every employee", href: "/me/documents",

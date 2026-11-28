@@ -5,6 +5,10 @@ import { visibleTutorials } from "@/lib/tutorial-access";
 import { PageHeader } from "@/components/ui";
 import { TutorialsView, type Chapter } from "@/components/tutorials-view";
 import { sectionVideos, videoVersions } from "@/lib/section-videos";
+import { db } from "@/lib/db";
+import { disabledFeatures } from "@/lib/features";
+import { can } from "@/lib/permissions";
+import Link from "@/components/link";
 
 export const metadata = { title: "Tutorials" };
 
@@ -30,10 +34,20 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
     ranges = sorted.map((c, i) => [c, sorted[i + 1]?.start ?? Number.MAX_SAFE_INTEGER] as const).filter(([c]) => keys.has(c.key)).map(([c, end]) => [c.start, end]);
     chapters = chapters.filter((c) => keys.has(c.key));
   }
+  const quizOn = !(await disabledFeatures()).has("tutorial-quiz");
+  const passed = quizOn ? (await db.tutorialQuiz.findMany({ where: { userId: user.id, passedAt: { not: null } }, select: { key: true } })).map((q) => q.key) : null;
+  const done = passed ? shown.filter((t) => passed.includes(t.key)).length : 0;
   return (
     <>
+      {passed && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
+          <span>🎓 Quizzes passed: <b>{done}</b> of {shown.length}</span>
+          <span className="h-2 w-40 overflow-hidden rounded-full bg-canvas"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${shown.length ? Math.round((done / shown.length) * 100) : 0}%` }} /></span>
+          {(user.isSuperAdmin || can(user, "hr.employees")) && <Link href="/help/progress" className="ml-auto text-navy-900 hover:underline">Everyone&apos;s progress →</Link>}
+        </div>
+      )}
       <PageHeader title={group ? `${group} tutorials` : "Tutorials"} description={user.isSuperAdmin ? "Everything in AMS: the full video tour and every guide. Each topic can jump to its part of the video." : "The guides for what your role can use. Open a topic for steps, or jump to its part of the video."} />
-      <TutorialsView tutorials={shown} chapters={chapters} video={video} ranges={ranges} clips={await sectionVideos()} versions={await videoVersions()} />
+      <TutorialsView tutorials={shown} chapters={chapters} video={video} ranges={ranges} clips={await sectionVideos()} versions={await videoVersions()} passed={passed} />
     </>
   );
 }

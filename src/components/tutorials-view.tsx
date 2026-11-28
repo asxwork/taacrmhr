@@ -6,14 +6,17 @@ import Link from "@/components/link";
 import { ChevronDown, PlayCircle, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TUTORIAL_GROUPS, type Tutorial } from "@/lib/tutorials";
+import { TutorialQuiz } from "./tutorial-quiz";
 
 export type Chapter = { key: string; title: string; start: number };
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** Help page body: the full video tour with chapters, then searchable step-by-step tutorials. */
-export function TutorialsView({ tutorials, chapters, video, ranges = null, clips = {}, versions = {} }: {
+export function TutorialsView({ tutorials, chapters, video, ranges = null, clips = {}, versions = {}, passed = null }: {
   tutorials: Tutorial[]; chapters: Chapter[]; video: string | null; clips?: Record<string, number>; versions?: Record<string, string>;
+  /** Tutorials whose quiz this person passed; null = quizzes switched off. */
+  passed?: string[] | null;
   /** Parts of the tour this person may watch ([start, end) seconds); null = all (Super Admins). Other parts are skipped. */
   ranges?: [number, number][] | null;
 }) {
@@ -105,7 +108,7 @@ export function TutorialsView({ tutorials, chapters, video, ranges = null, clips
                   <details key={t.key} id={t.key} className="group rounded-xl border border-line bg-surface" open={!!q.trim() && items.length <= 3}>
                     <summary className="flex cursor-pointer list-none items-start gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5 font-medium">{clips[t.key] ? <PlayCircle className="size-4 shrink-0 text-gold-600" aria-label="Has a video" /> : null}{t.title}</span>
+                        <span className="flex items-center gap-1.5 font-medium">{clips[t.key] ? <PlayCircle className="size-4 shrink-0 text-gold-600" aria-label="Has a video" /> : null}{t.title}{passed?.includes(t.key) && <span className="rounded-full bg-emerald-50 px-1.5 text-[10px] font-medium text-emerald-700">✓ quiz</span>}</span>
                         <span className="block text-sm text-muted">{t.summary}</span>
                       </span>
                       <span className="hidden shrink-0 rounded-full bg-canvas px-2 py-0.5 text-xs text-muted sm:inline">{t.who}</span>
@@ -118,6 +121,7 @@ export function TutorialsView({ tutorials, chapters, video, ranges = null, clips
                       <div className="mt-4 flex flex-wrap gap-2">
                         {ch && video && <button type="button" onClick={() => play(ch.start)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-canvas"><PlayCircle className="size-4 text-gold-600" /> Watch this part ({fmt(ch.start)})</button>}
                         {t.href && <Link href={t.href} className="inline-flex items-center rounded-lg bg-navy-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-navy-800">Open it</Link>}
+                        {passed && <TutorialQuiz tutorial={t} all={tutorials} passed={passed.includes(t.key)} />}
                       </div>
                     </div>
                   </details>

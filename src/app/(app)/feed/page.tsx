@@ -9,7 +9,10 @@ import Link from "@/components/link";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { PersonAvatar } from "@/components/person-avatar";
 import { cn } from "@/lib/utils";
-import { deletePost, likePost, postToFeed, togglePin } from "./actions";
+import { ackPost, deletePost, likePost, postToFeed, remindUnread, togglePin } from "./actions";
+import { audienceUsers } from "@/lib/feed";
+import { disabledFeatures } from "@/lib/features";
+import { CheckCheck, Eye } from "lucide-react";
 
 export const metadata = { title: "Feed" };
 
@@ -48,6 +51,22 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
       </details>
     </div>
   );
+  // Read receipts: announcements shown here count as seen; authors / moderators see who saw and confirmed them.
+  const receiptsOn = !(await disabledFeatures()).has("feed-receipts");
+  const ann = posts.filter((p) => p.kind === "announcement");
+  const myReads = receiptsOn ? await db.feedRead.findMany({ where: { userId: user.id, postId: { in: ann.map((p) => p.id) } } }) : [];
+  const unseen = ann.filter((p) => p.authorId !== user.id && !myReads.some((r) => r.postId === p.id));
+  if (receiptsOn && unseen.length) await db.feedRead.createMany({ data: unseen.map((p) => ({ postId: p.id, userId: user.id })) }).catch(() => {});
+  const ackedByMe = new Set(myReads.filter((r) => r.ackedAt).map((r) => r.postId));
+  const canSeeReceipts = (p: (typeof posts)[number]) => receiptsOn && p.kind === "announcement" && (p.authorId === user.id || can(user, "hr.feed", "delete"));
+  const receiptPosts = ann.filter(canSeeReceipts);
+  const allReads = receiptPosts.length ? await db.feedRead.findMany({ where: { postId: { in: receiptPosts.map((p) => p.id) } } }) : [];
+  const receipts = new Map(await Promise.all(receiptPosts.map(async (p) => {
+    const audience = (await audienceUsers(p.audience)).filter((id) => id !== p.authorId);
+    const reads = allReads.filter((r) => r.postId === p.id && audience.includes(r.userId));
+    return [p.id, { total: audience.length, seen: reads.length, acked: reads.filter((r) => r.ackedAt).length, missing: audience.filter((id) => !reads.some((r) => r.userId === id && (p.requireAck ? r.ackedAt : true))) }] as const;
+  })));
+  const missingNames = new Map((await db.user.findMany({ where: { id: { in: [...new Set([...receipts.values()].flatMap((r) => r.missing.slice(0, 40)))] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
   const authors = await db.user.findMany({ where: { id: { in: [...new Set(posts.map((p) => p.authorId))] } }, select: { id: true, name: true, employee: { select: { photo: true } } } });
   const author = (id: string) => authors.find((a) => a.id === id);
   const canAnnounce = can(user, "hr.feed", "create");
@@ -85,6 +104,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
               {audiencePicker()}
               <span className="ml-auto flex items-center gap-3">
                 <label className="flex items-center gap-1.5 text-sm text-muted"><input type="checkbox" name="pinned" className="accent-navy-900" /> <Pin className="size-3.5" /> Pin</label>
+                {receiptsOn && <label className="flex items-center gap-1.5 text-sm text-muted" title="Everyone presses Got it; you see who did"><input type="checkbox" name="requireAck" className="accent-navy-900" /> <CheckCheck className="size-3.5" /> Must confirm</label>}
                 <SubmitButton><Globe2 className="size-4" /> Post</SubmitButton>
               </span>
             </div>
@@ -100,7 +120,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
           const liked = likes.includes(user.id);
           const badge = p.kind === "kudos" ? badgeLabel(p.title) : null;
           return (
-            <article key={p.id} className={cn("rounded-2xl border bg-surface p-5 shadow-sm", p.pinned ? "border-gold-400/60" : "border-line")}>
+            <article key={p.id} id={`p${p.id}`} className={cn("scroll-mt-20 rounded-2xl border bg-surface p-5 shadow-sm", p.pinned ? "border-gold-400/60" : "border-line")}>
               <header className="flex items-center gap-3">
                 <PersonAvatar name={a?.name ?? "?"} photo={a?.employee?.photo ?? null} className="size-10" />
                 <div className="min-w-0 flex-1 text-sm">
@@ -118,6 +138,21 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
                 {p.kind === "announcement" && p.title && <h2 className="text-lg font-semibold">{p.title}</h2>}
                 {p.body && <p className="whitespace-pre-line text-[15px] leading-relaxed">{p.body}</p>}
               </div>
+              {receiptsOn && p.requireAck && p.authorId !== user.id && (
+                ackedByMe.has(p.id) ? <p className="mt-3 flex items-center gap-1.5 text-sm text-emerald-700"><CheckCheck className="size-4" /> You confirmed you read this</p>
+                  : <form action={ackPost} className="mt-3"><input type="hidden" name="id" value={p.id} /><button className="inline-flex items-center gap-1.5 rounded-lg bg-navy-900 px-4 py-2 text-sm font-medium text-white hover:bg-navy-800"><CheckCheck className="size-4" /> Got it, I&apos;ve read this</button></form>
+              )}
+              {receipts.get(p.id) && (() => { const r = receipts.get(p.id)!; return (
+                <details className="mt-3 rounded-lg bg-canvas px-3 py-2 text-xs">
+                  <summary className="flex cursor-pointer list-none items-center gap-3"><Eye className="size-3.5" /> Seen by {r.seen} of {r.total}{p.requireAck && <span>· Confirmed {r.acked} of {r.total}</span>}<span className="ml-auto text-navy-900">{r.missing.length ? `${r.missing.length} not yet` : "Everyone ✓"}</span></summary>
+                  {r.missing.length > 0 && (
+                    <div className="mt-2 border-t border-line pt-2">
+                      <p className="mb-2 text-muted">{p.requireAck ? "Not confirmed yet" : "Not seen yet"}: {r.missing.slice(0, 40).map((id) => missingNames.get(id) ?? "—").join(", ")}{r.missing.length > 40 ? ` and ${r.missing.length - 40} more` : ""}</p>
+                      <form action={remindUnread}><input type="hidden" name="id" value={p.id} /><button className="rounded-md border border-line bg-surface px-2 py-1 hover:bg-white">Remind them</button></form>
+                    </div>
+                  )}
+                </details>
+              ); })()}
               <footer className="mt-4 flex items-center gap-1 border-t border-line pt-2">
                 <form action={likePost}><input type="hidden" name="id" value={p.id} />
                   <button className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm hover:bg-canvas", liked ? "text-red-600" : "text-muted")} aria-label={liked ? "Unlike" : "Like"}>
