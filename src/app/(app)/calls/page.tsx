@@ -7,7 +7,7 @@ import { OUTCOMES, isCsrAgent, nextTarget, outcome, queueWhere } from "@/lib/cal
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { DrillTiles } from "@/components/drill-tiles";
 import { CallCard } from "@/components/calls/call-card";
-import { completeMyNumbers, createCallListing, editCallRemarks, logCall, saveCallFeedback, setCallMode, setDialCampaign } from "./actions";
+import { endCallingDay, completeMyNumbers, createCallListing, editCallRemarks, logCall, saveCallFeedback, setCallMode, setDialCampaign } from "./actions";
 import { ListingButton } from "@/components/calls/listing-button";
 import { CampaignSwitch } from "@/components/calls/campaign-switch";
 import { disabledFeatures } from "@/lib/features";
@@ -70,7 +70,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   // Details the supervisor chose to keep hidden from agents (Campaign → What agents see).
   try { for (const k of JSON.parse(target?.campaign.hiddenFields ?? "[]") as string[]) delete extra[k]; } catch {}
   // Today's report in the team's WhatsApp format, ready to copy or send to the group.
-  const report = callReportText(s, note?.feedback, undefined, { title: mode === "landline" ? "LANDLINE CALLING REPORT" : "INTERNATIONAL CALLING REPORT", totals: true });
+  const report = callReportText(s, [note?.feedback, note?.endReason && `Reason: ${note.endReason}${note.endNote ? ` — ${note.endNote}` : ""}`].filter(Boolean).join("\n") || null, undefined, { title: mode === "landline" ? "LANDLINE CALLING REPORT" : "INTERNATIONAL CALLING REPORT", totals: true });
   const fill = (t: string) => t.replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
   const off = await disabledFeatures();
   const templates = off.has("calls-templates") ? [] : (await db.callTemplate.findMany({
@@ -82,6 +82,10 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   const myGoals = off.has("calls-targets") ? {} : (await goalsFor([user.id])).get(user.id) ?? {};
   const myToday = (await dailyCounts([user.id], [day.date])).get(`${user.id}|${day.date}`) ?? { calls: 0, connected: 0, interested: 0 };
   const goalRows = GOAL_METRICS.filter(([m]) => myGoals[m]).map(([m, l]) => ({ m, l, goal: myGoals[m]!, n: myToday[m], st: goalState(myToday[m], myGoals[m]!) }));
+  // End of the calling day: a reason is needed when no lead was made or a target was missed.
+  const { END_REASONS } = await import("@/lib/call-goals");
+  const endMissed = goalRows.filter((g) => g.st === "below").map((g) => `${g.l} ${g.n} of ${g.goal.min}`);
+  const endChk = off.has("calls-endday") ? null : { missed: endMissed, noLead: s.leads === 0 && s.interested === 0, needsReason: endMissed.length > 0 || (s.leads === 0 && s.interested === 0) };
   const queueCamps = queueByCamp.map((r) => ({ id: r.campaignId, n: r._count, name: campNames.get(r.campaignId)?.name ?? "Campaign" }));
   const waText = (target?.campaign.waMessage ?? "").replace(/\{\{\s*name\s*\}\}/g, target?.name ?? "").replace(/\{\{\s*agent\s*\}\}/g, user.name);
 
@@ -115,6 +119,36 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       <p className="mb-3 text-xs uppercase tracking-wide text-muted">My last calls</p>
       <LastCalls action={editCallRemarks} rows={lastCalls.map((l) => ({ id: l.id, who: l.target?.name ?? fmtPhone(l.phone), outcome: outcome(l.outcome)?.label ?? l.outcome, notes: l.notes, when: format(l.startedAt, "h:mm a") }))} />
       <p className="mt-3 text-[11px] text-muted">You can fix the remarks of your last 3 calls.</p>
+    </Card>
+  );
+
+  const endCard = endChk && (
+    <Card className={note?.endedAt ? "border-emerald-200 p-5" : "p-5"}>
+      <p className="mb-2 text-xs uppercase tracking-wide text-muted">End my calling day</p>
+      {note?.endedAt ? (
+        <div className="text-sm">
+          <p className="font-medium text-emerald-700">✓ Day ended at {format(note.endedAt, "h:mm a")}</p>
+          {note.endReason && <p className="mt-1 text-muted">Reason: {note.endReason}{note.endNote ? ` — ${note.endNote}` : ""}</p>}
+          <p className="mt-2 text-xs text-muted">You can still call if needed; the numbers keep counting.</p>
+        </div>
+      ) : (
+        <ActionForm action={endCallingDay} className="space-y-2 text-sm">
+          <ul className="space-y-1 text-xs">
+            <li className={s.leads || s.interested ? "text-emerald-700" : "text-red-600"}>{s.leads || s.interested ? `✓ ${s.interested} interested · ${s.leads} lead(s) made` : "✗ No lead made today"}</li>
+            {endChk.missed.length ? endChk.missed.map((m) => <li key={m} className="text-red-600">✗ Target missed: {m}</li>) : goalRows.length ? <li className="text-emerald-700">✓ Daily targets met</li> : null}
+          </ul>
+          {endChk.needsReason && (
+            <>
+              <select name="reason" required defaultValue="" className="input h-9 text-sm" aria-label="Reason">
+                <option value="" disabled>Why? Pick a reason…</option>
+                {END_REASONS.map((r) => <option key={r}>{r}</option>)}
+              </select>
+              <textarea name="note" rows={2} placeholder="More detail (needed for Other)" className="input text-sm" />
+            </>
+          )}
+          <SubmitButton className="h-9 w-full" pendingText="Ending…">End my day</SubmitButton>
+        </ActionForm>
+      )}
     </Card>
   );
 
@@ -215,7 +249,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
       {!target ? (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <Card><EmptyState title="Your queue is empty" description="No numbers are due right now. Your supervisor can give you a new batch, or check your callbacks." /></Card>
-          <div className="space-y-4">{goalCard}{todayCard}{lastCallsCard}{myCampaigns}</div>
+          <div className="space-y-4">{goalCard}{endCard}{todayCard}{lastCallsCard}{myCampaigns}</div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
@@ -225,6 +259,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
           </Card>
           <div className="space-y-4">
             {goalCard}
+            {endCard}
             {todayCard}
             {target.campaign.script && (
               <Card className="p-5">

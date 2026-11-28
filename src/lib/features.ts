@@ -60,6 +60,7 @@ export const FEATURES = [
   { key: "calls-wallboard", label: "Calls: wallboard", group: "CRM", app: "crm", paths: ["/calls/wallboard"], about: "Live board of agents and batches" },
   { key: "calls-targets", label: "Calls: daily targets", group: "CRM", app: "crm", paths: ["/calls/targets"], about: "Daily calls / connected / interested targets per agent, shown on their dialer" },
   { key: "calls-reports", label: "Calls: reports & daily report", group: "CRM", app: "crm", paths: ["/calls/reports"], about: "Call reports and the end-of-shift report" },
+  { key: "calls-endday", label: "Calls: end my day with a reason", group: "CRM", app: "crm", paths: [], about: "Agents end their calling day; no lead made or a missed target needs a reason, and the manager is told" },
   { key: "calls-besttime", label: "Calls: best time to call", group: "CRM", app: "crm", paths: [], about: "Learns the hour each number picks up and calls retries at that time first" },
   { key: "calls-numbercheck", label: "Calls: number check before import", group: "CRM", app: "crm", paths: [], about: "Before an import, shows wrong numbers, do-not-call, already called in other campaigns and existing leads, with what to skip" },
   { key: "calls-dnc", label: "Calls: do-not-call list", group: "CRM", app: "crm", paths: ["/calls/dnc"], about: "Numbers never to call" },

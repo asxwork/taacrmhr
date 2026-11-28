@@ -402,6 +402,7 @@ export const TUTORIALS: Tutorial[] = [
       "Click an agent's name for their own report: tiles at the top, calls by hour, outcomes, a day-by-day table (click a day for that day's calls), their campaigns and the 50 latest calls with remarks.",
       "Agents open their own report with My report on the History page.",
       "The client replied or called again later? On History press Add on that call: write a remark (it's added to the call and the number's notes), or pick a new result (Interested, Call back…) to save it as a new call. Interested needs remarks and can go to the CRM.",
+      "End my calling day (on the dialer, under Today's target): press End my day when you finish. If no lead was made today or a daily target was missed, it lists what's missing and asks for a reason (numbers not answering, wrong numbers, not interested, queue empty, line problem…; Other needs a line of detail). Your manager and the calling supervisors get a notification, the reason goes into today's WhatsApp report, and Calls → Targets shows who ended the day, when and why.",
     ],
   },
   {

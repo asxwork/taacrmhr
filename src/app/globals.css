@@ -294,3 +294,60 @@ button:not(:disabled):active, a.inline-flex:active { transform: scale(0.98); }
 /* Sideways the edge arrows do the scrolling (hover the left/right edge), so no bar along the bottom. */
 .no-x-bar::-webkit-scrollbar:horizontal { height: 0; }
 .thin-scroll::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--color-muted) 70%, transparent); }
+
+/* ── Our own minimal dropdowns everywhere (instead of the browser's default list) ──────────────────────────
+   Closed: the same field look as inputs with a thin chevron. Open (Chrome / Edge / Android): a rounded card with
+   soft rows, the picked one highlighted. Other browsers keep their own open list but get the same closed look. */
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 14px;
+  padding-right: 2rem;
+  cursor: pointer;
+}
+@supports (appearance: base-select) {
+  select:not([multiple]) { appearance: base-select; align-items: center; }
+  select:not([multiple])::picker-icon { display: none; }
+  select:not([multiple])::picker(select) {
+    appearance: base-select;
+    border: 1px solid var(--color-line);
+    border-radius: 12px;
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 2px 6px rgb(16 24 40 / 0.06);
+    padding: 4px;
+    margin-block: 4px;
+    max-height: min(22rem, 60vh);
+    min-width: anchor-size(width);
+  }
+  select:not([multiple]) option {
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.35;
+    cursor: pointer;
+  }
+  select:not([multiple]) option::checkmark { display: none; }
+  select:not([multiple]) option:hover,
+  select:not([multiple]) option:focus-visible { background: var(--color-canvas); outline: none; }
+  select:not([multiple]) option:checked { background: color-mix(in srgb, var(--color-navy-700) 10%, transparent); font-weight: 500; }
+  select:not([multiple]) option:disabled { color: var(--color-muted); cursor: default; }
+  select:not([multiple]) optgroup { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-muted); padding: 6px 6px 2px; }
+  select:not([multiple]) optgroup option { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--color-ink); }
+}
+
+/* Minimal numbered and bulleted lists (steps, tips): small round numbers and soft dots. */
+ol.list-decimal { list-style: none; padding-left: 0; counter-reset: step; }
+ol.list-decimal > li { position: relative; padding-left: 2rem; counter-increment: step; }
+ol.list-decimal > li::before {
+  content: counter(step); position: absolute; left: 0; top: 0.05rem;
+  display: flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem;
+  border-radius: 9999px; background: var(--color-canvas); border: 1px solid var(--color-line);
+  font-size: 11px; font-weight: 600; color: var(--color-navy-700);
+}
+ul.list-disc { list-style: none; padding-left: 0; }
+ul.list-disc > li { position: relative; padding-left: 1.1rem; }
+ul.list-disc > li::before { content: ""; position: absolute; left: 0.2rem; top: 0.6em; width: 0.35rem; height: 0.35rem; border-radius: 9999px; background: var(--color-gold-600); }

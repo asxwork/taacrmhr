@@ -574,3 +574,32 @@ export async function checkCallNumbers(input: { campaignId: string; keys: string
   const uniq = (a: { phoneKey: string | null }[]) => [...new Set(a.map((x) => x.phoneKey!).filter(Boolean))];
   return { inCampaign: uniq(inCamp), dnc: uniq(dnc), otherCalled: uniq(other), leads: uniq(leads) };
 }
+
+/** The agent ends their calling day. With no lead made, or a daily target missed, a reason is required; the
+ * manager and call supervisors are told. Calling can continue afterwards (the day just shows as ended). */
+export async function endCallingDay(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!can(user, "calls", "edit")) return { error: "You don't have the dialer." };
+  if ((await (await import("@/lib/features")).disabledFeatures()).has("calls-endday")) return { error: "Ending the day is switched off." };
+  const { pkDay, agentDay } = await import("@/lib/call-daily");
+  const { END_REASONS, endDayCheck } = await import("@/lib/call-goals");
+  const day = pkDay();
+  const s = await agentDay(user.id, day.start, day.end);
+  const chk = await endDayCheck(user.id, day.date, s.leads, s.interested);
+  const reason = (END_REASONS as readonly string[]).includes(str(fd, "reason")) ? str(fd, "reason") : null;
+  const note = str(fd, "note").slice(0, 1000) || null;
+  if (chk.needsReason && !reason) return { error: `Pick a reason: ${[chk.noLead && "no lead made today", ...chk.missed.map((m) => `target missed (${m})`)].filter(Boolean).join(", ")}.` };
+  if (reason === "Other" && !note) return { error: "Write what happened." };
+  await db.callDayNote.upsert({ where: { agentId_date: { agentId: user.id, date: day.date } }, update: { endedAt: new Date(), endReason: reason, endNote: note }, create: { agentId: user.id, date: day.date, feedback: "", endedAt: new Date(), endReason: reason, endNote: note } });
+  const { notify } = await import("@/lib/notify");
+  const line = `${s.calls} calls · ${s.reached} reached · ${s.interested} interested · ${s.leads} lead(s)${chk.missed.length ? ` · missed: ${chk.missed.join(", ")}` : ""}${reason ? `\nReason: ${reason}${note ? ` — ${note}` : ""}` : ""}`;
+  const to = new Set<string>();
+  const emp = await db.employee.findUnique({ where: { userId: user.id }, select: { manager: { select: { userId: true } } } });
+  if (emp?.manager?.userId) to.add(emp.manager.userId);
+  for (const u of await db.user.findMany({ where: { active: true, roles: { some: { role: { permissions: { some: { module: "calls", action: "assign", scope: "all" } } } } } }, select: { id: true } })) to.add(u.id);
+  to.delete(user.id);
+  for (const id of to) await notify(id, `${user.name} ended the calling day${chk.needsReason ? " (target / no lead)" : ""}`, { body: line, link: "/calls/targets" }).catch(() => {});
+  await audit(user.id, "update", "callDayNote", null, `Ended calling day: ${line}`);
+  revalidatePath("/calls");
+  return { ok: true, message: "Day ended. Your manager has been told." };
+}

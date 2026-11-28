@@ -1,6 +1,7 @@
 import { disabledFeatures } from "@/lib/features";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { memo } from "@/lib/memo";
 import { can, requirePermission, scopeFor } from "@/lib/permissions";
 import { assignableUsers, usersInScope } from "@/lib/crm";
 import { filtersFrom, loadLeadList } from "@/lib/lead-list";
@@ -25,17 +26,20 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const page = Math.max(1, Number(sp.page) || 1);
   const filters = filtersFrom(sp);
 
-  const [statuses, sources, projects, typedProjects, owners, assignees, saved, automations, initial, branches] = await Promise.all([
+  const [statuses, sources, projects, typedProjects, owners, assignees, saved, automations, initial, branches, colRows, offFeatures] = await Promise.all([
     db.leadStatus.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     db.leadSource.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     db.project.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
-    db.lead.groupBy({ by: ["projectName"], where: { projectName: { not: null } } }),
+    // Typed project names across all leads: a full scan, so kept for 5 minutes.
+    memo("leadProjectNames", 300_000, () => db.lead.groupBy({ by: ["projectName"], where: { projectName: { not: null } } })),
     usersInScope(user, "crm.leads", "view"),
     assignableUsers(user, "crm.leads"),
     db.savedFilter.findMany({ where: { module: "crm.leads", OR: [{ userId: user.id }, { shared: true }] }, orderBy: [{ folder: "asc" }, { name: "asc" }] }),
     db.automation.findMany({ where: { active: true, entity: "lead" }, orderBy: { name: "asc" } }),
     loadLeadList(user, filters, view, page, Number(sp.size) || undefined),
     db.branch.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.setting.findMany({ where: { key: { in: [`leadcols:user:${user.id}`, "leadcols:default"] } } }),
+    disabledFeatures(),
   ]);
   const newStage = statuses.find((x) => x.systemKey === "new");
   const manageShared = user.isSuperAdmin || can(user, "settings.company", "edit");
@@ -78,7 +82,6 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const closeHref = hrefWith("/crm/leads", { ...filters, view: sp.view, page: sp.page }, {});
 
   // Columns this person chose (gear button), else the company default, else the standard set.
-  const colRows = await db.setting.findMany({ where: { key: { in: [`leadcols:user:${user.id}`, "leadcols:default"] } } });
   const colRaw = colRows.find((r) => r.key === `leadcols:user:${user.id}`)?.value ?? colRows.find((r) => r.key === "leadcols:default")?.value;
   const columns = colRaw ? cleanColumns(JSON.parse(colRaw)) : DEFAULT_LEAD_COLUMNS;
   return (
@@ -103,7 +106,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           canAddActivity: can(user, "crm.activities", "create"),
           canBulk: can(user, "crm.leads", "bulk"),
           canImport: canCreate && can(user, "crm.leads", "import"),
-          canTrash: can(user, "crm.leads", "delete") && !(await disabledFeatures()).has("crm-trash"),
+          canTrash: can(user, "crm.leads", "delete") && !offFeatures.has("crm-trash"),
           canMerge: can(user, "crm.merge"), canConfigure: can(user, "settings.company"), canRoles: can(user, "settings.roles"),
           isSuperAdmin: user.isSuperAdmin,
         }}

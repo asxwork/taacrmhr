@@ -302,6 +302,7 @@ model Lead {
   @@index([createdAt])
   @@index([email])
   @@index([bitrixId])
+  @@index([ownerId, lastActivityAt])
 }
 
 model Company {
@@ -409,6 +410,7 @@ model Deal {
   @@index([ownerId])
   @@index([branchId])
   @@index([stageId])
+  @@index([closedAt])
 }
 
 /// type: note | call | meeting | visit | task | email | system
@@ -446,6 +448,7 @@ model Activity {
   @@index([leadId, doneAt])
   @@index([type, doneAt])
   @@index([ownerId, dueAt])
+  @@index([ownerId, doneAt])
 }
 
 // ─── Inventory ───────────────────────────────────────────────
@@ -1214,6 +1217,7 @@ model ApprovalRequest {
 
   @@index([status, type])
   @@index([employeeId])
+  @@index([requesterId, status])
 }
 
 model ApprovalAction {
@@ -2127,6 +2131,7 @@ model FeedPost {
   createdAt  DateTime  @default(now())
 
   @@index([createdAt])
+  @@index([kind, createdAt])
 }
 
 /// Read receipt of an announcement: seen when it was shown to the person, acknowledged when they pressed Got it.
@@ -2754,6 +2759,10 @@ model CallDayNote {
   /// yyyy-MM-dd (Karachi)
   date      String
   feedback  String // @text
+  /// End of the calling day (pressed by the agent), with the reason when no lead was made or a target was missed.
+  endedAt   DateTime?
+  endReason String?
+  endNote   String? // @text
   updatedAt DateTime @updatedAt
 
   @@unique([agentId, date])

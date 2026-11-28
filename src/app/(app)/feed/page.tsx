@@ -54,18 +54,22 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   // Read receipts: announcements shown here count as seen; authors / moderators see who saw and confirmed them.
   const receiptsOn = !(await disabledFeatures()).has("feed-receipts");
   const ann = posts.filter((p) => p.kind === "announcement");
-  const myReads = receiptsOn ? await db.feedRead.findMany({ where: { userId: user.id, postId: { in: ann.map((p) => p.id) } } }) : [];
-  const unseen = ann.filter((p) => p.authorId !== user.id && !myReads.some((r) => r.postId === p.id));
-  if (receiptsOn && unseen.length) await db.feedRead.createMany({ data: unseen.map((p) => ({ postId: p.id, userId: user.id })) }).catch(() => {});
-  const ackedByMe = new Set(myReads.filter((r) => r.ackedAt).map((r) => r.postId));
   const canSeeReceipts = (p: (typeof posts)[number]) => receiptsOn && p.kind === "announcement" && (p.authorId === user.id || can(user, "hr.feed", "delete"));
   const receiptPosts = ann.filter(canSeeReceipts);
-  const allReads = receiptPosts.length ? await db.feedRead.findMany({ where: { postId: { in: receiptPosts.map((p) => p.id) } } }) : [];
-  const receipts = new Map(await Promise.all(receiptPosts.map(async (p) => {
-    const audience = (await audienceUsers(p.audience)).filter((id) => id !== p.authorId);
+  const [myReads, allReads, audiences] = await Promise.all([
+    receiptsOn && ann.length ? db.feedRead.findMany({ where: { userId: user.id, postId: { in: ann.map((p) => p.id) } } }) : [],
+    receiptPosts.length ? db.feedRead.findMany({ where: { postId: { in: receiptPosts.map((p) => p.id) } } }) : [],
+    Promise.all([...new Set(receiptPosts.map((p) => p.audience))].map(async (a) => [a, await audienceUsers(a)] as const)).then((x) => new Map(x)),
+  ]);
+  const unseen = ann.filter((p) => p.authorId !== user.id && !myReads.some((r) => r.postId === p.id));
+  // Marked seen in the background: the page doesn't wait for this write.
+  if (receiptsOn && unseen.length) void db.feedRead.createMany({ data: unseen.map((p) => ({ postId: p.id, userId: user.id })) }).catch(() => {});
+  const ackedByMe = new Set(myReads.filter((r) => r.ackedAt).map((r) => r.postId));
+  const receipts = new Map(receiptPosts.map((p) => {
+    const audience = (audiences.get(p.audience) ?? []).filter((id) => id !== p.authorId);
     const reads = allReads.filter((r) => r.postId === p.id && audience.includes(r.userId));
     return [p.id, { total: audience.length, seen: reads.length, acked: reads.filter((r) => r.ackedAt).length, missing: audience.filter((id) => !reads.some((r) => r.userId === id && (p.requireAck ? r.ackedAt : true))) }] as const;
-  })));
+  }));
   const missingNames = new Map((await db.user.findMany({ where: { id: { in: [...new Set([...receipts.values()].flatMap((r) => r.missing.slice(0, 40)))] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
   const authors = await db.user.findMany({ where: { id: { in: [...new Set(posts.map((p) => p.authorId))] } }, select: { id: true, name: true, employee: { select: { photo: true } } } });
   const author = (id: string) => authors.find((a) => a.id === id);

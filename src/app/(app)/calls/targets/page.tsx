@@ -1,6 +1,7 @@
 import Link from "@/components/link";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { dialerPeople, isCallSupervisor } from "@/lib/calls";
 import { GOAL_METRICS, dailyCounts, goalLabel, goalState, goalsFor, lastDays, type Goal } from "@/lib/call-goals";
@@ -22,8 +23,9 @@ export default async function CallTargetsPage({ searchParams }: { searchParams: 
   const people = (await dialerPeople()).filter((p) => p.canLog && (kind === "all" || p.kind === kind));
   const ids = people.map((p) => p.id);
   const days = lastDays(7);
-  const [goals, counts] = await Promise.all([goalsFor(ids), dailyCounts(ids, days)]);
   const today = days[0]!;
+  const [goals, counts, ends] = await Promise.all([goalsFor(ids), dailyCounts(ids, days), db.callDayNote.findMany({ where: { agentId: { in: ids }, date: today, endedAt: { not: null } } })]);
+  const endBy = new Map(ends.map((e) => [e.agentId, e]));
   const val = (n: number | null | undefined) => (n == null ? "" : String(n));
 
   return (
@@ -43,6 +45,7 @@ export default async function CallTargetsPage({ searchParams }: { searchParams: 
                   <th className="px-4 py-2.5 font-medium">Agent</th>
                   {GOAL_METRICS.map(([, l]) => <th key={l} className="px-3 py-2.5 font-medium">{l} per day <span className="font-normal normal-case">(from – to)</span></th>)}
                   <th className="px-3 py-2.5 font-medium">Today</th>
+                  <th className="px-3 py-2.5 font-medium">Day ended</th>
                   <th className="px-4 py-2.5 font-medium">Last 7 days</th>
                 </tr>
               </thead>
@@ -73,6 +76,7 @@ export default async function CallTargetsPage({ searchParams }: { searchParams: 
                           })}
                         </div>
                       </td>
+                      <td className="max-w-56 px-3 py-2.5 text-xs">{(() => { const e = endBy.get(p.id); return e ? <span><span className="font-medium text-emerald-700">{format(e.endedAt!, "h:mm a")}</span>{e.endReason && <span className="block text-red-700">{e.endReason}{e.endNote ? ` — ${e.endNote}` : ""}</span>}</span> : <span className="text-muted">—</span>; })()}</td>
                       <td className="px-4 py-2.5">
                         {main ? (
                           <div className="flex gap-1">

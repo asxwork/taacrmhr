@@ -39,3 +39,18 @@ export const goalLabel = (g: Goal) => (g.max != null && g.max !== g.min ? `${g.m
 
 /** The last `n` Karachi days, newest first. */
 export const lastDays = (n: number) => Array.from({ length: n }, (_, i) => pkDay(new Date(Date.now() - i * 86_400_000)).date);
+
+/** Reasons an agent picks when ending a day with no lead made or a target missed. */
+export const END_REASONS = [
+  "Numbers mostly not answering", "Many wrong / switched-off numbers", "People not interested right now", "Not enough numbers in my queue",
+  "Phone line / system problem", "Internet or power outage", "Meeting, training or other work", "Left early (leave / sick)", "Other",
+] as const;
+
+/** Today's result for ending the day: leads, targets met or missed, and whether a reason is needed. */
+export async function endDayCheck(agentId: string, date: string, leads: number, interested: number) {
+  const goals = (await goalsFor([agentId])).get(agentId) ?? {};
+  const counts = (await dailyCounts([agentId], [date])).get(`${agentId}|${date}`) ?? { calls: 0, connected: 0, interested: 0 };
+  const missed = GOAL_METRICS.filter(([m]) => goals[m] && counts[m] < goals[m]!.min).map(([m, l]) => `${l} ${counts[m]} of ${goals[m]!.min}`);
+  const noLead = leads === 0 && interested === 0;
+  return { missed, noLead, needsReason: noLead || missed.length > 0 };
+}

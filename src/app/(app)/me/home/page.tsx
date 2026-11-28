@@ -26,6 +26,20 @@ export default async function MyHome() {
   if (!emp) return (<><PageHeader title="My Space" /><Card><EmptyState title="Your login isn't linked to an employee record" description="Ask HR to link it to see attendance, leave and payslips." /></Card></>);
 
   const now = new Date();
+  const off = await disabledFeatures();
+  const nextYearly = (d: Date) => { let n = setYear(startOfDay(d), now.getFullYear()); if (n < startOfDay(now)) n = setYear(startOfDay(d), now.getFullYear() + 1); return n; };
+  // Everything below is independent: one round trip instead of a chain.
+  const extra = Promise.all([
+    off.has("celebrations") ? [] : db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, fullName: true, photo: true, dob: true, joiningDate: true, userId: true } }),
+    off.has("feed") || off.has("kudos-board") ? [] : db.feedPost.groupBy({ by: ["employeeId"], where: { kind: "kudos", createdAt: { gte: startOfMonth(now) }, employeeId: { not: null } }, _count: { _all: true }, orderBy: { _count: { employeeId: "desc" } }, take: 5 }),
+    db.employeeLetter.count({ where: { employeeId: emp.id, requireSign: true, signedAt: null } }),
+    db.employeeDocument.count({ where: { employeeId: emp.id, requireSign: true, signedAt: null } }),
+    off.has("feed") || off.has("feed-receipts") ? 0 : (async () => {
+      const posts = await db.feedPost.findMany({ where: { AND: [await (await import("@/lib/feed")).feedWhere(user.id), { requireAck: true, authorId: { not: user.id } }] }, select: { id: true }, take: 50 });
+      if (!posts.length) return 0;
+      return posts.length - (await db.feedRead.count({ where: { userId: user.id, postId: { in: posts.map((p) => p.id) }, ackedAt: { not: null } } }));
+    })(),
+  ]);
   const [att, punches, balances, slip, pendingReqs, policies, surveys, posts, mode, selfie] = await Promise.all([
     loadAttendance([emp.id], startOfMonth(now), now),
     db.attendancePunch.findMany({ where: { employeeId: emp.id, at: { gte: startOfDay(now) } }, orderBy: { at: "asc" } }),
@@ -39,28 +53,20 @@ export default async function MyHome() {
     selfieMode(),
   ]);
   // Celebrations (next 7 days) and this month's kudos leaderboard.
-  const off = await disabledFeatures();
-  const nextYearly = (d: Date) => { let n = setYear(startOfDay(d), now.getFullYear()); if (n < startOfDay(now)) n = setYear(startOfDay(d), now.getFullYear() + 1); return n; };
-  const people = off.has("celebrations") ? [] : await db.employee.findMany({ where: { status: { not: "left" } }, select: { id: true, fullName: true, photo: true, dob: true, joiningDate: true, userId: true } });
+  const [[people, kudosRows, letters, docsToSign, toConfirm], answered] = await Promise.all([extra, surveys.length ? db.engagementResponse.count({ where: { respondentKey: { in: surveys.map((x) => respondentKey(x.id, emp.id)) } } }) : 0]);
+  const kudos = kudosRows;
+  const kudosNames = new Map((kudos.length ? await db.employee.findMany({ where: { id: { in: kudos.map((k) => k.employeeId!) } }, select: { id: true, fullName: true, photo: true } }) : []).map((e) => [e.id, e]));
   const soon = (d: Date) => differenceInCalendarDays(nextYearly(d), now) <= 6;
   const celebrations = [
     ...people.filter((p) => p.dob && soon(p.dob)).map((p) => ({ p, on: nextYearly(p.dob!), what: "Birthday 🎂", wish: "Happy birthday! 🎂 Wishing you a wonderful year ahead." })),
     ...people.filter((p) => soon(p.joiningDate) && nextYearly(p.joiningDate).getFullYear() - p.joiningDate.getFullYear() > 0).map((p) => { const y = nextYearly(p.joiningDate).getFullYear() - p.joiningDate.getFullYear(); return { p, on: nextYearly(p.joiningDate), what: `${y} year${y === 1 ? "" : "s"} with us 🎉`, wish: `Happy ${y}-year work anniversary! 🎉 Thank you for everything.` }; }),
   ].sort((a, b) => +a.on - +b.on).slice(0, 8);
-  const kudos = off.has("feed") || off.has("kudos-board") ? [] : await db.feedPost.groupBy({ by: ["employeeId"], where: { kind: "kudos", createdAt: { gte: startOfMonth(now) }, employeeId: { not: null } }, _count: { _all: true }, orderBy: { _count: { employeeId: "desc" } }, take: 5 });
-  const kudosNames = new Map((await db.employee.findMany({ where: { id: { in: kudos.map((k) => k.employeeId!) } }, select: { id: true, fullName: true, photo: true } })).map((e) => [e.id, e]));
-  const toSign = (await db.employeeLetter.count({ where: { employeeId: emp.id, requireSign: true, signedAt: null } })) + (await db.employeeDocument.count({ where: { employeeId: emp.id, requireSign: true, signedAt: null } }));
-  const toConfirm = off.has("feed") || off.has("feed-receipts") ? 0 : await (async () => {
-    const posts = await db.feedPost.findMany({ where: { AND: [await (await import("@/lib/feed")).feedWhere(user.id), { requireAck: true, authorId: { not: user.id } }] }, select: { id: true }, take: 50 });
-    const acked = await db.feedRead.count({ where: { userId: user.id, postId: { in: posts.map((p) => p.id) }, ackedAt: { not: null } } });
-    return posts.length - acked;
-  })();
+  const toSign = letters + docsToSign;
   const days = att.get(emp.id) ?? [];
   const today = days.find((d) => isToday(d.date));
   const month = summarize(days.filter((d) => d.date <= now));
   const annual = balances.find((b) => !b.unlimited && b.type.paid);
   const toAck = policies.filter((p) => p.requireAck && !p.ackAt).length;
-  const answered = await db.engagementResponse.count({ where: { respondentKey: { in: surveys.map((x) => respondentKey(x.id, emp.id)) } } });
   const openSurveys = surveys.length - answered;
   const hour = now.getHours();
 
