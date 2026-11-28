@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   // Tutorial videos, their previews and brand images change rarely: browsers keep them for a week instead of
   // downloading them again on every open (a new version gets a new deploy, and the week is short enough).
   async headers() {
