@@ -555,3 +555,22 @@ export async function addCallFollowUp(_: FormState, fd: FormData): Promise<FormS
   refresh(); revalidatePath("/calls/history");
   return { ok: true, message: `Saved as a new call: ${OUTCOMES.find((x) => x.value === o)?.label}${extra}.` };
 }
+
+/**
+ * Before an import: which of these numbers (phone keys) are already in this campaign, on the do-not-call list,
+ * already called in another campaign, or already leads in the CRM. Up to 5,000 per call.
+ */
+export async function checkCallNumbers(input: { campaignId: string; keys: string[] }): Promise<{ error?: string; inCampaign?: string[]; dnc?: string[]; otherCalled?: string[]; leads?: string[] }> {
+  const user = await requireUser();
+  if (!manager(user)) return { error: "Only calling supervisors can add numbers." };
+  const keys = [...new Set((input.keys ?? []).map((k) => String(k).slice(0, 20)))].slice(0, 5000);
+  if (!keys.length) return { inCampaign: [], dnc: [], otherCalled: [], leads: [] };
+  const [inCamp, dnc, other, leads] = await Promise.all([
+    db.callTarget.findMany({ where: { campaignId: input.campaignId, phoneKey: { in: keys } }, select: { phoneKey: true } }),
+    db.dncNumber.findMany({ where: { phoneKey: { in: keys } }, select: { phoneKey: true } }),
+    db.callTarget.findMany({ where: { campaignId: { not: input.campaignId }, phoneKey: { in: keys }, attempts: { gt: 0 } }, select: { phoneKey: true } }),
+    db.lead.findMany({ where: { phoneKey: { in: keys } }, select: { phoneKey: true } }),
+  ]);
+  const uniq = (a: { phoneKey: string | null }[]) => [...new Set(a.map((x) => x.phoneKey!).filter(Boolean))];
+  return { inCampaign: uniq(inCamp), dnc: uniq(dnc), otherCalled: uniq(other), leads: uniq(leads) };
+}

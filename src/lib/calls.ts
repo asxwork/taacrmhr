@@ -51,10 +51,24 @@ export function queueWhere(agentId: string, now = new Date(), campaignId?: strin
 }
 
 /** The agent's next number; with campaignId only from that campaign (the campaign picked at the top of the dialer). */
-export async function nextTarget(agentId: string, campaignId?: string | null) {
+const pkHour = (d = new Date()) => new Date(+d + 5 * 3_600_000).getUTCHours();
+
+export async function nextTarget(agentId: string, campaignId?: string | null, opts: { bestTime?: boolean } = {}) {
   const where = queueWhere(agentId, new Date(), campaignId);
+  // Best time to call: callbacks still come first; then retries (and new numbers known from other campaigns) that
+  // usually pick up around this hour.
+  const callback = await db.callTarget.findFirst({ where: { AND: [where, { status: "callback" }] }, include: { campaign: true, logs: { orderBy: { startedAt: "desc" }, take: 5 } }, orderBy: { callbackAt: "asc" } });
+  if (callback) return callback;
+  if (opts.bestTime) {
+    const h = pkHour();
+    const t = await db.callTarget.findFirst({
+      where: { AND: [where, { status: { in: ["retry", "new"] }, bestHour: { in: [(h + 23) % 24, h, (h + 1) % 24] } }] }, include: { campaign: true, logs: { orderBy: { startedAt: "desc" }, take: 5 } },
+      orderBy: [{ lastCalledAt: { sort: "asc", nulls: "first" } }, { position: { sort: "asc", nulls: "last" } }],
+    });
+    if (t) return t;
+  }
   // Callbacks first, then new numbers in upload order, then retries (oldest attempt first).
-  for (const status of ["callback", "new", "retry"]) {
+  for (const status of ["new", "retry"]) {
     const t = await db.callTarget.findFirst({
       where: { AND: [where, { status }] }, include: { campaign: true, logs: { orderBy: { startedAt: "desc" }, take: 5 } },
       orderBy: status === "callback" ? { callbackAt: "asc" } : status === "new" ? [{ position: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }] : { lastCalledAt: "asc" },
@@ -84,6 +98,7 @@ export async function recordOutcome(input: { targetId: string; agentId: string; 
     where: { id: t.id },
     data: {
       status, outcome: input.outcome, attempts, lastCalledAt: new Date(), callbackAt: input.outcome === "callback" ? input.callbackAt : null,
+      ...(o.reached && input.channel !== "whatsapp" && input.outcome !== "whatsapp_sent" && !input.outcome.startsWith("inbound") ? { bestHour: pkHour() } : {}),
       notes: input.notes ? [t.notes, input.notes].filter(Boolean).join("\n") : t.notes,
     },
   });
@@ -142,6 +157,8 @@ export async function importNumbers(campaignId: string, rows: ReturnType<typeof 
   ]);
   const skip = new Set([...existing.map((e) => e.phoneKey), ...dnc.map((d) => d.phoneKey)]);
   const seen = new Set<string>();
+  // Best time to call, already learned for these numbers in other campaigns.
+  const known = new Map((await db.callTarget.findMany({ where: { phoneKey: { in: keys }, bestHour: { not: null } }, select: { phoneKey: true, bestHour: true }, orderBy: { lastCalledAt: "asc" } })).map((t) => [t.phoneKey, t.bestHour]));
   // Each number keeps its row in the file, after the numbers already in the campaign; the call order is then applied.
   const base = (await db.callTarget.aggregate({ where: { campaignId }, _max: { rowNo: true } }))._max.rowNo ?? 0;
   let row = base;
@@ -150,7 +167,7 @@ export async function importNumbers(campaignId: string, rows: ReturnType<typeof 
     if (skip.has(key) || seen.has(key)) return [];
     seen.add(key);
     row++;
-    return [{ campaignId, phone: r.phone, phoneKey: key, name: r.name, extra: r.extra ? JSON.stringify(r.extra) : null, rowNo: row, position: row }];
+    return [{ campaignId, phone: r.phone, phoneKey: key, name: r.name, extra: r.extra ? JSON.stringify(r.extra) : null, rowNo: row, position: row, bestHour: known.get(key) ?? null }];
   });
   for (let i = 0; i < data.length; i += 500) await db.callTarget.createMany({ data: data.slice(i, i + 500) });
   const camp = await db.callCampaign.findUnique({ where: { id: campaignId }, select: { callOrder: true } });

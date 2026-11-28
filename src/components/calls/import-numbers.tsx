@@ -2,24 +2,33 @@
 
 import { useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
-import { importCallRows, keepCallFile } from "@/app/(app)/calls/actions";
+import { checkCallNumbers, importCallRows, keepCallFile } from "@/app/(app)/calls/actions";
+import { phoneKey } from "@/lib/crm-shared";
 import { CALL_COLUMN_ROLES as ROLES, buildCallRows, guessCallColumns } from "@/lib/sheet-guess";
 
 const pretty = (h: string) => h.replace(/\b\w/g, (c) => c.toUpperCase());
 const PART = 1000;
+/** A phone key that can't be a real number: too short / long, or one digit repeated (0000000000). */
+const looksWrong = (k: string) => k.length < 10 || k.length > 15 || /^(\d)\1+$/.test(k) || /^0?3\d{9}$/.test(k) === false && k.startsWith("03");
+type Check = { noPhone: number; invalid: Set<string>; fileDup: number; inCampaign: Set<string>; dnc: Set<string>; otherCalled: Set<string>; leads: Set<string> };
 type Sheet = { id: string; headers: string[]; rows: Record<string, string>[]; total: number; sample: string[][]; guess: string[] };
 
 /**
  * Upload a sheet, then say what each column is (phone, name, details shown to the agent, or skip). The file is read
  * here in the browser; only the chosen rows go to the server, 1,000 at a time.
  */
-export function ImportNumbers({ campaignId }: { campaignId: string }) {
+export function ImportNumbers({ campaignId, check: doCheck = true }: { campaignId: string; check?: boolean }) {
   const [preview, setPreview] = useState<(Sheet & { error?: undefined }) | { error: string; id?: undefined; headers?: undefined } | undefined>();
   const [reading, setReading] = useState(false);
   const [done, setDone] = useState<{ ok?: boolean; message?: string; error?: string } | undefined>();
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState("");
   const [roles, setRoles] = useState<Record<string, string[]>>({});
+  // Bad-number check, run before the import: what's wrong, and what to skip.
+  const [check, setCheck] = useState<Check | undefined>();
+  const [skipOther, setSkipOther] = useState(true);
+  const [skipWrong, setSkipWrong] = useState(true);
+  const [skipLeads, setSkipLeads] = useState(false);
   const id = preview?.id;
   const cur = id ? roles[id] ?? (preview as Sheet).guess : [];
   const setRole = (i: number, r: string) => {
@@ -30,6 +39,7 @@ export function ImportNumbers({ campaignId }: { campaignId: string }) {
     if (["phone", "phone2", "name", "first", "last"].includes(r)) next.forEach((x, j) => { if (x === r) next[j] = "detail"; });
     next[i] = r;
     setRoles({ ...roles, [id]: next });
+    setCheck(undefined);
   };
   const read = async (file: File | undefined) => {
     if (!file?.size) return;
@@ -56,8 +66,26 @@ export function ImportNumbers({ campaignId }: { campaignId: string }) {
     const role = p.headers.map((_, i) => String(fd.get(`col_${i}`) ?? "") || "skip");
     const label = p.headers.map((h, i) => (String(fd.get(`label_${i}`) ?? "") || pretty(h)).slice(0, 60));
     if (!role.includes("phone")) { setDone({ error: "Choose which column has the phone number." }); return; }
-    const rows = buildCallRows(p.headers, p.rows, role, label);
-    if (!rows.length) { setDone({ error: "No phone numbers found in that column (a phone needs at least 7 digits). Check which column you chose as Phone number." }); return; }
+    const built = buildCallRows(p.headers, p.rows, role, label);
+    if (!built.length) { setDone({ error: "No phone numbers found in that column (a phone needs at least 7 digits). Check which column you chose as Phone number." }); return; }
+    const keyOf = (r: { phone: string }) => phoneKey(r.phone) ?? "";
+    if (!check && doCheck) {
+      // Step 1: check the numbers first and show what's wrong before anything is imported.
+      setSaving(true); setDone(undefined); setProgress("checking…");
+      try {
+        const keys = [...new Set(built.map(keyOf))];
+        const c: Check = { noPhone: p.rows.length - built.length, invalid: new Set(keys.filter(looksWrong)), fileDup: built.length - keys.length, inCampaign: new Set(), dnc: new Set(), otherCalled: new Set(), leads: new Set() };
+        for (let i = 0; i < keys.length; i += 5000) {
+          const r = await checkCallNumbers({ campaignId, keys: keys.slice(i, i + 5000) }).catch(() => null);
+          if (!r || r.error) { setDone({ error: r?.error ?? "Couldn't check the numbers. Try again." }); return; }
+          r.inCampaign?.forEach((k) => c.inCampaign.add(k)); r.dnc?.forEach((k) => c.dnc.add(k)); r.otherCalled?.forEach((k) => c.otherCalled.add(k)); r.leads?.forEach((k) => c.leads.add(k));
+        }
+        setCheck(c);
+      } finally { setSaving(false); setProgress(""); }
+      return;
+    }
+    const rows = !check ? built : built.filter((r) => { const k = keyOf(r); return !(skipWrong && check.invalid.has(k)) && !(skipOther && check.otherCalled.has(k)) && !(skipLeads && check.leads.has(k)); });
+    if (!rows.length) { setDone({ error: "Nothing left to import after skipping those numbers." }); return; }
     const keep = role.flatMap((x, i) => (x === "keep" ? [label[i]!] : []));
     setSaving(true); setDone(undefined);
     let added = 0, duplicates = 0, dnc = 0;
@@ -110,9 +138,24 @@ export function ImportNumbers({ campaignId }: { campaignId: string }) {
         </div>
         {!cur.includes("phone") && <p className="text-sm text-amber-700">Choose the column with the phone number.</p>}
         {!cur.includes("name") && !cur.includes("first") && !cur.includes("last") && <p className="text-sm text-amber-700">No name column chosen: agents will see “Unknown name”. Pick Full name, or First name and Last name.</p>}
+        {check && (
+          <div className="space-y-1.5 rounded-lg border border-line bg-canvas p-3 text-sm">
+            <p className="font-medium">Number check</p>
+            <ul className="space-y-0.5 text-xs">
+              {check.noPhone > 0 && <li>⚪ {check.noPhone.toLocaleString()} row(s) have no phone number: skipped.</li>}
+              {check.fileDup > 0 && <li>⚪ {check.fileDup.toLocaleString()} repeated in this file: added once.</li>}
+              {check.inCampaign.size > 0 && <li>⚪ {check.inCampaign.size.toLocaleString()} already in this campaign: skipped.</li>}
+              {check.dnc.size > 0 && <li>🔴 {check.dnc.size.toLocaleString()} on the do-not-call list: skipped.</li>}
+              {check.invalid.size === 0 && check.otherCalled.size === 0 && check.leads.size === 0 && check.inCampaign.size === 0 && check.dnc.size === 0 && <li>✅ All numbers look fine.</li>}
+            </ul>
+            {check.invalid.size > 0 && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={skipWrong} onChange={(e) => setSkipWrong(e.target.checked)} /> Skip {check.invalid.size.toLocaleString()} number(s) that look wrong (too short, too long or 0000…)</label>}
+            {check.otherCalled.size > 0 && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={skipOther} onChange={(e) => setSkipOther(e.target.checked)} /> Skip {check.otherCalled.size.toLocaleString()} number(s) already called in another campaign</label>}
+            {check.leads.size > 0 && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={skipLeads} onChange={(e) => setSkipLeads(e.target.checked)} /> Skip {check.leads.size.toLocaleString()} number(s) that are already leads in the CRM</label>}
+          </div>
+        )}
         {done?.error && <p role="alert" className="text-sm text-red-700">{done.error}</p>}
         <div className="flex flex-wrap items-center gap-3">
-          <button type="submit" disabled={saving || !cur.includes("phone")} className="inline-flex h-9 items-center rounded-lg bg-navy-900 px-4 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-50">{saving ? `Importing ${progress}` : `Import ${preview.total?.toLocaleString()} rows`}</button>
+          <button type="submit" disabled={saving || !cur.includes("phone")} className="inline-flex h-9 items-center rounded-lg bg-navy-900 px-4 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-50">{saving ? (check ? `Importing ${progress}` : "Checking the numbers…") : check || !doCheck ? (check ? "Import now" : `Import ${preview.total?.toLocaleString()} rows`) : `Check ${preview.total?.toLocaleString()} rows`}</button>
           <button type="button" onClick={() => location.reload()} className="text-sm text-muted hover:text-ink">Choose another file</button>
         </div>
         <p className="text-xs text-muted">“Show to agent” columns (project, unit, nationality, what they bought…) appear on the agent&apos;s screen for each call; “Keep, hide from agents” columns are saved but only supervisors see them (change it later under What agents see). Duplicates and do-not-call numbers are skipped.</p>

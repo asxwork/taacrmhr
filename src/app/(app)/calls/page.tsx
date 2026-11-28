@@ -19,6 +19,8 @@ import { CopyText } from "@/components/calls/copy-text";
 import { MessageCircle } from "lucide-react";
 import { HourChart } from "@/components/calls/day-report";
 
+const hourLabel = (h: number) => `${h % 12 || 12} ${h < 12 ? "am" : "pm"}`;
+
 export const metadata = { title: "Dialer" };
 
 /** Calls → Dialer: the agent's next number, the campaign script, and one-click outcomes. */
@@ -41,7 +43,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
   ]);
   const picked = pickRow?.value && queueByCamp.some((r) => r.campaignId === pickRow.value) ? pickRow.value : null;
   const [target, queued, callbacks, s, lastLog, note, modeRow, myCounts, myBatches, lastCalls] = await Promise.all([
-    nextTarget(user.id, picked),
+    disabledFeatures().then((off) => nextTarget(user.id, picked, { bestTime: !off.has("calls-besttime") })),
     db.callTarget.count({ where: queueWhere(user.id, new Date(), picked) }),
     db.callTarget.count({ where: { assigneeId: user.id, status: "callback" } }),
     agentDay(user.id, day.start, day.end),
@@ -200,6 +202,7 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
             ) : <p className="font-semibold">{target.campaign.name}</p>}
             {(picked === null && queueCamps.length > 1) && <p className="mt-0.5 text-xs text-muted">This number: <b className="font-medium text-ink">{target.campaign.name}</b></p>}
             {target.round === 2 && <span className="mt-1 inline-block"><Badge tone="amber">2nd round</Badge></span>}
+            {target.bestHour != null && !off.has("calls-besttime") && <p className="mt-1 text-xs text-emerald-700">🕑 Usually picks up around {hourLabel(target.bestHour)}</p>}
             {target.campaign.description && <p className="mt-0.5 whitespace-pre-line text-sm text-muted">{target.campaign.description}</p>}
           </div>
           <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted">

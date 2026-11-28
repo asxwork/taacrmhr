@@ -1053,6 +1053,8 @@ model CallTarget {
   /// Row in the imported file (1, 2, 3…) and the place in the campaign's call order (see CallCampaign.callOrder).
   /// 1 = first round; 2 = given back to the CSR agent after they completed (not answered / switched off / wrong). No round after 2.
   round        Int          @default(1)
+  /// Best time to call: the Karachi hour (0–23) this number last picked up at, learned from calls (any campaign).
+  bestHour     Int?
   rowNo        Int?
   position     Int?
   /// Who gave this number to its agent (batch or "Give to an agent"), and when.

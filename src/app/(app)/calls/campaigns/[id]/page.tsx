@@ -23,6 +23,7 @@ import { CallOrder } from "@/components/calls/call-order";
 import { BatchMaker } from "@/components/calls/batch-maker";
 import { listImportFiles } from "@/lib/call-files";
 import { requireUser } from "@/lib/auth";
+import { disabledFeatures } from "@/lib/features";
 
 export const metadata = { title: "Campaign" };
 const STATUS_LABEL: Record<string, string> = { new: "New", retry: "Retry later", callback: "Callback", done: "Done", dnc: "Do not call" };
@@ -33,6 +34,12 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const c = await db.callCampaign.findUnique({ where: { id } });
   if (!c) notFound();
+  const off = await disabledFeatures();
+  // Pick-up rate per Karachi hour over this campaign's calls (hours with at least 10 calls), best 3.
+  const hourLogs = off.has("calls-besttime") ? [] : await db.callLog.findMany({ where: { campaignId: id, channel: { not: "whatsapp" } }, select: { startedAt: true, outcome: true }, orderBy: { startedAt: "desc" }, take: 5000 });
+  const byHour = Array.from({ length: 24 }, () => ({ n: 0, r: 0 }));
+  for (const l of hourLogs) { const b = byHour[new Date(+l.startedAt + 5 * 3_600_000).getUTCHours()]!; b.n++; if (outcome(l.outcome)?.reached) b.r++; }
+  const bestHours = byHour.map((b, h) => ({ h, n: b.n, pct: b.n ? Math.round((b.r / b.n) * 100) : 0 })).filter((b) => b.n >= 10).sort((a, b) => b.pct - a.pct).slice(0, 3);
   const [byStatus, byOutcome, batches, agents, targets, unassigned, samples, people] = await Promise.all([
     db.callTarget.groupBy({ by: ["status"], where: { campaignId: id }, _count: true }),
     db.callTarget.groupBy({ by: ["outcome"], where: { campaignId: id, outcome: { not: null } }, _count: true }),
@@ -103,7 +110,8 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <h2 className="mb-3 text-sm font-semibold">Add numbers</h2>
-          <ImportNumbers campaignId={id} />
+          <ImportNumbers campaignId={id} check={!off.has("calls-numbercheck")} />
+          {bestHours.length > 0 && <p className="mt-2 text-xs text-muted">🕑 Best hours for this campaign (most pick up): {bestHours.map((b) => `${b.h % 12 || 12} ${b.h < 12 ? "am" : "pm"} (${b.pct}%)`).join(" · ")}</p>}
           <details className="mt-3">
             <summary className="cursor-pointer text-xs font-medium text-muted hover:text-ink">Or paste numbers</summary>
             <ActionForm action={uploadNumbers} className="mt-2 space-y-2">
