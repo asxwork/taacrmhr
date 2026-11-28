@@ -12,6 +12,8 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Button, Card, Drawer, EmptyState, Field, LinkButton, PageHeader } from "@/components/ui";
 import { PersonAvatar } from "@/components/person-avatar";
 import { emailRun } from "../payslip-actions";
+import { disabledFeatures } from "@/lib/features";
+import { APP_URL } from "@/lib/notify";
 import { addAdjustment, approvePayroll, deleteRun, markPaid, recalculateRun, removeAdjustment, reopenPayroll } from "../actions";
 
 export const metadata = { title: "Payroll run" };
@@ -30,13 +32,21 @@ export default async function PayrollRunPage({ params, searchParams }: { params:
 
   const slips = await db.payslip.findMany({
     where: { runId: run.id, employee: scope },
-    include: { employee: { select: { id: true, fullName: true, code: true, photo: true } } },
+    include: { employee: { select: { id: true, fullName: true, code: true, photo: true, phone: true } } },
     orderBy: { employee: { fullName: "asc" } },
   });
   const totals = slips.reduce((t, p) => ({ gross: t.gross + p.earnings, ded: t.deductions + p.deductions, tax: t.tax + p.tax, net: t.net + p.net, deductions: t.deductions + p.deductions }), { gross: 0, ded: 0, tax: 0, net: 0, deductions: 0 });
   const open = sp.slip ? await db.payslip.findFirst({ where: { id: sp.slip, runId: run.id, employee: scope }, include: { lines: { orderBy: { sortOrder: "asc" } }, employee: true } }) : null;
   const adjustments = open ? await db.payrollAdjustment.findMany({ where: { runId: run.id, employeeId: open.employeeId } }) : [];
   const base = `/hr/payroll/${month}`;
+  // Payday on WhatsApp: a ready message per employee (no WhatsApp API: each opens WhatsApp with the text filled in).
+  const payday = run.status !== "draft" && isAdmin && !(await disabledFeatures()).has("hr-payday");
+  const monthLabel = format(monthDate(run.month), "MMMM yyyy");
+  const waLink = (p: (typeof slips)[number]) => {
+    let d = (p.employee.phone ?? "").replace(/\D/g, "");
+    if (d.startsWith("0")) d = "92" + d.slice(1);
+    return d.length >= 11 ? `https://wa.me/${d}?text=${encodeURIComponent(`Assalam o Alaikum ${p.employee.fullName.split(" ")[0]}, your ${monthLabel} salary (${fmtPKR(p.net)}) ${run.status === "paid" ? "has been paid" : "is ready"}. Your payslip (view / download PDF): ${APP_URL()}/payslips/${p.id}`)}` : null;
+  };
 
   return (
     <>
@@ -68,6 +78,20 @@ export default async function PayrollRunPage({ params, searchParams }: { params:
         }
       />
 
+      {payday && slips.length > 0 && (
+        <details className="mb-4 rounded-xl border border-line bg-white">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Send payslips on WhatsApp <span className="font-normal text-muted">· {slips.filter((p) => waLink(p)).length} of {slips.length} have a phone number</span></summary>
+          <ul className="grid grid-cols-1 gap-x-6 border-t border-line px-4 py-2 sm:grid-cols-2 lg:grid-cols-3">
+            {slips.map((p) => { const wa = waLink(p); return (
+              <li key={p.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
+                <span className="truncate">{p.employee.fullName}</span>
+                {wa ? <a href={wa} target="_blank" rel="noreferrer" className="shrink-0 rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700">WhatsApp</a> : <span className="shrink-0 text-xs text-muted">no phone</span>}
+              </li>
+            ); })}
+          </ul>
+          <p className="border-t border-line px-4 py-2 text-xs text-muted">Each button opens WhatsApp with the message and payslip link written in; press send. Payslips are also emailed on approval, and on Mark as paid everyone gets a “Salary paid” notice.</p>
+        </details>
+      )}
       {sp.missing && <p className="mb-4 rounded-lg border border-amber-100 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">No salary set for: {sp.missing}. Add it under Payroll → Salaries, then recalculate.</p>}
 
       <div className="stagger mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">

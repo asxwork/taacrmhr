@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { notify } from "@/lib/notify";
 import { requireUser } from "@/lib/auth";
 import { can, scopeFor } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
@@ -53,6 +54,15 @@ export async function markPaid(fd: FormData) {
   if (!run || run.status !== "approved") return;
   await db.payrollRun.update({ where: { id: run.id }, data: { status: "paid", paidAt: new Date() } });
   await audit(user.id, "update", "payrollRun", run.id, `Marked payroll ${run.month} as paid`);
+  // Payday: everyone gets a "salary paid" notice, and anyone whose payslip wasn't emailed yet gets it now.
+  if (!(await (await import("@/lib/features")).disabledFeatures()).has("hr-payday")) {
+    const slips = await db.payslip.findMany({ where: { runId: run.id }, select: { id: true, net: true, emailedAt: true, employee: { select: { userId: true } } } });
+    const { fmtPKR } = await import("@/lib/crm-shared");
+    const label = (await import("date-fns")).format(new Date(`${run.month}-01T12:00:00`), "MMMM yyyy");
+    for (const s of slips) await notify(s.employee.userId, `Salary paid · ${label}`, { body: `Your ${label} salary of ${fmtPKR(s.net)} has been paid. Open your payslip to see the details or download the PDF.`, link: `/payslips/${s.id}` }).catch(() => {});
+    const unsent = slips.filter((s) => !s.emailedAt).map((s) => s.id);
+    if (unsent.length) await (await import("@/lib/payslip-doc")).emailPayslips(run.id, unsent).catch(() => {});
+  }
   revalidatePath(`/hr/payroll/${run.month}`);
 }
 

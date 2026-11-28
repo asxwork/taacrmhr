@@ -14,7 +14,8 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, Drawer, Field, LinkButton, PageHeader } from "@/components/ui";
 import { Kanban } from "@/components/crm/kanban";
 import { StatusPill } from "@/components/crm/bits";
-import { hireCandidate, moveCandidate, saveCandidate, saveFeedback, saveOpening, scheduleInterview, setCandidateStage } from "../actions";
+import { hireCandidate, moveCandidate, saveCandidate, saveFeedback, saveOpening, scheduleInterview, setCandidateStage, setInterviewStatus } from "../actions";
+import { INTERVIEW_STATUS, MODES, RECOMMENDATIONS, SCORE_CRITERIA, modeLabel, parseScorecard, scoreAvg } from "@/lib/interview-shared";
 
 export const metadata = { title: "Opening" };
 type SP = { add?: string; c?: string; edit?: string; editc?: string };
@@ -133,34 +134,75 @@ export default async function OpeningPage({ params, searchParams }: { params: Pr
               <h3 className="mb-2 text-sm font-medium">Interviews</h3>
               {cand.interviews.length === 0 && <p className="text-sm text-muted">None yet.</p>}
               <ul className="space-y-3">
-                {cand.interviews.map((i) => (
+                {cand.interviews.map((i) => {
+                  const sc = parseScorecard(i.scorecard), avg = scoreAvg(i.scorecard);
+                  const st = INTERVIEW_STATUS[i.status] ?? INTERVIEW_STATUS.scheduled!;
+                  const when = `${format(i.at, "EEE d MMM, h:mm a")} – ${format(new Date(+i.at + i.durationMin * 60_000), "h:mm a")}`;
+                  const waInvite = cand.phone ? `https://wa.me/${cand.phone.replace(/\D/g, "").replace(/^0/, "92")}?text=${encodeURIComponent(`Dear ${cand.name}, thank you for applying for ${opening.title}. Your interview is on ${when} (${modeLabel(i.mode)}${i.mode === "video" && i.meetingLink ? `: ${i.meetingLink}` : i.location ? `: ${i.location}` : ""}). Please reply to confirm. — HR Team`)}` : null;
+                  return (
                   <li key={i.id} className="rounded-lg border border-line p-3">
                     <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
-                      <span className="font-medium">{format(i.at, "EEE d MMM, h:mm a")}</span>
-                      <Badge>{i.mode}</Badge>
+                      <span className="font-medium">{when}</span>
+                      <Badge>{modeLabel(i.mode)}</Badge>
+                      <Badge tone={st.tone}>{st.label}</Badge>
                       <span className="text-muted">{users.find((u) => u.id === i.interviewerId)?.name ?? "—"}</span>
+                      {avg != null && <Badge tone={avg >= 4 ? "green" : avg >= 3 ? "amber" : "red"}>★ {avg}</Badge>}
+                      {i.recommendation && <Badge tone={i.recommendation === "hire" ? "green" : i.recommendation === "no" ? "red" : "amber"}>{RECOMMENDATIONS.find(([v]) => v === i.recommendation)?.[1]}</Badge>}
                       {i.outcome && <Badge tone={i.outcome === "pass" ? "green" : i.outcome === "fail" ? "red" : "amber"}>{i.outcome}</Badge>}
                     </div>
+                    <p className="mb-2 text-xs text-muted">
+                      {i.mode === "video" && i.meetingLink ? <a href={i.meetingLink} target="_blank" rel="noreferrer" className="text-navy-900 underline">Join link</a> : i.location ?? ""}
+                      {i.invitedAt ? ` · Invite emailed ${format(i.invitedAt, "d MMM, h:mm a")}` : ""}
+                      {waInvite && <> · <a href={waInvite} target="_blank" rel="noreferrer" className="text-emerald-700 underline">Send invite on WhatsApp</a></>}
+                    </p>
+                    {canEdit && (
+                      <div className="mb-2 flex flex-wrap gap-1">
+                        {(["done", "no_show", "cancelled", "scheduled"] as const).filter((x) => x !== i.status).map((x) => (
+                          <form key={x} action={setInterviewStatus}><input type="hidden" name="id" value={i.id} /><input type="hidden" name="status" value={x} /><button className="rounded-md border border-line px-2 py-0.5 text-xs hover:bg-canvas">{x === "scheduled" ? "Back to scheduled" : `Mark ${INTERVIEW_STATUS[x]!.label.toLowerCase()}`}</button></form>
+                        ))}
+                      </div>
+                    )}
                     {canEdit ? (
                       <ActionForm action={saveFeedback} className="space-y-2">
                         <input type="hidden" name="id" value={i.id} />
-                        <textarea name="feedback" rows={2} defaultValue={i.feedback ?? ""} className="input" placeholder="Feedback" aria-label="Feedback" />
-                        <div className="flex gap-2">
+                        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                          {SCORE_CRITERIA.map((k, n) => (
+                            <label key={k} className="flex items-center justify-between gap-2 text-xs">{k}
+                              <select name={`score_${n}`} defaultValue={sc[k] ?? ""} className="input h-7 w-20 py-0 text-xs"><option value="">–</option>{[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{"★".repeat(v)}</option>)}</select>
+                            </label>
+                          ))}
+                        </div>
+                        <textarea name="feedback" rows={2} defaultValue={i.feedback ?? ""} className="input" placeholder="Notes: strengths, concerns, salary discussed…" aria-label="Feedback" />
+                        <div className="flex flex-wrap gap-2">
+                          <select name="recommendation" defaultValue={i.recommendation ?? ""} className="input w-36" aria-label="Recommendation"><option value="">Recommend…</option>{RECOMMENDATIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
                           <select name="outcome" defaultValue={i.outcome ?? ""} className="input w-36" aria-label="Outcome"><option value="">Outcome…</option><option value="pass">Pass</option><option value="hold">Hold</option><option value="fail">Fail</option></select>
-                          <SubmitButton variant="secondary">Save</SubmitButton>
+                          <SubmitButton variant="secondary">Save scorecard</SubmitButton>
                         </div>
                       </ActionForm>
                     ) : i.feedback && <p className="text-sm">{i.feedback}</p>}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
               {canEdit && cand.stage !== "hired" && (
-                <ActionForm action={scheduleInterview} className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px_1fr_auto]">
+                <ActionForm action={scheduleInterview} className="mt-3 space-y-2 rounded-lg bg-canvas p-3">
+                  <p className="text-xs font-medium">Schedule an interview</p>
                   <input type="hidden" name="candidateId" value={cand.id} />
-                  <input name="at" type="datetime-local" required className="input" aria-label="Date and time" />
-                  <select name="mode" className="input" aria-label="Mode"><option value="onsite">On-site</option><option value="phone">Phone</option><option value="video">Video</option></select>
-                  <select name="interviewerId" defaultValue={user.id} className="input" aria-label="Interviewer">{users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
-                  <SubmitButton variant="secondary">Schedule</SubmitButton>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_110px_130px]">
+                    <input name="at" type="datetime-local" required className="input" aria-label="Date and time" />
+                    <select name="durationMin" defaultValue="30" className="input" aria-label="Length">{[15, 30, 45, 60, 90].map((m) => <option key={m} value={m}>{m} min</option>)}</select>
+                    <select name="mode" className="input" aria-label="Mode">{MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <select name="interviewerId" defaultValue={user.id} className="input" aria-label="Interviewer">{users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+                    <input name="location" className="input" placeholder="Place (office / room)" aria-label="Place" />
+                  </div>
+                  <input name="meetingLink" className="input" placeholder="Video link (Google Meet / Zoom), for video calls" aria-label="Video link" />
+                  <div className="flex flex-wrap items-center gap-4 text-xs">
+                    <label className="flex items-center gap-1.5"><input type="checkbox" name="invite" defaultChecked={!!cand.email} disabled={!cand.email} /> Email the invitation to the candidate{!cand.email && " (no email)"}</label>
+                    <label className="flex items-center gap-1.5"><input type="checkbox" name="force" value="1" /> Book anyway if the interviewer is busy</label>
+                    <SubmitButton variant="secondary">Schedule</SubmitButton>
+                  </div>
                 </ActionForm>
               )}
             </section>

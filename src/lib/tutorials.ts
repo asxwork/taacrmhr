@@ -686,6 +686,17 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
+    key: "interviews", group: "HR", module: "hr.recruitment", title: "Interview scheduler and scorecards", who: "HR, managers, interviewers", href: "/hr/recruitment/interviews",
+    summary: "Book interviews with a time, length and place or video link, invite the candidate, and score them afterwards.",
+    steps: [
+      "Open a candidate → Schedule an interview: date and time, length (15–90 min), In office / Video call / Phone, the interviewer, the place or the video link.",
+      "Tick Email the invitation: the candidate gets the time, place or link and an Add to Google Calendar link. No email? Use Send invite on WhatsApp on the interview. The interviewer gets a notification.",
+      "If the interviewer already has an interview at that time AMS says so; pick another time or tick Book anyway.",
+      "HR → Recruitment → Interviews shows every interview by day with its start and end time, candidate, job, interviewer and place (Join video call for video). My interviews shows only yours. Waiting for a scorecard lists past interviews nobody has scored.",
+      "After the interview: rate Communication, Experience / skills, Attitude, Sales sense and Culture fit (1–5 stars), write notes, choose Hire / Maybe / Don't hire and Save scorecard. The average shows as ★ on the interview. Mark no-show or cancelled when needed.",
+    ],
+  },
+  {
     key: "performance", group: "HR", module: "hr.performance", title: "Performance reviews", who: "HR, managers", href: "/hr/performance",
     summary: "Review cycles: employees rate themselves, then their line manager completes the review.",
     steps: [
@@ -831,6 +842,7 @@ export const TUTORIALS: Tutorial[] = [
       "Click a day in the register to correct it; every change is logged in Attendance logs.",
       "HR → Attendance → Attendance Machines: connect a ZKTeco machine by IP (port 4370) or Cloud Server, or import the USB file.",
       "Set each employee's device user ID so machine punches match the right person.",
+      "Attendance → Anomalies lists patterns worth a word with the employee over the last 14–90 days: late several days in a row, late often, forgot to check out, absent next to an off day (long weekends), checked in away from the office and days over 13 hours. Red = serious.",
     ],
   },
   {
@@ -871,6 +883,7 @@ export const TUTORIALS: Tutorial[] = [
       "Open My Space → Attendance and press Check in when you arrive and Check out when you leave.",
       "Allow location if asked — it shows whether you were at the office.",
       "Forgot to punch? Request a correction for that day; your manager approves it.",
+      "Payday: when you press Mark as paid, everyone gets a “Salary paid” notification and anyone whose payslip wasn't emailed yet gets it by email. Send payslips on WhatsApp (on the payroll month) has a WhatsApp button per employee with the message and payslip link written in.",
     ],
   },
   {

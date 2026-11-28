@@ -219,6 +219,7 @@ export const APPS: AppDef[] = [
           { href: "/hr/attendance?view=people", label: "Time Sheet", icon: "sheet", module: "hr.attendance" },
           { href: "/hr/attendance/logs", label: "Attendance Logs", icon: "history", module: "hr.attendance" },
           { href: "/hr/attendance/device-changes", label: "Device Change Approvals", icon: "filecheck", module: "hr.attendance" },
+          { href: "/hr/attendance/anomalies", label: "Anomalies", icon: "alert", module: "hr.attendance" },
           { href: "/hr/attendance/machines", label: "Attendance Machines", icon: "fingerprint", module: "hr.attendance" },
           { href: "/hr/leave", label: "Leave", icon: "plane", module: "hr.leave" },
           { href: "/hr/leave/planner", label: "Leave Planner", icon: "calendar", module: "hr.leaveplanner" },
@@ -336,7 +337,7 @@ export const APPS: AppDef[] = [
           ], "settings"),
         ],
       },
-      { label: "Recruitment", icon: "briefcase", items: [{ href: "/hr/recruitment", label: "Recruitment", icon: "briefcase", module: "hr.recruitment" }] },
+      { label: "Recruitment", icon: "briefcase", items: [{ href: "/hr/recruitment", label: "Recruitment", icon: "briefcase", module: "hr.recruitment" }, { href: "/hr/recruitment/interviews", label: "Interviews", icon: "calendar", module: "hr.recruitment" }] },
       {
         label: "Reports", icon: "pie",
         items: [

@@ -1736,7 +1736,19 @@ model Interview {
   interviewerId String?
   outcome       String?
   feedback      String? // @text
+  /// Scheduler: length, where (office address / room) or the video link, status, when the candidate was invited,
+  /// and the scorecard (JSON {criterion: 1–5}) with the interviewer's recommendation (hire | maybe | no).
+  /// status: scheduled | done | cancelled | no_show
+  durationMin    Int       @default(30)
+  location       String?
+  meetingLink    String?
+  status         String    @default("scheduled")
+  invitedAt      DateTime?
+  scorecard      String? // @text
+  recommendation String?
   createdAt     DateTime  @default(now())
+
+  @@index([at])
 }
 
 // ─── HR: performance ─────────────────────────────────────────

@@ -80,17 +80,42 @@ export async function setCandidateStage(fd: FormData) {
 export async function scheduleInterview(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requirePermission("hr.recruitment", "edit");
   const c = await db.candidate.findUnique({ where: { id: str(fd, "candidateId") }, include: { opening: true } });
-  const at = new Date(str(fd, "at"));
+  // The time is typed in Pakistan time (datetime-local has no zone): read it as +05:00.
+  const raw = str(fd, "at");
+  const at = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(raw) ? raw : `${raw}:00+05:00`.replace(/:00:00\+/, ":00+"));
   if (!c) return { error: "Candidate not found." };
   if (Number.isNaN(at.getTime())) return { error: "Choose the interview date and time." };
   const interviewerId = str(fd, "interviewerId") || null;
-  await db.interview.create({ data: { candidateId: c.id, at, mode: ["onsite", "phone", "video"].includes(str(fd, "mode")) ? str(fd, "mode") : "onsite", interviewerId } });
+  const durationMin = Math.min(240, Math.max(10, Number(str(fd, "durationMin")) || 30));
+  const mode = ["onsite", "phone", "video"].includes(str(fd, "mode")) ? str(fd, "mode") : "onsite";
+  const location = str(fd, "location").slice(0, 190) || null, meetingLink = str(fd, "meetingLink").slice(0, 500) || null;
+  // Clash check: the interviewer already has an interview overlapping this time.
+  if (interviewerId && fd.get("force") !== "1") {
+    const end = new Date(+at + durationMin * 60_000);
+    const near = await db.interview.findMany({ where: { interviewerId, status: "scheduled", at: { gte: new Date(+at - 4 * 3_600_000), lt: end } }, include: { candidate: { select: { name: true } } } });
+    const clash = near.find((i) => +i.at + i.durationMin * 60_000 > +at);
+    if (clash) return { error: `The interviewer already has ${clash.candidate.name} at ${clash.at.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Karachi" })}. Pick another time (or tick “Book anyway”).` };
+  }
+  const i = await db.interview.create({ data: { candidateId: c.id, at, mode, interviewerId, durationMin, location, meetingLink } });
   if (["applied", "screening"].includes(c.stage)) await db.candidate.update({ where: { id: c.id }, data: { stage: "interview" } });
+  const when = at.toLocaleString("en-PK", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Karachi" });
   if (interviewerId && interviewerId !== user.id) {
-    await notify(interviewerId, `Interview: ${c.name} for ${c.opening.title}`, { body: at.toLocaleString("en-PK"), link: `/hr/recruitment/${c.openingId}?c=${c.id}`, email: true });
+    await notify(interviewerId, `Interview: ${c.name} for ${c.opening.title}`, { body: `${when} · ${durationMin} min · ${mode === "video" ? "video call" : mode === "phone" ? "phone" : location ?? "in office"}`, link: "/hr/recruitment/interviews", email: true });
+  }
+  // Invite the candidate by email, with the time, place / link and an "add to calendar" link.
+  let invited = false;
+  if (fd.get("invite") === "on" && c.email) {
+    const { sendMail } = await import("@/lib/mail");
+    const { googleCalendarUrl } = await import("@/lib/interview-shared");
+    const where = mode === "video" ? `Video call${meetingLink ? `: ${meetingLink}` : " (we'll send the link)"}` : mode === "phone" ? "Phone call: we'll call you on your number" : `In person${location ? `: ${location}` : ""}`;
+    const cal = googleCalendarUrl(`Interview: ${c.opening.title}`, at, durationMin, where, mode === "video" ? meetingLink ?? "" : location ?? "");
+    const body = `Dear ${c.name},\n\nThank you for applying for ${c.opening.title}. We'd like to invite you to an interview.\n\nWhen: ${when} (Pakistan time), about ${durationMin} minutes\nWhere: ${where}\n\nPlease reply to this email to confirm, or if you need another time.\n\nAdd to Google Calendar:\n${cal}\n\nBest regards,\nHR Team`;
+    const r = await sendMail(c.email, `Interview invitation: ${c.opening.title}`, body, { userId: null }).catch(() => null);
+    if (r?.status === "sent") { invited = true; await db.interview.update({ where: { id: i.id }, data: { invitedAt: new Date() } }); }
   }
   revalidatePath(`/hr/recruitment/${c.openingId}`);
-  return { ok: true, message: "Interview scheduled." };
+  revalidatePath("/hr/recruitment/interviews");
+  return { ok: true, message: `Interview scheduled for ${when}.${fd.get("invite") === "on" ? (invited ? " Invitation emailed to the candidate." : c.email ? " The invitation email couldn't be sent." : " The candidate has no email: send the invite on WhatsApp.") : ""}` };
 }
 
 export async function saveFeedback(_: FormState, fd: FormData): Promise<FormState> {
@@ -98,10 +123,30 @@ export async function saveFeedback(_: FormState, fd: FormData): Promise<FormStat
   const i = await db.interview.findUnique({ where: { id: str(fd, "id") }, include: { candidate: true } });
   if (!i) return { error: "Interview not found." };
   const outcome = ["pass", "fail", "hold"].includes(str(fd, "outcome")) ? str(fd, "outcome") : null;
-  await db.interview.update({ where: { id: i.id }, data: { outcome, feedback: str(fd, "feedback") || null } });
-  await audit(user.id, "update", "interview", i.id, `Feedback for ${i.candidate.name}: ${outcome ?? "—"}`);
+  const { SCORE_CRITERIA } = await import("@/lib/interview-shared");
+  const scores = Object.fromEntries(SCORE_CRITERIA.map((k, n) => [k, Number(str(fd, `score_${n}`))]).filter(([, v]) => Number(v) >= 1 && Number(v) <= 5));
+  const recommendation = ["hire", "maybe", "no"].includes(str(fd, "recommendation")) ? str(fd, "recommendation") : null;
+  await db.interview.update({ where: { id: i.id }, data: {
+    outcome, feedback: str(fd, "feedback") || null, recommendation,
+    ...(Object.keys(scores).length ? { scorecard: JSON.stringify(scores) } : {}),
+    ...((outcome || recommendation || Object.keys(scores).length) && i.status === "scheduled" ? { status: "done" } : {}),
+  } });
+  await audit(user.id, "update", "interview", i.id, `Feedback for ${i.candidate.name}: ${outcome ?? recommendation ?? "—"}`);
   revalidatePath(`/hr/recruitment/${i.candidate.openingId}`);
-  return { ok: true, message: "Feedback saved." };
+  revalidatePath("/hr/recruitment/interviews");
+  return { ok: true, message: "Scorecard saved." };
+}
+
+/** Mark an interview cancelled, no-show, done, or back to scheduled. */
+export async function setInterviewStatus(fd: FormData) {
+  const user = await requirePermission("hr.recruitment", "edit");
+  const status = str(fd, "status");
+  if (!["scheduled", "done", "cancelled", "no_show"].includes(status)) return;
+  const i = await db.interview.update({ where: { id: str(fd, "id") }, data: { status }, include: { candidate: true } }).catch(() => null);
+  if (!i) return;
+  await audit(user.id, "update", "interview", i.id, `Interview ${status} (${i.candidate.name})`);
+  revalidatePath(`/hr/recruitment/${i.candidate.openingId}`);
+  revalidatePath("/hr/recruitment/interviews");
 }
 
 /** Hire: creates the employee record from the candidate and the opening, then opens it for completion. */

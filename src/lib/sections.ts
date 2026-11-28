@@ -113,6 +113,13 @@ export const SECTIONS: Section[] = [
     ],
   },
   {
+    key: "recruitment",
+    tabs: [
+      { href: "/hr/recruitment", label: "Openings", module: "hr.recruitment" },
+      { href: "/hr/recruitment/interviews", label: "Interviews", module: "hr.recruitment" },
+    ],
+  },
+  {
     key: "attendance",
     tabs: [
       { href: "/hr/attendance", label: "Daily & monthly", module: "hr.attendance" },
@@ -121,6 +128,7 @@ export const SECTIONS: Section[] = [
       { href: "/hr/attendance/logs", label: "Logs", module: "hr.attendance", nested: true },
       { href: "/hr/attendance/machines", label: "Machines", module: "hr.attendance", nested: true },
       { href: "/hr/attendance/device-changes", label: "Device approvals", module: "hr.attendance" },
+      { href: "/hr/attendance/anomalies", label: "Anomalies", module: "hr.attendance" },
       { href: "/hr/attendance/swaps", label: "Shift swaps", module: "hr.shiftswap" },
       { href: "/hr/attendance/reports/time", label: "Reports", module: "hr.attendance" },
     ],
