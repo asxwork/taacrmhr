@@ -145,7 +145,19 @@ export function findDuplicates<T extends { id: string; accountId: string; amount
   return [...groups.values()].filter((g) => g.length > 1);
 }
 
-/** After an expense: warn the approvers once when its main category reaches 80% and 100% of the monthly budget. */
+/** Spent this month in a main category (with its sub-categories). */
+async function spentIn(main: { id: string; children: { id: string }[] }, m: string) {
+  const from = new Date(`${m}-01T00:00:00`), to = new Date(from.getFullYear(), from.getMonth() + 1, 0, 23, 59, 59);
+  return (await db.finEntry.aggregate({ where: { ...companyExpense(), categoryId: { in: [main.id, ...main.children.map((c) => c.id)] }, date: { gte: from, lte: to } }, _sum: { amount: true } }))._sum.amount ?? 0;
+}
+
+/** Month-end projection at the current pace (from day 7, so one big early bill doesn't scare anyone). */
+export function budgetPace(spent: number, now = new Date()) {
+  const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return now.getDate() >= 7 ? Math.round((spent / now.getDate()) * days) : null;
+}
+
+/** After an expense: warn the approvers once when its main category reaches its warning % (default 80) and 100%. */
 export async function checkBudget(categoryId: string | null, date: Date) {
   if (!categoryId) return;
   const cat = await db.finCategory.findUnique({ where: { id: categoryId }, include: { children: { select: { id: true } } } });
@@ -154,16 +166,36 @@ export async function checkBudget(categoryId: string | null, date: Date) {
   const budget = await db.finBudget.findUnique({ where: { categoryId: main.id } });
   if (!budget || budget.amount <= 0) return;
   const m = date.toISOString().slice(0, 7);
-  const from = new Date(`${m}-01T00:00:00`), to = new Date(from.getFullYear(), from.getMonth() + 1, 0, 23, 59, 59);
-  const spent = (await db.finEntry.aggregate({ where: { ...companyExpense(), categoryId: { in: [main.id, ...main.children.map((c) => c.id)] }, date: { gte: from, lte: to } }, _sum: { amount: true } }))._sum.amount ?? 0;
+  const spent = await spentIn(main, m);
   const pct = (spent / budget.amount) * 100;
-  const level = pct >= 100 ? 100 : pct >= 80 ? 80 : 0;
+  const level = pct >= 100 ? 100 : pct >= budget.alertPct ? budget.alertPct : 0;
   if (!level) return;
+  await budgetAlert(budget, main.name, m, level, level === 100 ? `${main.name} is over budget` : `${main.name} has used ${Math.round(pct)}% of its budget`, `${pkr(spent)} of ${pkr(budget.amount)} in ${m}`);
+}
+
+/** Sends a budget alert once per level per month (levels: 1 = on pace to go over, the warning %, 100 = over). */
+async function budgetAlert(budget: { id: string; alerted: string | null }, name: string, m: string, level: number, title: string, body: string) {
   const done = budget.alerted?.startsWith(m) ? Number(budget.alerted.slice(8)) : 0;
   if (done >= level) return;
   await db.finBudget.update({ where: { id: budget.id }, data: { alerted: `${m}:${level}` } });
   const { notify } = await import("./notify");
-  for (const uid of await financeApproverIds()) await notify(uid, level === 100 ? `${main.name} is over budget` : `${main.name} has used ${Math.round(pct)}% of its budget`, { body: `${pkr(spent)} of ${pkr(budget.amount)} in ${m}`, link: "/finance/budgets", email: level === 100 });
+  for (const uid of await financeApproverIds()) await notify(uid, title, { body, link: "/finance/budgets", email: level === 100 });
+  void name;
+}
+
+/** Daily: categories still under their warning % but on pace to go over budget by month end get one early warning. */
+export async function checkBudgetPace(now = new Date()) {
+  if ((await (await import("./features")).disabledFeatures()).has("fin-budgetpace")) return 0;
+  const m = now.toISOString().slice(0, 7);
+  let sent = 0;
+  for (const b of await db.finBudget.findMany({ where: { amount: { gt: 0 } }, include: { category: { include: { children: { select: { id: true } } } } } })) {
+    const spent = await spentIn(b.category, m);
+    const proj = budgetPace(spent, now);
+    if (proj == null || proj <= b.amount || (spent / b.amount) * 100 >= b.alertPct) continue;
+    await budgetAlert(b, b.category.name, m, 1, `${b.category.name} is on pace to go over budget`, `${pkr(spent)} spent so far; at this pace about ${pkr(proj)} by month end (budget ${pkr(b.amount)}).`);
+    sent++;
+  }
+  return sent;
 }
 
 /** Monthly bills: due date and whether this month's payment is recorded. */
@@ -179,17 +211,32 @@ export async function billsForMonth(month: Date) {
   });
 }
 
-/** Daily: remind approvers about bills due within 3 days (or overdue) and not yet paid. Once per bill per month. */
+/** Daily: remind approvers about monthly bills and supplier bills due within 3 days, and again on the day (or overdue). */
 export async function sendBillReminders(today = new Date()) {
   const m = today.toISOString().slice(0, 7);
-  const soon = new Date(today.getTime() + 3 * 86400000);
-  const due = (await billsForMonth(today)).filter((b) => !b.paid && b.due <= soon && b.reminded !== m);
-  if (!due.length) return 0;
+  const soon = new Date(today.getTime() + 3 * 86400000), endToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+  const bills = (await billsForMonth(today)).filter((b) => !b.paid);
+  // reminded: "yyyy-MM" = 3-day reminder sent, "yyyy-MM:due" = due-day reminder sent too.
+  const early = bills.filter((b) => b.due <= soon && b.due > endToday && !b.reminded?.startsWith(m));
+  const dueNow = bills.filter((b) => b.due <= endToday && b.reminded !== `${m}:due`);
+  const payables = await db.finPayable.findMany({ where: { status: "open", dueDate: { not: null, lte: soon } } });
+  const pEarly = payables.filter((p) => p.dueDate! > endToday && !p.reminded);
+  const pDue = payables.filter((p) => p.dueDate! <= endToday && p.reminded !== "due");
+  const n = early.length + dueNow.length + pEarly.length + pDue.length;
+  if (!n) return 0;
   const { notify } = await import("./notify");
-  const body = due.map((b) => `${b.name}: ${pkr(b.amount)} due ${b.due.toDateString().slice(4, 10)}`).join("\n");
-  for (const uid of await financeApproverIds()) await notify(uid, `${due.length} bill${due.length === 1 ? "" : "s"} due`, { body, link: "/finance/bills" });
-  await db.finRecurring.updateMany({ where: { id: { in: due.map((b) => b.id) } }, data: { reminded: m } });
-  return due.length;
+  const line = (name: string, amount: number, due: Date, late: boolean) => `${name}: ${pkr(amount)} ${late && due < new Date(today.getFullYear(), today.getMonth(), today.getDate()) ? "overdue since" : late ? "due today," : "due"} ${due.toDateString().slice(4, 10)}`;
+  const body = [
+    ...dueNow.map((b) => line(b.name, b.amount, b.due, true)), ...pDue.map((p) => line(`${p.party} (supplier)`, p.amount, p.dueDate!, true)),
+    ...early.map((b) => line(b.name, b.amount, b.due, false)), ...pEarly.map((p) => line(`${p.party} (supplier)`, p.amount, p.dueDate!, false)),
+  ].join("\n");
+  const late = dueNow.length + pDue.length;
+  for (const uid of await financeApproverIds()) await notify(uid, late ? `${late} bill${late === 1 ? "" : "s"} due today or overdue` : `${n} bill${n === 1 ? "" : "s"} due soon`, { body, link: "/finance/bills?view=calendar" });
+  if (early.length) await db.finRecurring.updateMany({ where: { id: { in: early.map((b) => b.id) } }, data: { reminded: m } });
+  if (dueNow.length) await db.finRecurring.updateMany({ where: { id: { in: dueNow.map((b) => b.id) } }, data: { reminded: `${m}:due` } });
+  if (pEarly.length) await db.finPayable.updateMany({ where: { id: { in: pEarly.map((p) => p.id) } }, data: { reminded: "soon" } });
+  if (pDue.length) await db.finPayable.updateMany({ where: { id: { in: pDue.map((p) => p.id) } }, data: { reminded: "due" } });
+  return n;
 }
 
 /** Tidy tags: comma separated, trimmed, unique, max 6. */

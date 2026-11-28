@@ -77,16 +77,80 @@ export async function importStatement(accountId: string, lines: Line[]) {
   return { added, matched: await matchLines(accountId) };
 }
 
+// ── Matching ──────────────────────────────────────────────────────────────────────────────────────────────
+// Each bank line is scored against entries of the same holder: amount (exact, or within bank charges), date
+// (same day … a week apart) and the words in the description vs the entry's payee / description. A sure match is
+// linked on its own; a likely one is suggested with a Match button.
+
+const STOP = new Set(["the", "and", "for", "from", "to", "payment", "paid", "transfer", "trf", "ibft", "ift", "funds", "fund", "online", "pos", "purchase", "ref", "txn", "debit", "credit", "card", "account", "acc", "bank", "pk", "pkr", "rs", "via", "mobile", "app", "raast", "charges"]);
+export const words = (s: string | null | undefined) => [...new Set((s ?? "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length >= 3 && !STOP.has(w) && !/^\d+$/.test(w)))];
+
+type LineLike = { amount: number; date: Date; description: string };
+type EntryLike = { id: string; amount: number; date: Date; description: string; party: string | null };
+
+/** 0–100: how likely this entry is the bank line, with the reasons. */
+export function scoreMatch(l: LineLike, e: EntryLike) {
+  const why: string[] = [];
+  let s = 0;
+  const diff = Math.abs(l.amount - e.amount);
+  if (diff <= 0.5) { s += 50; why.push("same amount"); }
+  else if (diff <= Math.max(100, l.amount * 0.01)) { s += 30; why.push(`amount ${Math.round(diff)} apart (bank charges?)`); }
+  else return { score: 0, why };
+  const days = Math.round(Math.abs(+l.date - +e.date) / 86_400_000);
+  if (days === 0) { s += 25; why.push("same day"); } else if (days <= 3) { s += 15; why.push(`${days} day${days === 1 ? "" : "s"} apart`); } else if (days <= 7) { s += 5; why.push(`${days} days apart`); } else return { score: 0, why };
+  const lw = words(l.description), ew = new Set(words(`${e.party ?? ""} ${e.description}`));
+  const common = lw.filter((w) => ew.has(w) || [...ew].some((x) => x.length >= 4 && (x.startsWith(w) || w.startsWith(x))));
+  if (common.length) { s += Math.min(25, 12 * common.length); why.push(`“${common.slice(0, 2).join(", ")}” in both`); }
+  return { score: Math.min(100, s), why };
+}
+
+const candidateWhere = (accountId: string, l: { amount: number; date: Date; direction: string }) => ({
+  amount: { gte: l.amount - Math.max(100, l.amount * 0.01), lte: l.amount + Math.max(100, l.amount * 0.01) },
+  date: { gte: new Date(+l.date - 7 * 86_400_000), lte: new Date(+l.date + 7 * 86_400_000) }, status: { not: "rejected" },
+  ...(l.direction === "out" ? { accountId, kind: { in: ["expense", "transfer"] } } : { OR: [{ accountId, kind: "in" }, { toAccountId: accountId, kind: "transfer" }] }),
+});
+
+/** Links every sure match: same amount within 3 days, or a score of 75+ (amount, date and payee all agree). */
 export async function matchLines(accountId: string) {
   const open = await db.finBankLine.findMany({ where: { accountId, entryId: null, ignored: false }, orderBy: { date: "asc" } });
   const used = new Set((await db.finBankLine.findMany({ where: { accountId, entryId: { not: null } }, select: { entryId: true } })).map((l) => l.entryId!));
   let matched = 0;
   for (const l of open) {
-    const from = new Date(l.date.getTime() - 3 * 86400000), to = new Date(l.date.getTime() + 3 * 86400000);
-    const cands = await db.finEntry.findMany({ where: { amount: { gte: l.amount - 0.5, lte: l.amount + 0.5 }, date: { gte: from, lte: to }, status: { not: "rejected" },
-      ...(l.direction === "out" ? { accountId, kind: { in: ["expense", "transfer"] } } : { OR: [{ accountId, kind: "in" }, { toAccountId: accountId, kind: "transfer" }] }) }, orderBy: { date: "asc" } });
-    const e = cands.filter((c) => !used.has(c.id)).sort((a, b) => Math.abs(a.date.getTime() - l.date.getTime()) - Math.abs(b.date.getTime() - l.date.getTime()))[0];
-    if (e) { await db.finBankLine.update({ where: { id: l.id }, data: { entryId: e.id } }); used.add(e.id); matched++; }
+    const cands = (await db.finEntry.findMany({ where: candidateWhere(accountId, l), select: { id: true, amount: true, date: true, description: true, party: true } })).filter((c) => !used.has(c.id));
+    const best = cands.map((c) => ({ c, ...scoreMatch(l, c) })).sort((a, b) => b.score - a.score)[0];
+    const sure = best && (best.score >= 75 || (Math.abs(best.c.amount - l.amount) <= 0.5 && Math.abs(+best.c.date - +l.date) <= 3 * 86_400_000));
+    if (best && sure) { await db.finBankLine.update({ where: { id: l.id }, data: { entryId: best.c.id } }); used.add(best.c.id); matched++; }
   }
   return matched;
+}
+
+/** For lines still open: the most likely entry (score 45+) to confirm with one click. */
+export async function suggestMatches(accountId: string, lines: { id: string; amount: number; date: Date; description: string; direction: string }[]) {
+  const used = new Set((await db.finBankLine.findMany({ where: { accountId, entryId: { not: null } }, select: { entryId: true } })).map((l) => l.entryId!));
+  const out = new Map<string, { id: string; description: string; amount: number; date: Date; score: number; why: string[] }>();
+  for (const l of lines.slice(0, 150)) {
+    const cands = (await db.finEntry.findMany({ where: candidateWhere(accountId, l), select: { id: true, amount: true, date: true, description: true, party: true } })).filter((c) => !used.has(c.id));
+    const best = cands.map((c) => ({ ...c, ...scoreMatch(l, c) })).sort((a, b) => b.score - a.score)[0];
+    if (best && best.score >= 45) out.set(l.id, best);
+  }
+  return out;
+}
+
+/** The keyword a rule is learned under: the first two meaningful words of the description. */
+export const ruleKey = (description: string) => words(description).slice(0, 2).join(" ");
+
+/** Remembers the category / payee picked for a bank line, for lines like it next time. */
+export async function learnRule(description: string, categoryId: string | null, party: string | null) {
+  const keyword = ruleKey(description);
+  if (!keyword || (!categoryId && !party)) return;
+  const have = await db.finBankRule.findFirst({ where: { keyword } });
+  if (have) await db.finBankRule.update({ where: { id: have.id }, data: { categoryId: categoryId ?? have.categoryId, party: party ?? have.party, uses: { increment: 1 } } });
+  else await db.finBankRule.create({ data: { keyword, categoryId, party } });
+}
+
+/** Learned category / payee for each line, from the rules. */
+export async function ruleSuggestions(lines: { id: string; description: string }[]) {
+  const keys = [...new Set(lines.map((l) => ruleKey(l.description)).filter(Boolean))];
+  const rules = new Map((await db.finBankRule.findMany({ where: { keyword: { in: keys } } })).map((r) => [r.keyword, r]));
+  return new Map(lines.flatMap((l) => { const r = rules.get(ruleKey(l.description)); return r ? [[l.id, r] as const] : []; }));
 }

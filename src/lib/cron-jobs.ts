@@ -75,6 +75,7 @@ export async function runDaily(forceWeekly = false) {
 
   // 7b. Finance: monthly bills due within 3 days.
   const bills = await (await import("@/lib/finance")).sendBillReminders().catch(() => 0);
+  await (await import("@/lib/finance")).checkBudgetPace().catch(() => 0);
   const leadRules = await (await import("@/lib/lead-rules")).runTimedLeadRules().catch(() => 0);
   const invoices = await (await import("@/lib/invoices")).runInvoiceAutomations().catch(() => null);
   const financeAlerts = await (await import("@/lib/finance-reports")).sendFinanceAlerts().catch(() => 0);

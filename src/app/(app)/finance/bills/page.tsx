@@ -1,5 +1,6 @@
 import Link from "@/components/link";
-import { addMonths, format, isBefore, parse, startOfDay, subMonths } from "date-fns";
+import { addDays, addMonths, differenceInCalendarDays, endOfMonth, format, isBefore, isSameDay, isSameMonth, parse, startOfDay, startOfMonth, startOfWeek, subMonths } from "date-fns";
+import { disabledFeatures } from "@/lib/features";
 import { CalendarClock, Check, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, requirePermission } from "@/lib/permissions";
@@ -12,7 +13,7 @@ import { saveBill } from "../actions";
 export const metadata = { title: "Monthly bills · Finance" };
 
 /** Bills that come every month: what's paid, what's due, one click to record this month's payment with the bill. */
-export default async function Bills({ searchParams }: { searchParams: Promise<{ month?: string; edit?: string }> }) {
+export default async function Bills({ searchParams }: { searchParams: Promise<{ month?: string; edit?: string; view?: string }> }) {
   const user = await requirePermission("finance");
   const sp = await searchParams;
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? parse(sp.month, "yyyy-MM", new Date()) : new Date();
@@ -25,19 +26,54 @@ export default async function Bills({ searchParams }: { searchParams: Promise<{ 
   const canAdd = can(user, "finance", "create");
   const today = startOfDay(new Date());
   const unpaid = bills.filter((b) => !b.paid);
-  const nav = (d: Date) => `/finance/bills?month=${format(d, "yyyy-MM")}`;
+  const calendar = sp.view === "calendar" && !(await disabledFeatures()).has("fin-billcalendar");
+  const nav = (d: Date) => `/finance/bills?month=${format(d, "yyyy-MM")}${calendar ? "&view=calendar" : ""}`;
+  // Calendar: monthly bills on their due day plus supplier bills (Vendors) by due date.
+  const payables = calendar ? await db.finPayable.findMany({ where: { status: { not: "cancelled" }, dueDate: { gte: startOfMonth(month), lte: endOfMonth(month) } }, orderBy: { dueDate: "asc" } }) : [];
+  const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
+  const cells = Array.from({ length: Math.ceil((differenceInCalendarDays(endOfMonth(month), gridStart) + 1) / 7) * 7 }, (_, i) => addDays(gridStart, i));
   return (
     <>
-      <PageHeader title="Monthly bills" description="K-Electric, rent, internet, Meta ads, hosting… Approvers get a reminder 3 days before each is due."
+      <PageHeader title="Monthly bills" description="K-Electric, rent, internet, Meta ads, hosting… Approvers get a reminder 3 days before each is due and on the day."
         actions={<div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1">
             <Link href={nav(subMonths(month, 1))} aria-label="Previous month" className="rounded-md p-1.5 text-muted hover:bg-canvas"><ChevronLeft className="size-4" /></Link>
             <span className="min-w-28 text-center text-sm font-medium">{format(month, "MMMM yyyy")}</span>
             <Link href={nav(addMonths(month, 1))} aria-label="Next month" className="rounded-md p-1.5 text-muted hover:bg-canvas"><ChevronRight className="size-4" /></Link>
           </div>
+          <div className="flex rounded-lg border border-line bg-surface p-1 text-sm">
+            <Link href={`/finance/bills?month=${format(month, "yyyy-MM")}`} className={cn("rounded-md px-2.5 py-1", !calendar ? "bg-navy-900 text-white" : "text-muted hover:text-ink")}>List</Link>
+            <Link href={`/finance/bills?month=${format(month, "yyyy-MM")}&view=calendar`} className={cn("rounded-md px-2.5 py-1", calendar ? "bg-navy-900 text-white" : "text-muted hover:text-ink")}>Calendar</Link>
+          </div>
           {canAdd && <Link href="/finance/bills?edit=new" scroll={false} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-900 px-3 py-2 text-sm font-medium text-white hover:bg-navy-800"><Plus className="size-4" /> Add bill</Link>}
         </div>} />
       {bills.length > 0 && <p className="mb-4 text-sm">{unpaid.length ? <><b>{unpaid.length} not paid yet</b> · {pkr(unpaid.reduce((s, b) => s + b.amount, 0))} expected</> : <span className="text-emerald-700">All bills recorded for {format(month, "MMMM")}.</span>}</p>}
+      {calendar && (
+        <Card className="mb-6 overflow-hidden">
+          <div className="grid grid-cols-7 border-b border-line bg-canvas/60 text-center text-xs font-medium text-muted">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <div key={d} className="py-2">{d}</div>)}</div>
+          <div className="grid grid-cols-7">
+            {cells.map((d) => {
+              const dayBills = bills.filter((b) => isSameDay(b.due, d));
+              const dayPay = payables.filter((p) => p.dueDate && isSameDay(p.dueDate, d));
+              const inMonth = isSameMonth(d, month);
+              return (
+                <div key={+d} className={cn("min-h-24 border-b border-r border-line p-1.5 text-xs", !inMonth && "bg-canvas/40 text-muted", isSameDay(d, today) && "bg-sky-50")}>
+                  <p className={cn("mb-1 font-medium", isSameDay(d, today) && "text-sky-700")}>{format(d, "d")}</p>
+                  {inMonth && dayBills.map((b) => {
+                    const late = !b.paid && isBefore(b.due, today);
+                    return <Link key={b.id} href={b.paidEntry ? `/finance/entries/${b.paidEntry.id}` : canAdd ? `/finance/entries?bill=${b.id}` : "#"} title={`${b.name} · ${pkr(b.amount)}`} className={cn("mb-1 block truncate rounded px-1.5 py-0.5", b.paid ? "bg-emerald-50 text-emerald-800" : late ? "bg-red-50 font-medium text-red-700" : "bg-amber-50 text-amber-800")}>{b.paid ? "✓ " : ""}{b.name} · {pkr(b.amount)}</Link>;
+                  })}
+                  {inMonth && dayPay.map((p) => {
+                    const late = p.status === "open" && isBefore(p.dueDate!, today);
+                    return <Link key={p.id} href="/finance/vendors" title={`${p.party}: ${p.description}`} className={cn("mb-1 block truncate rounded border px-1.5 py-0.5", p.status === "paid" ? "border-emerald-200 text-emerald-800" : late ? "border-red-300 font-medium text-red-700" : "border-amber-300 text-amber-800")}>{p.status === "paid" ? "✓ " : ""}{p.party} · {pkr(p.amount)}</Link>;
+                  })}
+                </div>
+              );
+            })}
+          </div>
+          <p className="border-t border-line px-4 py-2 text-xs text-muted">Filled = monthly bills, outlined = supplier bills. Green paid, amber due, red overdue. Approvers get a reminder 3 days before and again on the due day.</p>
+        </Card>
+      )}
       <Card className="overflow-hidden">
         {bills.length === 0 ? <EmptyState title="No monthly bills yet" description="Add one here, or open any entry (e.g. a K-Electric payment) and click “Make it a monthly bill”." /> : (
           <ul className="divide-y divide-line">{bills.map((b) => {

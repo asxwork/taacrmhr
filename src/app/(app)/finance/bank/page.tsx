@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Card, Field, PageHeader } from "@/components/ui";
 import { bankLineAction, uploadStatement } from "../actions";
+import { ruleSuggestions, suggestMatches } from "@/lib/finance-bank";
+import { disabledFeatures } from "@/lib/features";
 
 export const metadata = { title: "Bank matching · Finance" };
 
@@ -27,11 +29,19 @@ export default async function Bank({ searchParams }: { searchParams: Promise<{ a
     categoryTree(),
   ]);
   const open = lines.filter((l) => !l.entryId && !l.ignored);
+  // Likely matches to confirm, and categories learned from earlier lines.
+  const off = await disabledFeatures();
+  const [suggest, rules] = await Promise.all([
+    sel && !off.has("fin-bankrules") ? suggestMatches(sel, open) : (new Map() as Awaited<ReturnType<typeof suggestMatches>>),
+    off.has("fin-bankrules") ? (new Map() as Awaited<ReturnType<typeof ruleSuggestions>>) : ruleSuggestions(open),
+  ]);
+  const ruled = open.filter((l) => l.direction === "out" && !suggest.has(l.id) && rules.get(l.id)?.categoryId).length;
+  const catName = new Map(tree.flatMap((c) => [[c.id, c.name] as const, ...c.subs.map((x) => [x.id, `${c.name} › ${x.name}`] as const)]));
   const matched = lines.filter((l) => l.entryId);
   const canImport = can(user, "finance", "import"), canAdd = can(user, "finance", "create");
   return (
     <>
-      <PageHeader title="Bank matching" description="Upload the bank, JazzCash or Easypaisa statement. Each line is matched to an entry; anything that doesn't match shows here." />
+      <PageHeader title="Bank matching" description="Upload the bank, JazzCash or Easypaisa statement. Each line is matched to an entry by amount, date and payee; likely matches wait for one click, and categories you pick are remembered for similar lines." />
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_22rem]">
         <div>
           {withLines.length > 0 && <div className="mb-4 flex flex-wrap gap-2">{withLines.map((h) => <Link key={h.id} href={`/finance/bank?a=${h.id}`} className={cn("rounded-full border px-3 py-1 text-sm", h.id === sel ? "border-navy-900 bg-navy-900 text-white" : "border-line bg-surface")}>{h.name}</Link>)}</div>}
@@ -55,20 +65,29 @@ export default async function Bank({ searchParams }: { searchParams: Promise<{ a
       {sel && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <Card className="overflow-hidden">
-            <h2 className="border-b border-line px-4 py-3 font-semibold">Bank lines with no entry <span className="text-sm font-normal text-muted">{open.length}</span></h2>
-            <ul className="divide-y divide-line text-sm">{open.map((l) => (
+            <h2 className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3 font-semibold">Bank lines with no entry <span className="text-sm font-normal text-muted">{open.length}</span>
+              {canAdd && ruled > 0 && <form action={bankLineAction} className="ml-auto"><input type="hidden" name="op" value="bulk" /><input type="hidden" name="accountId" value={sel} /><button className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700">Add {ruled} with learned categories</button></form>}
+            </h2>
+            <ul className="divide-y divide-line text-sm">{open.map((l) => { const m = suggest.get(l.id), r = rules.get(l.id); return (
               <li key={l.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                 <span className="w-14 text-xs text-muted">{format(l.date, "d MMM")}</span>
                 <span className="min-w-0 flex-1 truncate" title={l.description}>{l.description}</span>
                 <span className={cn("tabular-nums", l.direction === "in" ? "text-emerald-700" : "")}>{l.direction === "in" ? "+" : "−"}{pkr(l.amount)}</span>
+                {m && (
+                  <span className="flex w-full items-center gap-2 rounded-md bg-sky-50 px-2 py-1 text-xs text-sky-900">
+                    <span className="min-w-0 flex-1 truncate">Likely: <Link href={`/finance/entries/${m.id}`} className="font-medium hover:underline">{m.description}</Link> · {format(m.date, "d MMM")} · {pkr(m.amount)} <span className="text-sky-700">({m.why.join(", ")})</span></span>
+                    {canAdd && <form action={bankLineAction}><input type="hidden" name="id" value={l.id} /><input type="hidden" name="op" value="match" /><input type="hidden" name="entryId" value={m.id} /><button className="rounded bg-sky-700 px-2 py-0.5 text-white">Match</button></form>}
+                  </span>
+                )}
                 {canAdd && <span className="flex w-full items-center justify-end gap-1 sm:w-auto">
                   <form action={bankLineAction} className="flex gap-1"><input type="hidden" name="id" value={l.id} /><input type="hidden" name="op" value="create" />
-                    {l.direction === "out" && <select name="categoryId" aria-label="Category" className="input w-36 py-1 text-xs"><option value="">Category…</option>{tree.filter((c) => !c.personal).map((c) => <optgroup key={c.id} label={c.name}><option value={c.id}>{c.name}</option>{c.subs.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</optgroup>)}</select>}
+                    {l.direction === "out" && <select name="categoryId" aria-label="Category" defaultValue={r?.categoryId ?? ""} className={cn("input w-36 py-1 text-xs", r?.categoryId && "border-emerald-400 bg-emerald-50")} title={r?.categoryId ? `Learned: ${catName.get(r.categoryId) ?? ""}` : undefined}><option value="">Category…</option>{tree.filter((c) => !c.personal).map((c) => <optgroup key={c.id} label={c.name}><option value={c.id}>{c.name}</option>{c.subs.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</optgroup>)}</select>}
+                    <input name="party" defaultValue={r?.party ?? ""} placeholder="Paid to" aria-label="Paid to" className="input w-28 py-1 text-xs" />
                     <button className="rounded-md bg-navy-900 px-2 py-1 text-xs text-white">Add entry</button></form>
                   <form action={bankLineAction}><input type="hidden" name="id" value={l.id} /><input type="hidden" name="op" value="ignore" /><button className="rounded-md border border-line px-2 py-1 text-xs text-muted">Ignore</button></form>
                 </span>}
               </li>
-            ))}{open.length === 0 && <li className="px-4 py-3 text-muted">Every bank line has an entry.</li>}</ul>
+            ); })}{open.length === 0 && <li className="px-4 py-3 text-muted">Every bank line has an entry.</li>}</ul>
           </Card>
           <Card className="overflow-hidden">
             <h2 className="border-b border-line px-4 py-3 font-semibold">Entries with no bank line <span className="text-sm font-normal text-muted">{noLine.length}</span></h2>

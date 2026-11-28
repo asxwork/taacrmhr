@@ -2337,6 +2337,8 @@ model FinBudget {
   categoryId String      @unique
   category   FinCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   amount     Float
+  /// Warn when this % of the budget is used (the over-budget alert is always at 100%).
+  alertPct   Int         @default(80)
   alerted    String?
   updatedAt  DateTime    @updatedAt
 }
@@ -2404,6 +2406,8 @@ model FinPayable {
   entryId     String?
   createdById String?
   createdAt   DateTime  @default(now())
+  /// Due reminders sent: "soon" (3 days before) and/or "due" (on the day).
+  reminded    String?
 
   @@index([party])
   @@index([status])
@@ -2424,6 +2428,20 @@ model FinBankLine {
   createdAt   DateTime  @default(now())
 
   @@index([accountId, date])
+}
+
+/// Bank matching rule learned from a bank line turned into an entry: lines whose description has this keyword get
+/// the same category and payee suggested (e.g. "K ELECTRIC" → Utilities › Electricity).
+model FinBankRule {
+  id         String   @id @default(cuid())
+  keyword    String
+  categoryId String?
+  party      String?
+  uses       Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([keyword])
 }
 
 /// Messenger: a conversation between two people (direct) or a named group.

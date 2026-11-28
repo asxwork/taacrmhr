@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { disabledFeatures } from "@/lib/features";
 import { can, requirePermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { saveUpload } from "@/lib/files";
@@ -278,7 +279,8 @@ export async function saveBudgets(_: FormState, fd: FormData): Promise<FormState
   for (const c of cats) {
     if (!fd.has(`b_${c.id}`)) continue;
     const amount = parseFloat(str(fd, `b_${c.id}`).replace(/,/g, "")) || 0;
-    if (amount > 0) await db.finBudget.upsert({ where: { categoryId: c.id }, update: { amount }, create: { categoryId: c.id, amount } });
+    const alertPct = Math.min(99, Math.max(30, parseInt(str(fd, `p_${c.id}`)) || 80));
+    if (amount > 0) await db.finBudget.upsert({ where: { categoryId: c.id }, update: { amount, alertPct }, create: { categoryId: c.id, amount, alertPct } });
     else await db.finBudget.deleteMany({ where: { categoryId: c.id } });
   }
   await audit(user.id, "update", "finCategory", null, "Updated monthly budgets");
@@ -575,18 +577,48 @@ export async function uploadStatement(_: FormState, fd: FormData): Promise<FormS
   }
 }
 
-/** A bank line with no entry: create the entry from it, or ignore it (e.g. bank charges already counted). */
+/** A bank line with no entry: create the entry from it, link it to an existing entry (a suggested match), ignore it,
+ * or add entries for every line with a learned category in one go. */
 export async function bankLineAction(fd: FormData) {
   const user = await requirePermission("finance", "create");
+  const bank = await import("@/lib/finance-bank");
+  const op = str(fd, "op");
+  if (op === "bulk") {
+    // Every open line on this holder that a learned rule recognises (expenses only), with that category / payee.
+    const accountId = str(fd, "accountId");
+    const open = await db.finBankLine.findMany({ where: { accountId, entryId: null, ignored: false, direction: "out" } });
+    const rules = await bank.ruleSuggestions(open);
+    let n = 0;
+    for (const l of open) {
+      const r = rules.get(l.id);
+      if (!r?.categoryId) continue;
+      const e = await db.finEntry.create({ data: { status: await autoStatus(user, l.amount), kind: "expense", amount: l.amount, date: l.date, accountId: l.accountId, categoryId: r.categoryId, party: r.party, description: l.description, sourceType: "bank", sourceId: l.id, createdById: user.id } });
+      await db.finBankLine.update({ where: { id: l.id }, data: { entryId: e.id } });
+      await db.finBankRule.update({ where: { id: r.id }, data: { uses: { increment: 1 } } }).catch(() => {});
+      n++;
+    }
+    await audit(user.id, "create", "finEntry", accountId, `${n} entries added from bank lines (learned categories)`);
+    revalidatePath("/finance/bank");
+    return;
+  }
   const l = await db.finBankLine.findUnique({ where: { id: str(fd, "id") } });
   if (!l || l.entryId) return;
-  if (str(fd, "op") === "ignore") await db.finBankLine.update({ where: { id: l.id }, data: { ignored: true } });
-  else if (str(fd, "op") === "rematch") { const { matchLines } = await import("@/lib/finance-bank"); await matchLines(l.accountId); }
-  else {
+  if (op === "ignore") await db.finBankLine.update({ where: { id: l.id }, data: { ignored: true } });
+  else if (op === "rematch") await bank.matchLines(l.accountId);
+  else if (op === "match") {
+    const entryId = str(fd, "entryId");
+    if (entryId && !(await db.finBankLine.findFirst({ where: { entryId } }))) {
+      await db.finBankLine.update({ where: { id: l.id }, data: { entryId } });
+      await audit(user.id, "update", "finBankLine", l.id, `Matched bank line ${l.description} to an entry`);
+    }
+  } else {
+    const categoryId = str(fd, "categoryId") || null, party = str(fd, "party").slice(0, 120) || null;
     const e = await db.finEntry.create({ data: l.direction === "out"
-      ? { status: await autoStatus(user, l.amount), kind: "expense", amount: l.amount, date: l.date, accountId: l.accountId, categoryId: str(fd, "categoryId") || null, description: l.description, sourceType: "bank", sourceId: l.id, createdById: user.id }
-      : { kind: "in", amount: l.amount, date: l.date, accountId: l.accountId, description: l.description, sourceType: "bank", sourceId: l.id, createdById: user.id } });
+      ? { status: await autoStatus(user, l.amount), kind: "expense", amount: l.amount, date: l.date, accountId: l.accountId, categoryId, party, description: l.description, sourceType: "bank", sourceId: l.id, createdById: user.id }
+      : { kind: "in", amount: l.amount, date: l.date, accountId: l.accountId, party, description: l.description, sourceType: "bank", sourceId: l.id, createdById: user.id } });
     await db.finBankLine.update({ where: { id: l.id }, data: { entryId: e.id } });
+    // Learn it: the next "K ELECTRIC …" line gets the same category and payee suggested.
+    if (!(await disabledFeatures()).has("fin-bankrules")) await bank.learnRule(l.description, categoryId, party).catch(() => {});
     await audit(user.id, "create", "finEntry", e.id, `Entry from bank line: ${l.description} ${pkr(l.amount)}`);
   }
   revalidatePath("/finance/bank");
