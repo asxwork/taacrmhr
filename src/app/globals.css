@@ -351,3 +351,27 @@ ol.list-decimal > li::before {
 ul.list-disc { list-style: none; padding-left: 0; }
 ul.list-disc > li { position: relative; padding-left: 1.1rem; }
 ul.list-disc > li::before { content: ""; position: absolute; left: 0.2rem; top: 0.6em; width: 0.35rem; height: 0.35rem; border-radius: 9999px; background: var(--color-gold-600); }
+
+/* ── Phones: quick, app-like feel ─────────────────────────────────────────────────────────────────────────── */
+html { -webkit-tap-highlight-color: transparent; }
+a, button, label, summary, select { touch-action: manipulation; }
+@media (pointer: coarse) {
+  /* Instant feedback on tap. */
+  a:active, button:active, summary:active, [role="button"]:active { opacity: 0.6; transition: opacity 0s; }
+}
+@media (max-width: 639px) {
+  /* Pages appear at once instead of sliding in. */
+  .anim-page, .stagger > * { animation: none !important; }
+  .back-link { margin-bottom: 0.25rem; font-size: 0.8125rem; padding-left: 0; }
+  /* Wide tables scroll sideways inside their card instead of being cut off; tighter cells. */
+  .card:has(> table), .card:has(> form > table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .card table th, .card table td { padding-left: 0.625rem; padding-right: 0.625rem; }
+  .card table { font-size: 0.8125rem; }
+  /* Page header buttons: one swipeable row. */
+  .page-actions > * { flex-shrink: 0; }
+}
+@media (max-width: 639px) {
+  /* Filter bars: two even columns of fields; text search takes the full width. */
+  .auto-filter:where(.flex) > :is(select.input, input.input) { width: calc(50% - 0.25rem) !important; flex: 0 0 auto; }
+  .auto-filter:where(.flex) > input.input:is([type="text"], [type="search"], :not([type])) { width: 100% !important; }
+}

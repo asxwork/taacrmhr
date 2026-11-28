@@ -365,7 +365,14 @@ export function Sidebar({ apps, initialApp, user, unread, urgent = 0, chat = -1,
         </button>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-gold.svg" alt="The Advisor Associates" className="h-9 w-auto min-w-0 shrink object-contain object-left" />
-        <Link href="/home?all=1" className="ml-auto rounded-lg p-1.5 text-white/80" aria-label="All apps"><LayoutGrid className="size-5" /></Link>
+        {/* Phones: help for this page, notifications and search sit up here (no floating buttons over the page). */}
+        <button onClick={() => { if (document.documentElement.dataset.pageHelp) window.dispatchEvent(new Event("ams:help")); else router.push("/help"); }} className="ml-auto rounded-lg p-1.5 text-white/80" aria-label="How to use this page">
+          <CircleHelp className="size-5" />
+        </button>
+        <Link href="/notifications" className="relative rounded-lg p-1.5 text-white/80" aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}>
+          <Bell className="size-5" />
+          {unread > 0 && <span className={cn("absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold", urgent ? "bg-red-500 text-white" : "bg-gold-400 text-navy-950")}>{unread > 99 ? "99+" : unread}</span>}
+        </Link>
         <button onClick={openSearch} className="rounded-lg p-1.5 text-white/80" aria-label="Search">
           <Search className="size-5" />
         </button>

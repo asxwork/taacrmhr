@@ -307,11 +307,11 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   return (
     <>
       {header}
-      <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Sale, Rental or Off-plan">
+      <div className="-mx-3 mb-3 flex gap-1.5 overflow-x-auto px-3 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0" role="tablist" aria-label="Sale, Rental or Off-plan">
         {[{ value: "", label: "All" }, ...LISTING_TYPES].map((l) => {
           const on = (sp.listing ?? "") === l.value;
           const n = l.value ? typeN(l.value) : typeCounts.reduce((a, r) => a + r._count, 0);
-          return <Link key={l.value || "all"} href={hrefWith("/inventory", keep, { listing: l.value || undefined, page: undefined })} role="tab" aria-selected={on} className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${on ? "border-navy-900 bg-navy-900 text-white" : "border-line bg-surface text-muted hover:text-ink"}`}>{l.label}<span className={`rounded-full px-1.5 text-[11px] tabular-nums ${on ? "bg-white/20" : "bg-canvas"}`}>{n}</span></Link>;
+          return <Link key={l.value || "all"} href={hrefWith("/inventory", keep, { listing: l.value || undefined, page: undefined })} role="tab" aria-selected={on} className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${on ? "border-navy-900 bg-navy-900 text-white" : "border-line bg-surface text-muted hover:text-ink"}`}>{l.label}<span className={`rounded-full px-1.5 text-[11px] tabular-nums ${on ? "bg-white/20" : "bg-canvas"}`}>{n}</span></Link>;
         })}
       </div>
       <AutoFilterForm className="mb-3 space-y-2">
@@ -322,6 +322,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             <Search className="absolute left-3 top-2.5 size-4 text-muted" />
             <input name="q" defaultValue={q} aria-label="Search" placeholder="Unit, project, developer, area, owner" className="input pl-9" />
           </div>
+          {/* Phones: developer / area / project / type fold away behind a Filters button. */}
+          <input type="checkbox" id="inv-filters" className="peer sr-only" defaultChecked={!!(sp.developer || sp.area || sp.project || sp.type)} />
+          <label htmlFor="inv-filters" className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm text-muted sm:hidden"><SlidersHorizontal className="size-4" /> Filters{[sp.developer, sp.area, sp.project, sp.type].filter(Boolean).length ? ` (${[sp.developer, sp.area, sp.project, sp.type].filter(Boolean).length})` : ""}</label>
+          <div className="flex w-full flex-wrap gap-2 max-sm:hidden max-sm:peer-checked:flex sm:contents">
           <select name="developer" defaultValue={sp.developer ?? ""} className="input w-[calc(50%-0.25rem)] sm:w-40" aria-label="Developer"><option value="">All developers</option>{developers.map((d) => <option key={d}>{d}</option>)}</select>
           <select name="area" defaultValue={sp.area ?? ""} className="input w-[calc(50%-0.25rem)] sm:w-40" aria-label="Area"><option value="">All areas</option>{areas.map((a) => <option key={a}>{a}</option>)}</select>
           <select name="project" defaultValue={sp.project ?? ""} className="input w-[calc(50%-0.25rem)] sm:w-40" aria-label="Project">
@@ -329,6 +333,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             {projects.filter((p) => !sp.developer || p.developer === sp.developer).filter((p) => !sp.area || p.location === sp.area).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <select name="type" defaultValue={sp.type ?? ""} className="input w-[calc(50%-0.25rem)] sm:w-32" aria-label="Type"><option value="">Any type</option>{UNIT_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+          </div>
         </div>
         <details className="group rounded-lg" open={extraOn > 0}>
           <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted hover:bg-canvas hover:text-ink">

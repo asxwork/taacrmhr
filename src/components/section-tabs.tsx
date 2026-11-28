@@ -21,7 +21,7 @@ export function SectionTabs({ sections, app }: { sections: Section[]; app?: stri
   const active = activeTab(tabs, path, params);
   if (tabs.length < 2) return null;
   return (
-    <nav aria-label="Section" className="-mx-1 mb-5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav aria-label="Section" ref={(el) => { el?.querySelector<HTMLElement>("[aria-current=page]")?.scrollIntoView({ block: "nearest", inline: "center" }); }} className="section-tabs -mx-3 mb-3 overflow-x-auto bg-canvas/95 px-3 backdrop-blur [scrollbar-width:none] max-lg:sticky max-lg:top-14 max-lg:z-20 sm:-mx-1 sm:mb-5 sm:px-1 lg:bg-transparent lg:backdrop-blur-none [&::-webkit-scrollbar]:hidden">
       <div className="flex min-w-max gap-1 border-b border-line">
         {tabs.map((t) => {
           const on = active?.href === t.href;

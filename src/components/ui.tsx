@@ -62,13 +62,14 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 
 export function PageHeader({ title, description, actions, eyebrow }: { title: string; description?: string; actions?: React.ReactNode; eyebrow?: string }) {
   return (
-    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+    <div className="page-header mb-4 flex flex-wrap items-end justify-between gap-3 sm:mb-7 sm:gap-4">
       <div className="min-w-0">
         {eyebrow && <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-gold-700">{eyebrow}</p>}
-        <h1 className="font-display text-[26px] font-semibold leading-tight tracking-tight text-ink sm:text-[30px]">{title}</h1>
-        {description && <p className="mt-1.5 text-sm text-muted">{description}</p>}
+        <h1 className="font-display text-[22px] font-semibold leading-tight tracking-tight text-ink sm:text-[30px]">{title}</h1>
+        {/* Phones: the description is hidden to bring the content up (the ? in the top bar explains the page). */}
+        {description && <p className="mt-1.5 hidden text-sm text-muted sm:block">{description}</p>}
       </div>
-      {actions && <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="page-actions flex max-w-full items-center gap-2 max-sm:w-full max-sm:overflow-x-auto max-sm:pb-0.5 max-sm:[scrollbar-width:none] sm:flex-wrap">{actions}</div>}
     </div>
   );
 }
@@ -116,7 +117,7 @@ export function Drawer({ title, closeHref, children, width = "max-w-lg" }: { tit
     <div className="fixed inset-0 z-40 flex justify-end overflow-hidden">
       <Link href={closeHref} scroll={false} aria-label="Close" className="anim-fade absolute inset-0 bg-navy-950/35" />
       <aside role="dialog" aria-modal="true" aria-label={title} className={cn("anim-slide-right relative flex h-full w-full flex-col bg-surface shadow-2xl", width)}>
-        <header className="flex items-center justify-between border-b border-line px-6 py-4">
+        <header className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-6 sm:py-4">
           <h2 className="font-semibold">{title}</h2>
           <Link href={closeHref} scroll={false} className="rounded-md p-1.5 text-muted hover:bg-canvas hover:text-ink" aria-label="Close">
             <X className="size-4" />

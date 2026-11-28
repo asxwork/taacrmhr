@@ -51,6 +51,14 @@ export function PageHelp({ items }: { items: HelpItem[] }) {
     if (!steps[t.key]) fetch(`/api/help?keys=${t.key}`).then((r) => (r.ok ? r.json() : [])).then((rows: { key: string; steps: string[]; tips: string[] }[]) => setSteps((s) => ({ ...s, ...Object.fromEntries(rows.map((r) => [r.key, { steps: r.steps, tips: r.tips }])) }))).catch(() => {});
     if (t.video && !(t.key in chapters)) fetch(t.video.replace(/\.mp4(\?|$)/, ".json$1")).then((r) => (r.ok ? r.json() : null)).then((j: { chapters?: Chapter[] } | null) => setChapters((c) => ({ ...c, [t.key]: j?.chapters ?? null }))).catch(() => setChapters((c) => ({ ...c, [t.key]: null })));
   }, [open, t, steps, chapters]);
+  // The phone top bar's "?" opens this (the floating button is for big screens only).
+  useEffect(() => {
+    const el = document.documentElement;
+    if (matches.length) el.dataset.pageHelp = "1"; else delete el.dataset.pageHelp;
+    const openIt = () => setOpen(true);
+    window.addEventListener("ams:help", openIt);
+    return () => window.removeEventListener("ams:help", openIt);
+  }, [matches.length]);
   if (!matches.length || !t) return null;
   const s = steps[t.key];
   const ch = chapters[t.key];
@@ -58,7 +66,7 @@ export function PageHelp({ items }: { items: HelpItem[] }) {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-label="How to use this page" title="How to use this page"
-        className="fixed bottom-20 right-4 z-40 flex size-11 items-center justify-center rounded-full bg-navy-900 text-white shadow-lg ring-4 ring-white/60 transition hover:scale-105 hover:bg-navy-800 lg:bottom-24 lg:right-6 print:hidden">
+        className="fixed bottom-24 right-6 z-40 hidden size-11 items-center justify-center rounded-full bg-navy-900 text-white shadow-lg ring-4 ring-white/60 transition hover:scale-105 hover:bg-navy-800 lg:flex print:hidden">
         <CircleHelp className="size-5" />
       </button>
       {open && (

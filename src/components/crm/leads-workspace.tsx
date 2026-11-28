@@ -213,7 +213,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
     <button
       type="button"
       onClick={() => applyFilters({ ...filters, activity: filters.activity === activity ? undefined : activity })}
-      className={cn("flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors", filters.activity === activity ? "bg-navy-900/[0.07] font-medium text-navy-900" : "text-muted hover:bg-canvas hover:text-ink")}
+      className={cn("flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm transition-colors", filters.activity === activity ? "bg-navy-900/[0.07] font-medium text-navy-900" : "text-muted hover:bg-canvas hover:text-ink")}
     >
       <span className={cn("min-w-5 rounded-full px-1.5 text-center text-xs font-semibold tabular-nums", n ? tone : "bg-black/5 text-muted")}>{n > 99 ? "99+" : n}</span>
       {label}
@@ -254,7 +254,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Leads</h1>
+        <h1 className="font-display text-[22px] font-semibold tracking-tight sm:text-2xl">Leads</h1>
         {perms.canCreate && (
           <div className="flex">
             <LinkButton href="/crm/leads/new" className={perms.canImport ? "rounded-r-none" : undefined} prefetch><Plus className="size-4" /> Create</LinkButton>
@@ -323,12 +323,12 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
         )}
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="flex max-w-full overflow-x-auto rounded-lg bg-black/5 p-0.5">
+      <div className="mb-3 flex flex-wrap items-center gap-2 max-sm:flex-nowrap">
+        <div className="flex max-w-full shrink-0 overflow-x-auto rounded-lg bg-black/5 p-0.5">
           {viewTab("board", KanbanSquare, "Kanban")}
           {viewTab("list", List, "List")}
         </div>
-        <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:[scrollbar-width:none]">
           {counter("Overdue", data.counters.overdue, "overdue", "bg-red-500 text-white")}
           {counter("Today", data.counters.today, "today", "bg-gold-600 text-white")}
           {counter("Nothing planned", data.counters.none, "none", "bg-navy-900 text-white")}
@@ -338,7 +338,7 @@ export function LeadsWorkspace({ initial, initialFilters, initialView, initialCo
         {/* Top right: automation rules + quick run on the selection */}
         {/* Automations act on many leads at once: only for people with Bulk actions (rules live in Settings). */}
         {perms.canEdit && perms.canBulk && automations.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2 max-sm:hidden">
             {auto && (
               <div className="relative flex">
                 <button

@@ -34,13 +34,13 @@ export function PhoneList({ name, initial }: { name: string; initial: Entry[] })
         <div key={i} className="flex gap-2">
           <div className="flex min-w-0 flex-1 rounded-lg border border-line bg-surface shadow-xs focus-within:border-navy-700 focus-within:ring-2 focus-within:ring-navy-700/10">
             <select value={r.code} onChange={(e) => update(i, { code: e.target.value })} aria-label="Country code"
-              className="w-[5.5rem] shrink-0 rounded-l-lg border-r border-line bg-canvas/60 px-2 text-sm outline-none">
+              className="w-[4.75rem] shrink-0 rounded-l-lg border-r border-line bg-canvas/60 px-1.5 text-sm outline-none sm:w-[5.5rem] sm:px-2">
               {COUNTRIES.map(([iso, code]) => <option key={iso} value={code}>{iso} {code}</option>)}
             </select>
             <input value={r.number} onChange={(e) => update(i, { number: e.target.value })} inputMode="tel" placeholder="300 1234567" aria-label="Phone number"
               className="palette-input h-10 min-w-0 flex-1 bg-transparent px-3 text-base outline-none sm:text-sm" />
           </div>
-          <select value={r.type} onChange={(e) => update(i, { type: e.target.value })} className="input w-28 shrink-0" aria-label="Phone type">
+          <select value={r.type} onChange={(e) => update(i, { type: e.target.value })} className="input w-24 shrink-0 sm:w-28" aria-label="Phone type">
             {PHONE_TYPES.map((t) => <option key={t}>{t}</option>)}
           </select>
           <RemoveButton show={rows.length > 1} onClick={() => setRows((x) => x.filter((_, j) => j !== i))} />

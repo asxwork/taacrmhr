@@ -213,7 +213,13 @@ export default async function DialerPage({ searchParams }: { searchParams: Promi
           ))}
         </form>
       } />
-      <DrillTiles className="mb-6 lg:grid-cols-4 xl:grid-cols-4" tiles={[
+      {/* Phones: one slim line of today's numbers, so the number to call is on the first screen. */}
+      <div className="mb-3 flex gap-2 overflow-x-auto text-xs [scrollbar-width:none] sm:hidden">
+        {([["Queue", queued], ["Calls", s.calls], ["Reached", s.reached], ["Interested", s.interested], ["Callbacks", callbacks]] as const).map(([l, v]) => (
+          <span key={l} className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5"><b className="tabular-nums">{v}</b> <span className="text-muted">{l}</span></span>
+        ))}
+      </div>
+      <DrillTiles className="mb-6 max-sm:hidden lg:grid-cols-4 xl:grid-cols-4" tiles={[
         { key: "q", label: "In my queue now", tone: "navy", value: queued },
         { key: "c", label: "Calls today", tone: "sky", value: s.calls, sub: s.interested ? `${s.interested} interested` : undefined, href: "/calls/history" },
         { key: "r", label: "Reached today", tone: "green", value: s.reached, sub: s.calls ? `${s.reachPct}% of calls` : undefined },

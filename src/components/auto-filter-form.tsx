@@ -29,7 +29,7 @@ export function AutoFilterForm({ children, className }: { children: React.ReactN
   }
 
   return (
-    <form ref={form} className={className} onChange={onChange} onSubmit={(e) => { e.preventDefault(); apply(); }} aria-busy={pending} data-pending={pending || undefined}>
+    <form ref={form} className={`auto-filter ${className ?? ""}`} onChange={onChange} onSubmit={(e) => { e.preventDefault(); apply(); }} aria-busy={pending} data-pending={pending || undefined}>
       {children}
     </form>
   );
